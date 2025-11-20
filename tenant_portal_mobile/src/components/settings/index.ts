@@ -1,0 +1,1 @@
+export { BiometricSettings } from './BiometricSettings';

@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  ml-service:
+    build: .
+    container_name: rent-optimization-ml
+    ports:
+      - "8000:8000"
+    environment:
+      - API_PORT=8000
+      - API_HOST=0.0.0.0
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/tenant_portal_back_DB
+    volumes:
+      - ./models:/app/models
+      - ./logs:/app/logs
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    networks:
+      - property-management
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: property-db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=tenant_portal_back_DB
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - property-management
+
+networks:
+  property-management:
+    driver: bridge
+
+volumes:
+  postgres-data:

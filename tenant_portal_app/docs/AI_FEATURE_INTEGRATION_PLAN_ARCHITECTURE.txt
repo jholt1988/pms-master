@@ -1,0 +1,46 @@
+┌─────────────────────────────────────────────────────────────┐
+│                      Frontend (React)                       │
+│  ┌───────────────┬───────────────┬────────────────────┐    │
+│  │ Tenant Domain │ Manager Domain│  Admin Domain      │    │
+│  │               │               │                    │    │
+│  │ • Chatbot UI  │ • Rent Optim  │ • ML Model Mgmt    │    │
+│  │               │ • Pred. Maint │ • Analytics        │    │
+│  │               │ • Smart Bills │                    │    │
+│  └───────┬───────┴───────┬───────┴────────┬───────────┘    │
+│          │               │                │                │
+└──────────┼───────────────┼────────────────┼────────────────┘
+           │               │                │
+           ▼               ▼                ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Backend API (Node.js + Express)                │
+│  ┌────────────────────────────────────────────────────┐    │
+│  │           AI Services Layer (TypeScript)           │    │
+│  │  • Chatbot Orchestrator (LangChain)               │    │
+│  │  • ML Model Client (REST → Python microservices) │    │
+│  │  • Market Data Aggregator                         │    │
+│  │  • OCR Service Wrapper                            │    │
+│  └────────────────────────────────────────────────────┘    │
+│                           │                                 │
+│  ┌────────────────────────┴────────────────────────────┐   │
+│  │         Existing Business Logic (Prisma ORM)        │   │
+│  │  • Property Management  • Lease Management          │   │
+│  │  • Maintenance Requests • Financial Reporting       │   │
+│  └─────────────────────────────────────────────────────┘   │
+└──────────────┬────────────────────────┬────────────────────┘
+               │                        │
+               ▼                        ▼
+   ┌──────────────────┐     ┌──────────────────────────┐
+   │  PostgreSQL DB   │     │  Python Microservices    │
+   │  • Properties    │     │  • Predictive Maint Model│
+   │  • Maintenance   │     │  • Rent Optim Model      │
+   │  • Financials    │     │  • Bill Classifier       │
+   └──────────────────┘     └──────────────────────────┘
+               │                        │
+               ▼                        ▼
+   ┌──────────────────┐     ┌──────────────────────────┐
+   │  Redis           │     │  External APIs           │
+   │  • Chat sessions │     │  • OpenAI/Claude         │
+   │  • Model cache   │     │  • Zillow/Rentometer     │
+   └──────────────────┘     │  • Plaid (Banking)       │
+                            │  • AWS Textract (OCR)    │
+                            └──────────────────────────┘

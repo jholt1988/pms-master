@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "@types/multer": "^2.0.0",
+    "intuit-oauth": "^4.2.2",
+    "multer": "^2.0.2",
+    "node-quickbooks": "^2.0.46"
+  }
+}

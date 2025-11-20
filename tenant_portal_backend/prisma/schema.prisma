@@ -1,0 +1,1573 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                        Int                         @id @default(autoincrement())
+  username                  String                      @unique
+  password                  String
+  role                      Role                        @default(TENANT)
+  failedLoginAttempts       Int                         @default(0)
+  lockoutUntil              DateTime?
+  mfaEnabled                Boolean                     @default(false)
+  mfaSecret                 String?
+  mfaTempSecret             String?
+  passwordUpdatedAt         DateTime                    @default(now())
+  lastLoginAt               DateTime?
+  requests                  MaintenanceRequest[]
+  lease                     Lease?
+  payments                  Payment[]
+  conversations             ConversationParticipant[]
+  sentMessages              Message[]                   @relation("sentMessages")
+  rentalApplications        RentalApplication[]
+  expenses                  Expense[]                   @relation("RecordedExpenses")
+  paymentMethods            PaymentMethod[]
+  screenedApplications      RentalApplication[]         @relation("ScreenedApplications")
+  applicationNotes          RentalApplicationNote[]
+  securityEvents            SecurityEvent[]
+  Technician                Technician[]
+  MaintenanceRequestHistory MaintenanceRequestHistory[]
+  MaintenanceNote           MaintenanceNote[]
+  MaintenancePhoto          MaintenancePhoto[]
+  LeaseHistory              LeaseHistory[]
+  LeaseDocument             LeaseDocument[]
+  LeaseRenewalOffer         LeaseRenewalOffer[]
+  LeaseNotice               LeaseNotice[]
+  passwordResetTokens       PasswordResetToken[]
+  notifications             Notification[]
+  documents                 Document[]
+  sharedDocuments           Document[]                  @relation("DocumentShares")
+  createdEsignEnvelopes     EsignEnvelope[]             @relation("EnvelopeCreator")
+  esignParticipantRecords   EsignParticipant[]          @relation("EsignParticipantUser")
+  inspections               UnitInspection[]            @relation("Inspector")
+  tenantInspections         UnitInspection[]            @relation("InspectionTenant")
+  createdInspections        UnitInspection[]            @relation("CreatedBy")
+  UnitInspectionPhoto       UnitInspectionPhoto[]
+  checklistPhotos           InspectionChecklistPhoto[]  @relation("ChecklistPhotoUploader")
+  inspectionSignatures      InspectionSignature[]       @relation("InspectionSigner")
+  generatedEstimates        RepairEstimate[]            @relation("GeneratedEstimates")
+  approvedEstimates         RepairEstimate[]            @relation("ApprovedEstimates")
+  scheduleEvents            ScheduleEvent[]             @relation("ScheduleEventTenant")
+  toursConducted            Tour[]                      @relation("TourConductedBy")
+  leadApplicationReviews    LeadApplication[]           @relation("LeadApplicationReviewers")
+
+  // Stripe integration
+  stripeCustomerId String? @unique
+
+  // QuickBooks integration
+  messageTemplates        MessageTemplate[]
+  bulkMessageBatches      BulkMessageBatch[]
+  bulkMessageRecipients   BulkMessageRecipient[]
+  quickBooksConnections   QuickBooksConnection[] @relation("UserQuickBooksConnections")
+  savedPropertyFilters    SavedPropertyFilter[]
+  acceptedRecommendations RentRecommendation[]   @relation("AcceptedRentRecommendations")
+  rejectedRecommendations RentRecommendation[]   @relation("RejectedRentRecommendations")
+}
+
+model Property {
+  id                   Int                       @id @default(autoincrement())
+  name                 String
+  address              String
+  city                 String?
+  state                String?
+  zipCode              String?
+  country              String?                   @default("USA")
+  latitude             Float?
+  longitude            Float?
+  propertyType         String?
+  description          String?
+  bedrooms             Float?
+  bathrooms            Float?
+  minRent              Float?
+  maxRent              Float?
+  tags                 String[]                  @default([])
+  yearBuilt            Int?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  units                Unit[]
+  rentalApplications   RentalApplication[]
+  expenses             Expense[]
+  MaintenanceRequest   MaintenanceRequest[]
+  MaintenanceAsset     MaintenanceAsset[]
+  MaintenanceSlaPolicy MaintenanceSlaPolicy[]
+  Document             Document[]
+  UnitInspection       UnitInspection[]
+  repairEstimates      RepairEstimate[]
+  scheduleEvents       ScheduleEvent[]
+  propertyInquiries    PropertyInquiry[]
+  tours                Tour[]
+  leadApplications     LeadApplication[]
+  marketingProfile     PropertyMarketingProfile?
+  photos               PropertyPhoto[]
+  amenities            PropertyAmenity[]
+  syndicationQueue     SyndicationQueue[]
+  syndicationErrors    SyndicationErrorLog[]
+
+  @@index([city, state])
+  @@index([propertyType])
+  @@index([bedrooms])
+  @@index([bathrooms])
+  @@index([minRent])
+}
+
+model PropertyMarketingProfile {
+  id                   Int                        @id @default(autoincrement())
+  property             Property                   @relation(fields: [propertyId], references: [id])
+  propertyId           Int                        @unique
+  minRent              Float?
+  maxRent              Float?
+  availabilityStatus   PropertyAvailabilityStatus @default(AVAILABLE)
+  availableOn          DateTime?
+  marketingHeadline    String?
+  marketingDescription String?
+  rentRangeCurrency    String                     @default("USD")
+  isSyndicationEnabled Boolean                    @default(true)
+  lastSyncedAt         DateTime?
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+}
+
+model PropertyPhoto {
+  id           Int      @id @default(autoincrement())
+  property     Property @relation(fields: [propertyId], references: [id])
+  propertyId   Int
+  url          String
+  caption      String?
+  isPrimary    Boolean  @default(false)
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([propertyId])
+}
+
+model Amenity {
+  id          Int               @id @default(autoincrement())
+  key         String            @unique
+  label       String
+  description String?
+  category    String?
+  properties  PropertyAmenity[]
+}
+
+model PropertyAmenity {
+  id         Int      @id @default(autoincrement())
+  property   Property @relation(fields: [propertyId], references: [id])
+  propertyId Int
+  amenity    Amenity  @relation(fields: [amenityId], references: [id])
+  amenityId  Int
+  value      String?
+  isFeatured Boolean  @default(false)
+
+  @@unique([propertyId, amenityId])
+  @@index([propertyId])
+  @@index([amenityId])
+}
+
+model SavedPropertyFilter {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  filters     Json
+  sortBy      String?
+  sortOrder   String?
+  user        User     @relation(fields: [userId], references: [id])
+  userId      Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Unit {
+  id                 Int                  @id @default(autoincrement())
+  name               String // e.g., "Apt 101"
+  property           Property             @relation(fields: [propertyId], references: [id])
+  propertyId         Int
+  lease              Lease?
+  rentalApplications RentalApplication[]
+  leadApplications   LeadApplication[]
+  propertyInquiries  PropertyInquiry[]
+  expenses           Expense[]
+  MaintenanceRequest MaintenanceRequest[]
+  MaintenanceAsset   MaintenanceAsset[]
+  inspections        UnitInspection[]
+  repairEstimates    RepairEstimate[]
+  scheduleEvents     ScheduleEvent[]
+  tours              Tour[]
+
+  unitNumber          String?
+  bedrooms            Float?
+  bathrooms           Float?
+  squareFeet          Int?
+  hasParking          Boolean              @default(false)
+  hasLaundry          Boolean              @default(false)
+  hasBalcony          Boolean              @default(false)
+  hasAC               Boolean              @default(false)
+  isFurnished         Boolean              @default(false)
+  petsAllowed         Boolean              @default(false)
+  rentRecommendations RentRecommendation[]
+}
+
+enum PropertyAvailabilityStatus {
+  AVAILABLE
+  LIMITED
+  WAITLISTED
+  COMING_SOON
+  UNAVAILABLE
+}
+
+enum SyndicationChannel {
+  ZILLOW
+  APARTMENTS_DOT_COM
+}
+
+enum SyndicationStatus {
+  PENDING
+  IN_PROGRESS
+  SUCCESS
+  FAILED
+  PAUSED
+}
+
+enum RentRecommendationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model SyndicationCredential {
+  id        Int                @id @default(autoincrement())
+  channel   SyndicationChannel @unique
+  config    Json
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+}
+
+model SyndicationQueue {
+  id            Int                @id @default(autoincrement())
+  property      Property           @relation(fields: [propertyId], references: [id])
+  propertyId    Int
+  channel       SyndicationChannel
+  payload       Json?
+  status        SyndicationStatus  @default(PENDING)
+  retryCount    Int                @default(0)
+  maxRetries    Int                @default(5)
+  lastError     String?
+  nextRunAt     DateTime?
+  lastAttemptAt DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([propertyId])
+  @@index([channel])
+  @@index([status])
+}
+
+model RentRecommendation {
+  id                     String                   @id
+  unit                   Unit                     @relation(fields: [unitId], references: [id])
+  unitId                 Int
+  currentRent            Float
+  recommendedRent        Float
+  confidenceIntervalLow  Float
+  confidenceIntervalHigh Float
+  factors                Json
+  marketComparables      Json
+  modelVersion           String?
+  reasoning              String?
+  status                 RentRecommendationStatus @default(PENDING)
+  generatedAt            DateTime                 @default(now())
+  acceptedAt             DateTime?
+  acceptedBy             User?                    @relation("AcceptedRentRecommendations", fields: [acceptedById], references: [id])
+  acceptedById           Int?
+  rejectedAt             DateTime?
+  rejectedBy             User?                    @relation("RejectedRentRecommendations", fields: [rejectedById], references: [id])
+  rejectedById           Int?
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+
+  @@index([unitId])
+  @@index([status])
+  @@index([acceptedById])
+  @@index([rejectedById])
+}
+
+model SyndicationErrorLog {
+  id         Int                @id @default(autoincrement())
+  property   Property           @relation(fields: [propertyId], references: [id])
+  propertyId Int
+  channel    SyndicationChannel
+  error      String
+  context    Json?
+  occurredAt DateTime           @default(now())
+
+  @@index([propertyId])
+  @@index([channel])
+}
+
+model Lease {
+  id                        Int                       @id @default(autoincrement())
+  startDate                 DateTime
+  endDate                   DateTime
+  rentAmount                Float
+  status                    LeaseStatus               @default(DRAFT)
+  noticePeriodDays          Int                       @default(30)
+  moveInAt                  DateTime?
+  moveOutAt                 DateTime?
+  autoRenew                 Boolean                   @default(false)
+  autoRenewLeadDays         Int?
+  depositAmount             Float                     @default(0)
+  depositHeldAt             DateTime?
+  depositReturnedAt         DateTime?
+  depositDisposition        DepositDisposition?
+  renewalOfferedAt          DateTime?
+  renewalDueAt              DateTime?
+  renewalAcceptedAt         DateTime?
+  terminationReason         String?
+  terminationRequestedBy    LeaseTerminationParty?
+  terminationEffectiveAt    DateTime?
+  rentEscalationPercent     Float?
+  rentEscalationEffectiveAt DateTime?
+  billingAlignment          BillingAlignment          @default(FULL_CYCLE)
+  currentBalance            Float                     @default(0)
+  tenant                    User                      @relation(fields: [tenantId], references: [id])
+  tenantId                  Int                       @unique // A user can only have one lease
+  unit                      Unit                      @relation(fields: [unitId], references: [id])
+  unitId                    Int                       @unique // A unit can only have one lease
+  payments                  Payment[]
+  invoices                  Invoice[]
+  recurringSchedule         RecurringInvoiceSchedule?
+  autopayEnrollment         AutopayEnrollment?
+  history                   LeaseHistory[]
+  documents                 LeaseDocument[]
+  generalDocuments          Document[]
+  renewalOffers             LeaseRenewalOffer[]
+  notices                   LeaseNotice[]
+  maintenanceRequests       MaintenanceRequest[]
+  inspections               UnitInspection[]
+  esignEnvelopes            EsignEnvelope[]
+  createdAt                 DateTime                  @default(now())
+  updatedAt                 DateTime                  @updatedAt
+
+  @@index([status])
+  @@index([endDate])
+}
+
+model MaintenanceRequest {
+  id              Int                         @id @default(autoincrement())
+  title           String
+  description     String
+  status          Status                      @default(PENDING)
+  author          User                        @relation(fields: [authorId], references: [id])
+  authorId        Int
+  createdAt       DateTime                    @default(now())
+  updatedAt       DateTime                    @updatedAt
+  priority        MaintenancePriority         @default(MEDIUM)
+  responseDueAt   DateTime?
+  dueAt           DateTime?
+  acknowledgedAt  DateTime?
+  completedAt     DateTime?
+  property        Property?                   @relation(fields: [propertyId], references: [id])
+  propertyId      Int?
+  unit            Unit?                       @relation(fields: [unitId], references: [id])
+  unitId          Int?
+  asset           MaintenanceAsset?           @relation("AssetRequests", fields: [assetId], references: [id])
+  assetId         Int?
+  assignee        Technician?                 @relation("TechnicianAssignments", fields: [assigneeId], references: [id])
+  assigneeId      Int?
+  slaPolicy       MaintenanceSlaPolicy?       @relation(fields: [slaPolicyId], references: [id])
+  slaPolicyId     Int?
+  lease           Lease?                      @relation(fields: [leaseId], references: [id])
+  leaseId         Int?
+  repairEstimates RepairEstimate[]
+  history         MaintenanceRequestHistory[]
+  notes           MaintenanceNote[]
+  photos          MaintenancePhoto[]
+}
+
+model MaintenanceAsset {
+  id                Int                      @id @default(autoincrement())
+  property          Property                 @relation(fields: [propertyId], references: [id])
+  propertyId        Int
+  unit              Unit?                    @relation(fields: [unitId], references: [id])
+  unitId            Int?
+  name              String
+  category          MaintenanceAssetCategory
+  manufacturer      String?
+  model             String?
+  serialNumber      String?
+  installDate       DateTime?
+  warrantyExpiresAt DateTime?
+  notes             String?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  requests          MaintenanceRequest[]     @relation("AssetRequests")
+
+  @@unique([propertyId, unitId, name], name: "MaintenanceAsset_property_unit_name_key")
+  @@index([propertyId])
+  @@index([unitId])
+}
+
+model Technician {
+  id          Int                         @id @default(autoincrement())
+  name        String
+  phone       String?
+  email       String?
+  role        TechnicianRole              @default(IN_HOUSE)
+  user        User?                       @relation(fields: [userId], references: [id])
+  userId      Int?
+  active      Boolean                     @default(true)
+  notes       String?
+  createdAt   DateTime                    @default(now())
+  updatedAt   DateTime                    @updatedAt
+  assignments MaintenanceRequest[]        @relation("TechnicianAssignments")
+  historyFrom MaintenanceRequestHistory[] @relation("HistoryFromAssignee")
+  historyTo   MaintenanceRequestHistory[] @relation("HistoryToAssignee")
+
+  @@index([userId])
+  @@index([role, active])
+}
+
+model MaintenanceSlaPolicy {
+  id                    Int                  @id @default(autoincrement())
+  name                  String?
+  priority              MaintenancePriority
+  responseTimeMinutes   Int?
+  resolutionTimeMinutes Int
+  property              Property?            @relation(fields: [propertyId], references: [id])
+  propertyId            Int?
+  active                Boolean              @default(true)
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  requests              MaintenanceRequest[]
+
+  @@unique([propertyId, priority], name: "MaintenanceSlaPolicy_property_priority_key")
+  @@index([priority])
+}
+
+model MaintenanceRequestHistory {
+  id             Int                @id @default(autoincrement())
+  request        MaintenanceRequest @relation(fields: [requestId], references: [id])
+  requestId      Int
+  changedBy      User?              @relation(fields: [changedById], references: [id])
+  changedById    Int?
+  fromStatus     Status?
+  toStatus       Status?
+  fromAssignee   Technician?        @relation("HistoryFromAssignee", fields: [fromAssigneeId], references: [id])
+  fromAssigneeId Int?
+  toAssignee     Technician?        @relation("HistoryToAssignee", fields: [toAssigneeId], references: [id])
+  toAssigneeId   Int?
+  note           String?
+  createdAt      DateTime           @default(now())
+
+  @@index([requestId, createdAt])
+}
+
+model MaintenanceNote {
+  id        Int                @id @default(autoincrement())
+  request   MaintenanceRequest @relation(fields: [requestId], references: [id])
+  requestId Int
+  author    User               @relation(fields: [authorId], references: [id])
+  authorId  Int
+  body      String
+  createdAt DateTime           @default(now())
+
+  @@index([requestId, createdAt])
+}
+
+model MaintenancePhoto {
+  id           Int                @id @default(autoincrement())
+  request      MaintenanceRequest @relation(fields: [requestId], references: [id])
+  requestId    Int
+  uploadedBy   User?              @relation(fields: [uploadedById], references: [id])
+  uploadedById Int?
+  url          String
+  caption      String?
+  createdAt    DateTime           @default(now())
+
+  @@index([requestId])
+}
+
+model LeaseHistory {
+  id            Int          @id @default(autoincrement())
+  lease         Lease        @relation(fields: [leaseId], references: [id])
+  leaseId       Int
+  actor         User?        @relation(fields: [actorId], references: [id])
+  actorId       Int?
+  fromStatus    LeaseStatus?
+  toStatus      LeaseStatus?
+  note          String?
+  rentAmount    Float?
+  depositAmount Float?
+  metadata      Json?
+  createdAt     DateTime     @default(now())
+
+  @@index([leaseId, createdAt])
+}
+
+model LeaseDocument {
+  id           Int      @id @default(autoincrement())
+  lease        Lease    @relation(fields: [leaseId], references: [id])
+  leaseId      Int
+  type         String
+  url          String
+  description  String?
+  uploadedBy   User?    @relation(fields: [uploadedById], references: [id])
+  uploadedById Int?
+  createdAt    DateTime @default(now())
+
+  @@index([leaseId, createdAt])
+}
+
+model Document {
+  id                  Int              @id @default(autoincrement())
+  fileName            String
+  filePath            String
+  category            DocumentCategory
+  description         String?
+  mimeType            String?
+  size                Int?
+  uploadedBy          User             @relation(fields: [uploadedById], references: [id])
+  uploadedById        Int
+  lease               Lease?           @relation(fields: [leaseId], references: [id])
+  leaseId             Int?
+  property            Property?        @relation(fields: [propertyId], references: [id])
+  propertyId          Int?
+  sharedWith          User[]           @relation("DocumentShares")
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  esignSignedEnvelope EsignEnvelope?   @relation("EsignEnvelopeSignedPdf")
+  esignAuditEnvelope  EsignEnvelope?   @relation("EsignEnvelopeAuditPdf")
+
+  @@index([uploadedById])
+  @@index([leaseId])
+  @@index([propertyId])
+  @@index([category])
+}
+
+model EsignEnvelope {
+  id                   Int                 @id @default(autoincrement())
+  lease                Lease               @relation(fields: [leaseId], references: [id])
+  leaseId              Int
+  provider             EsignProvider       @default(DOCUSIGN)
+  providerEnvelopeId   String
+  status               EsignEnvelopeStatus @default(CREATED)
+  providerStatus       String?
+  providerMetadata     Json?
+  signedPdfDocumentId  Int?                @unique
+  auditTrailDocumentId Int?                @unique
+  signedPdfDocument    Document?           @relation("EsignEnvelopeSignedPdf", fields: [signedPdfDocumentId], references: [id])
+  auditTrailDocument   Document?           @relation("EsignEnvelopeAuditPdf", fields: [auditTrailDocumentId], references: [id])
+  participants         EsignParticipant[]
+  createdBy            User                @relation("EnvelopeCreator", fields: [createdById], references: [id])
+  createdById          Int
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  @@index([leaseId])
+  @@index([providerEnvelopeId])
+}
+
+model EsignParticipant {
+  id           Int                    @id @default(autoincrement())
+  envelope     EsignEnvelope          @relation(fields: [envelopeId], references: [id])
+  envelopeId   Int
+  name         String
+  email        String
+  phone        String?
+  role         String
+  user         User?                  @relation("EsignParticipantUser", fields: [userId], references: [id])
+  userId       Int?
+  status       EsignParticipantStatus @default(CREATED)
+  recipientId  String?
+  recipientUrl String?
+  metadata     Json?
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  @@index([envelopeId])
+  @@index([email])
+}
+
+enum EsignProvider {
+  DOCUSIGN
+  HELLOSIGN
+}
+
+enum EsignEnvelopeStatus {
+  CREATED
+  SENT
+  DELIVERED
+  COMPLETED
+  DECLINED
+  VOIDED
+  ERROR
+}
+
+enum EsignParticipantStatus {
+  CREATED
+  SENT
+  VIEWED
+  SIGNED
+  DECLINED
+  ERROR
+}
+
+enum DocumentCategory {
+  LEASE
+  NOTICE
+  INVOICE
+  MAINTENANCE
+  APPLICATION
+  OTHER
+}
+
+model LeaseRenewalOffer {
+  id                Int                @id @default(autoincrement())
+  lease             Lease              @relation(fields: [leaseId], references: [id])
+  leaseId           Int
+  proposedRent      Float
+  proposedStart     DateTime
+  proposedEnd       DateTime
+  escalationPercent Float?
+  message           String?
+  status            LeaseRenewalStatus @default(OFFERED)
+  expiresAt         DateTime?
+  respondedAt       DateTime?
+  respondedBy       User?              @relation(fields: [respondedById], references: [id])
+  respondedById     Int?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([leaseId, status])
+  @@index([expiresAt])
+}
+
+model LeaseNotice {
+  id             Int                       @id @default(autoincrement())
+  lease          Lease                     @relation(fields: [leaseId], references: [id])
+  leaseId        Int
+  type           LeaseNoticeType
+  deliveryMethod LeaseNoticeDeliveryMethod
+  sentAt         DateTime                  @default(now())
+  acknowledgedAt DateTime?
+  message        String?
+  createdBy      User?                     @relation(fields: [createdById], references: [id])
+  createdById    Int?
+
+  @@index([leaseId, type])
+}
+
+model Invoice {
+  id          Int                       @id @default(autoincrement())
+  description String
+  amount      Float
+  dueDate     DateTime
+  status      String                    @default("UNPAID") // UNPAID, PAID, OVERDUE
+  lease       Lease                     @relation(fields: [leaseId], references: [id])
+  leaseId     Int
+  payments    Payment[]
+  issuedAt    DateTime                  @default(now())
+  externalId  String?                   @unique
+  lateFees    LateFee[]
+  schedule    RecurringInvoiceSchedule? @relation(fields: [scheduleId], references: [id])
+  scheduleId  Int?
+}
+
+model Payment {
+  id              Int            @id @default(autoincrement())
+  amount          Float
+  paymentDate     DateTime       @default(now())
+  status          String // e.g., "COMPLETED", "FAILED"
+  invoice         Invoice?       @relation(fields: [invoiceId], references: [id])
+  invoiceId       Int?
+  user            User           @relation(fields: [userId], references: [id])
+  userId          Int
+  lease           Lease?         @relation(fields: [leaseId], references: [id])
+  leaseId         Int?
+  externalId      String?        @unique
+  reconciledAt    DateTime?
+  paymentMethod   PaymentMethod? @relation(fields: [paymentMethodId], references: [id])
+  paymentMethodId Int?
+}
+
+model Conversation {
+  id           Int                       @id @default(autoincrement())
+  participants ConversationParticipant[]
+  messages     Message[]
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+}
+
+model ConversationParticipant {
+  user           User         @relation(fields: [userId], references: [id])
+  userId         Int
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  conversationId Int
+
+  @@id([userId, conversationId])
+}
+
+model Message {
+  id             Int                   @id @default(autoincrement())
+  content        String
+  sender         User                  @relation("sentMessages", fields: [senderId], references: [id])
+  senderId       Int
+  conversation   Conversation          @relation(fields: [conversationId], references: [id])
+  conversationId Int
+  template       MessageTemplate?      @relation(fields: [templateId], references: [id])
+  templateId     Int?
+  metadata       Json?
+  bulkRecipient  BulkMessageRecipient?
+  createdAt      DateTime              @default(now())
+}
+
+model MessageTemplate {
+  id          Int                @id @default(autoincrement())
+  name        String
+  description String?
+  subject     String?
+  body        String
+  mergeFields String[]           @default([])
+  createdBy   User?              @relation(fields: [createdById], references: [id])
+  createdById Int?
+  batches     BulkMessageBatch[]
+  messages    Message[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+}
+
+model BulkMessageBatch {
+  id                Int                    @id @default(autoincrement())
+  title             String
+  body              String
+  status            BulkMessageStatus      @default(DRAFT)
+  sendStrategy      BulkSendStrategy       @default(IMMEDIATE)
+  scheduledAt       DateTime?
+  throttlePerMinute Int?                   @default(60)
+  maxRetries        Int                    @default(3)
+  filters           Json?
+  metadata          Json?
+  creator           User?                  @relation(fields: [creatorId], references: [id])
+  creatorId         Int?
+  template          MessageTemplate?       @relation(fields: [templateId], references: [id])
+  templateId        Int?
+  recipients        BulkMessageRecipient[]
+  startedAt         DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+}
+
+model BulkMessageRecipient {
+  id              Int                 @id @default(autoincrement())
+  batch           BulkMessageBatch    @relation(fields: [batchId], references: [id])
+  batchId         Int
+  user            User                @relation(fields: [userId], references: [id])
+  userId          Int
+  status          BulkRecipientStatus @default(PENDING)
+  attempts        Int                 @default(0)
+  lastAttemptAt   DateTime?
+  nextAttemptAt   DateTime?
+  message         Message?            @relation(fields: [messageId], references: [id])
+  messageId       Int?                @unique
+  errorMessage    String?
+  renderedContent String?
+  mergeVariables  Json?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+}
+
+enum BulkMessageStatus {
+  DRAFT
+  QUEUED
+  SENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum BulkRecipientStatus {
+  PENDING
+  SENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+enum BulkSendStrategy {
+  IMMEDIATE
+  SCHEDULED
+}
+
+model RentalApplication {
+  id                    Int                     @id @default(autoincrement())
+  applicant             User?                   @relation(fields: [applicantId], references: [id])
+  applicantId           Int?
+  property              Property                @relation(fields: [propertyId], references: [id])
+  propertyId            Int
+  unit                  Unit                    @relation(fields: [unitId], references: [id])
+  unitId                Int
+  status                ApplicationStatus       @default(PENDING)
+  applicationDate       DateTime                @default(now())
+  fullName              String
+  email                 String
+  phoneNumber           String
+  income                Float
+  employmentStatus      String
+  previousAddress       String
+  creditScore           Int?
+  monthlyDebt           Float?
+  bankruptcyFiledYear   Int?
+  rentalHistoryComments String?
+  qualificationStatus   QualificationStatus? // Added for screening
+  recommendation        Recommendation? // Added for screening
+  screeningDetails      String? // Added for screening
+  screeningScore        Float?
+  screeningReasons      Json?
+  screenedAt            DateTime?
+  screenedBy            User?                   @relation("ScreenedApplications", fields: [screenedById], references: [id])
+  screenedById          Int?
+  manualNotes           RentalApplicationNote[]
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  TOURING
+  APPLICATION_SUBMITTED
+  CONVERTED
+  LOST
+}
+
+enum InterestLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum TourStatus {
+  SCHEDULED
+  RESCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+model Lead {
+  id                     String            @id @default(cuid())
+  sessionId              String            @unique
+  name                   String?
+  email                  String?
+  phone                  String?
+  status                 LeadStatus        @default(NEW)
+  preferredContactMethod String?
+  bedrooms               Int?
+  budget                 Float?
+  moveInDate             String?
+  source                 String?
+  notes                  String?
+  convertedAt            DateTime?
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+  messages               LeadMessage[]
+  propertyInquiries      PropertyInquiry[]
+  tours                  Tour[]
+  applications           LeadApplication[]
+}
+
+model LeadMessage {
+  id        Int         @id @default(autoincrement())
+  lead      Lead        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId    String
+  role      MessageRole @default(USER)
+  content   String
+  metadata  Json?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([leadId])
+}
+
+model PropertyInquiry {
+  id         Int           @id @default(autoincrement())
+  lead       Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId     String
+  property   Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  propertyId Int
+  unit       Unit?         @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  unitId     Int?
+  interest   InterestLevel @default(MEDIUM)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@index([leadId])
+  @@index([propertyId])
+}
+
+model Tour {
+  id            String     @id @default(cuid())
+  lead          Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId        String
+  property      Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  propertyId    Int
+  unit          Unit?      @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  unitId        Int?
+  scheduledDate DateTime
+  scheduledTime String
+  notes         String?
+  status        TourStatus @default(SCHEDULED)
+  conductedBy   User?      @relation("TourConductedBy", fields: [conductedById], references: [id])
+  conductedById Int?
+  feedback      String?
+  completedAt   DateTime?
+  cancelledAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([leadId])
+  @@index([propertyId])
+  @@index([unitId])
+}
+
+enum LeadApplicationStatus {
+  SUBMITTED
+  PENDING
+  APPROVED
+  CONDITIONALLY_APPROVED
+  DENIED
+  REJECTED
+}
+
+model LeadApplication {
+  id                    String                @id @default(cuid())
+  leadId                String
+  lead                  Lead                  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  propertyId            Int
+  property              Property              @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId                Int?
+  unit                  Unit?                 @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  status                LeadApplicationStatus @default(SUBMITTED)
+  submittedAt           DateTime              @default(now())
+  creditScore           Int?
+  backgroundCheckStatus String?
+  creditCheckStatus     String?
+  reviewedById          Int?
+  reviewedBy            User?                 @relation("LeadApplicationReviewers", fields: [reviewedById], references: [id])
+  reviewedAt            DateTime?
+  reviewNotes           String?
+  approvedAt            DateTime?
+  rejectedAt            DateTime?
+  applicationFee        Float?
+  feePaid               Boolean               @default(false)
+  feePaidAt             DateTime?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  @@index([leadId])
+  @@index([propertyId])
+}
+
+model Expense {
+  id           Int             @id @default(autoincrement())
+  property     Property        @relation(fields: [propertyId], references: [id])
+  propertyId   Int
+  unit         Unit?           @relation(fields: [unitId], references: [id])
+  unitId       Int?
+  description  String
+  amount       Float
+  date         DateTime
+  category     ExpenseCategory
+  recordedBy   User            @relation("RecordedExpenses", fields: [recordedById], references: [id])
+  recordedById Int
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+}
+
+enum LeaseStatus {
+  DRAFT
+  PENDING_APPROVAL
+  ACTIVE
+  RENEWAL_PENDING
+  NOTICE_GIVEN
+  TERMINATING
+  TERMINATED
+  HOLDOVER
+  CLOSED
+}
+
+enum DepositDisposition {
+  HELD
+  PARTIAL_RETURN
+  RETURNED
+  FORFEITED
+}
+
+enum LeaseTerminationParty {
+  MANAGER
+  TENANT
+  SYSTEM
+}
+
+enum BillingAlignment {
+  FULL_CYCLE
+  PRORATE
+}
+
+enum LeaseRenewalStatus {
+  OFFERED
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  WITHDRAWN
+}
+
+enum LeaseNoticeType {
+  MOVE_OUT
+  RENT_INCREASE
+  OTHER
+}
+
+enum LeaseNoticeDeliveryMethod {
+  EMAIL
+  SMS
+  PORTAL
+  PRINT
+  OTHER
+}
+
+enum Status {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum MaintenancePriority {
+  EMERGENCY
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum MaintenanceAssetCategory {
+  HVAC
+  PLUMBING
+  ELECTRICAL
+  APPLIANCE
+  STRUCTURE
+  SAFETY
+  GROUNDS
+  OTHER
+}
+
+enum TechnicianRole {
+  IN_HOUSE
+  CONTRACTOR
+  VENDOR
+}
+
+enum Role {
+  TENANT
+  PROPERTY_MANAGER
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum QualificationStatus {
+  QUALIFIED
+  NOT_QUALIFIED
+}
+
+enum Recommendation {
+  RECOMMEND_RENT
+  DO_NOT_RECOMMEND_RENT
+}
+
+model RentalApplicationNote {
+  id            Int               @id @default(autoincrement())
+  application   RentalApplication @relation(fields: [applicationId], references: [id])
+  applicationId Int
+  author        User?             @relation(fields: [authorId], references: [id])
+  authorId      Int?
+  body          String
+  createdAt     DateTime          @default(now())
+
+  @@index([applicationId])
+}
+
+enum ExpenseCategory {
+  MAINTENANCE
+  UTILITIES
+  TAXES
+  INSURANCE
+  REPAIRS
+  OTHER
+}
+
+model PaymentMethod {
+  id                      Int                 @id @default(autoincrement())
+  user                    User                @relation(fields: [userId], references: [id])
+  userId                  Int
+  type                    PaymentMethodType
+  provider                PaymentProvider
+  providerCustomerId      String?
+  providerPaymentMethodId String?
+  last4                   String?
+  brand                   String?
+  expMonth                Int?
+  expYear                 Int?
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  autopayEnrollments      AutopayEnrollment[]
+  payments                Payment[]
+}
+
+enum PaymentMethodType {
+  CARD
+  BANK_ACCOUNT
+}
+
+enum PaymentProvider {
+  STRIPE
+  PLAID
+  OTHER
+}
+
+model RecurringInvoiceSchedule {
+  id               Int              @id @default(autoincrement())
+  lease            Lease            @relation(fields: [leaseId], references: [id])
+  leaseId          Int              @unique
+  amount           Float
+  description      String           @default("Monthly Rent")
+  frequency        BillingFrequency @default(MONTHLY)
+  dayOfMonth       Int? // required for monthly
+  dayOfWeek        Int? // optional for weekly
+  nextRun          DateTime
+  lateFeeAmount    Float? // flat fee
+  lateFeeAfterDays Int? // number of days after due date
+  active           Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  invoices         Invoice[]
+}
+
+enum BillingFrequency {
+  MONTHLY
+  WEEKLY
+}
+
+model LateFee {
+  id         Int      @id @default(autoincrement())
+  invoice    Invoice  @relation(fields: [invoiceId], references: [id])
+  invoiceId  Int
+  amount     Float
+  assessedAt DateTime @default(now())
+  waived     Boolean  @default(false)
+}
+
+model AutopayEnrollment {
+  id              Int           @id @default(autoincrement())
+  lease           Lease         @relation(fields: [leaseId], references: [id])
+  leaseId         Int           @unique
+  paymentMethod   PaymentMethod @relation(fields: [paymentMethodId], references: [id])
+  paymentMethodId Int
+  active          Boolean       @default(true)
+  maxAmount       Float?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model SecurityEvent {
+  id        Int               @id @default(autoincrement())
+  user      User?             @relation(fields: [userId], references: [id])
+  userId    Int?
+  username  String?
+  type      SecurityEventType
+  success   Boolean
+  ipAddress String?
+  userAgent String?
+  metadata  Json?
+  createdAt DateTime          @default(now())
+
+  @@index([createdAt])
+  @@index([type])
+}
+
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+enum SecurityEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILURE
+  LOGIN_LOCKED
+  PASSWORD_CHANGED
+  MFA_ENROLLMENT_STARTED
+  MFA_ENABLED
+  MFA_DISABLED
+  MFA_CHALLENGE_FAILED
+  AUTOPAY_ENABLED
+  AUTOPAY_DISABLED
+  RECURRING_BILLING_UPDATED
+  APPLICATION_SCREENED
+  APPLICATION_NOTE_CREATED
+}
+
+model Notification {
+  id        Int              @id @default(autoincrement())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  readAt    DateTime?
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
+  @@index([type])
+}
+
+enum NotificationType {
+  RENT_REMINDER
+  RENT_OVERDUE
+  LEASE_RENEWAL
+  MAINTENANCE_SLA_BREACH
+  MAINTENANCE_COMPLETED
+  NEW_MESSAGE
+  LEASE_NOTICE
+  PAYMENT_RECEIVED
+  APPLICATION_STATUS_CHANGE
+  SYSTEM_ANNOUNCEMENT
+  INSPECTION_SCHEDULED
+  INSPECTION_COMPLETED
+  ESIGNATURE_REQUESTED
+  ESIGNATURE_COMPLETED
+}
+
+model UnitInspection {
+  id              Int                   @id @default(autoincrement())
+  unit            Unit                  @relation(fields: [unitId], references: [id])
+  unitId          Int
+  property        Property              @relation(fields: [propertyId], references: [id])
+  propertyId      Int
+  lease           Lease?                @relation(fields: [leaseId], references: [id])
+  leaseId         Int?
+  type            InspectionType
+  status          InspectionStatus      @default(SCHEDULED)
+  scheduledDate   DateTime
+  completedDate   DateTime?
+  inspector       User?                 @relation("Inspector", fields: [inspectorId], references: [id])
+  inspectorId     Int?
+  tenant          User?                 @relation("InspectionTenant", fields: [tenantId], references: [id])
+  tenantId        Int?
+  createdBy       User                  @relation("CreatedBy", fields: [createdById], references: [id])
+  createdById     Int
+  notes           String?
+  generalNotes    String?
+  findings        Json?
+  reportGenerated Boolean               @default(false)
+  reportPath      String?
+  photos          UnitInspectionPhoto[]
+  rooms           InspectionRoom[]
+  signatures      InspectionSignature[]
+  repairEstimates RepairEstimate[]
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([unitId])
+  @@index([propertyId])
+  @@index([leaseId])
+  @@index([status])
+  @@index([scheduledDate])
+  @@index([inspectorId])
+}
+
+model UnitInspectionPhoto {
+  id           Int            @id @default(autoincrement())
+  inspection   UnitInspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  inspectionId Int
+  url          String
+  caption      String?
+  uploadedBy   User?          @relation(fields: [uploadedById], references: [id])
+  uploadedById Int?
+  createdAt    DateTime       @default(now())
+
+  @@index([inspectionId])
+}
+
+enum InspectionType {
+  MOVE_IN
+  MOVE_OUT
+  ROUTINE
+  ANNUAL
+  EMERGENCY
+  DAMAGE
+  COMPLIANCE
+}
+
+enum InspectionStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model InspectionRoom {
+  id             Int                       @id @default(autoincrement())
+  inspection     UnitInspection            @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  inspectionId   Int
+  name           String
+  roomType       RoomType
+  checklistItems InspectionChecklistItem[]
+
+  @@index([inspectionId])
+}
+
+model InspectionChecklistItem {
+  id             Int                          @id @default(autoincrement())
+  room           InspectionRoom               @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  roomId         Int
+  category       String
+  itemName       String
+  condition      InspectionCondition?
+  notes          String?
+  estimatedAge   Int? // Age in years
+  requiresAction Boolean                      @default(false)
+  photos         InspectionChecklistPhoto[]
+  subItems       InspectionChecklistSubItem[]
+
+  @@index([roomId])
+  @@index([condition])
+  @@index([requiresAction])
+}
+
+model InspectionChecklistSubItem {
+  id           Int                     @id @default(autoincrement())
+  parentItem   InspectionChecklistItem @relation(fields: [parentItemId], references: [id], onDelete: Cascade)
+  parentItemId Int
+  name         String
+  condition    InspectionCondition?
+  estimatedAge Int?
+
+  @@index([parentItemId])
+}
+
+model InspectionChecklistPhoto {
+  id              Int                     @id @default(autoincrement())
+  checklistItem   InspectionChecklistItem @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
+  checklistItemId Int
+  uploadedBy      User                    @relation("ChecklistPhotoUploader", fields: [uploadedById], references: [id])
+  uploadedById    Int
+  url             String
+  caption         String?
+  createdAt       DateTime                @default(now())
+
+  @@index([checklistItemId])
+}
+
+model InspectionSignature {
+  id            Int            @id @default(autoincrement())
+  inspection    UnitInspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  inspectionId  Int
+  user          User           @relation("InspectionSigner", fields: [userId], references: [id])
+  userId        Int
+  role          String
+  signatureData String // Base64 encoded signature image
+  signedAt      DateTime       @default(now())
+
+  @@index([inspectionId])
+  @@index([userId])
+}
+
+model RepairEstimate {
+  id                   Int                 @id @default(autoincrement())
+  inspection           UnitInspection?     @relation(fields: [inspectionId], references: [id])
+  inspectionId         Int?
+  maintenanceRequest   MaintenanceRequest? @relation(fields: [maintenanceRequestId], references: [id])
+  maintenanceRequestId Int?
+  property             Property?           @relation(fields: [propertyId], references: [id])
+  propertyId           Int?
+  unit                 Unit?               @relation(fields: [unitId], references: [id])
+  unitId               Int?
+
+  // Estimate summary
+  totalLaborCost    Float
+  totalMaterialCost Float
+  totalProjectCost  Float
+  itemsToRepair     Int
+  itemsToReplace    Int
+
+  // Metadata
+  currency      String         @default("USD")
+  generatedAt   DateTime       @default(now())
+  generatedBy   User           @relation("GeneratedEstimates", fields: [generatedById], references: [id])
+  generatedById Int
+  status        EstimateStatus @default(DRAFT)
+  approvedAt    DateTime?
+  approvedBy    User?          @relation("ApprovedEstimates", fields: [approvedById], references: [id])
+  approvedById  Int?
+
+  lineItems RepairEstimateLineItem[]
+
+  @@index([inspectionId])
+  @@index([maintenanceRequestId])
+  @@index([status])
+}
+
+model RepairEstimateLineItem {
+  id         Int            @id @default(autoincrement())
+  estimate   RepairEstimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  estimateId Int
+
+  // Item identification
+  itemDescription String
+  location        String
+  category        String // plumbing, electrical, HVAC, etc.
+  issueType       String // repair, replace
+
+  // Cost breakdown
+  laborHours   Float?
+  laborRate    Float?
+  laborCost    Float
+  materialCost Float
+  totalCost    Float
+
+  // Depreciation & condition
+  originalCost        Float?
+  depreciatedValue    Float?
+  depreciationRate    Float?
+  conditionAdjustment Float?
+  estimatedLifetime   Int? // Years
+  currentAge          Int? // Years
+
+  // Additional details
+  repairInstructions String?
+  notes              String?
+
+  @@index([estimateId])
+  @@index([category])
+}
+
+enum InspectionCondition {
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+  DAMAGED
+  NON_FUNCTIONAL
+}
+
+enum RoomType {
+  BEDROOM
+  BATHROOM
+  KITCHEN
+  LIVING_ROOM
+  DINING_ROOM
+  UTILITY_ROOM
+  EXTERIOR_BUILDING
+  EXTERIOR_LANDSCAPING
+  EXTERIOR_PARKING
+  COMMON_HALLWAYS
+  COMMON_LAUNDRY
+  COMMON_LOBBY
+  OTHER
+}
+
+enum EstimateStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+model ScheduleEvent {
+  id          Int               @id @default(autoincrement())
+  type        ScheduleEventType
+  title       String
+  date        DateTime
+  priority    EventPriority     @default(MEDIUM)
+  description String?
+  status      String?           @default("SCHEDULED")
+  property    Property?         @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  propertyId  Int?
+  unit        Unit?             @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  unitId      Int?
+  tenant      User?             @relation("ScheduleEventTenant", fields: [tenantId], references: [id], onDelete: SetNull)
+  tenantId    Int?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([date])
+  @@index([type])
+  @@index([priority])
+  @@index([propertyId])
+}
+
+enum ScheduleEventType {
+  TOUR
+  MOVE_IN
+  MOVE_OUT
+  LEASE_EXPIRATION
+  LEASE_RENEWAL
+  INSPECTION
+  MAINTENANCE
+}
+
+enum EventPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model QuickBooksConnection {
+  id                    Int      @id @default(autoincrement())
+  userId                Int
+  companyId             String
+  accessToken           String
+  refreshToken          String
+  tokenExpiresAt        DateTime
+  refreshTokenExpiresAt DateTime
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user User @relation("UserQuickBooksConnections", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, companyId])
+  @@map("quickbooks_connections")
+}

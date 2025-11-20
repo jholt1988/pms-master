@@ -1,0 +1,16 @@
+{
+  "unit_id": "test-unit-1",
+  "property_type": "APARTMENT",
+  "bedrooms": 2,
+  "bathrooms": 1,
+  "square_feet": 950,
+  "address": "123 Main St",
+  "city": "San Francisco",
+  "state": "CA",
+  "zip_code": "94102",
+  "latitude": 37.7749,
+  "longitude": -122.4194,
+  "current_rent": 2500.00,
+  "year_built": 2010,
+  "floor_number": 3
+}

@@ -1,0 +1,251 @@
+{
+  "info": {
+    "name": "QuickBooks Integration Testing",
+    "description": "Postman collection for testing QuickBooks OAuth integration in Property Management Suite",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "1"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{jwt_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "Login (Get JWT Token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('jwt_token', jsonData.accessToken || jsonData.access_token || jsonData.token);",
+                  "    console.log('JWT token saved:', jsonData.accessToken || jsonData.access_token || jsonData.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"Admin123!@#\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Login with admin credentials to get JWT token for authenticated requests"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. QuickBooks OAuth Flow",
+      "item": [
+        {
+          "name": "Get Authorization URL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.collectionVariables.set('auth_url', jsonData.authUrl);",
+                  "    console.log('Authorization URL:', jsonData.authUrl);",
+                  "    console.log('\\n=== NEXT STEP ===');",
+                  "    console.log('1. Copy the authUrl from the response');",
+                  "    console.log('2. Open it in your browser');",
+                  "    console.log('3. Sign in with your QuickBooks developer account');",
+                  "    console.log('4. Select your sandbox company');",
+                  "    console.log('5. Click \"Connect\" to authorize');",
+                  "    console.log('6. Browser will redirect to callback URL');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/quickbooks/auth-url",
+              "host": ["{{base_url}}"],
+              "path": ["api", "quickbooks", "auth-url"]
+            },
+            "description": "Generate QuickBooks authorization URL. Copy the returned URL and open in browser to complete OAuth flow."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Connection Status",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/quickbooks/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "quickbooks", "status"]
+            },
+            "description": "Check if QuickBooks is connected and view connection details"
+          },
+          "response": []
+        },
+        {
+          "name": "Test Connection",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/quickbooks/test-connection",
+              "host": ["{{base_url}}"],
+              "path": ["api", "quickbooks", "test-connection"]
+            },
+            "description": "Test QuickBooks API connection and fetch company information"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Data Synchronization",
+      "item": [
+        {
+          "name": "Sync Data",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/quickbooks/sync",
+              "host": ["{{base_url}}"],
+              "path": ["api", "quickbooks", "sync"]
+            },
+            "description": "Sync data between Property Management Suite and QuickBooks"
+          },
+          "response": []
+        },
+        {
+          "name": "Disconnect from QuickBooks",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{jwt_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/quickbooks/disconnect",
+              "host": ["{{base_url}}"],
+              "path": ["api", "quickbooks", "disconnect"]
+            },
+            "description": "Disconnect from QuickBooks and deactivate stored credentials"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Health Check",
+      "item": [
+        {
+          "name": "Server Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Check server health status"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3001",
+      "type": "string"
+    },
+    {
+      "key": "jwt_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "auth_url",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

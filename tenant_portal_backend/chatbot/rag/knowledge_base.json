@@ -1,0 +1,30 @@
+[
+  {
+    "id": "kb_lease_renewal",
+    "title": "Lease renewal overview",
+    "content": "Tenants receive renewal offers 90 days prior to expiration. Rent adjustments follow the market rent guidance matrix and require written acceptance via the portal.",
+    "tags": ["lease", "renewal", "policy"],
+    "workflows": ["renewal_offer"]
+  },
+  {
+    "id": "kb_rent_payment",
+    "title": "Rent payment options",
+    "content": "Rent is due on the 1st of each month with a 4-day grace period. Tenants can pay via ACH, credit card, or enroll in autopay. Late fees apply after day 5.",
+    "tags": ["payments", "autopay"],
+    "workflows": ["rent_reminder"]
+  },
+  {
+    "id": "kb_maintenance_emergency",
+    "title": "Maintenance escalation steps",
+    "content": "Emergency repairs include active water leaks, HVAC outages below 40F, and safety risks. Automatically file a maintenance ticket with the on-call vendor and notify property managers via SMS.",
+    "tags": ["maintenance", "emergency"],
+    "workflows": ["maintenance_request"]
+  },
+  {
+    "id": "kb_pet_policy",
+    "title": "Pet policy",
+    "content": "Pets require prior approval, vaccination records, and a monthly pet rent of $35. Unauthorized pets can result in lease violations.",
+    "tags": ["policy", "pets"],
+    "workflows": []
+  }
+]

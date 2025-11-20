@@ -1,0 +1,127 @@
+
+> tenant_portal_mobile@1.0.0 lint
+> eslint . --ext .ts,.tsx
+
+
+C:\Users\plabr\IN_PROGRESS\property_management_suite\tenant_portal_mobile\src\screens\auth\LoginScreen.tsx
+   14:25  warning  'Loading' is defined but never used                                                                                       @typescript-eslint/no-unused-vars
+   36:6   warning  React Hook useEffect has a missing dependency: 'checkBiometricSupport'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  153:19  error    Unexpected any. Specify a different type                                                                                  @typescript-eslint/no-explicit-any
+  260:52  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                           react/no-unescaped-entities
+
+C:\Users\plabr\IN_PROGRESS\property_management_suite\tenant_portal_mobile\src\screens\auth\RegisterScreen.tsx
+   66:6   warning  React Hook React.useEffect has a missing dependency: 'dispatch'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  178:19  error    Unexpected any. Specify a different type                                                                           @typescript-eslint/no-explicit-any
+
+C:\Users\plabr\IN_PROGRESS\property_management_suite\tenant_portal_mobile\src\screens\lease\DocumentsScreen.tsx
+   32:9   warning  'navigation' is assigned a value but never used                                                                   @typescript-eslint/no-unused-vars
+   46:6   warning  React Hook useEffect has a missing dependency: 'loadDocuments'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+   54:6   warning  React Hook useEffect has a missing dependency: 'dispatch'. Either include it or remove the dependency array       react-hooks/exhaustive-deps
+  133:14  warning  'err' is defined but never used                                                                                   @typescript-eslint/no-unused-vars
+
+C:\Users\plabr\IN_PROGRESS\property_management_suite\tenant_portal_mobile\src\screens\lease\LeaseRenewalScreen.tsx
+  111:22  warning  'error' is defined but never used                                @typescript-eslint/no-unused-vars
+  187:34  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+C:\Users\plabr\IN_PROGRESS\property_management_suite\tenant_portal_mobile\src\screens\lease\LeaseScreen.tsx
+   30:36  error    Unexpected any. Specify a different type                                                                     @typescript-eslint/no-explicit-any
+   33:25  warning  'summary' is assigned a value but never used                                                                 @typescript-eslint/no-unused-vars
+   41:6   warning  React Hook useEffect has a missing dependency: 'loadData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+   49:6   warning  React Hook useEffect has a missing dependency: 'dispatch'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  135:20  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                              react/no-unescaped-entities
+
+C:\Users\plabr\IN_PROGRESS\property_management_suite\tenant_portal_mobile\src\screens\lease\MoveOutNoticeScreen.tsx
+   54:36  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  133:22  warning  'error' is defined but never used                                @typescript-eslint/no-unused-vars
+  357:23  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+C:\Users\plabr\IN_PROGRESS\property_management_suite\tenant_portal_mobile\src\screens\maintenance\CreateMaintenanceRequestScreen.tsx
+   69:9   warning  'user' is assigned a value but never used                        @typescript-eslint/no-unused-vars
+  201:36  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  295:50  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  453:68  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+C:\Users\plabr\IN_PROGRESS\property_management_suite\tenant_portal_mobile\src\screens\maintenance\MaintenanceDetailScreen.tsx
+   15:23  warning  'useSelector' is defined but never used                                                                                          @typescript-eslint/no-unused-vars
+   58:6   warning  React Hook useEffect has missing dependencies: 'dispatch' and 'loadRequest'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+   63:14  warning  'error' is defined but never used                                                                                                @typescript-eslint/no-unused-vars
+   85:22  warning  'error' is defined but never used                                                                                                @typescript-eslint/no-unused-vars
+  115:22  warning  'error' is defined but never used                                                                                                @typescript-eslint/no-unused-vars
+  307:51  error    Unexpected any. Specify a different type                                                                                         @typescript-eslint/no-explicit-any
+  426:32  error    Unexpected any. Specify a different type                                                                                         @typescript-eslint/no-explicit-any
+
+C:\Users\plabr\IN_PROGRESS\property_management_suite\tenant_portal_mobile\src\screens\maintenance\MaintenanceScreen.tsx
+  33:36  error    Unexpected any. Specify a different type                                                                     @typescript-eslint/no-explicit-any
+  37:30  warning  'isLoading' is assigned a value but never used                                                               @typescript-eslint/no-unused-vars
+  47:6   warning  React Hook useEffect has a missing dependency: 'loadData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  55:6   warning  React Hook useEffect has a missing dependency: 'dispatch'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\plabr\IN_PROGRESS\property_management_suite\tenant_portal_mobile\src\screens\messages\MessagesScreen.tsx
+   88:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  112:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\plabr\IN_PROGRESS\property_management_suite\tenant_portal_mobile\src\screens\notifications\NotificationPreferencesScreen.tsx
+  123:14  warning  'error' is defined but never used                                @typescript-eslint/no-unused-vars
+  418:57  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+C:\Users\plabr\IN_PROGRESS\property_management_suite\tenant_portal_mobile\src\screens\notifications\NotificationsScreen.tsx
+   12:3   warning  'TouchableOpacity' is defined but never used                 @typescript-eslint/no-unused-vars
+   15:3   warning  'Platform' is defined but never used                         @typescript-eslint/no-unused-vars
+  113:37  error    Unexpected any. Specify a different type                     @typescript-eslint/no-explicit-any
+  117:39  error    Unexpected any. Specify a different type                     @typescript-eslint/no-explicit-any
+  124:37  error    Unexpected any. Specify a different type                     @typescript-eslint/no-explicit-any
+  127:37  error    Unexpected any. Specify a different type                     @typescript-eslint/no-explicit-any
+  265:19  warning  Array type using 'Array<T>' is forbidden. Use 'T[]' instead  @typescript-eslint/array-type
+
+C:\Users\plabr\IN_PROGRESS\property_management_suite\tenant_portal_mobile\src\screens\payments\MakePaymentScreen.tsx
+   19:3   warning  'createPayment' is defined but never used                                                                                                                                                    @typescript-eslint/no-unused-vars
+   39:22  warning  'setProcessing' is assigned a value but never used                                                                                                                                           @typescript-eslint/no-unused-vars
+   44:6   warning  React Hook useEffect has a missing dependency: 'loadData'. Either include it or remove the dependency array                                                                                  react-hooks/exhaustive-deps
+   53:6   warning  React Hook useEffect has a missing dependency: 'dispatch'. Either include it or remove the dependency array                                                                                  react-hooks/exhaustive-deps
+  147:3   error    React Hook "useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+  151:6   warning  React Hook useEffect has a missing dependency: 'selectedMethodId'. Either include it or remove the dependency array                                                                          react-hooks/exhaustive-deps
+
+C:\Users\plabr\IN_PROGRESS\property_management_suite\tenant_portal_mobile\src\screens\payments\PaymentConfirmationScreen.tsx
+   32:41  warning  'isLoading' is assigned a value but never used                                                               @typescript-eslint/no-unused-vars
+   38:10  warning  'paymentIntentClientSecret' is assigned a value but never used                                               @typescript-eslint/no-unused-vars
+   38:37  warning  'setPaymentIntentClientSecret' is assigned a value but never used                                            @typescript-eslint/no-unused-vars
+   53:6   warning  React Hook useEffect has a missing dependency: 'dispatch'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  112:19  error    Unexpected any. Specify a different type                                                                     @typescript-eslint/no-explicit-any
+
+C:\Users\plabr\IN_PROGRESS\property_management_suite\tenant_portal_mobile\src\screens\payments\PaymentReceiptScreen.tsx
+   1:28  warning  'useState' is defined but never used                                                                                                    @typescript-eslint/no-unused-vars
+  41:6   warning  React Hook useEffect has missing dependencies: 'loadPayment' and 'selectedPayment'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  65:13  warning  'result' is assigned a value but never used                                                                                             @typescript-eslint/no-unused-vars
+
+C:\Users\plabr\IN_PROGRESS\property_management_suite\tenant_portal_mobile\src\screens\payments\PaymentsScreen.tsx
+  36:6  warning  React Hook useEffect has a missing dependency: 'loadData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  44:6  warning  React Hook useEffect has a missing dependency: 'dispatch'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\plabr\IN_PROGRESS\property_management_suite\tenant_portal_mobile\src\screens\profile\ProfileScreen.tsx
+   18:18  warning  'clearError' is defined but never used                                                                          @typescript-eslint/no-unused-vars
+   54:6   warning  React Hook useEffect has a missing dependency: 'loadProfile'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+   75:6   warning  React Hook useEffect has a missing dependency: 'dispatch'. Either include it or remove the dependency array     react-hooks/exhaustive-deps
+   90:19  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+  161:19  error    Unexpected any. Specify a different type                                                                        @typescript-eslint/no-explicit-any
+
+C:\Users\plabr\IN_PROGRESS\property_management_suite\tenant_portal_mobile\src\services\biometricAuth.ts
+  107:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  149:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  238:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  271:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\plabr\IN_PROGRESS\property_management_suite\tenant_portal_mobile\src\services\pushNotificationService.ts
+  112:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\plabr\IN_PROGRESS\property_management_suite\tenant_portal_mobile\src\store\messageSlice.ts
+  15:3  warning  'ThreadStatus' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\plabr\IN_PROGRESS\property_management_suite\tenant_portal_mobile\src\store\notificationSlice.ts
+  12:3  warning  'NotificationCategory' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\plabr\IN_PROGRESS\property_management_suite\tenant_portal_mobile\src\store\paymentsSlice.ts
+  1:41  warning  'PayloadAction' is defined but never used  @typescript-eslint/no-unused-vars
+
+Γ£û 75 problems (30 errors, 45 warnings)
+  0 errors and 1 warning potentially fixable with the `--fix` option.
+

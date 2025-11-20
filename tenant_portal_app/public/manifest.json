@@ -1,0 +1,9 @@
+{
+  "short_name": "Tenant Portal",
+  "name": "Property Management Tenant Portal",
+  "icons": [],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#ffffff"
+}

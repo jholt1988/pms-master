@@ -1,0 +1,74 @@
+name: Sync Wiki
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'tenant_portal_app/docs/wiki/**'
+  workflow_dispatch:
+
+jobs:
+  sync-wiki:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check for wiki changes
+        id: check_changes
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "changes=true" >> $GITHUB_OUTPUT
+          else
+            # Check if there are actual changes in wiki directory
+            if git diff --name-only HEAD~1 2>/dev/null | grep -q "tenant_portal_app/docs/wiki/" || git show --name-only --format= | grep -q "tenant_portal_app/docs/wiki/"; then
+              echo "changes=true" >> $GITHUB_OUTPUT
+            else
+              echo "changes=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Clone and sync wiki repository
+        if: steps.check_changes.outputs.changes == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Configure git
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Clone wiki repository with authentication
+          git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.wiki.git" wiki-repo
+          
+          # Copy all markdown files from docs/wiki to wiki repo
+          if ls tenant_portal_app/docs/wiki/*.md >/dev/null 2>&1; then
+            cp tenant_portal_app/docs/wiki/*.md wiki-repo/
+          else
+            echo "No markdown files found to sync"
+            exit 0
+          fi
+          
+          # Navigate to wiki repo
+          cd wiki-repo
+          
+          # Add all changes
+          git add .
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to wiki"
+            exit 0
+          fi
+          
+          # Commit and push changes
+          git commit -m "Auto-sync wiki from tenant_portal_app/docs/wiki [skip ci]"
+          git push origin master
+          
+          # Cleanup
+          cd ..
+          rm -rf wiki-repo
