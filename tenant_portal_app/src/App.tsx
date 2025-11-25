@@ -1,6 +1,9 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
-import { NextUIProvider, Card, CardBody, Button } from '@nextui-org/react';
+import { NextUIProvider } from '@nextui-org/system';
+import { Card } from '@nextui-org/card';
+import { CardBody } from '@nextui-org/card';
+import { Button } from '@nextui-org/button';
 import { useAuth } from './AuthContext';
 import ForgotPasswordPage from './ForgotPasswordPage';
 import PasswordResetPage from './PasswordResetPage';

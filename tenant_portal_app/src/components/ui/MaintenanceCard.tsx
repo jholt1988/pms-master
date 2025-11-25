@@ -1,163 +1,94 @@
-import React from "react";
-import { ArrowUpRight, Wrench } from "lucide-react";
-import { GlassCard } from "./GlassCard";
+import React from 'react';
+import { 
+  AlertCircle, 
+  Clock, 
+  CheckCircle2, 
+  MoreHorizontal,
+  ArrowRight,
+  MapPin
+} from 'lucide-react';
 
-type Priority = "P1" | "P2" | "P3";
-type Status = "Pending" | "In Progress" | "Completed";
-
-interface MaintenanceTicket {
+interface Request {
+  id: string;
   title: string;
   unit: string;
-  priority: Priority;
-  status: Status;
-  eta: string;
-  assignee?: string;
+  priority: 'P1' | 'P2' | 'P3';
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
+  time: string;
 }
 
-const tickets: MaintenanceTicket[] = [
-  {
-    title: "Leaky faucet",
-    unit: "2B",
-    priority: "P1",
-    status: "Pending",
-    eta: "2h SLA",
-    assignee: "Dispatching",
-  },
-  {
-    title: "AC not cooling",
-    unit: "5A",
-    priority: "P2",
-    status: "In Progress",
-    eta: "ETA 4h",
-    assignee: "Delta HVAC",
-  },
-  {
-    title: "Broken window",
-    unit: "1C",
-    priority: "P3",
-    status: "Completed",
-    eta: "Resolved",
-    assignee: "GlassWorks",
-  },
+const requests: Request[] = [
+  { id: 'REQ-1024', title: 'Gas Leak Detected', unit: 'Unit 2B', priority: 'P1', status: 'PENDING', time: '10m ago' },
+  { id: 'REQ-1023', title: 'AC Unit Failure', unit: 'Unit 5A', priority: 'P2', status: 'IN_PROGRESS', time: '2h ago' },
+  { id: 'REQ-1021', title: 'Window Seal Broken', unit: 'Unit 1C', priority: 'P3', status: 'COMPLETED', time: '1d ago' },
 ];
 
-const priorityStyles: Record<Priority, string> = {
-  P1: "from-neon-pink/80 to-neon-blue/80 text-neon-pink",
-  P2: "from-neon-blue/70 to-neon-purple/70 text-neon-blue",
-  P3: "from-white/20 to-white/5 text-slate-200",
-};
-
-const statusStyles: Record<
-  Status,
-  { pill: string; dot: string; label: string }
-> = {
-  "In Progress": {
-    pill: "border-neon-blue/50 text-neon-blue",
-    dot: "bg-neon-blue",
-    label: "In Progress",
-  },
-  Pending: {
-    pill: "border-neon-pink/50 text-neon-pink",
-    dot: "bg-neon-pink",
-    label: "Pending",
-  },
-  Completed: {
-    pill: "border-emerald-300/60 text-emerald-200",
-    dot: "bg-emerald-300",
-    label: "Completed",
-  },
-};
-
-const LabeledValue = ({ label, value }: { label: string; value: string }) => (
-  <div className="flex items-center gap-2">
-    <span className="text-[10px] uppercase tracking-[0.3em] text-slate-400">
-      {label}
-    </span>
-    <span className="font-mono text-sm text-slate-100">{value}</span>
-  </div>
-);
-
-const StatusBadge = ({ status }: { status: Status }) => {
-  const style = statusStyles[status];
-  return (
-    <span
-      className={`flex items-center gap-2 rounded-full border bg-white/5 px-3 py-1.5 text-[10px] uppercase tracking-[0.28em] ${style.pill}`}
-    >
-      <span className={`h-2.5 w-2.5 rounded-full shadow-neon ${style.dot}`} />
-      {style.label}
-    </span>
-  );
-};
-
-const PriorityPill = ({ priority }: { priority: Priority }) => (
-  <span className="relative inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 shadow-neon">
-    <span
-      className={`h-6 w-6 rounded-full bg-gradient-to-br ${priorityStyles[priority]}`}
-    />
-    <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-100">
-      {priority}
-    </span>
-  </span>
-);
-
-export const MaintenanceCard: React.FC = () => (
-  <GlassCard
-    title="Critical Maintenance"
-    subtitle="Live triage of high-priority tasks"
-    actionSlot={
-      <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] uppercase tracking-[0.24em] text-slate-200">
-        <Wrench className="h-4 w-4 text-neon-blue" />
-        Dispatch Queue
-      </div>
+export const MaintenanceCard = () => {
+  const getPriorityColor = (p: string) => {
+    switch(p) {
+      case 'P1': return 'text-neon-pink animate-pulse'; // Critical
+      case 'P2': return 'text-orange-400'; // Warning
+      default: return 'text-neon-blue'; // Normal
     }
-  >
-    <div className="flex flex-col gap-3">
-      {tickets.map((ticket) => (
-        <div
-          key={ticket.title}
-          className="group flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 transition hover:border-neon-blue/50 hover:shadow-[0_0_15px_rgba(0,240,255,0.3)]"
+  };
+
+  const getStatusStyle = (s: string) => {
+    switch(s) {
+      case 'PENDING': return 'bg-red-500/10 text-red-400 border-red-500/20';
+      case 'IN_PROGRESS': return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+      case 'COMPLETED': return 'bg-green-500/10 text-green-400 border-green-500/20';
+      default: return 'bg-gray-500/10 text-gray-400';
+    }
+  };
+
+  return (
+    <div className="flex flex-col space-y-3 w-full">
+      {requests.map((item) => (
+        <div 
+          key={item.id}
+          className="group relative flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5 hover:border-neon-blue/30 hover:bg-white/10 transition-all duration-300 cursor-pointer"
         >
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-[10px] uppercase tracking-[0.3em] text-slate-400">
-                Task
-              </span>
-              <span className="font-mono text-base text-slate-100">
-                {ticket.title}
-              </span>
-              <PriorityPill priority={ticket.priority} />
+          {/* Left: Status Icon & Details */}
+          <div className="flex items-start gap-4">
+            {/* Priority Indicator */}
+            <div className={`mt-1 ${getPriorityColor(item.priority)}`}>
+              <AlertCircle size={18} />
             </div>
-            <div className="flex flex-wrap items-center gap-4">
-              <LabeledValue label="Unit" value={ticket.unit} />
-              <LabeledValue label="ETA" value={ticket.eta} />
-              {ticket.assignee && (
-                <LabeledValue label="Crew" value={ticket.assignee} />
-              )}
+
+            <div>
+              <h4 className="text-white font-sans text-sm tracking-wide group-hover:text-neon-blue transition-colors">
+                {item.title}
+              </h4>
+              <div className="flex items-center gap-3 mt-1">
+                <span className="flex items-center gap-1 text-xs font-mono text-gray-400">
+                  <MapPin size={10} /> {item.unit}
+                </span>
+                <span className="text-[10px] text-gray-600 font-mono">•</span>
+                <span className="text-xs font-mono text-gray-500">{item.time}</span>
+              </div>
             </div>
           </div>
 
-          <div className="flex flex-col items-end gap-2">
-            <StatusBadge status={ticket.status} />
-            <button
-              type="button"
-              className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] uppercase tracking-[0.24em] text-slate-200 transition hover:border-neon-blue/50 hover:text-white"
-            >
-              Update
-              <ArrowUpRight className="h-4 w-4" />
+          {/* Right: Status Pill & Action */}
+          <div className="flex items-center gap-4">
+            <span className={`
+              px-2 py-1 rounded text-[10px] font-mono tracking-wider border
+              ${getStatusStyle(item.status)}
+            `}>
+              {item.status}
+            </span>
+            
+            <button className="text-gray-500 hover:text-white transition-colors opacity-0 group-hover:opacity-100">
+              <ArrowRight size={16} />
             </button>
           </div>
         </div>
       ))}
-    </div>
 
-    <div className="mt-1 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-      <div className="text-[10px] uppercase tracking-[0.3em] text-slate-400">
-        Managers prioritize + dispatch. Tenants submit in Maintenance.
-      </div>
-      <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.28em] text-neon-blue">
-        Launch playbook
-        <ArrowUpRight className="h-4 w-4" />
-      </div>
+      {/* Footer Action */}
+      <button className="w-full py-3 mt-2 flex items-center justify-center gap-2 text-xs font-mono text-gray-400 hover:text-neon-blue transition-colors border-t border-dashed border-white/10">
+        VIEW ALL TICKETS <ArrowRight size={12} />
+      </button>
     </div>
-  </GlassCard>
-);
+  );
+};

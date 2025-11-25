@@ -1,6 +1,2 @@
-@tailwind base;
-@tailwind components;
+@import 'tailwindcss'
 @tailwind utilities;
-
-/* Import our global styles with NextUI design tokens */
-@import './styles/globals.css';

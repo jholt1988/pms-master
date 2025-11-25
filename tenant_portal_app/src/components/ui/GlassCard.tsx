@@ -6,6 +6,7 @@ interface GlassCardProps {
   actionSlot?: React.ReactNode;
   className?: string;
   children: React.ReactNode;
+  glowColor?: string;
 }
 
 export const GlassCard: React.FC<GlassCardProps> = ({
@@ -14,6 +15,7 @@ export const GlassCard: React.FC<GlassCardProps> = ({
   actionSlot,
   className = "",
   children,
+  glowColor = ""
 }) => {
   return (
     <div

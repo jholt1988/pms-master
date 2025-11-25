@@ -5,6 +5,7 @@ import App from './App';
 
 import { AuthProvider } from './AuthContext';
 
+
 const container = document.getElementById('root') as HTMLElement;
 const root = createRoot(container);
 root.render(

@@ -1,142 +1,69 @@
-import React from "react";
-import { ArrowUpRight, CreditCard, TrendingUp } from "lucide-react";
-import { GlassCard } from "./GlassCard";
+import React from 'react';
+import { DollarSign, Calendar, ArrowUpRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 
-type PaymentStatus = "Unpaid" | "Paid" | "Partial";
-
-interface Payment {
-  invoice: string;
-  unit: string;
-  amount: string;
-  status: PaymentStatus;
-  due: string;
-}
-
-const payments: Payment[] = [
-  { invoice: "#INV-1043", unit: "3C", amount: "$1,250", status: "Unpaid", due: "Nov 5" },
-  { invoice: "#INV-1042", unit: "2B", amount: "$1,150", status: "Paid", due: "Oct 5" },
-  { invoice: "#INV-1041", unit: "5A", amount: "$1,480", status: "Partial", due: "Oct 1" },
-];
-
-const statusStyles: Record<
-  PaymentStatus,
-  { pill: string; dot: string; label: string }
-> = {
-  Unpaid: {
-    pill: "border-neon-pink/50 text-neon-pink",
-    dot: "bg-neon-pink",
-    label: "Unpaid",
-  },
-  Paid: {
-    pill: "border-emerald-300/60 text-emerald-200",
-    dot: "bg-emerald-300",
-    label: "Settled",
-  },
-  Partial: {
-    pill: "border-neon-blue/40 text-neon-blue",
-    dot: "bg-neon-blue",
-    label: "Partial",
-  },
-};
-
-const StatusPill = ({ status }: { status: PaymentStatus }) => {
-  const style = statusStyles[status];
+export const PaymentsCard = () => {
   return (
-    <span
-      className={`flex items-center gap-2 rounded-full border bg-white/5 px-3 py-1.5 text-[10px] uppercase tracking-[0.26em] ${style.pill}`}
-    >
-      <span className={`h-2.5 w-2.5 rounded-full shadow-neon ${style.dot}`} />
-      {style.label}
-    </span>
+    <div className="w-full">
+      <div className="space-y-1">
+        {/* Header Row */}
+        <div className="grid grid-cols-12 text-[10px] uppercase tracking-widest text-gray-500 px-4 pb-2 font-mono">
+          <div className="col-span-4">Invoice</div>
+          <div className="col-span-3">Unit</div>
+          <div className="col-span-3 text-right">Amount</div>
+          <div className="col-span-2 text-right">Status</div>
+        </div>
+
+        {/* Rows */}
+        {[
+          { id: 'INV-1043', unit: '3C', amount: '1,250', status: 'unpaid', date: 'Nov 5' },
+          { id: 'INV-1042', unit: '2B', amount: '1,150', status: 'paid', date: 'Oct 5' },
+        ].map((item) => (
+          <div 
+            key={item.id}
+            className="group grid grid-cols-12 items-center p-3 rounded-lg hover:bg-white/5 transition-colors border border-transparent hover:border-white/5"
+          >
+            {/* Invoice Info */}
+            <div className="col-span-4">
+              <div className="flex items-center gap-2 text-sm text-white font-mono">
+                <span className="opacity-50">#</span>{item.id.split('-')[1]}
+              </div>
+              <div className="flex items-center gap-1 text-[10px] text-gray-500 mt-0.5">
+                <Calendar size={10} /> Due {item.date}
+              </div>
+            </div>
+
+            {/* Unit */}
+            <div className="col-span-3 text-sm text-gray-300 font-light">
+              {item.unit}
+            </div>
+
+            {/* Amount */}
+            <div className="col-span-3 text-right font-mono text-neon-blue">
+              ${item.amount}
+            </div>
+
+            {/* Status */}
+            <div className="col-span-2 flex justify-end">
+              {item.status === 'unpaid' ? (
+                <div className="flex items-center gap-1 text-xs text-neon-pink bg-neon-pink/10 px-2 py-1 rounded border border-neon-pink/30 shadow-[0_0_10px_rgba(255,0,153,0.2)]">
+                  <AlertCircle size={10} />
+                  <span className="hidden sm:inline">DUE</span>
+                </div>
+              ) : (
+                <div className="p-1 rounded-full bg-green-500/20 text-green-400">
+                  <CheckCircle2 size={14} />
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Quick Action Footer */}
+      <div className="mt-4 pt-3 border-t border-white/5 flex justify-between items-center">
+        <span className="text-[10px] text-gray-600 uppercase">Total Outstanding</span>
+        <span className="text-sm font-mono text-white">$1,250.00</span>
+      </div>
+    </div>
   );
 };
-
-const SummaryStat = ({
-  label,
-  value,
-  trend,
-}: {
-  label: string;
-  value: string;
-  trend?: string;
-}) => (
-  <div className="flex flex-col gap-1 rounded-2xl border border-white/10 bg-white/5 p-3">
-    <span className="text-[10px] uppercase tracking-[0.3em] text-slate-400">
-      {label}
-    </span>
-    <span className="font-mono text-xl text-slate-100">{value}</span>
-    {trend && (
-      <span className="flex items-center gap-1 text-[11px] uppercase tracking-[0.2em] text-emerald-300">
-        <TrendingUp className="h-4 w-4" />
-        {trend}
-      </span>
-    )}
-  </div>
-);
-
-export const PaymentsCard: React.FC = () => (
-  <GlassCard
-    title="Financial Flow"
-    subtitle="Receivables and settlements"
-    actionSlot={
-      <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] uppercase tracking-[0.24em] text-slate-200">
-        <CreditCard className="h-4 w-4 text-neon-blue" />
-        Sync Ledger
-      </div>
-    }
-  >
-    <div className="grid grid-cols-2 gap-3">
-      <SummaryStat label="Due This Week" value="$3,880" />
-      <SummaryStat label="Collected" value="$2,630" trend="+8.4%" />
-    </div>
-
-    <div className="flex flex-col gap-2">
-      {payments.map((payment) => (
-        <div
-          key={payment.invoice}
-          className="group grid grid-cols-[1.4fr_1fr_1fr] items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm transition hover:border-neon-blue/50 hover:shadow-[0_0_15px_rgba(0,240,255,0.3)]"
-        >
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] uppercase tracking-[0.3em] text-slate-400">
-              Invoice
-            </span>
-            <span className="font-mono text-base text-slate-100">
-              {payment.invoice}
-            </span>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] uppercase tracking-[0.3em] text-slate-400">
-              Unit
-            </span>
-            <span className="font-mono text-base text-slate-100">
-              {payment.unit}
-            </span>
-          </div>
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase tracking-[0.3em] text-slate-400">
-                Amount
-              </span>
-              <span className="font-mono text-base text-slate-100">
-                {payment.amount}
-              </span>
-              <span className="text-[10px] uppercase tracking-[0.26em] text-slate-500">
-                Due {payment.due}
-              </span>
-            </div>
-            <div className="flex flex-col items-end gap-2">
-              <StatusPill status={payment.status} />
-              <button
-                type="button"
-                className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] uppercase tracking-[0.24em] text-slate-200 transition hover:border-neon-blue/50 hover:text-white"
-              >
-                Reconcile
-                <ArrowUpRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  </GlassCard>
-);
