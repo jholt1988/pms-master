@@ -85,7 +85,7 @@ export const ApplicationConfirmationPage: React.FC = () => {
             </h2>
             <div className="space-y-4">
               <div className="flex gap-3">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary font-semibold">
+                <div className="shrink-0 w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary font-semibold">
                   1
                 </div>
                 <div>
@@ -97,7 +97,7 @@ export const ApplicationConfirmationPage: React.FC = () => {
               </div>
 
               <div className="flex gap-3">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary font-semibold">
+                <div className="shrink-0 w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary font-semibold">
                   2
                 </div>
                 <div>
@@ -109,7 +109,7 @@ export const ApplicationConfirmationPage: React.FC = () => {
               </div>
 
               <div className="flex gap-3">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary font-semibold">
+                <div className="shrink-0 w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary font-semibold">
                   3
                 </div>
                 <div>
@@ -121,7 +121,7 @@ export const ApplicationConfirmationPage: React.FC = () => {
               </div>
 
               <div className="flex gap-3">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary font-semibold">
+                <div className="shrink-0 w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary font-semibold">
                   4
                 </div>
                 <div>
@@ -139,7 +139,7 @@ export const ApplicationConfirmationPage: React.FC = () => {
         <Card className="bg-blue-50 border-blue-200">
           <CardBody className="p-6">
             <div className="flex gap-3">
-              <Mail className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <Mail className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
               <div>
                 <h3 className="font-semibold text-blue-900 mb-2">Check Your Email</h3>
                 <p className="text-sm text-blue-800">
@@ -152,10 +152,10 @@ export const ApplicationConfirmationPage: React.FC = () => {
         </Card>
 
         {/* Create Account CTA */}
-        <Card className="bg-gradient-to-r from-primary-50 to-secondary-50">
+        <Card className="bg-linear-to-r from-primary-50 to-secondary-50">
           <CardBody className="p-6">
             <div className="flex items-start gap-4">
-              <div className="flex-shrink-0">
+              <div className="shrink-0">
                 <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center">
                   <Bell className="w-6 h-6 text-primary" />
                 </div>

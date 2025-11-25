@@ -358,7 +358,7 @@ export default function InspectionManagementPage(): React.ReactElement {
             {selectedInspection.findings && (
               <div className="flex flex-col gap-2">
                 <h3 className="text-sm font-semibold text-foreground-500">Findings</h3>
-                <pre className="text-xs text-foreground-500 bg-slate-50 p-3 rounded whitespace-pre-wrap break-words">
+                <pre className="text-xs text-foreground-500 bg-slate-50 p-3 rounded whitespace-pre-wrap wrap-break-word">
                   {JSON.stringify(selectedInspection.findings, null, 2)}
                 </pre>
               </div>

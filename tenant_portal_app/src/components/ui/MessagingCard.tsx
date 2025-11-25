@@ -77,7 +77,7 @@ export const MessagingCard: React.FC = () => (
       </div>
       <button
         type="button"
-        className="flex items-center gap-2 rounded-full border border-neon-blue/50 bg-gradient-to-r from-neon-blue/30 to-neon-purple/40 px-3 py-1.5 text-[11px] uppercase tracking-[0.24em] text-white transition hover:shadow-[0_0_15px_rgba(0,240,255,0.35)]"
+        className="flex items-center gap-2 rounded-full border border-neon-blue/50 bg-linear-to-r from-neon-blue/30 to-neon-purple/40 px-3 py-1.5 text-[11px] uppercase tracking-[0.24em] text-white transition hover:shadow-[0_0_15px_rgba(0,240,255,0.35)]"
       >
         Quick reply
         <Sparkles className="h-4 w-4" />

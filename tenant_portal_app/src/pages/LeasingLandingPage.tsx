@@ -115,7 +115,7 @@ export const LeasingLandingPage: React.FC = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-20">
+      <section className="bg-linear-to-r from-blue-600 to-blue-800 text-white py-20">
         <div className="container mx-auto px-4">
           <div className="max-w-3xl mx-auto text-center">
             <h2 className="text-5xl font-bold mb-6">Find Your Perfect Home with AI</h2>
@@ -238,7 +238,7 @@ export const LeasingLandingPage: React.FC = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-16 bg-gradient-to-r from-blue-600 to-blue-800 text-white">
+      <section className="py-16 bg-linear-to-r from-blue-600 to-blue-800 text-white">
         <div className="container mx-auto px-4 text-center">
           <h3 className="text-3xl font-bold mb-4">Ready to Find Your New Home?</h3>
           <p className="text-xl text-blue-100 mb-8">
@@ -321,7 +321,7 @@ export const LeasingLandingPage: React.FC = () => {
       {!showBot && (
         <button
           onClick={() => setShowBot(true)}
-          className="fixed bottom-6 right-6 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-full p-4 shadow-2xl hover:shadow-blue-500/50 hover:scale-110 transition-all duration-300 group z-50"
+          className="fixed bottom-6 right-6 bg-linear-to-r from-blue-600 to-blue-700 text-white rounded-full p-4 shadow-2xl hover:shadow-blue-500/50 hover:scale-110 transition-all duration-300 group z-50"
           aria-label="Open Leasing Agent"
         >
           <div className="relative">

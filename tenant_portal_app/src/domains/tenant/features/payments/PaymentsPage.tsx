@@ -424,7 +424,7 @@ export default function PaymentsPage(): React.ReactElement {
               ) : (
                 <div className="space-y-3">
                   {paymentMethods.map((method) => (
-                    <Card key={method.id} className="border-1 border-divider">
+                    <Card key={method.id} className="border border-divider">
                       <CardBody className="p-3">
                         <div className="flex items-center justify-between">
                           <div>

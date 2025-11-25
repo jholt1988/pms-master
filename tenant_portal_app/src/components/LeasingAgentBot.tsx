@@ -269,7 +269,7 @@ export const LeasingAgentBot: React.FC<LeasingAgentBotProps> = ({
     return (
       <button
         onClick={toggleOpen}
-        className={`fixed ${getPositionClasses()} z-50 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-full p-4 shadow-2xl hover:shadow-blue-500/50 hover:scale-110 transition-all duration-300 group`}
+        className={`fixed ${getPositionClasses()} z-50 bg-linear-to-r from-blue-600 to-blue-700 text-white rounded-full p-4 shadow-2xl hover:shadow-blue-500/50 hover:scale-110 transition-all duration-300 group`}
         aria-label="Open Leasing Agent"
       >
         <div className="relative">
@@ -290,7 +290,7 @@ export const LeasingAgentBot: React.FC<LeasingAgentBotProps> = ({
       } bg-white rounded-lg shadow-2xl flex flex-col transition-all duration-300`}
     >
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-3 rounded-t-lg flex items-center justify-between">
+      <div className="bg-linear-to-r from-blue-600 to-blue-700 text-white px-4 py-3 rounded-t-lg flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="relative">
             <Home className="w-6 h-6" />

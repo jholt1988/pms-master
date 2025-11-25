@@ -37,7 +37,7 @@ const StatusPill = ({
   <div
     className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] uppercase tracking-[0.25em] ${toneStyles[tone]}`}
   >
-    <span className="h-2 w-2 rounded-full bg-gradient-to-r from-neon-blue via-neon-pink to-neon-purple shadow-neon" />
+    <span className="h-2 w-2 rounded-full bg-linear-to-r from-neon-blue via-neon-pink to-neon-purple shadow-neon" />
     <span className="flex items-center gap-2 text-slate-200">
       <span className="text-slate-300/80">{label}</span>
       <span className="flex items-center gap-1 font-semibold text-slate-50">
@@ -116,7 +116,7 @@ export const Topbar: React.FC<TopbarProps> = ({ className = "", onLogout }) => {
           >
             <div className="relative">
               <div className="absolute inset-0 rounded-full bg-neon-blue/30 blur-md" />
-              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-neon-blue via-neon-pink to-neon-purple animate-orb-pulse" />
+              <div className="h-10 w-10 rounded-full bg-linear-to-br from-neon-blue via-neon-pink to-neon-purple animate-orb-pulse" />
             </div>
             <div className="hidden sm:block leading-tight">
               <p className="text-[10px] uppercase tracking-[0.35em] text-slate-300/80">

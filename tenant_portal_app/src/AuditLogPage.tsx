@@ -145,7 +145,7 @@ export default function AuditLogPage(): React.ReactElement {
                         {event.ipAddress ?? '—'}
                       </td>
                       <td className="px-4 py-3 text-gray-600">
-                        <span className="line-clamp-3 break-words">{event.userAgent ?? '—'}</span>
+                        <span className="line-clamp-3 wrap-break-word">{event.userAgent ?? '—'}</span>
                       </td>
                       <td className="px-4 py-3">
                         <span

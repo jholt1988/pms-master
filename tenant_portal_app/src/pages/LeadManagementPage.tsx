@@ -330,7 +330,7 @@ export const LeadManagementPage: React.FC = () => {
                         >
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
-                              <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                              <div className="shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
                                 <span className="text-blue-600 font-semibold">
                                   {lead.name?.[0]?.toUpperCase() || '?'}
                                 </span>
@@ -424,7 +424,7 @@ export const LeadManagementPage: React.FC = () => {
                     </div>
 
                     <div className="flex items-center mb-4">
-                      <div className="flex-shrink-0 h-16 w-16 bg-blue-100 rounded-full flex items-center justify-center">
+                      <div className="shrink-0 h-16 w-16 bg-blue-100 rounded-full flex items-center justify-center">
                         <span className="text-blue-600 font-bold text-2xl">
                           {selectedLead.name?.[0]?.toUpperCase() || '?'}
                         </span>

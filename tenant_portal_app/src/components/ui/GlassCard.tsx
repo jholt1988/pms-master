@@ -21,8 +21,8 @@ export const GlassCard: React.FC<GlassCardProps> = ({
     <div
       className={`group relative overflow-hidden rounded-3xl border border-glass-border bg-glass-surface backdrop-blur-xl shadow-glass-strong ${className}`}
     >
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/10 via-white/0 to-white/5 opacity-70" />
-      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+      <div className="pointer-events-none absolute inset-0 bg-linear-to-br from-white/10 via-white/0 to-white/5 opacity-70" />
+      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-linear-to-r from-transparent via-white/30 to-transparent" />
 
       <div className="relative flex flex-col gap-4 p-5 sm:p-6">
         {(title || subtitle || actionSlot) && (

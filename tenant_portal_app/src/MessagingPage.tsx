@@ -230,7 +230,7 @@ const MessagingPage = () => {
             <h2 className="text-sm font-semibold text-gray-900">Conversations</h2>
             <p className="text-xs text-gray-500">Select a thread to view the conversation.</p>
           </div>
-          <ul className="max-h-[28rem] divide-y divide-gray-100 overflow-y-auto text-sm">
+          <ul className="max-h-112 divide-y divide-gray-100 overflow-y-auto text-sm">
             {conversations.length === 0 ? (
               <li className="px-4 py-6 text-center text-gray-500">No conversations yet.</li>
             ) : (
@@ -259,7 +259,7 @@ const MessagingPage = () => {
           </ul>
         </aside>
 
-        <section className="flex min-h-[28rem] flex-col rounded-lg border border-gray-200 bg-white shadow-sm">
+        <section className="flex min-h-112 flex-col rounded-lg border border-gray-200 bg-white shadow-sm">
           {selectedConversation ? (
             <>
               <div className="border-b border-gray-200 px-4 py-3">

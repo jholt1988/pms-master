@@ -181,7 +181,7 @@ export const TenantDashboard: React.FC = () => {
         )}
 
         {/* Quick Actions */}
-        <Card className="bg-gradient-to-br from-primary-50 to-primary-100">
+        <Card className="bg-linear-to-br from-primary-50 to-primary-100">
           <CardBody className="p-4">
             {/* ... (Quick Actions card content) */}
           </CardBody>

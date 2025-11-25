@@ -91,7 +91,7 @@ const MainDashboard = () => {
               <div className="text-4xl font-mono text-white font-bold tracking-tighter">$124,500</div>
               <div className="text-xs text-gray-500 mt-1">TOTAL COLLECTED (MTD)</div>
             </div>
-            <div className="h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent my-4" />
+            <div className="h-px bg-linear-to-r from-transparent via-white/20 to-transparent my-4" />
             <PaymentsCard />
           </GlassCard>
         </div>
@@ -125,7 +125,7 @@ const MainDashboard = () => {
 
         {/* BLOCK E: Leasing Pipeline - Full Width Strip */}
         <div className="md:col-span-12">
-          <GlassCard className="bg-gradient-to-r from-white/5 to-transparent">
+          <GlassCard className="bg-linear-to-r from-white/5 to-transparent">
             <div className="flex items-center gap-4 mb-4">
               <div className="p-2 bg-green-500/20 rounded-lg text-green-400">
                 <Users size={20} />

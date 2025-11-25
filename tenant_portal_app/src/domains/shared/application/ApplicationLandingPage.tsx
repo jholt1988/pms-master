@@ -102,7 +102,7 @@ export const ApplicationLandingPage: React.FC = () => {
                   <div key={step.number} className="relative">
                     <div className="flex gap-4">
                       {/* Icon circle */}
-                      <div className="flex-shrink-0">
+                      <div className="shrink-0">
                         <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center">
                           <Icon className="w-6 h-6 text-primary" />
                         </div>
@@ -150,7 +150,7 @@ export const ApplicationLandingPage: React.FC = () => {
               <ul className="space-y-2">
                 {requirements.map((req, index) => (
                   <li key={index} className="flex items-start gap-2">
-                    <CheckCircle className="w-4 h-4 text-success mt-0.5 flex-shrink-0" />
+                    <CheckCircle className="w-4 h-4 text-success mt-0.5 shrink-0" />
                     <span className="text-sm text-gray-700">{req}</span>
                   </li>
                 ))}
@@ -200,7 +200,7 @@ export const ApplicationLandingPage: React.FC = () => {
         <Card className="bg-blue-50 border-blue-200">
           <CardBody className="p-6">
             <div className="flex gap-3">
-              <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
               <div>
                 <h3 className="font-semibold text-blue-900 mb-2">Important Information</h3>
                 <ul className="space-y-1 text-sm text-blue-800">

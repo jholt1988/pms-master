@@ -223,7 +223,7 @@ const BulkMessageComposer: React.FC<BulkMessageComposerProps> = ({
       <label className="text-sm">
         <span className="mb-1 block font-medium text-gray-700">Message body</span>
         <textarea
-          className="min-h-[8rem] w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          className="min-h-32 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
           value={body}
           onChange={(event) => setBody(event.target.value)}
           placeholder="Hi {{username}}, your rent is due on the 1st..."
