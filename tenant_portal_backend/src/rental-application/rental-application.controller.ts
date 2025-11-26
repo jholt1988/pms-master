@@ -50,8 +50,16 @@ export class RentalApplicationController {
   @Put(':id/status')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.PROPERTY_MANAGER)
-  updateApplicationStatus(@Param('id') id: string, @Body() data: { status: ApplicationStatus }) {
-    return this.rentalApplicationService.updateApplicationStatus(Number(id), data.status);
+  updateApplicationStatus(
+    @Param('id') id: string,
+    @Body() data: { status: ApplicationStatus },
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.rentalApplicationService.updateApplicationStatus(
+      Number(id),
+      data.status,
+      req.user,
+    );
   }
 
   @Post(':id/screen')
@@ -72,6 +80,34 @@ export class RentalApplicationController {
     return this.rentalApplicationService.addNote(Number(id), dto, {
       userId: req.user.userId,
       username: req.user.username,
+      role: req.user.role,
     });
+  }
+
+  @Get(':id/timeline')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  getApplicationTimeline(@Param('id') id: string) {
+    return this.rentalApplicationService.getApplicationTimeline(Number(id));
+  }
+
+  @Get(':id/lifecycle')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  getApplicationLifecycle(@Param('id') id: string) {
+    return this.rentalApplicationService.getApplicationLifecycleStage(Number(id));
+  }
+
+  @Get(':id/transitions')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(Role.PROPERTY_MANAGER)
+  getAvailableTransitions(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.rentalApplicationService.getAvailableTransitions(
+      Number(id),
+      req.user.role,
+    );
   }
 }

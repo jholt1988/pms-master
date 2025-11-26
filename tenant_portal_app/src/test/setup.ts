@@ -3,18 +3,30 @@
  * Global configuration for all tests
  */
 
-import { expect, afterEach, vi } from 'vitest';
+import { expect, afterEach, beforeAll, afterAll, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import * as matchers from '@testing-library/jest-dom/matchers';
 import '@testing-library/jest-dom/vitest';
+import { server } from '../mocks/server';
 
 // Extend Vitest's expect with jest-dom matchers
 expect.extend(matchers);
 
-// Cleanup after each test
+// Establish API mocking before all tests
+beforeAll(() => {
+  server.listen({ onUnhandledRequest: 'error' });
+});
+
+// Reset any request handlers that are declared as a part of our tests
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  server.resetHandlers();
+});
+
+// Clean up after the tests are finished
+afterAll(() => {
+  server.close();
 });
 
 // Mock window.matchMedia

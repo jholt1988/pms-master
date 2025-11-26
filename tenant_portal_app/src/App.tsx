@@ -38,7 +38,7 @@ const SignupPage = lazy(() => import('./domains/shared/auth/features/signup').th
 // Tenant domain imports - lazy loaded
 const TenantMaintenancePage = lazy(() => import('./domains/tenant/features/maintenance').then(m => ({ default: m.MaintenancePage })));
 const TenantDashboard = lazy(() => import('./domains/tenant/features/dashboard/TenantDashboard'));
-const TenantShell = lazy(() => import('./domains/tenant/layouts').then(m => ({ default: m.TenantShell })));
+// Note: TenantShell no longer used - all roles use AppShell with role-aware DockNavigation
 const MyLeasePage = lazy(() => import('./domains/tenant/features/lease').then(m => ({ default: m.MyLeasePage })));
 const PaymentsPage = lazy(() => import('./domains/tenant/features/payments').then(m => ({ default: m.PaymentsPage })));
 const TenantInspectionPage = lazy(() => import('./domains/tenant/features/inspection').then(m => ({ default: m.InspectionPage })));
@@ -119,12 +119,10 @@ const RoleBasedShell = () => {
     );
   }
   
-  // Render the appropriate shell based on role
-  // The shell components will render <Outlet /> for nested routes
-  if (user.role === 'PROPERTY_MANAGER' || user.role === 'ADMIN') {
-    return <AppShell  />;
-  } else if (user.role === 'TENANT') {
-    return <TenantShell onLogout={handleLogout} />;
+  // Render the same AppShell for all roles (twin layout)
+  // DockNavigation will show role-appropriate items
+  if (user.role === 'PROPERTY_MANAGER' || user.role === 'ADMIN' || user.role === 'TENANT') {
+    return <AppShell />;
   }
   
   // Unknown role - redirect to login

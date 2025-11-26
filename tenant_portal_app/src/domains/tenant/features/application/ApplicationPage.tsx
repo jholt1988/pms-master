@@ -91,7 +91,7 @@ const RentalApplicationPage: React.FC = () => {
     setSuccess(false);
 
     try {
-      await apiFetch('/rental-applications', {
+      const data = await apiFetch('/rental-applications', {
         method: 'POST',
         body: {
           propertyId: Number(selectedProperty),

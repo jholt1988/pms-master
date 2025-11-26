@@ -72,7 +72,7 @@ export class AILeaseRenewalService {
         tenant: {
           include: {
             payments: {
-              orderBy: { createdAt: 'desc' },
+              orderBy: { paymentDate: 'desc' },
               take: 12,
             },
             requests: {
@@ -80,7 +80,6 @@ export class AILeaseRenewalService {
               take: 10,
             },
           },
-        },
         unit: {
           include: {
             property: true,

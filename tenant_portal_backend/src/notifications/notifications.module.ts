@@ -7,11 +7,12 @@ import { SmsService } from './sms.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { ConfigModule } from '@nestjs/config';
 import { PaymentsModule } from '../payments/payments.module';
+import { EmailService } from '../email/email.service';
 
 @Module({
   imports: [PrismaModule, ConfigModule, PaymentsModule],
   controllers: [NotificationsController],
-  providers: [NotificationsService, NotificationTasks, AINotificationService, SmsService],
+  providers: [NotificationsService, NotificationTasks, AINotificationService, SmsService, EmailService],
   exports: [NotificationsService, AINotificationService],
 })
 export class NotificationsModule {}

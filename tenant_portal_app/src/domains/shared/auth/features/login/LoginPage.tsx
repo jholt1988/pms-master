@@ -1,13 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, Card, CardBody, Input } from '@nextui-org/react';
+import { Button, Input } from '@nextui-org/react';
 import { Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../../../../AuthContext';
 import { AuthLayout } from '../../layouts';
-import { baseColors } from '../../../../../design-tokens/colors';
-import { spacing } from '../../../../../design-tokens/spacing';
-import { fontSize, fontWeight } from '../../../../../design-tokens/typography';
-import { elevation } from '../../../../../design-tokens/shadows';
 import { apiFetch } from "../../../../../services/apiClient";
 
 /**
@@ -47,8 +43,16 @@ export const LoginPage: React.FC = () => {
         // Redirect to the original destination or dashboard after successful login
         navigate(redirectUrl);
       }
-    } catch (err: any) {
-      let message = err.message || 'Login failed';
+    } catch (err: unknown) {
+      let message = 'Login failed';
+      
+      // Extract error message
+      if (err instanceof Error) {
+        message = err.message;
+      } else if (typeof err === 'string') {
+        message = err;
+      }
+      
       // Extract message from error response
       if (typeof message === 'string' && message.includes(' - ')) {
         try {
@@ -75,8 +79,10 @@ export const LoginPage: React.FC = () => {
       title="Welcome back"
       subtitle="Sign in to manage maintenance, payments, and more"
     >
-      <Card shadow="lg" style={{ boxShadow: elevation.card }}>
-        <CardBody style={{ padding: spacing[6] }}>
+      <div className="relative overflow-hidden rounded-2xl bg-glass-surface backdrop-blur-xl border border-t-glass-highlight border-b-0 border-r-glass-border border-l-glass-border shadow-[0_0_30px_-5px_rgba(0,240,255,0.3)] border-neon-blue/30">
+        {/* Grid pattern overlay */}
+        <div className="pointer-events-none absolute inset-0 bg-grid-pattern opacity-[0.03]" />
+        <div className="relative z-10 p-6">
           <form className="space-y-4" onSubmit={handleLogin}>
             {/* Username Input */}
             <Input
@@ -88,6 +94,12 @@ export const LoginPage: React.FC = () => {
               isRequired
               variant="bordered"
               size="lg"
+              classNames={{
+                base: "mb-4",
+                input: "text-white",
+                inputWrapper: "bg-black/20 border-white/10 hover:border-neon-blue/30 focus-within:border-neon-blue/50",
+                label: "text-gray-300",
+              }}
             />
 
             {/* Password Input with Toggle */}
@@ -101,17 +113,23 @@ export const LoginPage: React.FC = () => {
               isRequired
               variant="bordered"
               size="lg"
+              classNames={{
+                base: "mb-4",
+                input: "text-white",
+                inputWrapper: "bg-black/20 border-white/10 hover:border-neon-blue/30 focus-within:border-neon-blue/50",
+                label: "text-gray-300",
+              }}
               endContent={
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="focus:outline-none"
+                  className="focus:outline-none text-gray-400 hover:text-neon-blue transition-colors"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? (
-                    <EyeOff size={20} style={{ color: baseColors.neutral[400] }} />
+                    <EyeOff size={20} />
                   ) : (
-                    <Eye size={20} style={{ color: baseColors.neutral[400] }} />
+                    <Eye size={20} />
                   )}
                 </button>
               }
@@ -119,7 +137,7 @@ export const LoginPage: React.FC = () => {
 
             {/* MFA Code Input (conditional) */}
             {mfaRequired && (
-              <div>
+              <div className="mb-4">
                 <Input
                   label="MFA Code"
                   placeholder="Enter 6-digit code"
@@ -132,21 +150,22 @@ export const LoginPage: React.FC = () => {
                   variant="bordered"
                   size="lg"
                   description="Enter the multi-factor authentication code sent to your device"
+                  classNames={{
+                    base: "mb-4",
+                    input: "text-white",
+                    inputWrapper: "bg-black/20 border-white/10 hover:border-neon-blue/30 focus-within:border-neon-blue/50",
+                    label: "text-gray-300",
+                    description: "text-gray-400",
+                  }}
                 />
               </div>
             )}
 
             {/* Error Message */}
             {error && (
-              <div
-                className="flex items-start gap-2 rounded-lg p-3"
-                style={{
-                  backgroundColor: baseColors.danger[50],
-                  border: `1px solid ${baseColors.danger[200]}`,
-                }}
-              >
-                <AlertCircle size={20} style={{ color: baseColors.danger[600], flexShrink: 0 }} />
-                <p style={{ fontSize: fontSize.sm, color: baseColors.danger[700] }}>
+              <div className="flex items-start gap-2 rounded-lg p-3 bg-neon-pink/10 border border-neon-pink/30 mb-4">
+                <AlertCircle size={20} className="text-neon-pink shrink-0" />
+                <p className="text-sm text-neon-pink">
                   {error}
                 </p>
               </div>
@@ -155,58 +174,48 @@ export const LoginPage: React.FC = () => {
             {/* Submit Button */}
             <Button
               type="submit"
-              color="primary"
               size="lg"
               fullWidth
               isLoading={submitting}
-              style={{
-                fontSize: fontSize.sm,
-                fontWeight: fontWeight.semibold,
-              }}
+              className="bg-neon-blue/20 border border-neon-blue/50 text-neon-blue hover:bg-neon-blue/30 hover:border-neon-blue font-semibold transition-all"
             >
               {submitting ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>
 
           {/* Footer Links */}
-          <div
-            className="mt-6 space-y-3 text-center"
-            style={{ fontSize: fontSize.sm }}
-          >
+          <div className="mt-6 space-y-3 text-center text-sm">
             <div>
               <Link
                 to="/forgot-password"
-                className="font-medium hover:underline"
-                style={{ color: baseColors.primary[600] }}
+                className="font-medium hover:underline text-neon-blue hover:text-neon-blue/80 transition-colors"
               >
                 Forgot password?
               </Link>
             </div>
             
-            <div style={{ color: baseColors.neutral[600] }}>
+            <div className="text-gray-400">
               New here?{' '}
               <Link
                 to="/signup"
-                className="font-medium hover:underline"
-                style={{ color: baseColors.primary[600] }}
+                className="font-medium hover:underline text-neon-blue hover:text-neon-blue/80 transition-colors"
               >
                 Create an account
               </Link>
             </div>
 
-            <div style={{ color: baseColors.neutral[600] }}>
+            <div className="text-gray-400">
               Applying for a unit?{' '}
               <Link
                 to="/rental-application"
-                className="font-medium hover:underline"
-                style={{ color: baseColors.primary[600] }}
+                className="font-medium hover:underline text-neon-blue hover:text-neon-blue/80 transition-colors"
               >
                 Submit an application
               </Link>
             </div>
           </div>
-        </CardBody>
-      </Card>
+        </div>
+      </div>
     </AuthLayout>
   );
 };

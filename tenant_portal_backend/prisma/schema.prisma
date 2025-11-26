@@ -32,6 +32,7 @@ model User {
   paymentMethods            PaymentMethod[]
   screenedApplications      RentalApplication[]         @relation("ScreenedApplications")
   applicationNotes          RentalApplicationNote[]
+  lifecycleEvents           ApplicationLifecycleEvent[] @relation("LifecycleEventPerformers")
   securityEvents            SecurityEvent[]
   Technician                Technician[]
   MaintenanceRequestHistory MaintenanceRequestHistory[]
@@ -809,15 +810,15 @@ enum BulkSendStrategy {
 }
 
 model RentalApplication {
-  id                    Int                     @id @default(autoincrement())
-  applicant             User?                   @relation(fields: [applicantId], references: [id])
+  id                    Int                         @id @default(autoincrement())
+  applicant             User?                       @relation(fields: [applicantId], references: [id])
   applicantId           Int?
-  property              Property                @relation(fields: [propertyId], references: [id])
+  property              Property                    @relation(fields: [propertyId], references: [id])
   propertyId            Int
-  unit                  Unit                    @relation(fields: [unitId], references: [id])
+  unit                  Unit                        @relation(fields: [unitId], references: [id])
   unitId                Int
-  status                ApplicationStatus       @default(PENDING)
-  applicationDate       DateTime                @default(now())
+  status                ApplicationStatus           @default(PENDING)
+  applicationDate       DateTime                    @default(now())
   fullName              String
   email                 String
   phoneNumber           String
@@ -834,11 +835,12 @@ model RentalApplication {
   screeningScore        Float?
   screeningReasons      Json?
   screenedAt            DateTime?
-  screenedBy            User?                   @relation("ScreenedApplications", fields: [screenedById], references: [id])
+  screenedBy            User?                       @relation("ScreenedApplications", fields: [screenedById], references: [id])
   screenedById          Int?
   manualNotes           RentalApplicationNote[]
-  createdAt             DateTime                @default(now())
-  updatedAt             DateTime                @updatedAt
+  lifecycleEvents       ApplicationLifecycleEvent[]
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
 }
 
 enum LeadStatus {
@@ -1089,8 +1091,14 @@ enum Role {
 
 enum ApplicationStatus {
   PENDING
+  UNDER_REVIEW
+  SCREENING
+  BACKGROUND_CHECK
+  DOCUMENTS_REVIEW
+  INTERVIEW
   APPROVED
   REJECTED
+  WITHDRAWN
 }
 
 enum QualificationStatus {
@@ -1113,6 +1121,22 @@ model RentalApplicationNote {
   createdAt     DateTime          @default(now())
 
   @@index([applicationId])
+}
+
+model ApplicationLifecycleEvent {
+  id            Int                @id @default(autoincrement())
+  application   RentalApplication  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  applicationId Int
+  eventType     String // ApplicationLifecycleEventType as string
+  fromStatus    ApplicationStatus?
+  toStatus      ApplicationStatus
+  performedBy   User?              @relation("LifecycleEventPerformers", fields: [performedById], references: [id])
+  performedById Int?
+  metadata      Json?
+  createdAt     DateTime           @default(now())
+
+  @@index([applicationId])
+  @@index([createdAt])
 }
 
 enum ExpenseCategory {

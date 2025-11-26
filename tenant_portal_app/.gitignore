@@ -1,30 +1,28 @@
-# Dependencies
-node_modules/
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# Build outputs
-build/
-dist/
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
 
-# Environment files (but keep .env.example as template)
+# testing
+/coverage
+
+# production
+/build
+/dist
+
+# misc
+.DS_Store
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
-.env.development
-.env.test
-.env.production
-# Note: .env.example should be tracked
 
-# Logs
-*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Coverage
-coverage/
-
-# IDE
-.idea/
-.vscode/
-
-# OS Files
-.DS_Store
+# MSW
+/public/mockServiceWorker.js

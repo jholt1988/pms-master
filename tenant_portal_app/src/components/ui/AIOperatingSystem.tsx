@@ -99,11 +99,11 @@ export const AIOperatingSystem: React.FC = () => {
       {/* --- HOLOGRAPHIC INTERFACE OVERLAY --- */}
       {/* Only renders when open. Uses a fixed positioning to overlay the screen content */}
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="fixed  z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
           
           {/* Main Glass Container */}
           <div className="
-            w-full max-w-2xl h-[80vh] flex flex-col
+            w-full max-w-[95vw] h-[80vh] flex flex-col
             bg-glass-surface backdrop-blur-xl border border-glass-highlight
             rounded-3xl shadow-[0_0_100px_-20px_rgba(112,0,255,0.3)]
             overflow-hidden animate-in zoom-in-95 duration-300

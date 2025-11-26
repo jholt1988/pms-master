@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { 
   Card, 
   CardBody, 
@@ -71,26 +71,34 @@ export const ApplicationLandingPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
-      <div className="max-w-4xl mx-auto space-y-8">
+    <div className="min-h-screen w-full bg-deep-900 bg-deep-space text-white font-sans overflow-hidden selection:bg-neon-blue selection:text-deep-900 relative">
+      {/* Animated Background Gradient */}
+      <div className="fixed inset-0 bg-deep-space bg-grid-pattern opacity-30 pointer-events-none" />
+      
+      {/* Ambient Background Glows */}
+      <div className="fixed top-[-20%] left-[-10%] w-[40%] h-[40%] bg-neon-purple/20 rounded-full blur-[120px] animate-pulse-slow pointer-events-none" />
+      <div className="fixed bottom-[-20%] right-[-10%] w-[40%] h-[40%] bg-neon-blue/10 rounded-full blur-[120px] animate-pulse-slow pointer-events-none" />
+
+      <div className="relative z-10 py-12 px-4">
+        <div className="max-w-4xl mx-auto space-y-8">
         {/* Header */}
         <div className="text-center">
           <Chip color="primary" variant="flat" className="mb-4">
             Application Process
           </Chip>
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+          <h1 className="text-4xl font-bold text-white mb-4">
             Apply for Your New Home
           </h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          <p className="text-lg text-gray-300 max-w-2xl mx-auto">
             Complete your rental application in 4 easy steps. The process typically takes 15-20 minutes.
           </p>
         </div>
 
         {/* Timeline */}
-        <Card>
+        <Card className="bg-black/20 border border-white/10 backdrop-blur-xl">
           <CardHeader className="flex-col items-start pb-6">
-            <h2 className="text-2xl font-semibold">Application Steps</h2>
-            <p className="text-sm text-gray-600">Here's what to expect during the application process</p>
+            <h2 className="text-2xl font-semibold text-white">Application Steps</h2>
+            <p className="text-sm text-gray-400">Here's what to expect during the application process</p>
           </CardHeader>
           <CardBody>
             <div className="space-y-6">
@@ -111,21 +119,21 @@ export const ApplicationLandingPage: React.FC = () => {
                       {/* Content */}
                       <div className="flex-1 pb-8">
                         <div className="flex items-center justify-between mb-2">
-                          <h3 className="text-lg font-semibold text-gray-900">
+                          <h3 className="text-lg font-semibold text-white">
                             Step {step.number}: {step.title}
                           </h3>
-                          <div className="flex items-center gap-1 text-sm text-gray-500">
+                          <div className="flex items-center gap-1 text-sm text-gray-400">
                             <Clock className="w-4 h-4" />
                             <span>{step.time}</span>
                           </div>
                         </div>
-                        <p className="text-gray-600">{step.description}</p>
+                        <p className="text-gray-300">{step.description}</p>
                       </div>
                     </div>
                     
                     {/* Connector line */}
                     {!isLast && (
-                      <div className="absolute left-6 top-12 bottom-0 w-0.5 bg-gray-200"></div>
+                      <div className="absolute left-6 top-12 bottom-0 w-0.5 bg-white/10"></div>
                     )}
                   </div>
                 );
@@ -136,58 +144,58 @@ export const ApplicationLandingPage: React.FC = () => {
 
         {/* Requirements */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
+          <Card className="bg-black/20 border border-white/10 backdrop-blur-xl">
             <CardHeader>
               <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-primary" />
-                <h2 className="text-xl font-semibold">Required Documents</h2>
+                <FileText className="w-5 h-5 text-neon-blue" />
+                <h2 className="text-xl font-semibold text-white">Required Documents</h2>
               </div>
             </CardHeader>
             <CardBody>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-gray-300 mb-4">
                 Have these items ready before you begin:
               </p>
               <ul className="space-y-2">
                 {requirements.map((req, index) => (
                   <li key={index} className="flex items-start gap-2">
-                    <CheckCircle className="w-4 h-4 text-success mt-0.5 shrink-0" />
-                    <span className="text-sm text-gray-700">{req}</span>
+                    <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 shrink-0" />
+                    <span className="text-sm text-gray-300">{req}</span>
                   </li>
                 ))}
               </ul>
             </CardBody>
           </Card>
 
-          <Card>
+          <Card className="bg-black/20 border border-white/10 backdrop-blur-xl">
             <CardHeader>
               <div className="flex items-center gap-2">
-                <Info className="w-5 h-5 text-primary" />
-                <h2 className="text-xl font-semibold">What Happens Next?</h2>
+                <Info className="w-5 h-5 text-neon-blue" />
+                <h2 className="text-xl font-semibold text-white">What Happens Next?</h2>
               </div>
             </CardHeader>
             <CardBody>
               <div className="space-y-4">
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-2">1. Application Review</h3>
-                  <p className="text-sm text-gray-600">
+                  <h3 className="font-semibold text-white mb-2">1. Application Review</h3>
+                  <p className="text-sm text-gray-300">
                     Our team will review your application within 24-48 business hours.
                   </p>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-2">2. Background & Credit Check</h3>
-                  <p className="text-sm text-gray-600">
+                  <h3 className="font-semibold text-white mb-2">2. Background & Credit Check</h3>
+                  <p className="text-sm text-gray-300">
                     We'll run a background and credit check with your permission.
                   </p>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-2">3. Approval Decision</h3>
-                  <p className="text-sm text-gray-600">
+                  <h3 className="font-semibold text-white mb-2">3. Approval Decision</h3>
+                  <p className="text-sm text-gray-300">
                     You'll receive an email with our decision and next steps.
                   </p>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-2">4. Lease Signing</h3>
-                  <p className="text-sm text-gray-600">
+                  <h3 className="font-semibold text-white mb-2">4. Lease Signing</h3>
+                  <p className="text-sm text-gray-300">
                     If approved, we'll prepare your lease agreement for signing.
                   </p>
                 </div>
@@ -197,13 +205,13 @@ export const ApplicationLandingPage: React.FC = () => {
         </div>
 
         {/* Important Info */}
-        <Card className="bg-blue-50 border-blue-200">
+        <Card className="bg-neon-blue/10 border border-neon-blue/30 backdrop-blur-xl">
           <CardBody className="p-6">
             <div className="flex gap-3">
-              <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+              <Info className="w-5 h-5 text-neon-blue shrink-0 mt-0.5" />
               <div>
-                <h3 className="font-semibold text-blue-900 mb-2">Important Information</h3>
-                <ul className="space-y-1 text-sm text-blue-800">
+                <h3 className="font-semibold text-neon-blue mb-2">Important Information</h3>
+                <ul className="space-y-1 text-sm text-gray-300">
                   <li>• Application fee: $50 (non-refundable)</li>
                   <li>• Your information is encrypted and stored securely</li>
                   <li>• You can save your progress and return later</li>
@@ -222,6 +230,7 @@ export const ApplicationLandingPage: React.FC = () => {
             variant="bordered"
             size="lg"
             onPress={() => navigate(-1)}
+            className="border-white/20 text-white hover:bg-white/10"
           >
             Go Back
           </Button>
@@ -230,18 +239,20 @@ export const ApplicationLandingPage: React.FC = () => {
             size="lg"
             endContent={<ArrowRight className="w-5 h-5" />}
             onPress={handleStartApplication}
+            className="bg-neon-blue/20 border border-neon-blue/50 text-neon-blue hover:bg-neon-blue/30"
           >
             Start Application
           </Button>
         </div>
 
         {/* Footer Note */}
-        <p className="text-center text-sm text-gray-500">
+        <p className="text-center text-sm text-gray-400">
           Questions about the application process?{' '}
-          <a href="/messaging" className="text-primary hover:underline">
+          <Link to="/messaging" className="text-neon-blue hover:underline">
             Contact us
-          </a>
+          </Link>
         </p>
+        </div>
       </div>
     </div>
   );

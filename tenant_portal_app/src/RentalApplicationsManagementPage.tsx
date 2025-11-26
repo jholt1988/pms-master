@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { apiFetch } from './services/apiClient';
+import { ApplicationLifecycleTimeline } from './components/ui/ApplicationLifecycleTimeline';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -393,6 +394,11 @@ const RentalApplicationsManagementPage = () => {
                           </p>
                         )}
                       </div>
+                    </section>
+
+                    <section className="space-y-3">
+                      <h3 className="text-sm font-semibold text-gray-900">Application Lifecycle</h3>
+                      <ApplicationLifecycleTimeline applicationId={application.id} />
                     </section>
 
                     <section className="space-y-3">

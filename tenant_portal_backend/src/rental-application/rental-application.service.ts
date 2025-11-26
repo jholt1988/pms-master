@@ -1,5 +1,5 @@
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   ApplicationStatus,
@@ -11,16 +11,18 @@ import {
 import { SubmitApplicationDto } from './dto/submit-application.dto';
 import { SecurityEventsService } from '../security-events/security-events.service';
 import { AddRentalApplicationNoteDto } from './dto/add-note.dto';
+import { ApplicationLifecycleService, ApplicationLifecycleEventType } from './application-lifecycle.service';
 
 @Injectable()
 export class RentalApplicationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly securityEvents: SecurityEventsService,
+    private readonly lifecycleService: ApplicationLifecycleService,
   ) {}
 
   async submitApplication(data: SubmitApplicationDto, applicantId?: number) {
-    return this.prisma.rentalApplication.create({
+    const application = await this.prisma.rentalApplication.create({
       data: {
         property: { connect: { id: data.propertyId } },
         unit: { connect: { id: data.unitId } },
@@ -35,8 +37,35 @@ export class RentalApplicationService {
         monthlyDebt: data.monthlyDebt,
         bankruptcyFiledYear: data.bankruptcyFiledYear,
         rentalHistoryComments: data.rentalHistoryComments,
+        status: ApplicationStatus.PENDING,
       },
     });
+
+    // Record lifecycle event for submission
+    if (applicantId) {
+      const applicant = await this.prisma.user.findUnique({
+        where: { id: applicantId },
+      });
+      
+      if (applicant) {
+        await this.lifecycleService.recordLifecycleEvent(
+          application.id,
+          ApplicationLifecycleEventType.SUBMITTED,
+          null,
+          ApplicationStatus.PENDING,
+          {
+            userId: applicantId,
+            username: applicant.username,
+            role: applicant.role as Role,
+          },
+          {
+            applicationNumber: `APP-${application.id}`,
+          },
+        );
+      }
+    }
+
+    return application;
   }
 
   async getAllApplications() {
@@ -71,10 +100,40 @@ export class RentalApplicationService {
     });
   }
 
-  async updateApplicationStatus(id: number, status: ApplicationStatus) {
-    return this.prisma.rentalApplication.update({
+  async updateApplicationStatus(
+    id: number,
+    status: ApplicationStatus,
+    actor?: { userId: number; username: string; role: Role },
+  ) {
+    const application = await this.prisma.rentalApplication.findUnique({
       where: { id },
-      data: { status },
+    });
+
+    if (!application) {
+      throw new BadRequestException('Application not found');
+    }
+
+    // Use lifecycle service to transition status (includes validation and event recording)
+    if (actor) {
+      await this.lifecycleService.transitionStatus(
+        id,
+        status,
+        actor,
+        {
+          applicationNumber: `APP-${id}`,
+        },
+      );
+    } else {
+      // Direct update without lifecycle tracking (for system/internal use)
+      await this.prisma.rentalApplication.update({
+        where: { id },
+        data: { status },
+      });
+    }
+
+    // Return updated application
+    return this.prisma.rentalApplication.findUnique({
+      where: { id },
       include: {
         applicant: true,
         property: true,
@@ -113,6 +172,18 @@ export class RentalApplicationService {
       bankruptcyFiledYear: application.bankruptcyFiledYear ?? undefined,
     });
 
+    // Record screening started event
+    await this.lifecycleService.recordLifecycleEvent(
+      id,
+      ApplicationLifecycleEventType.SCREENING_STARTED,
+      application.status,
+      application.status,
+      actor,
+      {
+        applicationNumber: `APP-${id}`,
+      },
+    );
+
     const updatedApplication = await this.prisma.rentalApplication.update({
       where: { id },
       data: {
@@ -131,6 +202,21 @@ export class RentalApplicationService {
         manualNotes: { include: { author: true }, orderBy: { createdAt: 'desc' } },
       },
     });
+
+    // Record screening completed event
+    await this.lifecycleService.recordLifecycleEvent(
+      id,
+      ApplicationLifecycleEventType.SCREENING_COMPLETED,
+      application.status,
+      application.status,
+      actor,
+      {
+        applicationNumber: `APP-${id}`,
+        score: evaluation.score,
+        recommendation: evaluation.recommendation,
+        qualificationStatus: evaluation.qualificationStatus,
+      },
+    );
 
     await this.securityEvents.logEvent({
       type: SecurityEventType.APPLICATION_SCREENED,
@@ -231,8 +317,16 @@ export class RentalApplicationService {
   async addNote(
     applicationId: number,
     dto: AddRentalApplicationNoteDto,
-    actor: { userId: number; username: string },
+    actor: { userId: number; username: string; role: Role },
   ) {
+    const application = await this.prisma.rentalApplication.findUnique({
+      where: { id: applicationId },
+    });
+
+    if (!application) {
+      throw new BadRequestException('Application not found');
+    }
+
     const note = await this.prisma.rentalApplicationNote.create({
       data: {
         application: { connect: { id: applicationId } },
@@ -241,6 +335,19 @@ export class RentalApplicationService {
       },
       include: { author: true },
     });
+
+    // Record lifecycle event for note
+    await this.lifecycleService.recordLifecycleEvent(
+      applicationId,
+      ApplicationLifecycleEventType.NOTE_ADDED,
+      application.status,
+      application.status,
+      actor,
+      {
+        noteId: note.id,
+        applicationNumber: `APP-${applicationId}`,
+      },
+    );
 
     await this.securityEvents.logEvent({
       type: SecurityEventType.APPLICATION_NOTE_CREATED,
@@ -251,6 +358,35 @@ export class RentalApplicationService {
     });
 
     return note;
+  }
+
+  /**
+   * Get application lifecycle timeline
+   */
+  async getApplicationTimeline(applicationId: number) {
+    return this.lifecycleService.getApplicationTimeline(applicationId);
+  }
+
+  /**
+   * Get application lifecycle stage information
+   */
+  async getApplicationLifecycleStage(applicationId: number) {
+    const application = await this.getApplicationById(applicationId);
+    if (!application) {
+      throw new BadRequestException('Application not found');
+    }
+    return this.lifecycleService.getCurrentLifecycleStage(application);
+  }
+
+  /**
+   * Get available status transitions for an application
+   */
+  async getAvailableTransitions(applicationId: number, userRole: Role) {
+    const application = await this.getApplicationById(applicationId);
+    if (!application) {
+      throw new BadRequestException('Application not found');
+    }
+    return this.lifecycleService.getAvailableTransitions(application.status, userRole);
   }
 }
 

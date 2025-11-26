@@ -1,26 +1,38 @@
+/**
+ * Application Entry Point
+ * Initialize MSW in development mode before rendering the app
+ */
+
 import React from 'react';
-import {createRoot}  from 'react-dom/client';
+import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
-import { AuthProvider } from './AuthContext';
-import { ErrorBoundary } from './components/ErrorBoundary';
 
+// Initialize MSW in development
+async function enableMocking() {
+  if (import.meta.env.MODE !== 'development') {
+    return;
+  }
 
-const container = document.getElementById('root') as HTMLElement;
-const root = createRoot(container);
-root.render(
-  <React.StrictMode>
-    <ErrorBoundary>
-      <AuthProvider>
-        <App className={"app"} />
-      </AuthProvider>
-    </ErrorBoundary>
-  </React.StrictMode>
-);
+  if (import.meta.env.VITE_USE_MSW === 'false') {
+    return;
+  }
 
+  const { worker } = await import('./mocks/browser');
+  
+  // Start MSW worker
+  return worker.start({
+    onUnhandledRequest: 'bypass',
+    serviceWorker: {
+      url: '/mockServiceWorker.js',
+    },
+  });
+}
 
-// If you want to start measuring performance in your app, pass a function
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
-// reportWebVitals();
+enableMocking().then(() => {
+  ReactDOM.createRoot(document.getElementById('root')!).render(
+    <React.StrictMode>
+      <App className="app" />
+    </React.StrictMode>
+  );
+});
