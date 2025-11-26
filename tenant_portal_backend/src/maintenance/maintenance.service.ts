@@ -297,6 +297,92 @@ export class MaintenanceService {
     return updated;
   }
 
+  /**
+   * Escalate a maintenance request (increase priority and add escalation note)
+   */
+  async escalate(
+    requestId: number,
+    options: {
+      reason: string;
+      factors?: string[] | Record<string, any>;
+    },
+  ): Promise<MaintenanceRequest> {
+    const existing = await this.prisma.maintenanceRequest.findUnique({
+      where: { id: requestId },
+      include: this.defaultRequestInclude,
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Maintenance request not found');
+    }
+
+    // Determine new priority based on current priority
+    let newPriority: MaintenancePriority;
+    switch (existing.priority) {
+      case MaintenancePriority.LOW:
+        newPriority = MaintenancePriority.MEDIUM;
+        break;
+      case MaintenancePriority.MEDIUM:
+        newPriority = MaintenancePriority.HIGH;
+        break;
+      case MaintenancePriority.HIGH:
+        // Already at highest priority, keep it
+        newPriority = MaintenancePriority.HIGH;
+        break;
+      default:
+        newPriority = MaintenancePriority.MEDIUM;
+    }
+
+    // Recalculate SLA targets based on new priority
+    const { resolutionDueAt, responseDueAt, policyId } = await this.computeSlaTargets(
+      existing.propertyId ?? null,
+      newPriority,
+    );
+
+    // Build escalation note
+    const factorsText = options.factors
+      ? Array.isArray(options.factors)
+        ? options.factors.join(', ')
+        : JSON.stringify(options.factors)
+      : '';
+    const escalationNote = `ESCALATED: ${options.reason}${factorsText ? `\nFactors: ${factorsText}` : ''}`;
+
+    // Update the request
+    const updated = await this.prisma.maintenanceRequest.update({
+      where: { id: requestId },
+      data: {
+        priority: newPriority,
+        dueAt: resolutionDueAt,
+        responseDueAt,
+        slaPolicy: policyId ? { connect: { id: policyId } } : undefined,
+      },
+      include: this.defaultRequestInclude,
+    });
+
+    // Record history
+    await this.recordHistory(requestId, {
+      fromStatus: existing.status,
+      toStatus: updated.status,
+      note: escalationNote,
+      // Use system user (0) or null for automated escalations
+      changedById: undefined,
+    });
+
+    // Add a note about the escalation
+    try {
+      await this.addNote(requestId, { body: escalationNote }, existing.authorId);
+    } catch (error) {
+      // If note creation fails, log but don't fail the escalation
+      this.logger.warn(`Failed to add escalation note for request ${requestId}:`, error);
+    }
+
+    this.logger.log(
+      `Escalated maintenance request ${requestId} from ${existing.priority} to ${newPriority}: ${options.reason}`,
+    );
+
+    return updated;
+  }
+
   async addNote(
     requestId: number,
     dto: AddMaintenanceNoteDto,

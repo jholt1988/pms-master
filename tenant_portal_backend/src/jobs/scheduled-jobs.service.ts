@@ -39,7 +39,7 @@ export class ScheduledJobsService {
 
       for (const invoice of dueInvoices) {
         try {
-          if (!invoice.lease?.tenantId) {
+          if (!invoice.leaseId) {
             this.logger.warn(`Invoice ${invoice.id} has no tenant, skipping`);
             continue;
           }
@@ -47,7 +47,7 @@ export class ScheduledJobsService {
           // Assess payment risk using AI
           const startTime = Date.now();
           const riskAssessment = await this.aiPaymentService.assessPaymentRisk(
-            invoice.lease.tenantId,
+            invoice.leaseId,
             invoice.id,
           );
           const responseTime = Date.now() - startTime;

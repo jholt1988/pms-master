@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { testData } from '../../test/factories';
+import { Role } from '@prisma/client';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -154,7 +155,7 @@ describe('AuthController', () => {
       const registerDto = {
         username: testData.email(),
         password: 'SecurePass@123',
-        role: 'TENANT',
+        role: Role.TENANT,
       };
 
       const mockRegisterResponse = {

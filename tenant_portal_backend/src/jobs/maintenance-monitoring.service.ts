@@ -102,7 +102,7 @@ export class MaintenanceMonitoringService {
             include: {
               units: {
                 include: {
-                  leases: {
+                  lease: {
                     include: {
                       tenant: true,
                     },
@@ -161,11 +161,7 @@ export class MaintenanceMonitoringService {
         `Recommended: ${prediction.recommendedActions.slice(0, 2).join(', ')}.`;
 
       // Notify all managers
-      // Use MAINTENANCE_SLA_BREACH if available, otherwise use SYSTEM_ALERT
-      const notificationType = 
-        Object.values(NotificationType).includes('MAINTENANCE_SLA_BREACH' as any)
-          ? ('MAINTENANCE_SLA_BREACH' as NotificationType)
-          : NotificationType.SYSTEM_ALERT;
+      const notificationType = NotificationType.MAINTENANCE_SLA_BREACH;
       
       for (const manager of managers) {
         await this.notificationsService.create({

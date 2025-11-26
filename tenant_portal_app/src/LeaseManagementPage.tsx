@@ -414,7 +414,7 @@ function LeaseManagementPage(): React.ReactElement {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [token]);
 
   const applyLeaseUpdate = (updated: Lease) => {
