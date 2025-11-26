@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthContext';
+import { apiFetch } from './services/apiClient';
 
 interface Invoice {
   id: number;
@@ -115,36 +116,14 @@ export default function PaymentsPage(): React.ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const authHeaders = useMemo(
-    () =>
-      token
-        ? {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          }
-        : undefined,
-    [token],
-  );
-
   const loadInvoicesAndPayments = async () => {
     if (!token) {
       return;
     }
 
-    const invoicesRes = await fetch('/api/payments/invoices', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const paymentsRes = await fetch('/api/payments', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    if (!invoicesRes.ok || !paymentsRes.ok) {
-      throw new Error('Failed to fetch payment information');
-    }
-
     const [invoicesData, paymentsData] = await Promise.all([
-      invoicesRes.json(),
-      paymentsRes.json(),
+      apiFetch('/payments/invoices', { token }),
+      apiFetch('/payments', { token }),
     ]);
 
     setInvoices(invoicesData);
@@ -156,41 +135,28 @@ export default function PaymentsPage(): React.ReactElement {
       return;
     }
 
-    const methodsRes = await fetch('/api/payment-methods', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const methodsData = await apiFetch('/payment-methods', { token });
+    setPaymentMethods(methodsData);
 
-    if (methodsRes.ok) {
-      setPaymentMethods(await methodsRes.json());
-    }
-
-    const autopayRes = await fetch('/api/billing/autopay', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    if (autopayRes.ok) {
-      const data = (await autopayRes.json()) as AutopayStatus;
-      setAutopay(data);
-      setLeaseId(data.leaseId);
-      if (data.enrollment?.paymentMethodId) {
-        setSelectedMethodId(String(data.enrollment.paymentMethodId));
+    try {
+      const autopayData = await apiFetch('/billing/autopay', { token });
+      setAutopay(autopayData);
+      setLeaseId(autopayData.leaseId);
+      if (autopayData.enrollment?.paymentMethodId) {
+        setSelectedMethodId(String(autopayData.enrollment.paymentMethodId));
       }
-      if (typeof data.enrollment?.maxAmount === 'number') {
-        setAutopayMaxAmount(String(data.enrollment.maxAmount));
+      if (typeof autopayData.enrollment?.maxAmount === 'number') {
+        setAutopayMaxAmount(String(autopayData.enrollment.maxAmount));
       }
-    } else if (autopayRes.status === 404) {
-      setAutopay(null);
-      // get lease id if missing
-      const leaseRes = await fetch('/api/leases/my-lease', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (leaseRes.ok) {
-        const leaseData = await leaseRes.json();
+    } catch (err: any) {
+      if (err.message.includes('404')) {
+        setAutopay(null);
+        // get lease id if missing
+        const leaseData = await apiFetch('/leases/my-lease', { token });
         setLeaseId(leaseData.id);
+      } else {
+        throw err;
       }
-    } else {
-      const msg = await autopayRes.text();
-      throw new Error(msg || 'Failed to fetch autopay status');
     }
   };
 
@@ -227,7 +193,7 @@ export default function PaymentsPage(): React.ReactElement {
 
   const handleAddPaymentMethod = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!authHeaders) {
+    if (!token) {
       return;
     }
     setActionLoading(true);
@@ -246,16 +212,11 @@ export default function PaymentsPage(): React.ReactElement {
         expYear: methodForm.expYear ? Number(methodForm.expYear) : undefined,
       };
 
-      const response = await fetch('/api/payment-methods', {
+      await apiFetch('/payment-methods', {
         method: 'POST',
-        headers: authHeaders,
-        body: JSON.stringify(payload),
+        token,
+        body: payload,
       });
-
-      if (!response.ok) {
-        const msg = await response.text();
-        throw new Error(msg || 'Failed to add payment method');
-      }
 
       setMethodForm(defaultMethodForm);
       setNotice('Payment method saved.');
@@ -276,15 +237,10 @@ export default function PaymentsPage(): React.ReactElement {
     setError(null);
 
     try {
-      const res = await fetch(`/api/payment-methods/${id}`, {
+      await apiFetch(`/payment-methods/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        token,
       });
-
-      if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(msg || 'Failed to delete payment method');
-      }
 
       setNotice('Payment method removed.');
       await refreshBillingExtras();
@@ -296,7 +252,7 @@ export default function PaymentsPage(): React.ReactElement {
   };
 
   const handleEnableAutopay = async () => {
-    if (!authHeaders || !leaseId || !selectedMethodId) {
+    if (!token || !leaseId || !selectedMethodId) {
       setError('Select a payment method to enable autopay.');
       return;
     }
@@ -313,16 +269,11 @@ export default function PaymentsPage(): React.ReactElement {
         maxAmount: autopayMaxAmount ? Number(autopayMaxAmount) : undefined,
       };
 
-      const res = await fetch('/api/billing/autopay', {
+      await apiFetch('/billing/autopay', {
         method: 'POST',
-        headers: authHeaders,
-        body: JSON.stringify(payload),
+        token,
+        body: payload,
       });
-
-      if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(msg || 'Failed to configure autopay');
-      }
 
       setNotice('Autopay enabled.');
       await refreshBillingExtras();
@@ -342,15 +293,10 @@ export default function PaymentsPage(): React.ReactElement {
     setError(null);
 
     try {
-      const res = await fetch(`/api/billing/autopay/${leaseId}/disable`, {
+      await apiFetch(`/billing/autopay/${leaseId}/disable`, {
         method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` },
+        token,
       });
-
-      if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(msg || 'Failed to disable autopay');
-      }
 
       setNotice('Autopay disabled.');
       setSelectedMethodId('');

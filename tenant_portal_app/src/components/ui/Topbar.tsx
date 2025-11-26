@@ -1,144 +1,111 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
-import {
-  Activity,
-  Bell,
-  Building2,
+import React from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { 
+  Building2, 
   LogOut,
-  ShieldCheck,
-  Sparkles,
-  Wifi,
-} from "lucide-react";
+  Bell,
+  User,
+  Search
+} from 'lucide-react';
+import { AIOperatingSystem } from './AIOperatingSystem'; // Assuming you have this from previous step
 
 interface TopbarProps {
   className?: string;
+  userRole?: string;
   onLogout?: () => void;
 }
 
-type StatusTone = "blue" | "pink" | "green";
-
-const toneStyles: Record<StatusTone, string> = {
-  blue: "border-white/15 bg-white/5 text-neon-blue",
-  pink: "border-white/15 bg-white/5 text-neon-pink",
-  green: "border-white/15 bg-white/5 text-emerald-300",
-};
-
-const StatusPill = ({
-  icon,
-  label,
-  value,
-  tone = "blue",
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  tone?: StatusTone;
-}) => (
-  <div
-    className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] uppercase tracking-[0.25em] ${toneStyles[tone]}`}
-  >
-    <span className="h-2 w-2 rounded-full bg-linear-to-r from-neon-blue via-neon-pink to-neon-purple shadow-neon" />
-    <span className="flex items-center gap-2 text-slate-200">
-      <span className="text-slate-300/80">{label}</span>
-      <span className="flex items-center gap-1 font-semibold text-slate-50">
-        {icon}
-        {value}
-      </span>
-    </span>
-  </div>
-);
-
-export const Topbar: React.FC<TopbarProps> = ({ className = "", onLogout }) => {
+export const Topbar: React.FC<TopbarProps> = ({ 
+  className = '', 
+  userRole = 'Property Manager',
+  onLogout 
+}) => {
   const navigate = useNavigate();
 
   const handleLogout = () => {
     if (onLogout) {
       onLogout();
     } else {
-      navigate("/login");
+      navigate('/login');
     }
   };
 
   return (
-    <header
-      className={`fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-black/40 backdrop-blur-xl ${className}`}
-    >
-      <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-8">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/15 bg-white/10 shadow-neon">
-            <Building2 className="h-5 w-5 text-neon-blue" />
+    <div className={`
+      fixed top-0 left-0 w-full h-16 z-50 px-6 
+      flex items-center justify-between 
+      bg-deep-900/80 backdrop-blur-md border-b border-white/5
+      ${className}
+    `}>
+      {/* Left: Brand & Search */}
+      <div className="flex items-center gap-8">
+        <div className="flex items-center gap-2 text-white">
+          <div className="p-1.5 bg-neon-blue/20 rounded-lg border border-neon-blue/50">
+            <Building2 className="w-5 h-5 text-neon-blue" />
           </div>
-          <div className="leading-tight">
-            <p className="text-[10px] uppercase tracking-[0.4em] text-slate-400">
-              Property OS
-            </p>
-            <p className="text-sm font-semibold text-slate-100">
-              Digital Twin HUD
-            </p>
+          <div className="flex flex-col">
+            <span className="text-sm font-bold tracking-wide leading-none">PMS.OS</span>
+            <span className="text-[10px] text-gray-500 font-mono">V4.0.1</span>
           </div>
         </div>
 
-        <div className="hidden flex-1 items-center justify-center gap-3 lg:flex">
-          <StatusPill
-            icon={<Activity className="h-3.5 w-3.5" />}
-            label="Systems"
-            value="Nominal"
-            tone="blue"
-          />
-          <StatusPill
-            icon={<Wifi className="h-3.5 w-3.5" />}
-            label="Link"
-            value="Live"
-            tone="green"
-          />
-          <StatusPill
-            icon={<ShieldCheck className="h-3.5 w-3.5" />}
-            label="Secure"
-            value="On"
-            tone="pink"
-          />
-        </div>
-
-        <div className="flex items-center gap-2 sm:gap-3">
-          <button
-            type="button"
-            className="rounded-full border border-white/15 bg-white/5 p-2 text-slate-200 hover:border-neon-blue/50 hover:text-white transition"
-            aria-label="Notifications"
-          >
-            <Bell className="h-4 w-4" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate("/rent-optimization")}
-            className="relative flex items-center gap-3 rounded-full border border-white/15 bg-white/5 px-2 pr-3 py-1.5 text-left shadow-neon hover:border-neon-blue/60 transition"
-            aria-label="Open AI copilot"
-          >
-            <div className="relative">
-              <div className="absolute inset-0 rounded-full bg-neon-blue/30 blur-md" />
-              <div className="h-10 w-10 rounded-full bg-linear-to-br from-neon-blue via-neon-pink to-neon-purple animate-orb-pulse" />
-            </div>
-            <div className="hidden sm:block leading-tight">
-              <p className="text-[10px] uppercase tracking-[0.35em] text-slate-300/80">
-                AI Orb
-              </p>
-              <p className="text-sm font-semibold text-slate-100">
-                Ask Anything
-              </p>
-            </div>
-            <Sparkles className="hidden h-4 w-4 text-neon-blue sm:block" />
-          </button>
-
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-200 hover:border-neon-pink/60 hover:text-white transition"
-          >
-            <LogOut className="h-4 w-4" />
-            <span className="hidden sm:inline">Logout</span>
-          </button>
+        {/* Quick Search HUD */}
+        <div className="hidden md:flex items-center relative group">
+            <Search className="absolute left-3 text-gray-600 w-4 h-4 group-focus-within:text-neon-blue transition-colors" />
+            <input 
+                type="text" 
+                placeholder="Search protocols..." 
+                className="bg-black/20 border border-white/10 rounded-full py-1.5 pl-9 pr-4 text-xs text-white w-64 focus:w-80 transition-all focus:border-neon-blue/30 focus:outline-none font-mono"
+                aria-label="Search"
+                role="searchbox"
+            />
         </div>
       </div>
-    </header>
+      
+      {/* Center: AI Orb (The visual anchor) */}
+      <div className="absolute left-1/2 -translate-x-1/2">
+          <AIOperatingSystem  />
+      </div>
+      
+      {/* Right: User & Actions */}
+      <div className="flex items-center gap-4">
+        {/* Notifications */}
+        <button 
+          className="relative p-2 text-gray-400 hover:text-white transition-colors"
+          aria-label="View notifications"
+          aria-describedby="notification-count"
+        >
+            <Bell size={18} />
+            <span 
+              id="notification-count"
+              className="absolute top-1.5 right-2 w-2 h-2 bg-neon-pink rounded-full animate-pulse"
+              aria-label="Unread notifications"
+            ></span>
+        </button>
+
+        {/* User Profile Pill */}
+        <div className="flex items-center gap-3 pl-4 border-l border-white/10">
+            <div className="text-right hidden sm:block">
+                <div className="text-xs text-white font-medium">Admin User</div>
+                <div className="text-[10px] text-neon-blue font-mono">{userRole}</div>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-linear-to-tr(from-neon-blue to-purple-500) p-[1px]">
+                <div className="w-full h-full rounded-full bg-black flex items-center justify-center">
+                    <User size={14} className="text-white" />
+                </div>
+            </div>
+        </div>
+        
+        {/* Logout */}
+        <button 
+            onClick={handleLogout}
+            className="ml-2 p-2 text-red-400/70 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
+            title="Terminate Session"
+            aria-label="Logout"
+        >
+          <LogOut size={18} />
+        </button>
+      </div>
+    </div>
   );
 };

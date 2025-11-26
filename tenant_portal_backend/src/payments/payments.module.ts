@@ -1,18 +1,14 @@
-
 import { Module } from '@nestjs/common';
-import { PaymentsService } from './payments.service';
 import { PaymentsController } from './payments.controller';
-import { PaymentMethodsController } from './payment-methods.controller';
-import { PaymentMethodsService } from './payment-methods.service';
-import { StripeService } from './stripe.service';
-import { StripeWebhookController } from './stripe-webhook.controller';
+import { PaymentsService } from './payments.service';
+import { AIPaymentService } from './ai-payment.service';
 import { PrismaModule } from '../prisma/prisma.module';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
-  imports: [PrismaModule],
-  controllers: [PaymentsController, PaymentMethodsController, StripeWebhookController],
-  providers: [PaymentsService, PaymentMethodsService, StripeService],
-  exports: [PaymentsService, PaymentMethodsService, StripeService],
+  imports: [PrismaModule, ConfigModule],
+  controllers: [PaymentsController],
+  providers: [PaymentsService, AIPaymentService],
+  exports: [PaymentsService, AIPaymentService],
 })
 export class PaymentsModule {}
-

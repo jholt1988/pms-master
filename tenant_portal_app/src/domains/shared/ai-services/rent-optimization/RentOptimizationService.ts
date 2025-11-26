@@ -5,9 +5,10 @@
 
 import { RentRecommendation, AIServiceResponse, AIServiceError } from '../types';
 import { aiServicesConfig } from '../config';
+import { apiFetch } from '../../../../services/apiClient';
 
 // API base URL
-const API_BASE = '/api/rent-recommendations';
+const API_BASE = '/rent-recommendations';
 
 // Get auth token from localStorage
 const getAuthToken = (): string | null => {
@@ -237,37 +238,28 @@ class RentOptimizationService {
       const token = getAuthToken();
       if (token) {
         try {
-          const response = await fetch(`${API_BASE}/unit/${unitId}`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          });
-
-          if (response.ok) {
-            const data = await response.json();
+          const data = await apiFetch(`${API_BASE}/unit/${unitId}`, { token });
+          
+          if (data) {
+            // Transform backend response to frontend format
+            const recommendation = this.transformBackendResponse(data, unitId);
             
-            if (data) {
-              // Transform backend response to frontend format
-              const recommendation = this.transformBackendResponse(data, unitId);
-              
-              // Cache the result
-              if (aiServicesConfig.rentOptimization.cacheEnabled) {
-                this.setCached(unitId, recommendation);
-              }
-
-              return {
-                success: true,
-                data: recommendation,
-                metadata: {
-                  requestId,
-                  timestamp: new Date().toISOString(),
-                  processingTime: Date.now() - startTime,
-                  cached: false,
-                  modelVersion: recommendation.modelVersion,
-                },
-              };
+            // Cache the result
+            if (aiServicesConfig.rentOptimization.cacheEnabled) {
+              this.setCached(unitId, recommendation);
             }
+
+            return {
+              success: true,
+              data: recommendation,
+              metadata: {
+                requestId,
+                timestamp: new Date().toISOString(),
+                processingTime: Date.now() - startTime,
+                cached: false,
+                modelVersion: recommendation.modelVersion,
+              },
+            };
           }
         } catch (apiError) {
           console.warn('API call failed, falling back to mock data:', apiError);

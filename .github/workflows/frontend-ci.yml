@@ -1,0 +1,58 @@
+name: Frontend CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'tenant_portal_app/**'
+      - '.github/workflows/frontend-ci.yml'
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'tenant_portal_app/**'
+      - '.github/workflows/frontend-ci.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: tenant_portal_app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./tenant_portal_app
+        run: npm ci
+
+      - name: Type check
+        working-directory: ./tenant_portal_app
+        run: npx tsc --noEmit
+
+      - name: Run tests
+        working-directory: ./tenant_portal_app
+        run: npm test -- --run
+
+      - name: Build check
+        working-directory: ./tenant_portal_app
+        env:
+          VITE_API_URL: http://localhost:3001
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: tenant_portal_app/dist
+          retention-days: 1
+

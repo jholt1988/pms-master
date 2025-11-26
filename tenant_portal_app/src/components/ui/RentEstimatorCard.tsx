@@ -37,6 +37,7 @@ export const RentEstimatorCard: React.FC = () => (
     <button
       type="button"
       className="group inline-flex items-center gap-3 rounded-full border border-neon-blue/50 bg-linear-to-r from-neon-blue/30 via-neon-pink/30 to-neon-purple/40 px-4 py-2 text-[11px] uppercase tracking-[0.3em] text-white transition hover:shadow-[0_0_15px_rgba(0,240,255,0.35)]"
+      aria-label="Generate rent estimate"
     >
       <Sparkles className="h-4 w-4" />
       Estimate

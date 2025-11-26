@@ -1,43 +1,53 @@
-import React from "react";
+import React from 'react';
 
 interface GlassCardProps {
+  children: React.ReactNode;
+  className?: string;
+  glowColor?: 'blue' | 'purple' | 'pink' | 'none';
   title?: string;
   subtitle?: string;
   actionSlot?: React.ReactNode;
-  className?: string;
-  children: React.ReactNode;
-  glowColor?: string;
 }
 
-export const GlassCard: React.FC<GlassCardProps> = ({
+export const GlassCard: React.FC<GlassCardProps> = ({ 
+  children, 
+  className = '', 
+  glowColor = 'none',
   title,
   subtitle,
-  actionSlot,
-  className = "",
-  children,
-  glowColor = ""
+  actionSlot
 }) => {
-  return (
-    <div
-      className={`group relative overflow-hidden rounded-3xl border border-glass-border bg-glass-surface backdrop-blur-xl shadow-glass-strong ${className}`}
-    >
-      <div className="pointer-events-none absolute inset-0 bg-linear-to-br from-white/10 via-white/0 to-white/5 opacity-70" />
-      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-linear-to-r from-transparent via-white/30 to-transparent" />
+  const glowStyles = {
+    blue: 'shadow-[0_0_30px_-5px_rgba(0,240,255,0.3)] border-neon-blue/30',
+    purple: 'shadow-[0_0_30px_-5px_rgba(112,0,255,0.3)] border-neon-purple/30',
+    pink: 'shadow-[0_0_30px_-5px_rgba(255,0,128,0.3)] border-neon-pink/30',
+    none: 'shadow-xl border-glass-border'
+  };
 
-      <div className="relative flex flex-col gap-4 p-5 sm:p-6">
+  return (
+    <div className={`
+      relative overflow-hidden rounded-2xl 
+      bg-glass-surface backdrop-blur-xl 
+      border border-t-glass-highlight border-b-0 border-r-glass-border border-l-glass-border
+      transition-all duration-300 hover:bg-white/10 hover:scale-[1.01]
+      ${glowStyles[glowColor]}
+      ${className}
+    `}>
+      {/* Scanline effect overlay (optional) */}
+      <div className="pointer-events-none absolute inset-0 bg-grid-pattern opacity-[0.03]" />
+      
+      <div className="relative z-10 p-6">
         {(title || subtitle || actionSlot) && (
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-1">
+          <div className="flex items-start justify-between mb-4 pb-4 border-b border-white/10">
+            <div>
               {title && (
-                <p className="text-[10px] uppercase tracking-[0.35em] text-slate-300">
-                  {title}
-                </p>
+                <h3 className="text-white font-sans font-light text-lg mb-1">{title}</h3>
               )}
               {subtitle && (
-                <p className="text-sm font-mono text-slate-100/80">{subtitle}</p>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wider font-mono">{subtitle}</p>
               )}
             </div>
-            {actionSlot}
+            {actionSlot && <div>{actionSlot}</div>}
           </div>
         )}
         {children}

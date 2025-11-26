@@ -19,6 +19,7 @@ import { baseColors } from '../../../../design-tokens/colors';
 import { spacing } from '../../../../design-tokens/spacing';
 import { fontSize, fontWeight } from '../../../../design-tokens/typography';
 import { elevation } from '../../../../design-tokens/shadows';
+import { apiFetch } from '../../../../services/apiClient';
 
 interface Property {
   id: number;
@@ -61,11 +62,7 @@ const RentalApplicationPage: React.FC = () => {
   useEffect(() => {
     const fetchProperties = async () => {
       try {
-        const res = await fetch('/api/properties/public');
-        if (!res.ok) {
-          throw new Error('Failed to fetch properties');
-        }
-        const data = await res.json();
+        const data = await apiFetch('/properties/public');
         setProperties(data);
       } catch (error: any) {
         setError(error.message);
@@ -94,12 +91,9 @@ const RentalApplicationPage: React.FC = () => {
     setSuccess(false);
 
     try {
-      const res = await fetch('/api/rental-applications', {
+      await apiFetch('/rental-applications', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+        body: {
           propertyId: Number(selectedProperty),
           unitId: Number(selectedUnit),
           fullName,
@@ -112,15 +106,10 @@ const RentalApplicationPage: React.FC = () => {
           monthlyDebt: monthlyDebt ? Number(monthlyDebt) : undefined,
           bankruptcyFiledYear: bankruptcyFiledYear ? Number(bankruptcyFiledYear) : undefined,
           rentalHistoryComments: rentalHistoryComments || undefined,
-        }),
+        },
       });
 
-      if (!res.ok) {
-        throw new Error('Failed to submit application');
-      }
-
-      const data = await res.json();
-      const applicationId = data.id || 'APP-' + Date.now().toString().slice(-6);
+      const applicationId = data?.id || 'APP-' + Date.now().toString().slice(-6);
 
       // Navigate to confirmation page with application ID
       navigate(`/rental-application/confirmation?id=${applicationId}`);

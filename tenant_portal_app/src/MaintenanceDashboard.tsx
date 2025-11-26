@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthContext';
+import { apiFetch } from './services/apiClient';
 
 type StatusValue = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
 type PriorityValue = 'EMERGENCY' | 'HIGH' | 'MEDIUM' | 'LOW';
@@ -243,18 +244,8 @@ const MaintenanceDashboard = () => {
         params.set('pageSize', String(pageSize));
       }
 
-      const url = params.toString() ? `/api/maintenance?${params.toString()}` : '/api/maintenance';
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to load maintenance requests');
-      }
-
-      const data = (await response.json()) as MaintenanceRequest[];
+      const url = params.toString() ? `/maintenance?${params.toString()}` : '/maintenance';
+      const data = (await apiFetch(url, { token })) as MaintenanceRequest[];
       setRequests(data);
       setLastFetchCount(data.length);
     } catch (err: unknown) {
@@ -285,13 +276,8 @@ const MaintenanceDashboard = () => {
 
     const loadTechnicians = async () => {
       try {
-        const response = await fetch('/api/maintenance/technicians', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) {
-          throw new Error('Failed to load technicians');
-        }
-        setTechnicians((await response.json()) as Technician[]);
+        const data = (await apiFetch('/maintenance/technicians', { token })) as Technician[];
+        setTechnicians(data);
       } catch (err) {
         console.error(err);
       }
@@ -299,14 +285,9 @@ const MaintenanceDashboard = () => {
 
     const loadProperties = async () => {
       try {
-        const endpoint = canManageRequests ? '/api/properties' : '/api/properties/public';
-        const response = await fetch(endpoint, {
-          headers: canManageRequests ? { Authorization: `Bearer ${token}` } : undefined,
-        });
-        if (!response.ok) {
-          throw new Error('Failed to load properties');
-        }
-        setProperties((await response.json()) as PropertySummary[]);
+        const endpoint = canManageRequests ? '/properties' : '/properties/public';
+        const data = (await apiFetch(endpoint, { token: canManageRequests ? token : undefined })) as PropertySummary[];
+        setProperties(data);
       } catch (err) {
         console.error(err);
       }
@@ -333,13 +314,7 @@ const MaintenanceDashboard = () => {
         if (createForm.unitId) {
           params.set('unitId', createForm.unitId);
         }
-        const response = await fetch(`/api/maintenance/assets?${params.toString()}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) {
-          throw new Error('Failed to load assets');
-        }
-        const payload = (await response.json()) as MaintenanceAsset[];
+        const payload = (await apiFetch(`/maintenance/assets?${params.toString()}`, { token })) as MaintenanceAsset[];
         if (active) {
           setAssetOptions(payload);
         }
@@ -425,18 +400,11 @@ const MaintenanceDashboard = () => {
         payload.assetId = assetId;
       }
 
-      const response = await fetch('/api/maintenance', {
+      await apiFetch('/maintenance', {
+        token,
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
+        body: payload,
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to create maintenance request');
-      }
 
       setCreateForm({
         title: '',
@@ -461,17 +429,11 @@ const MaintenanceDashboard = () => {
     }
     setUpdatingStatusId(id);
     try {
-      const response = await fetch(`/api/maintenance/${id}/status`, {
+      await apiFetch(`/maintenance/${id}/status`, {
+        token,
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status }),
+        body: { status },
       });
-      if (!response.ok) {
-        throw new Error('Failed to update status');
-      }
       await fetchRequests();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Unable to update status.');
@@ -490,17 +452,11 @@ const MaintenanceDashboard = () => {
     }
     setAssigningRequestId(id);
     try {
-      const response = await fetch(`/api/maintenance/${id}/assign`, {
+      await apiFetch(`/maintenance/${id}/assign`, {
+        token,
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ technicianId: technicianNumeric }),
+        body: { technicianId: technicianNumeric },
       });
-      if (!response.ok) {
-        throw new Error('Failed to assign technician');
-      }
       await fetchRequests();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Unable to assign technician.');
@@ -535,17 +491,11 @@ const MaintenanceDashboard = () => {
     setNoteSubmittingId(id);
     setError(null);
     try {
-      const response = await fetch(`/api/maintenance/${id}/notes`, {
+      await apiFetch(`/maintenance/${id}/notes`, {
+        token,
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ body: draft }),
+        body: { body: draft },
       });
-      if (!response.ok) {
-        throw new Error('Failed to add note');
-      }
       setNoteDrafts((prev) => {
         const { [id]: _removed, ...rest } = prev;
         return rest;

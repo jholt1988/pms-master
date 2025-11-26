@@ -33,11 +33,17 @@ import { ListingSyndicationModule } from './listing-syndication/listing-syndicat
 import { EsignatureModule } from './esignature/esignature.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { RentOptimizationModule } from './rent-optimization/rent-optimization.module';
+import { MonitoringModule } from './monitoring/monitoring.module';
+import { WorkflowsModule } from './workflows/workflows.module';
+import { ChatbotModule } from './chatbot/chatbot.module';
 import { LegacyPathMiddleware } from './middleware/legacy-path.middleware';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: ['.env.local', '.env'], // Support .env.local for local overrides
+    }),
     ScheduleModule.forRoot(),
     // Winston logging
     WinstonModule.forRoot(winstonConfig),
@@ -84,6 +90,9 @@ import { LegacyPathMiddleware } from './middleware/legacy-path.middleware';
     EsignatureModule,
     DashboardModule,
     RentOptimizationModule,
+    MonitoringModule,
+    WorkflowsModule,
+    ChatbotModule,
   ],
   controllers: [AppController],
   providers: [

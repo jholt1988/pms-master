@@ -1,3 +1,5 @@
+import { apiFetch, getApiBase } from "./apiClient.js";
+
 export type SortOption = 'newest' | 'price' | 'bedrooms' | 'bathrooms';
 
 export interface PropertySearchFilters {
@@ -90,7 +92,7 @@ export interface SaveFilterPayload {
   filters: PropertySearchFilters;
 }
 
-const API_BASE = 'http://localhost:3000/api/properties';
+const API_BASE = getApiBase();
 
 const buildQueryString = (filters: PropertySearchFilters) => {
   const params = new URLSearchParams();
@@ -142,68 +144,30 @@ const buildQueryString = (filters: PropertySearchFilters) => {
   return params.toString();
 };
 
-const buildHeaders = (token?: string) => {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  return headers;
-};
-
 export const fetchPropertySearch = async (
   filters: PropertySearchFilters,
   token?: string,
 ): Promise<PropertySearchResponse> => {
   const query = buildQueryString(filters);
   const url = `${API_BASE}/search${query ? `?${query}` : ''}`;
-  const response = await fetch(url, {
-    headers: buildHeaders(token),
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch property listings');
-  }
-
-  return response.json();
+  return apiFetch(url, { token });
 };
 
 export const fetchSavedFilters = async (token: string): Promise<SavedPropertyFilter[]> => {
-  const response = await fetch(`${API_BASE}/saved-filters`, {
-    headers: buildHeaders(token),
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to load saved filters');
-  }
-
-  return response.json();
+  return apiFetch(`${API_BASE}/saved-filters`, { token });
 };
 
 export const savePropertyFilter = async (token: string, payload: SaveFilterPayload) => {
-  const response = await fetch(`${API_BASE}/saved-filters`, {
+  return apiFetch(`${API_BASE}/saved-filters`, {
     method: 'POST',
-    headers: buildHeaders(token),
-    body: JSON.stringify(payload),
+    token,
+    body: payload,
   });
-
-  if (!response.ok) {
-    throw new Error('Failed to save property filter');
-  }
-
-  return response.json();
 };
 
 export const deletePropertyFilter = async (token: string, filterId: number) => {
-  const response = await fetch(`${API_BASE}/saved-filters/${filterId}`, {
+  return apiFetch(`${API_BASE}/saved-filters/${filterId}`, {
     method: 'DELETE',
-    headers: buildHeaders(token),
+    token,
   });
-
-  if (!response.ok) {
-    throw new Error('Failed to delete property filter');
-  }
 };

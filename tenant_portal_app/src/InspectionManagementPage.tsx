@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
+import { apiFetch } from './services/apiClient';
 import { TabletPageShell } from './components/ui/TabletPageShell';
 import { TwoPaneLayout } from './components/ui/TwoPaneLayout';
 import { useViewportCategory } from './hooks/useViewportCategory';
@@ -107,17 +108,7 @@ export default function InspectionManagementPage(): React.ReactElement {
       });
 
       const queryString = params.toString() ? `?${params.toString()}` : '';
-      const response = await fetch(`/api/inspections${queryString}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to load inspections');
-      }
-
-      const data = await response.json();
+      const data = await apiFetch(`/inspections${queryString}`, { token });
       setInspections(data?.data ?? []);
     } catch (err: any) {
       setInspections([]);
@@ -129,17 +120,7 @@ export default function InspectionManagementPage(): React.ReactElement {
 
   const fetchProperties = useCallback(async () => {
     try {
-      const response = await fetch('/api/properties?limit=500', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to load properties');
-      }
-
-      const data = await response.json();
+      const data = await apiFetch('/properties?limit=500', { token });
       setProperties(data?.data ?? []);
     } catch {
       setProperties([]);

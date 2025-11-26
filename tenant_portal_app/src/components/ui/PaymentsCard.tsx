@@ -21,6 +21,8 @@ export const PaymentsCard = () => {
           <div 
             key={item.id}
             className="group grid grid-cols-12 items-center p-3 rounded-lg hover:bg-white/5 transition-colors border border-transparent hover:border-white/5"
+            role="row"
+            aria-label={`Invoice ${item.id} for unit ${item.unit}, ${item.status}, due ${item.date}`}
           >
             {/* Invoice Info */}
             <div className="col-span-4">

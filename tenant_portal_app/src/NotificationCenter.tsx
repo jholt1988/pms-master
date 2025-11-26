@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
+import { apiFetch } from './services/apiClient';
 
 interface Notification {
   id: number;
@@ -48,33 +49,21 @@ export default function NotificationCenter(): React.ReactElement {
   }, [isOpen]);
 
   const fetchUnreadCount = async () => {
+    if (!token) return;
     try {
-      const response = await fetch('/api/notifications/unread-count', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setUnreadCount(data.count || 0);
-      }
+      const data = await apiFetch('/notifications/unread-count', { token });
+      setUnreadCount(data.count || 0);
     } catch (error) {
       console.error('Failed to fetch unread count:', error);
     }
   };
 
   const fetchNotifications = async () => {
+    if (!token) return;
     setLoading(true);
     try {
-      const response = await fetch('/api/notifications?take=20', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setNotifications(data.data || []);
-      }
+      const data = await apiFetch('/notifications?take=20', { token });
+      setNotifications(data.data || []);
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
     } finally {
@@ -90,55 +79,46 @@ export default function NotificationCenter(): React.ReactElement {
   };
 
   const handleMarkAsRead = async (id: number) => {
+    if (!token) return;
     try {
-      const response = await fetch(`/api/notifications/${id}/read`, {
+      await apiFetch(`/notifications/${id}/read`, {
+        token,
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
-      if (response.ok) {
-        setNotifications((prev) =>
-          prev.map((n) => (n.id === id ? { ...n, read: true, readAt: new Date().toISOString() } : n)),
-        );
-        setUnreadCount((prev) => Math.max(0, prev - 1));
-      }
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, read: true, readAt: new Date().toISOString() } : n)),
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
     }
   };
 
   const handleMarkAllAsRead = async () => {
+    if (!token) return;
     try {
-      const response = await fetch('/api/notifications/read-all', {
+      await apiFetch('/notifications/read-all', {
+        token,
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
-      if (response.ok) {
-        setNotifications((prev) => prev.map((n) => ({ ...n, read: true, readAt: new Date().toISOString() })));
-        setUnreadCount(0);
-      }
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true, readAt: new Date().toISOString() })));
+      setUnreadCount(0);
     } catch (error) {
       console.error('Failed to mark all as read:', error);
     }
   };
 
   const handleDelete = async (id: number) => {
+    if (!token) return;
     try {
-      const response = await fetch(`/api/notifications/${id}`, {
+      await apiFetch(`/notifications/${id}`, {
+        token,
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
-      if (response.ok) {
-        setNotifications((prev) => prev.filter((n) => n.id !== id));
-        const deleted = notifications.find((n) => n.id === id);
-        if (deleted && !deleted.read) {
-          setUnreadCount((prev) => Math.max(0, prev - 1));
-        }
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      const deleted = notifications.find((n) => n.id === id);
+      if (deleted && !deleted.read) {
+        setUnreadCount((prev) => Math.max(0, prev - 1));
       }
     } catch (error) {
       console.error('Failed to delete notification:', error);

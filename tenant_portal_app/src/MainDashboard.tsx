@@ -63,25 +63,22 @@ const MainDashboard = () => {
       {/* --- SECTION 2: BENTO GRID LAYOUT --- */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
         
-        {/* BLOCK A: Priority Actions (Maintenance) - Large Focus */}
+        {/* BLOCK A: Critical Maintenance (Top Left - Large) */}
         <div className="md:col-span-8">
-          <GlassCard className="h-full min-h-[300px]">
+          <GlassCard glowColor="pink" className="h-full min-h-[300px]">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-white font-light flex items-center gap-2">
                 <AlertTriangle className="text-neon-pink" size={18} />
                 Critical Attention
               </h3>
-              <span className="text-xs bg-neon-pink/20 text-neon-pink px-2 py-1 rounded">2 Urgent</span>
+              <span className="text-xs bg-neon-pink/20 text-neon-pink px-2 py-1 rounded font-mono uppercase tracking-wider">2 Urgent</span>
             </div>
-            {/* Integrating existing component */}
-            <div className="opacity-90">
-               <MaintenanceCard /> 
-            </div>
+            <MaintenanceCard /> 
           </GlassCard>
         </div>
 
-        {/* BLOCK B: Financial Overview - Tall Side Panel */}
-        <div className="md:col-span-4 row-span-2">
+        {/* BLOCK B: Financial/Payment Flow (Right Column - Tall) */}
+        <div className="md:col-span-4 md:row-span-2">
           <GlassCard glowColor="blue" className="h-full">
             <div className="flex items-center gap-2 mb-6">
               <Wallet className="text-neon-blue" size={18} />
@@ -89,14 +86,14 @@ const MainDashboard = () => {
             </div>
             <div className="mb-6 text-center">
               <div className="text-4xl font-mono text-white font-bold tracking-tighter">$124,500</div>
-              <div className="text-xs text-gray-500 mt-1">TOTAL COLLECTED (MTD)</div>
+              <div className="text-[10px] text-gray-500 mt-1 uppercase tracking-wider font-mono">TOTAL COLLECTED (MTD)</div>
             </div>
-            <div className="h-px bg-linear-to-r from-transparent via-white/20 to-transparent my-4" />
+            <div className="h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent my-4" />
             <PaymentsCard />
           </GlassCard>
         </div>
 
-        {/* BLOCK C: AI Insights - Mid Size */}
+        {/* BLOCK C: AI Insights & Quick Actions (Center) */}
         <div className="md:col-span-5">
           <GlassCard glowColor="purple">
             <div className="flex items-center justify-between mb-4">
@@ -104,18 +101,23 @@ const MainDashboard = () => {
                 <TrendingUp className="text-neon-purple" size={18} />
                 Market Intelligence
               </h3>
-              <button className="text-xs text-neon-purple hover:text-white transition-colors">Analyze</button>
+              <button 
+                className="text-xs text-neon-purple hover:text-white transition-colors font-mono uppercase tracking-wider"
+                aria-label="Analyze market intelligence"
+              >
+                Analyze
+              </button>
             </div>
             <RentEstimatorCard />
           </GlassCard>
         </div>
 
-        {/* BLOCK D: Quick Comms - Mid Size */}
+        {/* BLOCK D: Quick Comms (Right of Center) */}
         <div className="md:col-span-3">
           <GlassCard>
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-gray-300 text-sm font-light">Recent Messages</h3>
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+              <div className="w-2 h-2 bg-neon-blue rounded-full animate-pulse" />
             </div>
             <div className="scale-90 origin-top-left -ml-2 w-[110%]">
               <MessagingCard />
@@ -123,16 +125,16 @@ const MainDashboard = () => {
           </GlassCard>
         </div>
 
-        {/* BLOCK E: Leasing Pipeline - Full Width Strip */}
+        {/* BLOCK E: Leasing Pipeline (Full Width Bottom) */}
         <div className="md:col-span-12">
-          <GlassCard className="bg-linear-to-r from-white/5 to-transparent">
+          <GlassCard className="bg-gradient-to-r from-white/5 to-transparent">
             <div className="flex items-center gap-4 mb-4">
               <div className="p-2 bg-green-500/20 rounded-lg text-green-400">
                 <Users size={20} />
               </div>
               <div>
                 <h3 className="text-white font-medium">Leasing Pipeline</h3>
-                <p className="text-xs text-gray-400">3 Applications Pending Review</p>
+                <p className="text-xs text-gray-400 font-mono">3 Applications Pending Review</p>
               </div>
             </div>
             <RentalApplicationsCard />

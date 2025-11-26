@@ -20,9 +20,7 @@ import { useAuth } from './AuthContext';
 import { MasterDetailLayout } from './components/ui/MasterDetailLayout';
 import { useMasterDetail } from './hooks/useMasterDetail';
 import { useViewportCategory } from './hooks/useViewportCategory';
-
-const API_BASE = '/api/properties';
-const SYNDICATION_BASE = '/api/listings/syndication';
+import { apiFetch } from './services/apiClient';
 
 type AvailabilityStatus = 'AVAILABLE' | 'LIMITED' | 'WAITLISTED' | 'COMING_SOON' | 'UNAVAILABLE';
 
@@ -232,15 +230,7 @@ const PropertyManagementPage: React.FC = () => {
     setLoading(true);
     setErrorMessage(null);
     try {
-      const response = await fetch(API_BASE, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error('Failed to load properties');
-      }
-      const data = await response.json();
+      const data = await apiFetch('/properties', { token });
       setProperties(data);
     } catch (error) {
       console.error('fetchProperties', error);
@@ -257,15 +247,7 @@ const PropertyManagementPage: React.FC = () => {
     setMarketingProfileLoading(true);
     setErrorMessage(null);
     try {
-      const response = await fetch(`${API_BASE}/${selectedProperty.id}/marketing`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error('Failed to load marketing profile');
-      }
-      const data: MarketingProfileResponse = await response.json();
+      const data: MarketingProfileResponse = await apiFetch(`/properties/${selectedProperty.id}/marketing`, { token });
       setMarketingProfile(data);
       const profile = data.marketingProfile ?? {};
       setMarketingForm((prev) => ({
@@ -292,15 +274,7 @@ const PropertyManagementPage: React.FC = () => {
     setSyndicationLoading(true);
     setErrorMessage(null);
     try {
-      const response = await fetch(`${SYNDICATION_BASE}/${selectedProperty.id}/status`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error('Failed to load syndication status');
-      }
-      const data = (await response.json()) as SyndicationEntry[];
+      const data = (await apiFetch(`/listings/syndication/${selectedProperty.id}/status`, { token })) as SyndicationEntry[];
       setSyndicationStatus(data);
     } catch (error) {
       console.error('fetchSyndicationStatus', error);
@@ -315,15 +289,7 @@ const PropertyManagementPage: React.FC = () => {
       return;
     }
     try {
-      const response = await fetch(`${SYNDICATION_BASE}/credentials/all`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error('Failed to load credentials');
-      }
-      const data: Array<{ channel: ChannelEnum; config: Record<string, unknown> }> = await response.json();
+      const data: Array<{ channel: ChannelEnum; config: Record<string, unknown> }> = await apiFetch('/listings/syndication/credentials/all', { token });
       const normalized = data.reduce<Record<ChannelKey, ChannelCredentialForm>>((acc, entry) => {
         const channelKey = CHANNEL_KEY_MAP[entry.channel];
         if (!channelKey) {
@@ -373,22 +339,16 @@ const PropertyManagementPage: React.FC = () => {
     setPropertySaving(true);
     setPropertyModalError(null);
     try {
-      const response = await fetch(API_BASE, {
+      await apiFetch('/properties', {
+        token,
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+        body: {
           name: newPropertyForm.name.trim(),
           address: newPropertyForm.address.trim(),
           city: newPropertyForm.city.trim() || undefined,
           state: newPropertyForm.state.trim() || undefined,
-        }),
+        },
       });
-      if (!response.ok) {
-        throw new Error('Failed to create property');
-      }
       await fetchProperties();
       setIsPropertyModalOpen(false);
       setNewPropertyForm({ name: '', address: '', city: '', state: '' });
@@ -411,18 +371,11 @@ const PropertyManagementPage: React.FC = () => {
     setUnitSaving(true);
     setUnitModalError(null);
     try {
-      const response = await fetch(`${API_BASE}/${selectedProperty.id}/units`, {
+      const createdUnit: Unit = await apiFetch(`/properties/${selectedProperty.id}/units`, {
+        token,
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ name: newUnitName.trim() }),
+        body: { name: newUnitName.trim() },
       });
-      if (!response.ok) {
-        throw new Error('Failed to add unit');
-      }
-      const createdUnit: Unit = await response.json();
       const updatedUnits = [...units, createdUnit];
       setUnits(updatedUnits);
       selectProperty({ ...selectedProperty, units: updatedUnits });
@@ -452,17 +405,11 @@ const PropertyManagementPage: React.FC = () => {
         marketingDescription: marketingForm.marketingDescription.trim() || undefined,
         isSyndicationEnabled: marketingForm.isSyndicationEnabled,
       };
-      const response = await fetch(`${API_BASE}/${selectedProperty.id}/marketing`, {
+      await apiFetch(`/properties/${selectedProperty.id}/marketing`, {
+        token,
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
+        body: payload,
       });
-      if (!response.ok) {
-        throw new Error('Failed to save marketing profile');
-      }
       await fetchMarketingProfile();
     } catch (error) {
       console.error('handleMarketingSave', error);
@@ -479,17 +426,11 @@ const PropertyManagementPage: React.FC = () => {
     setSyncing(true);
     setErrorMessage(null);
     try {
-      const response = await fetch(`${SYNDICATION_BASE}/${selectedProperty.id}/trigger`, {
+      await apiFetch(`/listings/syndication/${selectedProperty.id}/trigger`, {
+        token,
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({}),
+        body: {},
       });
-      if (!response.ok) {
-        throw new Error('Failed to trigger syndication');
-      }
       await fetchSyndicationStatus();
     } catch (error) {
       console.error('handleTriggerSyndication', error);
@@ -506,17 +447,11 @@ const PropertyManagementPage: React.FC = () => {
     setPausing(true);
     setErrorMessage(null);
     try {
-      const response = await fetch(`${SYNDICATION_BASE}/${selectedProperty.id}/pause`, {
+      await apiFetch(`/listings/syndication/${selectedProperty.id}/pause`, {
+        token,
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({}),
+        body: {},
       });
-      if (!response.ok) {
-        throw new Error('Failed to pause syndication');
-      }
       await fetchSyndicationStatus();
     } catch (error) {
       console.error('handlePauseSyndication', error);
@@ -564,17 +499,11 @@ const PropertyManagementPage: React.FC = () => {
         apiKey: form.apiKey || undefined,
         active: form.isEnabled,
       };
-      const response = await fetch(`${SYNDICATION_BASE}/credentials`, {
+      await apiFetch('/listings/syndication/credentials', {
+        token,
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
+        body: payload,
       });
-      if (!response.ok) {
-        throw new Error('Failed to save credential');
-      }
       await fetchCredentials();
     } catch (error) {
       console.error('handleCredentialSave', error);

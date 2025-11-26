@@ -7,6 +7,7 @@ import { baseColors } from '../../../../../design-tokens/colors';
 import { spacing } from '../../../../../design-tokens/spacing';
 import { fontSize, fontWeight } from '../../../../../design-tokens/typography';
 import { elevation } from '../../../../../design-tokens/shadows';
+import { apiFetch } from '../../../../../services/apiClient';
 
 interface PasswordPolicy {
   minLength: number;
@@ -40,10 +41,8 @@ export const SignupPage: React.FC = () => {
   useEffect(() => {
     const fetchPolicy = async () => {
       try {
-        const res = await fetch('/api/auth/password-policy');
-        if (res.ok) {
-          setPolicy(await res.json());
-        }
+        const data = await apiFetch('/auth/password-policy');
+        setPolicy(data);
       } catch {
         // Use default policy if fetch fails
         setPolicy({
@@ -125,28 +124,10 @@ export const SignupPage: React.FC = () => {
     setSubmitting(true);
 
     try {
-      const response = await fetch('/api/auth/register', {
+      await apiFetch('/auth/register', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password, role }),
+        body: { username, password, role },
       });
-
-      if (!response.ok) {
-        let message = 'Signup failed';
-        try {
-          const errorData = await response.json();
-          if (Array.isArray(errorData?.errors)) {
-            message = errorData.errors.join(' ');
-          } else {
-            message = errorData.message || message;
-          }
-        } catch {
-          message = await response.text();
-        }
-        throw new Error(message || 'Signup failed');
-      }
 
       navigate('/login');
     } catch (err: any) {

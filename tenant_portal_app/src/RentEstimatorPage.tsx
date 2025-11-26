@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
+import { apiFetch } from './services/apiClient';
 
 const RentEstimatorPage = () => {
   const [properties, setProperties] = useState<any[]>([]);
@@ -17,16 +18,12 @@ const RentEstimatorPage = () => {
 
   useEffect(() => {
     const fetchProperties = async () => {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
       try {
-        const res = await fetch('/api/properties', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        if (!res.ok) {
-          throw new Error('Failed to fetch properties');
-        }
-        const data = await res.json();
+        const data = await apiFetch('/properties', { token });
         setProperties(data);
       } catch (error: any) {
         setError(error.message);
@@ -35,9 +32,7 @@ const RentEstimatorPage = () => {
       }
     };
 
-    if (token) {
-      fetchProperties();
-    }
+    fetchProperties();
   }, [token]);
 
   useEffect(() => {
@@ -64,17 +59,7 @@ const RentEstimatorPage = () => {
     setEstimationDetails(null);
 
     try {
-      const res = await fetch(`/api/rent-estimator?propertyId=${selectedProperty}&unitId=${selectedUnit}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to estimate rent');
-      }
-
-      const data = await res.json();
+      const data = await apiFetch(`/rent-estimator?propertyId=${selectedProperty}&unitId=${selectedUnit}`, { token });
       setEstimatedRent(data.estimatedRent);
       setEstimationDetails(data.details);
     } catch (error: any) {

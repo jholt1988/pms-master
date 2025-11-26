@@ -1,0 +1,57 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://staging.example.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install backend dependencies
+        working-directory: ./tenant_portal_backend
+        run: npm ci
+
+      - name: Build backend
+        working-directory: ./tenant_portal_backend
+        run: npm run build
+
+      - name: Install frontend dependencies
+        working-directory: ./tenant_portal_app
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: ./tenant_portal_app
+        env:
+          VITE_API_URL: ${{ secrets.STAGING_API_URL }}
+        run: npm run build
+
+      - name: Deploy to staging
+        run: |
+          echo "Deploying to staging environment"
+          # Add your deployment commands here
+          # Examples:
+          # - rsync to server
+          # - docker build and push
+          # - cloud platform deployment (AWS, GCP, Azure, etc.)
+
+      - name: Run smoke tests
+        run: |
+          echo "Running smoke tests against staging"
+          # Add smoke test commands here
+          # curl -f ${{ secrets.STAGING_API_URL }}/health || exit 1
+

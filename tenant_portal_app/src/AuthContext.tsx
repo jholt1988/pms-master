@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState, startTransition } from 'react';
 import { jwtDecode } from 'jwt-decode';
 
 type JwtPayload = {
@@ -77,23 +77,35 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (isTokenExpired(token)) {
           console.warn('Token is expired, logging out');
           localStorage.removeItem('token');
-          setToken(null);
-          setUser(null);
+          // Use startTransition to defer state updates and avoid cascading renders
+          startTransition(() => {
+            setToken(null);
+            setUser(null);
+          });
           return;
         }
 
         localStorage.setItem('token', token);
         const decoded = jwtDecode<JwtPayload>(token);
-        setUser(decoded);
+        // Use startTransition to defer state update and avoid cascading renders
+        startTransition(() => {
+          setUser(decoded);
+        });
       } catch (error) {
         console.error('Failed to decode auth token', error);
         localStorage.removeItem('token');
-        setToken(null);
-        setUser(null);
+        // Use startTransition to defer state updates and avoid cascading renders
+        startTransition(() => {
+          setToken(null);
+          setUser(null);
+        });
       }
     } else {
       localStorage.removeItem('token');
-      setUser(null);
+      // Use startTransition to defer state update and avoid cascading renders
+      startTransition(() => {
+        setUser(null);
+      });
     }
   }, [token]);
 
@@ -117,8 +129,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         return () => clearTimeout(timer);
       } else {
-        // Token already expired
-        setToken(null);
+        // Token already expired - use startTransition to defer state update
+        startTransition(() => {
+          setToken(null);
+        });
       }
     } catch (error) {
       console.error('Error setting up token expiration timer', error);

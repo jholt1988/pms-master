@@ -1,48 +1,64 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
+// Optimized NextUI imports - using individual package imports for better tree-shaking
 import { NextUIProvider } from '@nextui-org/system';
-import { Card } from '@nextui-org/card';
-import { CardBody } from '@nextui-org/card';
+import { Card, CardBody } from '@nextui-org/card';
 import { Button } from '@nextui-org/button';
 import { useAuth } from './AuthContext';
-import ForgotPasswordPage from './ForgotPasswordPage';
-import PasswordResetPage from './PasswordResetPage';
-import MessagingPage from './MessagingPage';
-import LeaseManagementPageModern from './LeaseManagementPageModern';
-import RentalApplicationsManagementPage from './RentalApplicationsManagementPage';
-import ExpenseTrackerPageModern from './ExpenseTrackerPageModern';
-import RentEstimatorPage from './RentEstimatorPage';
-import AuditLogPage from './AuditLogPage';
-import DocumentManagementPage from './DocumentManagementPage';
-import ReportingPage from './ReportingPage';
-import UserManagementPage from './UserManagementPage';
-import NotFoundPage from './NotFoundPage';
-import UnauthorizedPage from './UnauthorizedPage';
-import PropertyManagerDashboard from './PropertyManagerDashboard';
-import PropertyManagementPage from './PropertyManagementPage';
-import SchedulePage from './SchedulePage';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import "./index.css";
 
-import InspectionManagementPage from './InspectionManagementPage';
-import MaintenanceManagementPage from './MaintenanceManagementPage';
-import QuickBooksPage from './QuickBooksPage';
+// Lazy load pages for code splitting
+const ForgotPasswordPage = lazy(() => import('./ForgotPasswordPage'));
+const PasswordResetPage = lazy(() => import('./PasswordResetPage'));
+const MessagingPage = lazy(() => import('./MessagingPage'));
+const LeaseManagementPageModern = lazy(() => import('./LeaseManagementPageModern'));
+const RentalApplicationsManagementPage = lazy(() => import('./RentalApplicationsManagementPage'));
+const ExpenseTrackerPageModern = lazy(() => import('./ExpenseTrackerPageModern'));
+const RentEstimatorPage = lazy(() => import('./RentEstimatorPage'));
+const AuditLogPage = lazy(() => import('./AuditLogPage'));
+const DocumentManagementPage = lazy(() => import('./DocumentManagementPage'));
+const ReportingPage = lazy(() => import('./ReportingPage'));
+const UserManagementPage = lazy(() => import('./UserManagementPage'));
+const NotFoundPage = lazy(() => import('./NotFoundPage'));
+const UnauthorizedPage = lazy(() => import('./UnauthorizedPage'));
+// const PropertyManagerDashboard = lazy(() => import('./PropertyManagerDashboard')); // Unused - using MainDashboard instead
+const PropertyManagementPage = lazy(() => import('./PropertyManagementPage'));
+const SchedulePage = lazy(() => import('./SchedulePage'));
+const InspectionManagementPage = lazy(() => import('./InspectionManagementPage'));
+const MaintenanceManagementPage = lazy(() => import('./MaintenanceManagementPage'));
+const QuickBooksPage = lazy(() => import('./QuickBooksPage'));
+const RentOptimizationDashboard = lazy(() => import('./domains/property-manager/features/rent-optimization/RentOptimizationDashboard'));
+const PropertySearchPage = lazy(() => import('./pages/properties/PropertySearchPage').then(m => ({ default: m.PropertySearchPage })));
+
+// Shared domain imports - lazy loaded
+const LoginPage = lazy(() => import('./domains/shared/auth/features/login').then(m => ({ default: m.LoginPage })));
+const SignupPage = lazy(() => import('./domains/shared/auth/features/signup').then(m => ({ default: m.SignupPage })));
+
+// Tenant domain imports - lazy loaded
+const TenantMaintenancePage = lazy(() => import('./domains/tenant/features/maintenance').then(m => ({ default: m.MaintenancePage })));
+const TenantDashboard = lazy(() => import('./domains/tenant/features/dashboard/TenantDashboard'));
+const TenantShell = lazy(() => import('./domains/tenant/layouts').then(m => ({ default: m.TenantShell })));
+const MyLeasePage = lazy(() => import('./domains/tenant/features/lease').then(m => ({ default: m.MyLeasePage })));
+const PaymentsPage = lazy(() => import('./domains/tenant/features/payments').then(m => ({ default: m.PaymentsPage })));
+const TenantInspectionPage = lazy(() => import('./domains/tenant/features/inspection').then(m => ({ default: m.InspectionPage })));
+const RentalApplicationFormPage = lazy(() => import('./domains/tenant/features/application').then(m => ({ default: m.ApplicationPage })));
+const ApplicationLandingPage = lazy(() => import('./domains/shared/application/ApplicationLandingPage'));
+const ApplicationConfirmationPage = lazy(() => import('./domains/shared/application/ApplicationConfirmationPage'));
+const MainDashboard = lazy(() => import('./MainDashboard'));
+
+// Keep AppShell and ErrorBoundary eagerly loaded (critical path)
 import { AppShell } from './components/ui/AppShell';
-import RentOptimizationDashboard from './domains/property-manager/features/rent-optimization/RentOptimizationDashboard';
-import { PropertySearchPage } from './pages/properties/PropertySearchPage';
 
-// Shared domain imports
-import { LoginPage } from './domains/shared/auth/features/login';
-import { SignupPage } from './domains/shared/auth/features/signup';
-
-// Tenant domain imports
-import { MaintenancePage as TenantMaintenancePage } from './domains/tenant/features/maintenance';
-import TenantDashboard from './domains/tenant/features/dashboard/TenantDashboard';
-import { TenantShell } from './domains/tenant/layouts';
-import { MyLeasePage } from './domains/tenant/features/lease';
-import { PaymentsPage } from './domains/tenant/features/payments';
-import { InspectionPage as TenantInspectionPage } from './domains/tenant/features/inspection';
-import { ApplicationPage as RentalApplicationFormPage } from './domains/tenant/features/application';
-import ApplicationLandingPage from './domains/shared/application/ApplicationLandingPage';
-import ApplicationConfirmationPage from './domains/shared/application/ApplicationConfirmationPage';
+// Loading component for lazy routes
+const PageLoader = () => (
+  <div className="min-h-screen w-full bg-deep-900 flex items-center justify-center">
+    <div className="text-center">
+      <div className="w-16 h-16 border-4 border-neon-blue/30 border-t-neon-blue rounded-full animate-spin mx-auto mb-4"></div>
+      <p className="text-gray-400 text-sm font-mono">LOADING MODULE...</p>
+    </div>
+  </div>
+);
 
 const RequireAuth = () => {
   const { token } = useAuth();
@@ -87,7 +103,7 @@ const RoleBasedShell = () => {
               Access Not Configured
             </h2>
             <p style={{ fontSize: '14px', color: '#6B7280' }}>
-              Your account doesn't have the necessary permissions to access this portal.
+              Your account doesn&apos;t have the necessary permissions to access this portal.
               Please contact your administrator.
             </p>
             <Button 
@@ -106,7 +122,7 @@ const RoleBasedShell = () => {
   // Render the appropriate shell based on role
   // The shell components will render <Outlet /> for nested routes
   if (user.role === 'PROPERTY_MANAGER' || user.role === 'ADMIN') {
-    return <AppShell onLogout={handleLogout} />;
+    return <AppShell  />;
   } else if (user.role === 'TENANT') {
     return <TenantShell onLogout={handleLogout} />;
   }
@@ -119,14 +135,14 @@ const RoleBasedShell = () => {
 const DashboardRouter = () => {
   const { user } = useAuth();
   
-  console.log('[DashboardRouter] Rendering for role:', user?.role);
+  // console.log('[DashboardRouter] Rendering for role:', user?.role); // Debug logging
   
   if (user?.role === 'TENANT') {
     return <TenantDashboard />;
   }
   
   if (user?.role === 'PROPERTY_MANAGER' || user?.role === 'ADMIN') {
-    return <PropertyManagerDashboard />;
+    return <MainDashboard />;
   }
   
   // If no valid role, redirect to unauthorized
@@ -137,9 +153,11 @@ export default function App({className}: {className: string}): React.ReactElemen
   const { token } = useAuth();
 
   return (
-    <NextUIProvider className={className}>
-      <BrowserRouter>
-        <Routes>
+    <ErrorBoundary>
+      <NextUIProvider className={className}>
+        <BrowserRouter>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
           <Route path="/login" element={!token ? <LoginPage /> : <Navigate to="/" replace />} />
           <Route path="/signup" element={!token ? <SignupPage /> : <Navigate to="/" replace />} />
           <Route path="/forgot-password" element={!token ? <ForgotPasswordPage /> : <Navigate to="/" replace />} />
@@ -203,8 +221,10 @@ export default function App({className}: {className: string}): React.ReactElemen
 
           {/* Global catch-all for unauthenticated users */}
           <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-      </BrowserRouter>
-    </NextUIProvider>
+            </Routes>
+          </Suspense>
+        </BrowserRouter>
+      </NextUIProvider>
+    </ErrorBoundary>
   );
 }

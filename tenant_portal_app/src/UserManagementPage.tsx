@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
+import { apiFetch } from './services/apiClient';
 
 interface User {
   id: number;
@@ -41,6 +42,10 @@ export default function UserManagementPage(): React.ReactElement {
   }, [skip, roleFilter]);
 
   const fetchUsers = async () => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -50,17 +55,7 @@ export default function UserManagementPage(): React.ReactElement {
         ...(roleFilter && { role: roleFilter }),
       });
 
-      const response = await fetch(`/api/users?${params}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch users');
-      }
-
-      const data: UserListResponse = await response.json();
+      const data: UserListResponse = await apiFetch(`/users?${params}`, { token });
       setUsers(data.data);
       setTotal(data.total);
     } catch (err: any) {
@@ -72,22 +67,15 @@ export default function UserManagementPage(): React.ReactElement {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!token) return;
     setError(null);
 
     try {
-      const response = await fetch('/api/users', {
+      await apiFetch('/users', {
+        token,
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(formData),
+        body: formData,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create user');
-      }
 
       setShowCreateModal(false);
       setFormData({ username: '', password: '', role: 'TENANT' });
@@ -99,7 +87,7 @@ export default function UserManagementPage(): React.ReactElement {
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedUser) return;
+    if (!selectedUser || !token) return;
     setError(null);
 
     try {
@@ -111,19 +99,11 @@ export default function UserManagementPage(): React.ReactElement {
         updateData.role = formData.role;
       }
 
-      const response = await fetch(`/api/users/${selectedUser.id}`, {
+      await apiFetch(`/users/${selectedUser.id}`, {
+        token,
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(updateData),
+        body: updateData,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update user');
-      }
 
       setShowEditModal(false);
       setSelectedUser(null);
@@ -135,21 +115,16 @@ export default function UserManagementPage(): React.ReactElement {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this document?')) {
+    if (!token) return;
+    if (!window.confirm('Are you sure you want to delete this user?')) {
       return;
     }
 
     try {
-      const response = await fetch(`/api/users/${id}`, {
+      await apiFetch(`/users/${id}`, {
+        token,
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete user');
-      }
 
       fetchUsers();
     } catch (err: any) {

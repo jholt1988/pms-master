@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   MaintenanceAsset,
@@ -17,6 +17,7 @@ import { CreateMaintenanceRequestDto } from './dto/create-maintenance-request.dt
 import { UpdateMaintenanceStatusDto } from './dto/update-maintenance-status.dto';
 import { AssignTechnicianDto } from './dto/assign-technician.dto';
 import { AddMaintenanceNoteDto } from './dto/add-maintenance-note.dto';
+import { AIMaintenanceService } from './ai-maintenance.service';
 
 interface MaintenanceListFilters {
   status?: Status;
@@ -30,10 +31,42 @@ interface MaintenanceListFilters {
 
 @Injectable()
 export class MaintenanceService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(MaintenanceService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly aiMaintenanceService: AIMaintenanceService,
+  ) {}
 
   async create(userId: number, dto: CreateMaintenanceRequestDto): Promise<MaintenanceRequest> {
-    const priority = dto.priority ?? MaintenancePriority.MEDIUM;
+    // Use AI to assign priority if not provided
+    let priority = dto.priority;
+    let aiPriorityUsed = false;
+    
+    if (!priority) {
+      try {
+        const startTime = Date.now();
+        priority = await this.aiMaintenanceService.assignPriorityWithAI(
+          dto.title,
+          dto.description,
+        );
+        const responseTime = Date.now() - startTime;
+        
+        this.logger.log(
+          `AI assigned priority: ${priority} for request: "${dto.title}" (${responseTime}ms)`,
+        );
+        aiPriorityUsed = true;
+      } catch (error) {
+        this.logger.warn(
+          `AI priority assignment failed for request: "${dto.title}", using fallback`,
+          error instanceof Error ? error.message : String(error),
+        );
+        // Fallback to keyword-based priority assignment
+        priority = this.fallbackPriorityAssignment(dto.title, dto.description);
+      }
+    }
+    
+    priority = priority ?? MaintenancePriority.MEDIUM;
     const { resolutionDueAt, responseDueAt, policyId } = await this.computeSlaTargets(
       dto.propertyId ?? null,
       priority,
@@ -57,7 +90,9 @@ export class MaintenanceService {
 
     await this.recordHistory(request.id, {
       toStatus: request.status,
-      note: 'Request created',
+      note: aiPriorityUsed
+        ? `Request created with AI-assigned priority: ${priority}`
+        : 'Request created',
       changedById: userId,
     });
 
@@ -166,17 +201,71 @@ export class MaintenanceService {
   ): Promise<MaintenanceRequest> {
     const existing = await this.prisma.maintenanceRequest.findUnique({
       where: { id },
-      select: {
-        id: true,
-        status: true,
-        assigneeId: true,
+      include: {
+        property: {
+          select: {
+            latitude: true,
+            longitude: true,
+          },
+        },
+        asset: {
+          select: {
+            category: true,
+          },
+        },
       },
     });
+    
     if (!existing) {
       throw new NotFoundException('Maintenance request not found');
     }
 
-    if (existing.assigneeId === dto.technicianId) {
+    // If technician not provided, use AI to assign
+    let technicianId = dto.technicianId;
+    let aiAssignmentUsed = false;
+    let assignmentDetails: { score?: number; reasons?: string[] } = {};
+
+    if (!technicianId) {
+      try {
+        const startTime = Date.now();
+        const aiMatch = await this.aiMaintenanceService.assignTechnician(existing);
+        const responseTime = Date.now() - startTime;
+
+        if (aiMatch) {
+          technicianId = aiMatch.technician.id;
+          assignmentDetails = {
+            score: aiMatch.score,
+            reasons: aiMatch.reasons,
+          };
+          aiAssignmentUsed = true;
+          
+          this.logger.log(
+            `AI assigned technician: ${aiMatch.technician.name} (ID: ${technicianId}) ` +
+            `for request: ${id} with score: ${aiMatch.score.toFixed(1)} (${responseTime}ms)`,
+          );
+        } else {
+          throw new BadRequestException(
+            'No suitable technician found. Please assign manually or ensure technicians are available.',
+          );
+        }
+      } catch (error) {
+        this.logger.warn(
+          `AI technician assignment failed for request: ${id}`,
+          error instanceof Error ? error.message : String(error),
+        );
+        
+        if (error instanceof BadRequestException) {
+          throw error;
+        }
+        
+        // If AI fails and no technician provided, throw error
+        throw new BadRequestException(
+          'Technician assignment required. AI assignment failed. Please provide a technician ID.',
+        );
+      }
+    }
+
+    if (existing.assigneeId === technicianId) {
       return this.prisma.maintenanceRequest.findUniqueOrThrow({
         where: { id },
         include: this.defaultRequestInclude,
@@ -186,10 +275,15 @@ export class MaintenanceService {
     const updated = await this.prisma.maintenanceRequest.update({
       where: { id },
       data: {
-        assignee: { connect: { id: dto.technicianId } },
+        assignee: { connect: { id: technicianId } },
       },
       include: this.defaultRequestInclude,
     });
+
+    const note = aiAssignmentUsed
+      ? `Technician assigned via AI (score: ${assignmentDetails.score?.toFixed(1)}). ` +
+        `Reasons: ${assignmentDetails.reasons?.join('; ')}`
+      : 'Technician assigned';
 
     await this.recordHistory(id, {
       changedById: actorId,
@@ -197,7 +291,7 @@ export class MaintenanceService {
       fromStatus: existing.status,
       toAssignee: updated.assigneeId ?? undefined,
       toStatus: updated.status,
-      note: 'Technician assigned',
+      note,
     });
 
     return updated;
@@ -397,6 +491,41 @@ export class MaintenanceService {
       throw new BadRequestException(`Invalid ${field} supplied`);
     }
     return date;
+  }
+
+  /**
+   * Fallback priority assignment using keyword matching when AI is unavailable
+   */
+  private fallbackPriorityAssignment(title: string, description: string): MaintenancePriority {
+    const text = `${title} ${description}`.toLowerCase();
+    
+    // High priority keywords
+    const highPriorityKeywords = [
+      'leak', 'flood', 'flooding', 'water', 'fire', 'smoke', 'gas', 'electrical',
+      'hazard', 'emergency', 'urgent', 'broken lock', 'security', 'break-in',
+      'no heat', 'no hot water', 'sewage', 'backup', 'overflow', 'spark',
+      'smell gas', 'carbon monoxide', 'co2', 'toxic', 'dangerous',
+    ];
+    
+    // Low priority keywords
+    const lowPriorityKeywords = [
+      'paint', 'cosmetic', 'touch-up', 'touchup', 'routine', 'maintenance',
+      'cleaning', 'aesthetic', 'decorative', 'minor', 'small', 'cosmetic issue',
+      'nail hole', 'scratch', 'stain', 'dirty', 'dust',
+    ];
+    
+    // Check for high priority keywords
+    if (highPriorityKeywords.some((keyword) => text.includes(keyword))) {
+      return MaintenancePriority.HIGH;
+    }
+    
+    // Check for low priority keywords
+    if (lowPriorityKeywords.some((keyword) => text.includes(keyword))) {
+      return MaintenancePriority.LOW;
+    }
+    
+    // Default to medium
+    return MaintenancePriority.MEDIUM;
   }
 }
 

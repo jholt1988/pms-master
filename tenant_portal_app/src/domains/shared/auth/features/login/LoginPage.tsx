@@ -8,6 +8,7 @@ import { baseColors } from '../../../../../design-tokens/colors';
 import { spacing } from '../../../../../design-tokens/spacing';
 import { fontSize, fontWeight } from '../../../../../design-tokens/typography';
 import { elevation } from '../../../../../design-tokens/shadows';
+import { apiFetch } from "../../../../../services/apiClient";
 
 /**
  * Modern login page with NextUI components and design tokens
@@ -24,6 +25,7 @@ export const LoginPage: React.FC = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+
   
   // Get the redirect URL from query params (set by RequireAuth guard)
   const redirectUrl = searchParams.get('redirect') || '/';
@@ -35,38 +37,34 @@ export const LoginPage: React.FC = () => {
     setSubmitting(true);
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const data = await apiFetch('/auth/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password, mfaCode: mfaCode || undefined }),
+        body: { username, password, mfaCode: mfaCode || undefined },
       });
 
-      if (!response.ok) {
-        let message = 'Login failed';
-        try {
-          const errorData = await response.json();
-          message = errorData.message || message;
-        } catch {
-          message = await response.text();
-        }
-
-        if (message && message.toLowerCase().includes('mfa')) {
-          setMfaRequired(true);
-        }
-
-        throw new Error(message || 'Login failed');
-      }
-
-      const data = await response.json();
       if (data.access_token) {
         login(data.access_token);
         // Redirect to the original destination or dashboard after successful login
         navigate(redirectUrl);
       }
     } catch (err: any) {
-      setError(err.message);
+      let message = err.message || 'Login failed';
+      // Extract message from error response
+      if (typeof message === 'string' && message.includes(' - ')) {
+        try {
+          const errorText = message.split(' - ')[1];
+          const errorData = JSON.parse(errorText);
+          message = errorData.message || message;
+        } catch {
+          // Use original message if parsing fails
+        }
+      }
+
+      if (message && message.toLowerCase().includes('mfa')) {
+        setMfaRequired(true);
+      }
+
+      setError(message);
     } finally {
       setSubmitting(false);
     }

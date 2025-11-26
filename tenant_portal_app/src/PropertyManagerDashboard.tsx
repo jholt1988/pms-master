@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { PageHeader } from './components/ui/PageHeader';
+import { apiFetch } from './services/apiClient';
 
 interface DashboardMetrics {
   occupancy: {
@@ -81,16 +82,13 @@ export const PropertyManagerDashboard: React.FC = () => {
 
   useEffect(() => {
     const fetchMetrics = async () => {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
       try {
-        const response = await fetch('/api/dashboard/metrics', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setMetrics(data);
-        }
+        const data = await apiFetch('/dashboard/metrics', { token });
+        setMetrics(data);
       } catch (error) {
         console.error('Error fetching dashboard metrics:', error);
       } finally {

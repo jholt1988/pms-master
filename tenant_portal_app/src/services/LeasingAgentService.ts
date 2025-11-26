@@ -4,6 +4,8 @@
  * property showings, application processing, and lead management
  */
 
+import { getApiBase } from "./apiClient";
+
 export interface LeadInfo {
   id?: string;
   name?: string;
@@ -87,7 +89,7 @@ export interface ApplicationData {
 }
 
 class LeasingAgentService {
-  private readonly API_BASE_URL = 'http://localhost:3001/api';
+  private readonly API_BASE_URL = getApiBase();
   private conversationState: Map<string, LeadInfo> = new Map();
 
   /**
@@ -126,7 +128,7 @@ To get started, could you tell me a bit about what you're looking for? For examp
   /**
    * Process user message and generate intelligent response
    */
-  async sendMessage(sessionId: string, userMessage: string): Promise<Message> {
+  async sendMessage(sessionId: string, userMessage: string, token?: string): Promise<Message> {
     let lead = this.conversationState.get(sessionId);
     
     // Initialize lead if it doesn't exist
@@ -150,7 +152,7 @@ To get started, could you tell me a bit about what you're looking for? For examp
     this.extractLeadInfo(lead, userMessage);
 
     // Generate context-aware response
-    const response = await this.generateResponse(lead, userMessage);
+    const response = await this.generateResponse(lead, userMessage, token);
 
     // Add assistant response to history
     const assistantMsg: Message = {
@@ -164,7 +166,7 @@ To get started, could you tell me a bit about what you're looking for? For examp
     this.updateLeadStatus(lead);
 
     // Save lead and messages to backend (async, don't wait)
-    this.saveLeadAndMessages(sessionId, lead, userMsg, assistantMsg).catch(err => 
+    this.saveLeadAndMessages(sessionId, lead, userMsg, assistantMsg, token).catch(err => 
       console.error('Failed to save to backend:', err)
     );
 
@@ -178,7 +180,8 @@ To get started, could you tell me a bit about what you're looking for? For examp
     sessionId: string, 
     lead: LeadInfo, 
     userMsg: Message, 
-    assistantMsg: Message
+    assistantMsg: Message,
+    token?: string,
   ): Promise<void> {
     try {
       // First, save/update the lead
@@ -197,18 +200,12 @@ To get started, could you tell me a bit about what you're looking for? For examp
         source: 'website',
       };
 
-      const leadResponse = await fetch(`${this.API_BASE_URL}/leads`, {
+      const savedLead = await apiFetch(`${this.API_BASE_URL}/leads`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(leadPayload),
+        body: leadPayload,
+        token,
       });
 
-      if (!leadResponse.ok) {
-        throw new Error(`Failed to save lead: ${leadResponse.statusText}`);
-      }
-
-      const savedLead = await leadResponse.json();
-      
       // Store the lead ID for future operations
       if (savedLead.id && !lead.id) {
         lead.id = savedLead.id;
@@ -217,8 +214,8 @@ To get started, could you tell me a bit about what you're looking for? For examp
 
       // Now save the messages if we have a lead ID
       if (lead.id) {
-        await this.saveMessageToBackend(lead.id, userMsg);
-        await this.saveMessageToBackend(lead.id, assistantMsg);
+        await this.saveMessageToBackend(lead.id, userMsg, token);
+        await this.saveMessageToBackend(lead.id, assistantMsg, token);
       }
     } catch (error) {
       console.error('Error saving to backend:', error);
@@ -229,7 +226,7 @@ To get started, could you tell me a bit about what you're looking for? For examp
   /**
    * Save a single message to backend
    */
-  private async saveMessageToBackend(leadId: string, message: Message): Promise<void> {
+  private async saveMessageToBackend(leadId: string, message: Message, token?: string): Promise<void> {
     try {
       const payload = {
         role: message.role.toUpperCase(),
@@ -237,15 +234,11 @@ To get started, could you tell me a bit about what you're looking for? For examp
         metadata: message.metadata || {},
       };
 
-      const response = await fetch(`${this.API_BASE_URL}/leads/${leadId}/messages`, {
+      await apiFetch(`${this.API_BASE_URL}/leads/${leadId}/messages`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: payload,
+        token,
       });
-
-      if (!response.ok) {
-        throw new Error(`Failed to save message: ${response.statusText}`);
-      }
 
       console.log(`${message.role} message saved to backend`);
     } catch (error) {
@@ -417,7 +410,7 @@ To get started, could you tell me a bit about what you're looking for? For examp
   /**
    * Generate intelligent, context-aware response
    */
-  private async generateResponse(lead: LeadInfo, userMessage: string): Promise<string> {
+  private async generateResponse(lead: LeadInfo, userMessage: string, token?: string): Promise<string> {
     const lowerMsg = userMessage.toLowerCase();
 
     // Check if user is providing contact info
@@ -429,7 +422,7 @@ To get started, could you tell me a bit about what you're looking for? For examp
     if (lowerMsg.includes('available') || lowerMsg.includes('vacancy') || lowerMsg.includes('units')) {
       if (lead.bedrooms && lead.budget) {
         try {
-          const properties = await this.searchProperties(lead);
+          const properties = await this.searchProperties(lead, token);
           if (properties.length > 0) {
             return this.formatPropertyList(properties, lead);
           } else {
@@ -611,25 +604,16 @@ Match Score: ${Math.round(prop.matchScore * 100)}%
   /**
    * Search for properties matching lead criteria
    */
-  private async searchProperties(lead: LeadInfo): Promise<PropertyMatch[]> {
+  private async searchProperties(lead: LeadInfo, token?: string): Promise<PropertyMatch[]> {
     try {
       const params = new URLSearchParams();
       if (lead.bedrooms) params.append('bedrooms', lead.bedrooms.toString());
       if (lead.budget) params.append('maxRent', lead.budget.toString());
       if (lead.petFriendly) params.append('petFriendly', 'true');
 
-      const response = await fetch(`${this.API_BASE_URL}/properties/search?${params}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const properties = await apiFetch(`${this.API_BASE_URL}/properties/search?${params}`, {
+        token,
       });
-
-      if (!response.ok) {
-        throw new Error('Property search failed');
-      }
-
-      const properties = await response.json();
       
       // Calculate match scores
       return properties.map((prop: any) => ({
@@ -757,6 +741,7 @@ Match Score: ${Math.round(prop.matchScore * 100)}%
   async recordPropertyInquiry(
     leadId: string,
     propertyId: string,
+    token?: string,
     unitId?: string,
     interest: 'LOW' | 'MEDIUM' | 'HIGH' = 'MEDIUM',
     notes?: string
@@ -769,15 +754,11 @@ Match Score: ${Math.round(prop.matchScore * 100)}%
         notes,
       };
 
-      const response = await fetch(`${this.API_BASE_URL}/leads/${leadId}/inquiries`, {
+      await apiFetch(`${this.API_BASE_URL}/leads/${leadId}/inquiries`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: payload,
+        token,
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to record inquiry');
-      }
 
       console.log('Property inquiry recorded');
       return true;
@@ -790,21 +771,14 @@ Match Score: ${Math.round(prop.matchScore * 100)}%
   /**
    * Schedule a property tour
    */
-  async scheduleTour(tourRequest: TourRequest): Promise<{ success: boolean; tourId?: string; message: string }> {
+  async scheduleTour(tourRequest: TourRequest, token?: string): Promise<{ success: boolean; tourId?: string; message: string }> {
     try {
-      const response = await fetch(`${this.API_BASE_URL}/tours/schedule`, {
+      const result = await apiFetch(`${this.API_BASE_URL}/tours/schedule`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(tourRequest),
+        body: tourRequest,
+        token,
       });
 
-      if (!response.ok) {
-        throw new Error('Tour scheduling failed');
-      }
-
-      const result = await response.json();
       return {
         success: true,
         tourId: result.tourId,
@@ -823,21 +797,14 @@ Match Score: ${Math.round(prop.matchScore * 100)}%
   /**
    * Submit rental application
    */
-  async submitApplication(applicationData: ApplicationData): Promise<{ success: boolean; applicationId?: string; message: string }> {
+  async submitApplication(applicationData: ApplicationData, token?: string): Promise<{ success: boolean; applicationId?: string; message: string }> {
     try {
-      const response = await fetch(`${this.API_BASE_URL}/applications/submit`, {
+      const result = await apiFetch(`${this.API_BASE_URL}/applications/submit`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(applicationData),
+        body: applicationData,
+        token,
       });
 
-      if (!response.ok) {
-        throw new Error('Application submission failed');
-      }
-
-      const result = await response.json();
       return {
         success: true,
         applicationId: result.applicationId,
@@ -856,7 +823,7 @@ Match Score: ${Math.round(prop.matchScore * 100)}%
   /**
    * Save lead to database
    */
-  async saveLead(sessionId: string): Promise<{ success: boolean; leadId?: string }> {
+  async saveLead(sessionId: string, token?: string): Promise<{ success: boolean; leadId?: string }> {
     const lead = this.conversationState.get(sessionId);
     
     if (!lead) {
@@ -879,19 +846,12 @@ Match Score: ${Math.round(prop.matchScore * 100)}%
         source: 'website',
       };
 
-      const response = await fetch(`${this.API_BASE_URL}/leads`, {
+      const result = await apiFetch(`${this.API_BASE_URL}/leads`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
+        body: payload,
+        token,
       });
 
-      if (!response.ok) {
-        throw new Error('Lead save failed');
-      }
-
-      const result = await response.json();
       lead.id = result.id; // Backend returns { id, ... }
       
       console.log('Lead saved successfully:', result);

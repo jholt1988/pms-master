@@ -5,12 +5,10 @@
 
 import React from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { 
-  Card, 
-  CardBody,
-  Button,
-  Chip
-} from '@nextui-org/react';
+import { Card } from '@nextui-org/card';
+import { CardBody } from '@nextui-org/card';
+import { Button } from '@nextui-org/button';
+import { Chip } from '@nextui-org/chip';
 import { 
   CheckCircle, 
   Mail, 

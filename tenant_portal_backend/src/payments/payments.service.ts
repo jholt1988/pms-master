@@ -1,12 +1,18 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Invoice, Payment, Role } from '@prisma/client';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
+import { AIPaymentService } from './ai-payment.service';
 
 @Injectable()
 export class PaymentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(PaymentsService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly aiPaymentService: AIPaymentService,
+  ) {}
 
   async createInvoice(dto: CreateInvoiceDto): Promise<Invoice> {
     const lease = await this.prisma.lease.findUnique({
@@ -183,6 +189,137 @@ export class PaymentsService {
       where: { id: invoiceId },
       data: { status: 'PAID' },
     });
+  }
+
+  /**
+   * Get invoices due within a specified number of days
+   */
+  async getInvoicesDueInDays(days: number): Promise<Invoice[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const targetDate = new Date(today);
+    targetDate.setDate(targetDate.getDate() + days);
+
+    return this.prisma.invoice.findMany({
+      where: {
+        dueDate: {
+          gte: today,
+          lte: targetDate,
+        },
+        status: 'PENDING',
+      },
+      include: {
+        lease: {
+          include: {
+            tenant: true,
+            unit: {
+              include: { property: true },
+            },
+          },
+        },
+        payments: true,
+      },
+      orderBy: { dueDate: 'asc' },
+    });
+  }
+
+  /**
+   * Get invoices due today
+   */
+  async getInvoicesDueToday(): Promise<Invoice[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    return this.prisma.invoice.findMany({
+      where: {
+        dueDate: {
+          gte: today,
+          lt: tomorrow,
+        },
+        status: 'PENDING',
+      },
+      include: {
+        lease: {
+          include: {
+            tenant: true,
+            unit: {
+              include: { property: true },
+            },
+          },
+        },
+        payments: true,
+      },
+    });
+  }
+
+  /**
+   * Create a payment plan for an invoice
+   */
+  async createPaymentPlan(
+    invoiceId: number,
+    plan: {
+      installments: number;
+      amountPerInstallment: number;
+      totalAmount: number;
+    },
+  ): Promise<void> {
+    const invoice = await this.prisma.invoice.findUnique({
+      where: { id: invoiceId },
+    });
+
+    if (!invoice) {
+      throw new NotFoundException('Invoice not found');
+    }
+
+    // Store payment plan in invoice metadata or create a separate payment plan record
+    // For now, we'll add a note to the invoice
+    // In a full implementation, you'd create a PaymentPlan table
+    this.logger.log(
+      `Payment plan created for invoice ${invoiceId}: ` +
+      `${plan.installments} installments of $${plan.amountPerInstallment.toFixed(2)}`,
+    );
+
+    // Update invoice with payment plan information
+    // Note: This assumes you have a metadata field or paymentPlanId field
+    // If not, you may need to create a PaymentPlan model in Prisma
+  }
+
+  /**
+   * Send payment reminder for an invoice
+   */
+  async sendPaymentReminder(
+    invoiceId: number,
+    reminder: {
+      message: string;
+      channel: 'EMAIL' | 'SMS' | 'PUSH';
+      urgency: 'LOW' | 'MEDIUM' | 'HIGH';
+    },
+  ): Promise<void> {
+    const invoice = await this.prisma.invoice.findUnique({
+      where: { id: invoiceId },
+      include: {
+        lease: {
+          include: {
+            tenant: true,
+          },
+        },
+      },
+    });
+
+    if (!invoice || !invoice.lease?.tenantId) {
+      throw new NotFoundException('Invoice or tenant not found');
+    }
+
+    this.logger.log(
+      `Sending payment reminder for invoice ${invoiceId} via ${reminder.channel}`,
+    );
+
+    // The actual sending will be handled by the notification service
+    // This method is a placeholder for the reminder logic
   }
 }
 

@@ -3,6 +3,7 @@
  * Tests conversation flow, information extraction, and response generation
  */
 
+import { describe, it, expect, afterEach } from 'vitest';
 import { leasingAgentService } from './LeasingAgentService';
 
 describe('LeasingAgentService - End-to-End Tests', () => {
@@ -14,7 +15,7 @@ describe('LeasingAgentService - End-to-End Tests', () => {
   });
 
   describe('Conversation Initialization', () => {
-    test('should start conversation with welcome message', async () => {
+    it('should start conversation with welcome message', async () => {
       const welcomeMsg = await leasingAgentService.startConversation(testSessionId);
       
       expect(welcomeMsg).toBeDefined();
@@ -23,7 +24,7 @@ describe('LeasingAgentService - End-to-End Tests', () => {
       expect(welcomeMsg.timestamp).toBeInstanceOf(Date);
     });
 
-    test('should initialize lead with NEW status', async () => {
+    it('should initialize lead with NEW status', async () => {
       await leasingAgentService.startConversation(testSessionId);
       const leadInfo = leasingAgentService.getLeadInfo(testSessionId);
       
@@ -34,7 +35,7 @@ describe('LeasingAgentService - End-to-End Tests', () => {
   });
 
   describe('Information Extraction', () => {
-    test('should extract name from natural language', async () => {
+    it('should extract name from natural language', async () => {
       await leasingAgentService.startConversation(testSessionId);
       await leasingAgentService.sendMessage(testSessionId, "Hi, I'm John Smith");
       
@@ -42,7 +43,7 @@ describe('LeasingAgentService - End-to-End Tests', () => {
       expect(leadInfo?.name).toBe('John Smith');
     });
 
-    test('should extract email address', async () => {
+    it('should extract email address', async () => {
       await leasingAgentService.startConversation(testSessionId);
       await leasingAgentService.sendMessage(testSessionId, 'My email is john.smith@example.com');
       
@@ -50,7 +51,7 @@ describe('LeasingAgentService - End-to-End Tests', () => {
       expect(leadInfo?.email).toBe('john.smith@example.com');
     });
 
-    test('should extract phone number in various formats', async () => {
+    it('should extract phone number in various formats', async () => {
       const testCases = [
         { input: 'My phone is 555-123-4567', expected: '555-123-4567' },
         { input: 'Call me at (555) 123-4567', expected: '(555) 123-4567' },
@@ -63,12 +64,12 @@ describe('LeasingAgentService - End-to-End Tests', () => {
         await leasingAgentService.sendMessage(sessionId, testCase.input);
         
         const leadInfo = leasingAgentService.getLeadInfo(sessionId);
-        expect(leadInfo?.phone).toBeDefined();
+        expect(leadInfo?.phone).toBeTruthy();
         leasingAgentService.clearConversation(sessionId);
       }
     });
 
-    test('should extract bedroom requirements', async () => {
+    it('should extract bedroom requirements', async () => {
       await leasingAgentService.startConversation(testSessionId);
       await leasingAgentService.sendMessage(testSessionId, 'Looking for a 2 bedroom apartment');
       
@@ -76,7 +77,7 @@ describe('LeasingAgentService - End-to-End Tests', () => {
       expect(leadInfo?.bedrooms).toBe(2);
     });
 
-    test('should extract budget from various formats', async () => {
+    it('should extract budget from various formats', async () => {
       const testCases = [
         { input: 'My budget is $1500 per month', expected: 1500 },
         { input: 'Can afford around $2,000/mo', expected: 2000 },
@@ -95,7 +96,7 @@ describe('LeasingAgentService - End-to-End Tests', () => {
       }
     });
 
-    test('should extract move-in date', async () => {
+    it('should extract move-in date', async () => {
       await leasingAgentService.startConversation(testSessionId);
       await leasingAgentService.sendMessage(testSessionId, 'Need to move in by January 15th');
       
@@ -104,7 +105,7 @@ describe('LeasingAgentService - End-to-End Tests', () => {
       expect(leadInfo?.moveInDate).toContain('January');
     });
 
-    test('should detect ASAP move-in', async () => {
+    it('should detect ASAP move-in', async () => {
       await leasingAgentService.startConversation(testSessionId);
       await leasingAgentService.sendMessage(testSessionId, 'Need a place ASAP!');
       
@@ -112,7 +113,7 @@ describe('LeasingAgentService - End-to-End Tests', () => {
       expect(leadInfo?.moveInDate).toBe('ASAP');
     });
 
-    test('should extract pet information', async () => {
+    it('should extract pet information', async () => {
       await leasingAgentService.startConversation(testSessionId);
       await leasingAgentService.sendMessage(testSessionId, 'I have a dog');
       
@@ -120,7 +121,7 @@ describe('LeasingAgentService - End-to-End Tests', () => {
       expect(leadInfo?.petFriendly).toBe(true);
     });
 
-    test('should extract amenity preferences', async () => {
+    it('should extract amenity preferences', async () => {
       await leasingAgentService.startConversation(testSessionId);
       await leasingAgentService.sendMessage(testSessionId, 'Looking for a place with parking and a gym');
       
@@ -129,7 +130,7 @@ describe('LeasingAgentService - End-to-End Tests', () => {
       expect(leadInfo?.preferences).toContain('gym');
     });
 
-    test('should extract multiple pieces of information in one message', async () => {
+    it('should extract multiple pieces of information in one message', async () => {
       await leasingAgentService.startConversation(testSessionId);
       await leasingAgentService.sendMessage(
         testSessionId,
@@ -147,7 +148,7 @@ describe('LeasingAgentService - End-to-End Tests', () => {
   });
 
   describe('Response Generation', () => {
-    test('should generate contextual response', async () => {
+    it('should generate contextual response', async () => {
       await leasingAgentService.startConversation(testSessionId);
       const response = await leasingAgentService.sendMessage(testSessionId, 'Looking for a 2 bedroom');
       
@@ -157,14 +158,14 @@ describe('LeasingAgentService - End-to-End Tests', () => {
       expect(response.content.length).toBeGreaterThan(0);
     });
 
-    test('should ask for budget when bedrooms specified', async () => {
+    it('should ask for budget when bedrooms specified', async () => {
       await leasingAgentService.startConversation(testSessionId);
       const response = await leasingAgentService.sendMessage(testSessionId, 'I need a 2 bedroom apartment');
       
       expect(response.content.toLowerCase()).toMatch(/budget|afford|price|rent/);
     });
 
-    test('should offer property search when info is complete', async () => {
+    it('should offer property search when info is complete', async () => {
       await leasingAgentService.startConversation(testSessionId);
       await leasingAgentService.sendMessage(testSessionId, 'Looking for a 2 bedroom');
       const response = await leasingAgentService.sendMessage(testSessionId, 'Budget is $1800');
@@ -174,7 +175,7 @@ describe('LeasingAgentService - End-to-End Tests', () => {
   });
 
   describe('Conversation State Management', () => {
-    test('should maintain conversation history', async () => {
+    it('should maintain conversation history', async () => {
       await leasingAgentService.startConversation(testSessionId);
       await leasingAgentService.sendMessage(testSessionId, 'Message 1');
       await leasingAgentService.sendMessage(testSessionId, 'Message 2');
@@ -185,7 +186,7 @@ describe('LeasingAgentService - End-to-End Tests', () => {
       expect(leadInfo?.conversationHistory?.length).toBeGreaterThanOrEqual(4);
     });
 
-    test('should update lead status as conversation progresses', async () => {
+    it('should update lead status as conversation progresses', async () => {
       await leasingAgentService.startConversation(testSessionId);
       let leadInfo = leasingAgentService.getLeadInfo(testSessionId);
       expect(leadInfo?.status).toBe('NEW');
@@ -202,7 +203,7 @@ describe('LeasingAgentService - End-to-End Tests', () => {
       expect(leadInfo?.status).toBeDefined();
     });
 
-    test('should persist information across multiple messages', async () => {
+    it('should persist information across multiple messages', async () => {
       await leasingAgentService.startConversation(testSessionId);
       await leasingAgentService.sendMessage(testSessionId, "I'm John Smith");
       await leasingAgentService.sendMessage(testSessionId, 'Email: john@example.com');
@@ -216,7 +217,7 @@ describe('LeasingAgentService - End-to-End Tests', () => {
   });
 
   describe('Property Search Flow', () => {
-    test('should trigger property search with sufficient information', async () => {
+    it('should trigger property search with sufficient information', async () => {
       await leasingAgentService.startConversation(testSessionId);
       await leasingAgentService.sendMessage(testSessionId, '2 bedroom, budget $1800');
       const response = await leasingAgentService.sendMessage(testSessionId, 'Show me available units');
@@ -227,7 +228,7 @@ describe('LeasingAgentService - End-to-End Tests', () => {
   });
 
   describe('Tour Scheduling Flow', () => {
-    test('should respond to tour requests', async () => {
+    it('should respond to tour requests', async () => {
       await leasingAgentService.startConversation(testSessionId);
       const response = await leasingAgentService.sendMessage(testSessionId, 'Can I schedule a tour?');
       
@@ -236,7 +237,7 @@ describe('LeasingAgentService - End-to-End Tests', () => {
   });
 
   describe('Application Flow', () => {
-    test('should respond to application inquiries', async () => {
+    it('should respond to application inquiries', async () => {
       await leasingAgentService.startConversation(testSessionId);
       const response = await leasingAgentService.sendMessage(testSessionId, 'How do I apply?');
       
@@ -245,7 +246,7 @@ describe('LeasingAgentService - End-to-End Tests', () => {
   });
 
   describe('Edge Cases', () => {
-    test('should handle empty messages gracefully', async () => {
+    it('should handle empty messages gracefully', async () => {
       await leasingAgentService.startConversation(testSessionId);
       const response = await leasingAgentService.sendMessage(testSessionId, '');
       
@@ -253,7 +254,7 @@ describe('LeasingAgentService - End-to-End Tests', () => {
       expect(response).toBeDefined();
     });
 
-    test('should handle messages with special characters', async () => {
+    it('should handle messages with special characters', async () => {
       await leasingAgentService.startConversation(testSessionId);
       const response = await leasingAgentService.sendMessage(testSessionId, 'Looking for apt @#$%^&*()');
       
@@ -261,7 +262,7 @@ describe('LeasingAgentService - End-to-End Tests', () => {
       expect(response.role).toBe('assistant');
     });
 
-    test('should not extract invalid budget amounts', async () => {
+    it('should not extract invalid budget amounts', async () => {
       await leasingAgentService.startConversation(testSessionId);
       await leasingAgentService.sendMessage(testSessionId, 'Budget is $50'); // Too low
       
@@ -269,14 +270,14 @@ describe('LeasingAgentService - End-to-End Tests', () => {
       expect(leadInfo?.budget).toBeUndefined(); // Should not accept unrealistic budget
     });
 
-    test('should handle session that does not exist', () => {
+    it('should handle session that does not exist', () => {
       const leadInfo = leasingAgentService.getLeadInfo('non-existent-session');
       expect(leadInfo).toBeUndefined();
     });
   });
 
   describe('Full Workflow Simulation', () => {
-    test('should complete full lead qualification flow', async () => {
+    it('should complete full lead qualification flow', async () => {
       // Step 1: Start conversation
       const welcome = await leasingAgentService.startConversation(testSessionId);
       expect(welcome.role).toBe('assistant');
@@ -290,7 +291,7 @@ describe('LeasingAgentService - End-to-End Tests', () => {
       await leasingAgentService.sendMessage(testSessionId, 'Email: michael.d@example.com, phone: 555-9876');
       leadInfo = leasingAgentService.getLeadInfo(testSessionId);
       expect(leadInfo?.email).toBe('michael.d@example.com');
-      expect(leadInfo?.phone).toBeDefined();
+      expect(leadInfo?.phone).toBeTruthy();
       
       // Step 4: State requirements
       await leasingAgentService.sendMessage(testSessionId, 'Looking for a 2 bedroom apartment');
@@ -321,7 +322,7 @@ describe('LeasingAgentService - End-to-End Tests', () => {
       // Verify complete profile
       expect(leadInfo?.name).toBeDefined();
       expect(leadInfo?.email).toBeDefined();
-      expect(leadInfo?.phone).toBeDefined();
+      expect(leadInfo?.phone).toBeTruthy();
       expect(leadInfo?.bedrooms).toBeDefined();
       expect(leadInfo?.budget).toBeDefined();
       expect(leadInfo?.moveInDate).toBeDefined();
@@ -329,7 +330,7 @@ describe('LeasingAgentService - End-to-End Tests', () => {
       expect(leadInfo?.preferences?.length).toBeGreaterThan(0);
     });
 
-    test('should handle property search to tour scheduling flow', async () => {
+    it('should handle property search to tour scheduling flow', async () => {
       await leasingAgentService.startConversation(testSessionId);
       
       // Provide requirements
@@ -344,7 +345,7 @@ describe('LeasingAgentService - End-to-End Tests', () => {
       expect(tourResponse.content.toLowerCase()).toMatch(/tour|schedule|visit|viewing/);
     });
 
-    test('should handle tour to application flow', async () => {
+    it('should handle tour to application flow', async () => {
       await leasingAgentService.startConversation(testSessionId);
       
       // Express interest

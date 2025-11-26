@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthContext';
+import { apiFetch } from './services/apiClient';
 import { StatsCard, FilterBar, MaintenanceRequestCard, PageHeader } from './components/ui';
 import { Card, CardBody, Button, Select, SelectItem, Spinner } from '@nextui-org/react';
 
@@ -172,17 +173,8 @@ const MaintenanceDashboardModern = () => {
         params.set('pageSize', String(pageSize));
       }
 
-      const url = params.toString() ? `/api/maintenance?${params.toString()}` : '/api/maintenance';
-      const response = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!response.ok) {
-        const message = await response.text();
-        throw new Error(message || 'Failed to fetch maintenance requests');
-      }
-
-      const data: RequestsResponse = await response.json();
+      const url = params.toString() ? `/maintenance?${params.toString()}` : '/maintenance';
+      const data: RequestsResponse = await apiFetch(url, { token });
       setRequests(data.requests || []);
       setLastFetchCount(data.requests?.length || 0);
     } catch (err) {
@@ -198,12 +190,8 @@ const MaintenanceDashboardModern = () => {
     if (!token || !canManageRequests) return;
 
     try {
-      const response = await fetch('/maintenance/technicians', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.ok) {
-        setTechnicians(await response.json());
-      }
+      const techniciansData = await apiFetch('/maintenance/technicians', { token });
+      setTechnicians(Array.isArray(techniciansData) ? techniciansData : []);
     } catch (err) {
       console.error('Error fetching technicians:', err);
     }
@@ -213,12 +201,8 @@ const MaintenanceDashboardModern = () => {
     if (!token || !canManageRequests) return;
 
     try {
-      const response = await fetch('/api/properties', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.ok) {
-        setProperties(await response.json());
-      }
+      const data = await apiFetch('/properties', { token });
+      setProperties(data);
     } catch (err) {
       console.error('Error fetching properties:', err);
     }
@@ -243,18 +227,11 @@ const MaintenanceDashboardModern = () => {
     if (!token) return;
 
     try {
-      const response = await fetch(`/api/maintenance/${requestId}/status`, {
+      await apiFetch(`/maintenance/${requestId}/status`, {
+        token,
         method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status }),
+        body: { status },
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to update status');
-      }
 
       await fetchRequests();
     } catch (err) {
@@ -267,18 +244,11 @@ const MaintenanceDashboardModern = () => {
     if (!token) return;
 
     try {
-      const response = await fetch(`/api/maintenance/${requestId}/assign`, {
+      await apiFetch(`/maintenance/${requestId}/assign`, {
+        token,
         method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ assigneeId: assigneeId || null }),
+        body: { assigneeId: assigneeId || null },
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to update assignee');
-      }
 
       await fetchRequests();
     } catch (err) {
@@ -298,18 +268,11 @@ const MaintenanceDashboardModern = () => {
     if (!note) return;
 
     try {
-      const response = await fetch(`/api/maintenance/${requestId}/notes`, {
+      await apiFetch(`/maintenance/${requestId}/notes`, {
+        token,
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ body: note }),
+        body: { body: note },
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to add note');
-      }
 
       setNoteDrafts(prev => ({ ...prev, [requestId]: '' }));
       await fetchRequests();

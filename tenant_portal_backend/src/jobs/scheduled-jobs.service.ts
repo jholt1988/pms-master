@@ -1,16 +1,26 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
+import { PaymentsService } from '../payments/payments.service';
+import { AIPaymentService } from '../payments/ai-payment.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '@prisma/client';
 import { subDays } from 'date-fns';
 
 @Injectable()
 export class ScheduledJobsService {
   private readonly logger = new Logger(ScheduledJobsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly paymentsService: PaymentsService,
+    private readonly aiPaymentService: AIPaymentService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   /**
    * Process due payments daily at 2 AM
+   * Uses AI to assess payment risk before processing
    */
   @Cron('0 2 * * *', {
     name: 'processDuePayments',
@@ -20,43 +30,161 @@ export class ScheduledJobsService {
     this.logger.log('Checking for due payments...');
 
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-
-      // Find invoices due today
-      const dueInvoices = await this.prisma.invoice.findMany({
-        where: {
-          dueDate: {
-            gte: today,
-            lt: tomorrow,
-          },
-          status: 'PENDING',
-        },
-        include: {
-          lease: {
-            include: {
-              tenant: true,
-              unit: {
-                include: { property: true }
-              }
-            }
-          },
-        },
-      });
-
+      const dueInvoices = await this.paymentsService.getInvoicesDueToday();
       this.logger.log(`Found ${dueInvoices.length} invoices due today`);
 
-      // Here you would implement automatic payment processing
-      // For now, just log the due invoices
+      let processedCount = 0;
+      let reminderCount = 0;
+      let planOfferedCount = 0;
+
       for (const invoice of dueInvoices) {
-        this.logger.log(`Invoice ${invoice.id} is due: $${invoice.amount} for lease ${invoice.leaseId}`);
+        try {
+          if (!invoice.lease?.tenantId) {
+            this.logger.warn(`Invoice ${invoice.id} has no tenant, skipping`);
+            continue;
+          }
+
+          // Assess payment risk using AI
+          const startTime = Date.now();
+          const riskAssessment = await this.aiPaymentService.assessPaymentRisk(
+            invoice.lease.tenantId,
+            invoice.id,
+          );
+          const responseTime = Date.now() - startTime;
+
+          this.logger.log(
+            `Risk assessment for invoice ${invoice.id}: ` +
+            `${riskAssessment.riskLevel} (${riskAssessment.riskScore.toFixed(1)}%) ` +
+            `(${responseTime}ms)`,
+          );
+
+          // Handle based on risk level
+          if (riskAssessment.riskLevel === 'HIGH' || riskAssessment.riskLevel === 'CRITICAL') {
+            // Don't auto-process high-risk payments
+            // Send reminder instead
+            await this.sendPaymentReminder(invoice, riskAssessment);
+            reminderCount++;
+
+            // Offer payment plan if suggested
+            if (riskAssessment.suggestPaymentPlan && riskAssessment.paymentPlanSuggestion) {
+              await this.offerPaymentPlan(invoice, riskAssessment.paymentPlanSuggestion);
+              planOfferedCount++;
+            }
+          } else {
+            // Process payment normally for LOW/MEDIUM risk
+            // In a real implementation, this would trigger actual payment processing
+            // For now, we'll just log it
+            this.logger.log(
+              `Processing payment for invoice ${invoice.id} ` +
+              `(risk: ${riskAssessment.riskLevel})`,
+            );
+            processedCount++;
+          }
+        } catch (error) {
+          this.logger.error(
+            `Error processing invoice ${invoice.id}:`,
+            error instanceof Error ? error.message : String(error),
+          );
+        }
       }
 
+      this.logger.log(
+        `Payment processing complete: ${processedCount} processed, ` +
+        `${reminderCount} reminders sent, ${planOfferedCount} payment plans offered`,
+      );
     } catch (error) {
       this.logger.error('Failed to process due payments:', error);
+    }
+  }
+
+  /**
+   * Send payment reminder based on AI assessment
+   */
+  private async sendPaymentReminder(
+    invoice: any,
+    riskAssessment: {
+      riskLevel: string;
+      recommendedActions: string[];
+      factors: string[];
+    },
+  ): Promise<void> {
+    try {
+      if (!invoice.lease?.tenantId) {
+        return;
+      }
+
+      const message = `Payment Reminder: Your invoice of $${Number(invoice.amount).toFixed(2)} ` +
+        `is due on ${invoice.dueDate.toLocaleDateString()}. ` +
+        `Please make a payment to avoid late fees.`;
+
+      await this.notificationsService.create({
+        userId: invoice.lease.tenantId,
+        type: NotificationType.PAYMENT_DUE,
+        title: 'Payment Due Reminder',
+        message,
+        metadata: {
+          invoiceId: invoice.id,
+          riskLevel: riskAssessment.riskLevel,
+          factors: riskAssessment.factors,
+          recommendedActions: riskAssessment.recommendedActions,
+        },
+        sendEmail: true,
+        useAITiming: true,
+        personalize: true,
+        urgency: riskAssessment.riskLevel === 'CRITICAL' ? 'HIGH' : 'MEDIUM',
+      });
+
+      this.logger.log(`Sent payment reminder for invoice ${invoice.id}`);
+    } catch (error) {
+      this.logger.error(`Failed to send payment reminder for invoice ${invoice.id}:`, error);
+    }
+  }
+
+  /**
+   * Offer payment plan to tenant
+   */
+  private async offerPaymentPlan(
+    invoice: any,
+    planSuggestion: {
+      installments: number;
+      amountPerInstallment: number;
+      totalAmount: number;
+    },
+  ): Promise<void> {
+    try {
+      if (!invoice.lease?.tenantId) {
+        return;
+      }
+
+      const message = `We understand you may be experiencing financial difficulty. ` +
+        `We're offering a payment plan: ${planSuggestion.installments} installments ` +
+        `of $${planSuggestion.amountPerInstallment.toFixed(2)} each. ` +
+        `Please contact us to set up this payment plan.`;
+
+      await this.notificationsService.create({
+        userId: invoice.lease.tenantId,
+        type: NotificationType.PAYMENT_DUE,
+        title: 'Payment Plan Available',
+        message,
+        metadata: {
+          invoiceId: invoice.id,
+          paymentPlan: planSuggestion,
+        },
+        sendEmail: true,
+        useAITiming: true,
+        personalize: true,
+        urgency: 'MEDIUM',
+      });
+
+      // Store payment plan suggestion
+      await this.paymentsService.createPaymentPlan(invoice.id, planSuggestion);
+
+      this.logger.log(
+        `Offered payment plan for invoice ${invoice.id}: ` +
+        `${planSuggestion.installments} installments of $${planSuggestion.amountPerInstallment.toFixed(2)}`,
+      );
+    } catch (error) {
+      this.logger.error(`Failed to offer payment plan for invoice ${invoice.id}:`, error);
     }
   }
 

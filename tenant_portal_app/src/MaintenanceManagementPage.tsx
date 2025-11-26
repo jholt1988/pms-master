@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
+import { apiFetch } from './services/apiClient';
 import { MasterDetailLayout } from './components/ui/MasterDetailLayout';
 import { useMasterDetail } from './hooks/useMasterDetail';
 import { useViewportCategory } from './hooks/useViewportCategory';
@@ -73,15 +74,7 @@ export default function MaintenanceManagementPage(): React.ReactElement {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/maintenance', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch maintenance requests');
-      }
-      const data = await response.json();
+      const data = await apiFetch('/maintenance', { token });
       setRequests(data.data || []);
     } catch (err: any) {
       setRequests([]);

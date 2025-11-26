@@ -7,8 +7,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardBody, Spinner, Button } from '@nextui-org/react';
 import { RentRecommendationCard } from './RentRecommendationCard';
 import { RentRecommendation } from '../../../shared/ai-services/types';
-
-const API_ENDPOINT = '/api/rent-recommendations';
+import { apiFetch } from '../../../../services/apiClient';
 
 export const RentOptimizationDashboard: React.FC = () => {
   const [recommendations, setRecommendations] = useState<RentRecommendation[]>([]);
@@ -48,19 +47,12 @@ export const RentOptimizationDashboard: React.FC = () => {
 
     try {
       const token = getAuthToken();
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
+      if (!token) {
+        setLoading(false);
+        return;
       }
 
-      const response = await fetch(API_ENDPOINT, { headers });
-      if (!response.ok) {
-        throw new Error('Failed to load rent recommendations');
-      }
-
-      const data = await response.json();
+      const data = await apiFetch('/rent-recommendations', { token });
       if (!Array.isArray(data)) {
         throw new Error('Unexpected payload from rent recommendations API');
       }
@@ -84,17 +76,10 @@ export const RentOptimizationDashboard: React.FC = () => {
         throw new Error('Authentication required');
       }
 
-      const response = await fetch(`${API_ENDPOINT}/bulk-generate/all`, {
+      await apiFetch('/rent-recommendations/bulk-generate/all', {
+        token,
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to trigger recommendation generation');
-      }
 
       await loadRecommendations();
     } catch (err: any) {
@@ -123,17 +108,10 @@ export const RentOptimizationDashboard: React.FC = () => {
         return;
       }
 
-      const response = await fetch(`/api/rent-recommendations/${recommendation.id}/accept`, {
+      await apiFetch(`/rent-recommendations/${recommendation.id}/accept`, {
+        token,
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to accept recommendation');
-      }
 
       setRecommendations(prev =>
         prev.map(rec =>
@@ -164,17 +142,10 @@ export const RentOptimizationDashboard: React.FC = () => {
         return;
       }
 
-      const response = await fetch(`/api/rent-recommendations/${recommendation.id}/reject`, {
+      await apiFetch(`/rent-recommendations/${recommendation.id}/reject`, {
+        token,
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to reject recommendation');
-      }
 
       setRecommendations(prev =>
         prev.map(rec =>

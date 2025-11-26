@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
   LeaseNoticeDeliveryMethod,
   LeaseNoticeType,
@@ -16,10 +16,16 @@ import { RecordLeaseNoticeDto } from './dto/record-lease-notice.dto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { RespondRenewalOfferDto, RenewalDecision } from './dto/respond-renewal-offer.dto';
 import { TenantSubmitNoticeDto } from './dto/tenant-submit-notice.dto';
+import { AILeaseRenewalService } from './ai-lease-renewal.service';
 
 @Injectable()
 export class LeaseService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(LeaseService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private readonly aiLeaseRenewalService: AILeaseRenewalService,
+  ) {}
 
   private readonly leaseInclude: Prisma.LeaseInclude = {
     tenant: { select: { id: true, username: true, role: true } },
@@ -240,14 +246,53 @@ export class LeaseService {
       throw new BadRequestException('Renewal offer start date must be before end date.');
     }
 
-    await this.prisma.leaseRenewalOffer.create({
+    // Get optimal rent adjustment if not provided
+    let proposedRent = dto.proposedRent;
+    let aiRentUsed = false;
+    let rentAdjustmentDetails: {
+      adjustmentPercentage?: number;
+      reasoning?: string;
+      factors?: Array<{ name: string; impact: number; description: string }>;
+    } = {};
+
+    if (!dto.proposedRent || dto.proposedRent === 0) {
+      try {
+        const startTime = Date.now();
+        const adjustment = await this.aiLeaseRenewalService.getRentAdjustmentRecommendation(id);
+        const responseTime = Date.now() - startTime;
+
+        proposedRent = adjustment.recommendedRent;
+        aiRentUsed = true;
+        rentAdjustmentDetails = {
+          adjustmentPercentage: adjustment.adjustmentPercentage,
+          reasoning: adjustment.reasoning,
+          factors: adjustment.factors,
+        };
+
+        this.logger.log(
+          `AI recommended rent adjustment for lease ${id}: ` +
+          `$${Number(lease.rentAmount).toFixed(2)} → $${proposedRent.toFixed(2)} ` +
+          `(${adjustment.adjustmentPercentage > 0 ? '+' : ''}${adjustment.adjustmentPercentage.toFixed(1)}%) ` +
+          `(${responseTime}ms)`,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `AI rent adjustment failed for lease ${id}, using current rent`,
+          error instanceof Error ? error.message : String(error),
+        );
+        // Fallback to current rent
+        proposedRent = Number(lease.rentAmount);
+      }
+    }
+
+    const offer = await this.prisma.leaseRenewalOffer.create({
       data: {
         leaseId: id,
-        proposedRent: dto.proposedRent,
+        proposedRent,
         proposedStart,
         proposedEnd,
         escalationPercent: dto.escalationPercent,
-        message: dto.message,
+        message: dto.message || (aiRentUsed ? rentAdjustmentDetails.reasoning : undefined),
         status: LeaseRenewalStatus.OFFERED,
         expiresAt: this.optionalDate(dto.expiresAt),
         respondedById: actorId,
@@ -264,11 +309,15 @@ export class LeaseService {
       include: this.leaseInclude,
     });
 
+    const historyNote = aiRentUsed
+      ? `Renewal offer sent with AI-recommended rent (${rentAdjustmentDetails.adjustmentPercentage?.toFixed(1)}% adjustment)`
+      : 'Renewal offer sent';
+
     await this.logHistory(updated.id, actorId, {
       fromStatus: lease.status,
       toStatus: updated.status,
-      note: 'Renewal offer sent',
-      rentAmount: dto.proposedRent,
+      note: historyNote,
+      rentAmount: proposedRent,
     });
 
     return updated;
@@ -509,6 +558,70 @@ export class LeaseService {
         depositAmount: data.depositAmount,
         metadata: data.metadata,
       },
+    });
+  }
+
+  /**
+   * Get leases expiring within a specified number of days
+   */
+  async getLeasesExpiringInDays(days: number): Promise<any[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const targetDate = new Date(today);
+    targetDate.setDate(targetDate.getDate() + days);
+
+    return this.prisma.lease.findMany({
+      where: {
+        status: LeaseStatus.ACTIVE,
+        endDate: {
+          gte: today,
+          lte: targetDate,
+        },
+        renewalOfferedAt: null, // Only get leases without existing offers
+      },
+      include: {
+        tenant: true,
+        unit: {
+          include: { property: true },
+        },
+        renewalOffers: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+      orderBy: { endDate: 'asc' },
+    });
+  }
+
+  /**
+   * Prepare for vacancy (mark unit as potentially available, start marketing)
+   */
+  async prepareForVacancy(leaseId: number): Promise<void> {
+    const lease = await this.prisma.lease.findUnique({
+      where: { id: leaseId },
+      include: {
+        unit: true,
+      },
+    });
+
+    if (!lease) {
+      throw new NotFoundException('Lease not found');
+    }
+
+    this.logger.log(`Preparing for vacancy: Lease ${leaseId} ending, unit ${lease.unitId} will be available`);
+
+    // In a full implementation, you would:
+    // 1. Mark unit as potentially available
+    // 2. Start marketing the unit
+    // 3. Schedule move-out inspection
+    // 4. Notify property manager
+
+    // For now, just log the action
+    await this.logHistory(leaseId, 0, {
+      fromStatus: lease.status,
+      toStatus: lease.status,
+      note: 'Prepared for vacancy due to low renewal likelihood',
     });
   }
 

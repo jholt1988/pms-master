@@ -52,13 +52,15 @@ export const SearchInput: React.FC<SearchInputProps> = ({
       placeholder={placeholder}
       value={searchQuery}
       onChange={(e) => setSearchQuery(e.target.value)}
-      startContent={<SearchIcon className="w-4 h-4 text-foreground-400" />}
+      startContent={<SearchIcon className="w-4 h-4 text-foreground-400" aria-hidden="true" />}
+      aria-label={placeholder}
       endContent={
         isClearable && searchQuery ? (
           <button
             type="button"
             onClick={handleClear}
             className="text-foreground-400 hover:text-foreground-600"
+            aria-label="Clear search"
           >
             <X className="w-4 h-4" />
           </button>

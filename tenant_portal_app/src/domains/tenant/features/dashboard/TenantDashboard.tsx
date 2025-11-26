@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../../../AuthContext';
 import { PageHeader } from '../../../../components/ui/PageHeader';
+import { apiFetch } from '../../../../services/apiClient';
 
 interface DashboardData {
   nextRentPayment?: {
@@ -109,16 +110,13 @@ export const TenantDashboard: React.FC = () => {
 
   useEffect(() => {
     const fetchDashboardData = async () => {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
       try {
-        const response = await fetch('/api/tenant/dashboard', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setData(data);
-        }
+        const data = await apiFetch('/tenant/dashboard', { token });
+        setData(data);
       } catch (error) {
         console.error('Error fetching tenant dashboard data:', error);
       } finally {

@@ -52,6 +52,7 @@ const LeaseRow = ({ lease }: { lease: Lease }) => (
       <button
         type="button"
         className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] uppercase tracking-[0.24em] text-slate-200 transition hover:border-neon-blue/50 hover:text-white"
+        aria-label={`View lease for ${lease.property} unit ${lease.unit}`}
       >
         View
         <ArrowUpRight className="h-4 w-4" />
@@ -82,10 +83,14 @@ export const LeasesCard: React.FC = () => (
         <FileText className="h-4 w-4 text-neon-blue" />
         Auto-renewal review in 14 days
       </div>
-      <div className="flex items-center gap-1 text-neon-blue">
+      <button
+        type="button"
+        className="flex items-center gap-1 text-neon-blue hover:text-neon-blue/80 transition-colors"
+        aria-label="Generate lease addendum"
+      >
         Generate addendum
         <ArrowUpRight className="h-4 w-4" />
-      </div>
+      </button>
     </div>
   </GlassCard>
 );

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../../AuthContext';
+import { apiFetch } from '../../../../services/apiClient';
 
 interface Inspection {
   id: number;
@@ -38,20 +39,14 @@ export default function TenantInspectionPage(): React.ReactElement {
   const [selectedInspection, setSelectedInspection] = useState<Inspection | null>(null);
 
   const fetchInspections = React.useCallback(async () => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/inspections', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch inspections');
-      }
-
-      const data = await response.json();
+      const data = await apiFetch('/inspections', { token });
       setInspections(data.data || []);
     } catch (err: any) {
       setError(err.message || 'Failed to load inspections');

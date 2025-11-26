@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
+import { apiFetch } from './services/apiClient';
 import { StatsCard, PageHeader, LeaseCard } from './components/ui';
 import { Card, CardBody, Button } from '@nextui-org/react';
 import { LeaseEsignPanel } from './components/leases/LeaseEsignPanel';
@@ -49,17 +50,7 @@ const LeaseManagementPageModern = () => {
     }
 
     try {
-      const response = await fetch('/api/leases', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to load leases');
-      }
-
-      const data = await response.json();
+      const data = await apiFetch('/leases', { token });
       setLeases(data?.data ?? data ?? []);
     } catch (err: any) {
       setError(err.message ?? 'Failed to load leases');

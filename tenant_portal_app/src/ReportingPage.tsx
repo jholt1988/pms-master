@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
+import { apiFetch } from './services/apiClient';
 
 interface RentRollItem {
   property: string;
@@ -63,6 +64,10 @@ export default function ReportingPage(): React.ReactElement {
   }, [reportType, filters]);
 
   const fetchReport = async () => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -72,17 +77,7 @@ export default function ReportingPage(): React.ReactElement {
       if (filters.startDate) params.append('startDate', filters.startDate);
       if (filters.endDate) params.append('endDate', filters.endDate);
 
-      const response = await fetch(`/api/reporting/${reportType}?${params}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch report');
-      }
-
-      const reportData = await response.json();
+      const reportData = await apiFetch(`/reporting/${reportType}?${params}`, { token });
       setData(reportData);
     } catch (err: any) {
       setError(err.message || 'Failed to load report');

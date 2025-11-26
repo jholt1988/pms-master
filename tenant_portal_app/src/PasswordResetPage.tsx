@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { apiFetch } from './services/apiClient';
 
 export default function PasswordResetPage(): React.ReactElement {
   const [searchParams] = useSearchParams();
@@ -37,18 +38,10 @@ export default function PasswordResetPage(): React.ReactElement {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/auth/reset-password', {
+      await apiFetch('/auth/reset-password', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ token, newPassword }),
+        body: { token, newPassword },
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to reset password');
-      }
 
       setSuccess(true);
       setTimeout(() => {

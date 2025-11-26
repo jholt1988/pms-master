@@ -335,12 +335,70 @@ export class ChatbotService {
     session: ChatSession,
     intent: IntentDetection
   ): Promise<ChatbotResponse> {
-    // TODO: Implement OpenAI/Anthropic integration
-    // This is a placeholder that will be implemented in Phase 4
+    try {
+      // Get auth token from localStorage
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.warn('No auth token found, falling back to FAQ');
+        return this.generateFAQResponse(message, intent);
+      }
 
-    // For now, fall back to FAQ
-    console.log('LLM integration not yet implemented, falling back to FAQ');
-    return this.generateFAQResponse(message, intent);
+      // Get API base URL
+      const apiBase = import.meta.env.VITE_API_URL ?? '/api';
+
+      // Call backend chatbot API
+      const response = await fetch(`${apiBase}/chatbot/message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          message,
+          sessionId: session.id,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Chatbot API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Convert backend response to frontend format
+      return {
+        message: data.message,
+        intent: data.intent,
+        confidence: data.confidence ?? 0.9,
+        category: this.mapIntentToCategory(data.intent),
+        suggestedActions: data.suggestedActions?.map((action: any) => ({
+          label: action.label,
+          action: action.action,
+          params: action.params,
+        })),
+        source: 'llm',
+      };
+    } catch (error) {
+      console.error('LLM response generation failed, falling back to FAQ:', error);
+      return this.generateFAQResponse(message, intent);
+    }
+  }
+
+  /**
+   * Map intent to FAQ category
+   */
+  private mapIntentToCategory(intent?: string): FAQCategory | undefined {
+    if (!intent) return undefined;
+
+    const mapping: Record<string, FAQCategory> = {
+      maintenance: FAQCategory.MAINTENANCE,
+      payment: FAQCategory.PAYMENTS,
+      lease: FAQCategory.LEASE_TERMS,
+      amenities: FAQCategory.AMENITIES,
+      emergency: FAQCategory.EMERGENCIES,
+    };
+
+    return mapping[intent.toLowerCase()];
   }
 
   /**

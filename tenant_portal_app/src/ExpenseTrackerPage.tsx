@@ -1,6 +1,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthContext';
+import { apiFetch } from './services/apiClient';
 
 /**
  * The expense tracker page.
@@ -28,27 +29,14 @@ const ExpenseTrackerPage = () => {
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
       try {
-        const [expensesRes, propertiesRes] = await Promise.all([
-          fetch('/api/expenses', {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-          }),
-          fetch('/api/properties', {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-          }),
-        ]);
-
-        if (!expensesRes.ok || !propertiesRes.ok) {
-          throw new Error('Failed to fetch data');
-        }
-
         const [expensesData, propertiesData] = await Promise.all([
-          expensesRes.json(),
-          propertiesRes.json(),
+          apiFetch('/expenses', { token }),
+          apiFetch('/properties', { token }),
         ]);
 
         setExpenses(expensesData);
@@ -60,9 +48,7 @@ const ExpenseTrackerPage = () => {
       }
     };
 
-    if (token) {
-      fetchData();
-    }
+    fetchData();
   }, [token]);
 
   const handleAddExpense = async (e: React.FormEvent) => {
@@ -75,27 +61,18 @@ const ExpenseTrackerPage = () => {
     setError(null);
 
     try {
-      const res = await fetch('/api/expenses', {
+      const newExpense = await apiFetch('/expenses', {
+        token,
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
+        body: {
           propertyId: Number(selectedProperty),
           unitId: selectedUnit ? Number(selectedUnit) : undefined,
           description,
           amount: parseFloat(amount),
           date: new Date(date).toISOString(),
           category,
-        }),
+        },
       });
-
-      if (!res.ok) {
-        throw new Error('Failed to add expense');
-      }
-
-      const newExpense = await res.json();
       setExpenses((prevExpenses) => [...prevExpenses, newExpense]);
       // Clear form
       setSelectedProperty('');
@@ -118,17 +95,10 @@ const ExpenseTrackerPage = () => {
     }
     setDeletingId(id);
     try {
-      const res = await fetch(`/api/expenses/${id}`, {
+      await apiFetch(`/expenses/${id}`, {
+        token,
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
       });
-
-      if (!res.ok) {
-        throw new Error('Failed to delete expense');
-      }
-
       setExpenses((prevExpenses) => prevExpenses.filter((expense) => expense.id !== id));
     } catch (error: any) {
       setError(error.message);
@@ -497,6 +467,7 @@ const ExpenseTrackerPage = () => {
                 type="submit"
                 disabled={addingExpense}
                 className="w-full rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-300"
+                aria-label={addingExpense ? 'Saving expense' : 'Log expense'}
               >
                 {addingExpense ? 'Saving…' : 'Log expense'}
               </button>

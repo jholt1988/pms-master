@@ -1,6 +1,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthContext';
+import { apiFetch } from './services/apiClient';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -67,16 +68,12 @@ const RentalApplicationsManagementPage = () => {
 
   useEffect(() => {
     const fetchApplications = async () => {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
       try {
-        const res = await fetch('/api/rental-applications', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        if (!res.ok) {
-          throw new Error('Failed to fetch rental applications');
-        }
-        const data = await res.json();
+        const data = await apiFetch('/rental-applications', { token });
         setApplications(data);
       } catch (error: any) {
         setError(error.message);
@@ -85,27 +82,19 @@ const RentalApplicationsManagementPage = () => {
       }
     };
 
-    if (token) {
-      fetchApplications();
-    }
+    fetchApplications();
   }, [token]);
 
   const handleStatusChange = async (id: number, status: string) => {
+    if (!token) return;
     setError(null);
     try {
       setStatusUpdatingId(id);
-      const res = await fetch(`/api/rental-applications/${id}/status`, {
+      await apiFetch(`/rental-applications/${id}/status`, {
+        token,
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status }),
+        body: { status },
       });
-
-      if (!res.ok) {
-        throw new Error('Failed to update application status');
-      }
 
       // Update the local state
       setApplications((prevApplications) =>
@@ -119,21 +108,14 @@ const RentalApplicationsManagementPage = () => {
   };
 
   const handleScreenApplication = async (id: number) => {
+    if (!token) return;
     setError(null);
     try {
       setScreeningId(id);
-      const res = await fetch(`/api/rental-applications/${id}/screen`, {
+      const updatedApplication = await apiFetch(`/rental-applications/${id}/screen`, {
+        token,
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
       });
-
-      if (!res.ok) {
-        throw new Error('Failed to screen application');
-      }
-
-      const updatedApplication = await res.json();
       updateLocalApplication(updatedApplication);
     } catch (error: any) {
       setError(error.message);
@@ -143,26 +125,17 @@ const RentalApplicationsManagementPage = () => {
   };
 
   const handleAddNote = async (id: number) => {
-    if (!noteDrafts[id] || !noteDrafts[id].trim()) {
+    if (!token || !noteDrafts[id] || !noteDrafts[id].trim()) {
       return;
     }
     try {
       setSavingNoteId(id);
       setError(null);
-      const res = await fetch(`/api/rental-applications/${id}/notes`, {
+      const note = await apiFetch(`/rental-applications/${id}/notes`, {
+        token,
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ body: noteDrafts[id] }),
+        body: { body: noteDrafts[id] },
       });
-
-      if (!res.ok) {
-        throw new Error('Failed to add note');
-      }
-
-      const note = await res.json();
       setApplications((prev) =>
         prev.map((app) =>
           app.id === id

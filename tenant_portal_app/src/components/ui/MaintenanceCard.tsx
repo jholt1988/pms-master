@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   AlertCircle, 
   Clock, 
@@ -7,6 +7,9 @@ import {
   ArrowRight,
   MapPin
 } from 'lucide-react';
+import { apiFetch } from '../../services/apiClient';
+import { useAuth } from '../../AuthContext';
+import { shouldUseMockData, getMockMaintenanceRequests, MockMaintenanceRequest } from '../../mocks/apiFixtures';
 
 interface Request {
   id: string;
@@ -17,13 +20,87 @@ interface Request {
   time: string;
 }
 
-const requests: Request[] = [
-  { id: 'REQ-1024', title: 'Gas Leak Detected', unit: 'Unit 2B', priority: 'P1', status: 'PENDING', time: '10m ago' },
-  { id: 'REQ-1023', title: 'AC Unit Failure', unit: 'Unit 5A', priority: 'P2', status: 'IN_PROGRESS', time: '2h ago' },
-  { id: 'REQ-1021', title: 'Window Seal Broken', unit: 'Unit 1C', priority: 'P3', status: 'COMPLETED', time: '1d ago' },
-];
+const mapPriority = (priority: string): 'P1' | 'P2' | 'P3' => {
+  if (priority === 'HIGH' || priority === 'EMERGENCY') return 'P1';
+  if (priority === 'MEDIUM') return 'P2';
+  return 'P3';
+};
+
+const mapStatus = (status: string): 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' => {
+  if (status === 'PENDING') return 'PENDING';
+  if (status === 'IN_PROGRESS') return 'IN_PROGRESS';
+  return 'COMPLETED';
+};
+
+const formatTimeAgo = (dateString: string): string => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return `${diffDays}d ago`;
+};
 
 export const MaintenanceCard = () => {
+  const { token } = useAuth();
+  const [requests, setRequests] = useState<Request[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadRequests = async () => {
+      try {
+        let data: MockMaintenanceRequest[];
+        
+        if (shouldUseMockData()) {
+          data = await getMockMaintenanceRequests();
+        } else if (token) {
+          data = await apiFetch('/maintenance', { token });
+        } else {
+          data = [];
+        }
+
+        // Transform to Request format
+        const transformed: Request[] = data.slice(0, 3).map((req) => ({
+          id: `REQ-${req.id}`,
+          title: req.title,
+          unit: req.unit || 'Unknown',
+          priority: mapPriority(req.priority),
+          status: mapStatus(req.status),
+          time: formatTimeAgo(req.createdAt),
+        }));
+
+        setRequests(transformed);
+      } catch (error) {
+        console.error('Failed to load maintenance requests:', error);
+        // Fallback to empty array
+        setRequests([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadRequests();
+  }, [token]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="text-gray-400 text-sm font-mono">LOADING...</div>
+      </div>
+    );
+  }
+
+  if (requests.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="text-gray-500 text-sm font-mono">NO ACTIVE REQUESTS</div>
+      </div>
+    );
+  }
   const getPriorityColor = (p: string) => {
     switch(p) {
       case 'P1': return 'text-neon-pink animate-pulse'; // Critical
@@ -46,7 +123,7 @@ export const MaintenanceCard = () => {
       {requests.map((item) => (
         <div 
           key={item.id}
-          className="group relative flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5 hover:border-neon-blue/30 hover:bg-white/10 transition-all duration-300 cursor-pointer"
+          className="group relative flex items-center justify-between p-4 rounded-xl bg-transparent border border-white/10 hover:border-neon-blue/50 hover:shadow-[0_0_15px_rgba(0,240,255,0.3)] transition-all duration-300 cursor-pointer backdrop-blur-sm"
         >
           {/* Left: Status Icon & Details */}
           <div className="flex items-start gap-4">
@@ -78,7 +155,10 @@ export const MaintenanceCard = () => {
               {item.status}
             </span>
             
-            <button className="text-gray-500 hover:text-white transition-colors opacity-0 group-hover:opacity-100">
+            <button 
+              className="text-gray-500 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
+              aria-label={`View details for ${item.title}`}
+            >
               <ArrowRight size={16} />
             </button>
           </div>
@@ -86,7 +166,10 @@ export const MaintenanceCard = () => {
       ))}
 
       {/* Footer Action */}
-      <button className="w-full py-3 mt-2 flex items-center justify-center gap-2 text-xs font-mono text-gray-400 hover:text-neon-blue transition-colors border-t border-dashed border-white/10">
+      <button 
+        className="w-full py-3 mt-2 flex items-center justify-center gap-2 text-xs font-mono text-gray-400 hover:text-neon-blue transition-colors border-t border-dashed border-white/10"
+        aria-label="View all maintenance tickets"
+      >
         VIEW ALL TICKETS <ArrowRight size={12} />
       </button>
     </div>

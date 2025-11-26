@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { apiFetch } from '../../services/apiClient';
 
 interface DeliverySummary {
   total: number;
@@ -56,24 +57,10 @@ const BulkMessageStatusPanel: React.FC<BulkMessageStatusPanelProps> = ({
       setLoading(true);
       setError(null);
       try {
-        const [recipientsResponse, reportResponse] = await Promise.all([
-          fetch(`/api/messaging/bulk/${selectedBatch}/recipients`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(`/api/messaging/bulk/${selectedBatch}/report`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
+        const [recipientData, reportData] = await Promise.all([
+          apiFetch(`/messaging/bulk/${selectedBatch}/recipients`, { token }),
+          apiFetch(`/messaging/bulk/${selectedBatch}/report`, { token }),
         ]);
-
-        if (!recipientsResponse.ok) {
-          throw new Error('Failed to load recipient statuses');
-        }
-        if (!reportResponse.ok) {
-          throw new Error('Failed to load delivery report');
-        }
-
-        const recipientData = await recipientsResponse.json();
-        const reportData = await reportResponse.json();
         setRecipientStatuses(recipientData);
         setDeliveryReport(reportData);
       } catch (err: any) {

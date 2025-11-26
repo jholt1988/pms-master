@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from './AuthContext';
+import { apiFetch } from './services/apiClient';
 
 /**
  * The login page component.
@@ -17,6 +18,7 @@ export default function LoginPage(): React.ReactElement {
   const [submitting, setSubmitting] = useState(false);
   const { login } = useAuth();
 
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -24,35 +26,18 @@ export default function LoginPage(): React.ReactElement {
     setSubmitting(true);
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const data = await apiFetch(`auth/login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password, mfaCode: mfaCode || undefined }),
+        body: { username, password, mfaCode: mfaCode || undefined },
       });
 
-      if (!response.ok) {
-        let message = 'Login failed';
-        try {
-          const errorData = await response.json();
-          message = errorData.message || message;
-        } catch {
-          message = await response.text();
-        }
-
-        if (message && message.toLowerCase().includes('mfa')) {
-          setMfaRequired(true);
-        }
-
-        throw new Error(message || 'Login failed');
-      }
-
-      const data = await response.json();
       if (data.access_token) {
         login(data.access_token);
       }
     } catch (err: any) {
+      if (err.message && err.message.toLowerCase().includes('mfa')) {
+        setMfaRequired(true);
+      }
       setError(err.message);
     } finally {
       setSubmitting(false);
@@ -127,6 +112,7 @@ export default function LoginPage(): React.ReactElement {
               type="submit"
               disabled={submitting}
               className="flex w-full items-center justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-300"
+              aria-label={submitting ? 'Signing in' : 'Sign in'}
             >
               {submitting ? 'Signing in…' : 'Sign in'}
             </button>

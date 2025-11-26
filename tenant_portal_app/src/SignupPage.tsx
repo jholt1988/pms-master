@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiFetch } from './services/apiClient';
 
 const SignupPage: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -20,10 +21,8 @@ const SignupPage: React.FC = () => {
   useEffect(() => {
     const fetchPolicy = async () => {
       try {
-        const res = await fetch('/api/auth/password-policy');
-        if (res.ok) {
-          setPolicy(await res.json());
-        }
+        const data = await apiFetch('/auth/password-policy');
+        setPolicy(data);
       } catch {
         // ignore policy fetch errors
       }
@@ -37,32 +36,27 @@ const SignupPage: React.FC = () => {
     setSubmitting(true);
 
     try {
-      const response = await fetch('/api/auth/register', {
+      await apiFetch('/auth/register', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password, role }),
+        body: { username, password, role },
       });
-
-      if (!response.ok) {
-        let message = 'Signup failed';
-        try {
-          const errorData = await response.json();
-          if (Array.isArray(errorData?.errors)) {
-            message = errorData.errors.join(' ');
-          } else {
-            message = errorData.message || message;
-          }
-        } catch {
-          message = await response.text();
-        }
-        throw new Error(message || 'Signup failed');
-      }
-
       navigate('/login');
     } catch (err: any) {
-      setError(err.message);
+      // apiFetch throws errors with message, extract it if it's a structured error
+      let message = err.message || 'Signup failed';
+      if (typeof err.message === 'string' && err.message.includes('{')) {
+        try {
+          const errorData = JSON.parse(err.message.split(' - ')[1] || '{}');
+          if (Array.isArray(errorData?.errors)) {
+            message = errorData.errors.join(' ');
+          } else if (errorData.message) {
+            message = errorData.message;
+          }
+        } catch {
+          // Use original message if parsing fails
+        }
+      }
+      setError(message);
     } finally {
       setSubmitting(false);
     }

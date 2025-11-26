@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
+import { apiFetch } from './services/apiClient';
 
 interface SecurityEvent {
   id: number;
@@ -48,14 +49,8 @@ export default function AuditLogPage(): React.ReactElement {
       }
       setError(null);
       try {
-        const res = await fetch('/api/security-events?limit=200', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) {
-          const msg = await res.text();
-          throw new Error(msg || 'Failed to load audit events');
-        }
-        setEvents(await res.json());
+        const data = await apiFetch('/security-events?limit=200', { token });
+        setEvents(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load audit events');
       } finally {

@@ -1,0 +1,84 @@
+name: Deploy to Production
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to deploy'
+        required: true
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://app.example.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install backend dependencies
+        working-directory: ./tenant_portal_backend
+        run: npm ci
+
+      - name: Build backend
+        working-directory: ./tenant_portal_backend
+        run: npm run build
+
+      - name: Install frontend dependencies
+        working-directory: ./tenant_portal_app
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: ./tenant_portal_app
+        env:
+          VITE_API_URL: ${{ secrets.PRODUCTION_API_URL }}
+        run: npm run build
+
+      - name: Run production tests
+        working-directory: ./tenant_portal_backend
+        run: npm test
+
+      - name: Deploy to production
+        run: |
+          echo "Deploying to production environment"
+          echo "Version: ${{ github.ref_name }}"
+          # Add your deployment commands here
+          # Examples:
+          # - rsync to production server
+          # - docker build and push to production registry
+          # - cloud platform deployment (AWS, GCP, Azure, etc.)
+
+      - name: Run production smoke tests
+        run: |
+          echo "Running smoke tests against production"
+          # Add smoke test commands here
+          # curl -f ${{ secrets.PRODUCTION_API_URL }}/health || exit 1
+
+      - name: Create GitHub release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          body: |
+            Production deployment for version ${{ github.ref_name }}
+            
+            Changes:
+            - See commit history for details
+          draft: false
+          prerelease: false
+

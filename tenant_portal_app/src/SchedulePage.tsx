@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardBody, Button, Select, SelectItem, Chip, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Input, Textarea } from '@nextui-org/react';
 import { Calendar, ChevronLeft, ChevronRight, Clock, MapPin, User, AlertCircle, Plus } from 'lucide-react';
 import { useAuth } from './AuthContext';
+import { getApiBase, apiFetch } from './services/apiClient';
 
 type EventType = 'TOUR' | 'MOVE_IN' | 'MOVE_OUT' | 'LEASE_EXPIRATION' | 'LEASE_RENEWAL' | 'INSPECTION' | 'MAINTENANCE';
 type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
@@ -52,7 +53,7 @@ const SchedulePage: React.FC = () => {
     tenantId: '',
   });
 
-  const API_BASE = 'http://localhost:3000/api';
+  const API_BASE = getApiBase();
 
   const fetchEvents = async () => {
     try {
@@ -63,16 +64,8 @@ const SchedulePage: React.FC = () => {
         ? `${API_BASE}/schedule/weekly?startDate=${dateStr}`
         : `${API_BASE}/schedule/monthly?month=${selectedDate.getMonth() + 1}&year=${selectedDate.getFullYear()}`;
 
-      const response = await fetch(endpoint, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setEvents(data);
-      }
+      const data = await apiFetch(endpoint, { token });
+      setEvents(data);
     } catch (error) {
       console.error('Error fetching events:', error);
     } finally {
@@ -82,16 +75,8 @@ const SchedulePage: React.FC = () => {
 
   const fetchSummary = async () => {
     try {
-      const response = await fetch(`${API_BASE}/schedule/summary`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setSummary(data);
-      }
+      const data = await apiFetch(`${API_BASE}/schedule/summary`, { token });
+      setSummary(data);
     } catch (error) {
       console.error('Error fetching summary:', error);
     }
@@ -99,13 +84,10 @@ const SchedulePage: React.FC = () => {
 
   const handleCreateEvent = async () => {
     try {
-      const response = await fetch(`${API_BASE}/schedule`, {
+      await apiFetch(`${API_BASE}/schedule`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+        token,
+        body: {
           type: eventForm.type,
           title: eventForm.title,
           date: new Date(eventForm.date + 'T' + (eventForm.time || '00:00')),
@@ -114,27 +96,23 @@ const SchedulePage: React.FC = () => {
           propertyId: eventForm.propertyId ? parseInt(eventForm.propertyId) : undefined,
           unitId: eventForm.unitId ? parseInt(eventForm.unitId) : undefined,
           tenantId: eventForm.tenantId ? parseInt(eventForm.tenantId) : undefined,
-        }),
+        },
       });
 
-      if (response.ok) {
-        setIsEventModalOpen(false);
-        setEventForm({
-          type: 'TOUR',
-          title: '',
-          date: '',
-          time: '',
-          priority: 'MEDIUM',
-          description: '',
-          propertyId: '',
-          unitId: '',
-          tenantId: '',
-        });
-        fetchEvents();
-        fetchSummary();
-      } else {
-        console.error('Failed to create event');
-      }
+      setIsEventModalOpen(false);
+      setEventForm({
+        type: 'TOUR',
+        title: '',
+        date: '',
+        time: '',
+        priority: 'MEDIUM',
+        description: '',
+        propertyId: '',
+        unitId: '',
+        tenantId: '',
+      });
+      fetchEvents();
+      fetchSummary();
     } catch (error) {
       console.error('Error creating event:', error);
     }

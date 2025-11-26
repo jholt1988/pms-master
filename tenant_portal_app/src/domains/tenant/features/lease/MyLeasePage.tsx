@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../../../AuthContext';
 import { createRecipientView, EsignEnvelope, EsignParticipant } from '../../../../services/EsignatureApi';
+import { apiFetch } from '../../../../services/apiClient';
 
 type LeaseStatus =
   | 'DRAFT'
@@ -190,22 +191,6 @@ const formatCurrency = (value?: number | null) => {
   return currencyFormatter.format(value);
 };
 
-const readErrorResponse = async (response: Response): Promise<string> => {
-  const text = await response.text();
-  if (!text) {
-    return 'Request failed';
-  }
-  try {
-    const parsed = JSON.parse(text);
-    if (parsed && typeof parsed.message === 'string') {
-      return parsed.message;
-    }
-  } catch {
-    // ignore and fall back to raw text
-  }
-  return text;
-};
-
 const MyLeasePage: React.FC = () => {
   const { token } = useAuth();
   const [lease, setLease] = useState<Lease | null>(null);
@@ -222,10 +207,6 @@ const MyLeasePage: React.FC = () => {
     error: null,
   });
 
-  const headers = useMemo(
-    () => (token ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } : undefined),
-    [token],
-  );
 
   useEffect(() => {
     const fetchLease = async () => {
@@ -236,13 +217,7 @@ const MyLeasePage: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch('/api/leases/my-lease', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) {
-          throw new Error(await readErrorResponse(response));
-        }
-        const data = (await response.json()) as Lease;
+        const data = (await apiFetch('/leases/my-lease', { token })) as Lease;
         setLease(data);
         const notes: Record<number, string> = {};
         (data.renewalOffers ?? []).forEach((offer) => {
@@ -296,28 +271,24 @@ const MyLeasePage: React.FC = () => {
   };
 
   const handleRenewalDecision = async (offer: LeaseRenewalOffer, decision: 'ACCEPTED' | 'DECLINED') => {
-    if (!lease || !headers) {
+    if (!lease || !token) {
       return;
     }
     setResponseSubmitting(offer.id);
     setFeedback(null);
     setError(null);
     try {
-      const response = await fetch(
-        `/api/leases/${lease.id}/renewal-offers/${offer.id}/respond`,
+      const updated = (await apiFetch(
+        `/leases/${lease.id}/renewal-offers/${offer.id}/respond`,
         {
+          token,
           method: 'POST',
-          headers,
-          body: JSON.stringify({
+          body: {
             decision,
             message: responseNotes[offer.id]?.trim() || undefined,
-          }),
+          },
         },
-      );
-      if (!response.ok) {
-        throw new Error(await readErrorResponse(response));
-      }
-      const updated = (await response.json()) as Lease;
+      )) as Lease;
       setLease(updated);
       setFeedback(decision === 'ACCEPTED' ? 'Thanks! Your renewal acceptance was recorded.' : 'Your decline was submitted to the property manager.');
     } catch (err) {
@@ -334,7 +305,7 @@ const MyLeasePage: React.FC = () => {
   };
 
   const handleSubmitNotice = async () => {
-    if (!lease || !headers) {
+    if (!lease || !token) {
       return;
     }
     if (!noticeForm.desiredMoveOut) {
@@ -345,19 +316,15 @@ const MyLeasePage: React.FC = () => {
     setFeedback(null);
     setError(null);
     try {
-      const response = await fetch(`/api/leases/${lease.id}/tenant-notices`, {
+      const updated = (await apiFetch(`/leases/${lease.id}/tenant-notices`, {
+        token,
         method: 'POST',
-        headers,
-        body: JSON.stringify({
+        body: {
           type: noticeForm.type,
           moveOutAt: noticeForm.desiredMoveOut,
           message: noticeForm.message.trim() || undefined,
-        }),
-      });
-      if (!response.ok) {
-        throw new Error(await readErrorResponse(response));
-      }
-      const updated = (await response.json()) as Lease;
+        },
+      })) as Lease;
       setLease(updated);
       setNoticeForm(defaultNoticeForm());
       setFeedback('Your move-out intent has been sent to the property team.');

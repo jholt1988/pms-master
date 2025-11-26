@@ -17,6 +17,7 @@ import {
   Divider,
 } from '@nextui-org/react';
 import { useAuth } from '../../../../AuthContext';
+import { apiFetch } from '../../../../services/apiClient';
 import { StatsCard, DataTable, PageHeader, DataTableColumn } from '../../../../components/ui';
 import type { 
   Invoice, 
@@ -79,16 +80,6 @@ export default function PaymentsPage(): React.ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const authHeaders = useMemo(
-    () =>
-      token
-        ? {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          }
-        : undefined,
-    [token],
-  );
 
   // Calculate derived values
   const openInvoices = invoices.filter((inv) => ['PENDING', 'DUE', 'OVERDUE'].includes(inv.status.toUpperCase()));
@@ -120,20 +111,9 @@ export default function PaymentsPage(): React.ReactElement {
         return;
       }
 
-      const invoicesRes = await fetch('/api/payments/invoices', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const paymentsRes = await fetch('/api/payments', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!invoicesRes.ok || !paymentsRes.ok) {
-        throw new Error('Failed to fetch payment information');
-      }
-
       const [invoicesData, paymentsData] = await Promise.all([
-        invoicesRes.json(),
-        paymentsRes.json(),
+        apiFetch('/payments/invoices', { token }),
+        apiFetch('/payments', { token }),
       ]);
 
       setInvoices(invoicesData);
@@ -145,32 +125,28 @@ export default function PaymentsPage(): React.ReactElement {
         return;
       }
 
-      const methodsRes = await fetch('/api/payment-methods', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (methodsRes.ok) {
-        setPaymentMethods(await methodsRes.json());
+      try {
+        const methodsData = await apiFetch('/payment-methods', { token });
+        setPaymentMethods(methodsData);
+      } catch (err) {
+        console.error('Failed to fetch payment methods:', err);
       }
 
-      const autopayRes = await fetch('/api/billing/autopay', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (autopayRes.ok) {
-        const data = (await autopayRes.json()) as AutopayStatus;
-        setAutopay(data);
-        if (data.enrollment?.paymentMethodId) {
-          setSelectedMethodId(String(data.enrollment.paymentMethodId));
+      try {
+        const autopayData = await apiFetch('/billing/autopay', { token });
+        setAutopay(autopayData as AutopayStatus);
+        if (autopayData.enrollment?.paymentMethodId) {
+          setSelectedMethodId(String(autopayData.enrollment.paymentMethodId));
         }
-        if (typeof data.enrollment?.maxAmount === 'number') {
-          setAutopayMaxAmount(String(data.enrollment.maxAmount));
+        if (typeof autopayData.enrollment?.maxAmount === 'number') {
+          setAutopayMaxAmount(String(autopayData.enrollment.maxAmount));
         }
-      } else if (autopayRes.status === 404) {
-        setAutopay(null);
-      } else {
-        const msg = await autopayRes.text();
-        throw new Error(msg || 'Failed to fetch autopay status');
+      } catch (err: any) {
+        if (err.message?.includes('404')) {
+          setAutopay(null);
+        } else {
+          console.error('Failed to fetch autopay status:', err);
+        }
       }
     };
 
@@ -194,59 +170,43 @@ export default function PaymentsPage(): React.ReactElement {
     fetchAll();
   }, [token]);
 
-  const loadBillingExtras = async () => {
-    if (!token) {
-      return;
-    }
-
-    const methodsRes = await fetch('/api/payment-methods', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    if (methodsRes.ok) {
-      setPaymentMethods(await methodsRes.json());
-    }
-
-    const autopayRes = await fetch('/api/billing/autopay', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    if (autopayRes.ok) {
-      const data = (await autopayRes.json()) as AutopayStatus;
-      setAutopay(data);
-      if (data.enrollment?.paymentMethodId) {
-        setSelectedMethodId(String(data.enrollment.paymentMethodId));
-      }
-      if (typeof data.enrollment?.maxAmount === 'number') {
-        setAutopayMaxAmount(String(data.enrollment.maxAmount));
-      }
-    } else if (autopayRes.status === 404) {
-      setAutopay(null);
-    } else {
-      const msg = await autopayRes.text();
-      throw new Error(msg || 'Failed to fetch autopay status');
-    }
-  };
-
   const handleAddPaymentMethod = async () => {
-    if (!authHeaders || actionLoading) return;
+    if (!token || actionLoading) return;
 
     try {
       setActionLoading(true);
       setError(null);
 
-      const response = await fetch('/api/payment-methods', {
+      await apiFetch('/payment-methods', {
+        token,
         method: 'POST',
-        headers: authHeaders,
-        body: JSON.stringify(methodForm),
+        body: methodForm,
       });
 
-      if (!response.ok) {
-        const message = await response.text();
-        throw new Error(message || 'Failed to add payment method');
+      // Reload payment methods and autopay status
+      try {
+        const methodsData = await apiFetch('/payment-methods', { token });
+        setPaymentMethods(methodsData);
+      } catch (err) {
+        console.error('Failed to fetch payment methods:', err);
       }
 
-      await loadBillingExtras();
+      try {
+        const autopayData = await apiFetch('/billing/autopay', { token });
+        setAutopay(autopayData as AutopayStatus);
+        if (autopayData.enrollment?.paymentMethodId) {
+          setSelectedMethodId(String(autopayData.enrollment.paymentMethodId));
+        }
+        if (typeof autopayData.enrollment?.maxAmount === 'number') {
+          setAutopayMaxAmount(String(autopayData.enrollment.maxAmount));
+        }
+      } catch (err: any) {
+        if (err.message?.includes('404')) {
+          setAutopay(null);
+        } else {
+          console.error('Failed to fetch autopay status:', err);
+        }
+      }
       setMethodForm(defaultMethodForm);
       setNotice('Payment method added successfully!');
       onOpenChange();

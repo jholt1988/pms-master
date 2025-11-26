@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthContext';
+import { apiFetch } from './services/apiClient';
 
 type LeaseStatus =
   | 'DRAFT'
@@ -344,24 +345,7 @@ const createNoticeFormState = (): NoticeFormState => ({
   acknowledgedAt: '',
 });
 
-const readErrorResponse = async (response: Response): Promise<string> => {
-  const text = await response.text();
-  if (!text) {
-    return 'Request failed';
-  }
-  try {
-    const parsed = JSON.parse(text);
-    if (typeof parsed === 'string') {
-      return parsed;
-    }
-    if (parsed && typeof parsed.message === 'string') {
-      return parsed.message;
-    }
-  } catch {
-    // ignore – fall back to raw text
-  }
-  return text;
-};
+// Error handling is now done by apiFetch
 
 function LeaseManagementPage(): React.ReactElement {
   const { token } = useAuth();
@@ -409,13 +393,7 @@ function LeaseManagementPage(): React.ReactElement {
     const load = async () => {
       setLoading(true);
       try {
-        const response = await fetch('/api/leases', {
-          headers,
-        });
-        if (!response.ok) {
-          throw new Error(await readErrorResponse(response));
-        }
-        const data = (await response.json()) as Lease[];
+        const data = (await apiFetch('/leases', { token })) as Lease[];
         if (!cancelled) {
           setLeases(data);
           hydrateForms(data);
@@ -500,7 +478,7 @@ function LeaseManagementPage(): React.ReactElement {
   };
 
   const handleStatusSubmit = async (lease: Lease) => {
-    if (!headers) {
+    if (!token) {
       return;
     }
 
@@ -608,15 +586,11 @@ function LeaseManagementPage(): React.ReactElement {
     setError(null);
 
     try {
-      const response = await fetch(`/api/leases/${lease.id}/status`, {
+      const updated = (await apiFetch(`/leases/${lease.id}/status`, {
+        token,
         method: 'PUT',
-        headers,
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) {
-        throw new Error(await readErrorResponse(response));
-      }
-      const updated = (await response.json()) as Lease;
+        body: payload,
+      })) as Lease;
       applyLeaseUpdate(updated);
       setFeedback(`Lease for ${lease.tenant.username} updated to ${statusLabels[updated.status]}.`);
     } catch (err) {
@@ -627,7 +601,7 @@ function LeaseManagementPage(): React.ReactElement {
   };
 
   const handleRenewalSubmit = async (lease: Lease) => {
-    if (!headers) {
+    if (!token) {
       return;
     }
 
@@ -682,15 +656,11 @@ function LeaseManagementPage(): React.ReactElement {
     setError(null);
 
     try {
-      const response = await fetch(`/api/leases/${lease.id}/renewal-offers`, {
+      const updated = (await apiFetch(`/leases/${lease.id}/renewal-offers`, {
+        token,
         method: 'POST',
-        headers,
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) {
-        throw new Error(await readErrorResponse(response));
-      }
-      const updated = (await response.json()) as Lease;
+        body: payload,
+      })) as Lease;
       applyLeaseUpdate(updated);
       setFeedback(`Renewal offer sent to ${updated.tenant.username}.`);
       setExpandedCards((prev) => (prev.includes(lease.id) ? prev : [...prev, lease.id]));
@@ -702,7 +672,7 @@ function LeaseManagementPage(): React.ReactElement {
   };
 
   const handleNoticeSubmit = async (lease: Lease) => {
-    if (!headers) {
+    if (!token) {
       return;
     }
 
@@ -734,15 +704,11 @@ function LeaseManagementPage(): React.ReactElement {
     setError(null);
 
     try {
-      const response = await fetch(`/api/leases/${lease.id}/notices`, {
+      const updated = (await apiFetch(`/leases/${lease.id}/notices`, {
+        token,
         method: 'POST',
-        headers,
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) {
-        throw new Error(await readErrorResponse(response));
-      }
-      const updated = (await response.json()) as Lease;
+        body: payload,
+      })) as Lease;
       applyLeaseUpdate(updated);
       setFeedback(`Notice recorded for ${updated.tenant.username}.`);
       setExpandedCards((prev) => (prev.includes(lease.id) ? prev : [...prev, lease.id]));

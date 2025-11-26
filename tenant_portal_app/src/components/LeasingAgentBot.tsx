@@ -7,6 +7,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, X, Minimize2, Maximize2, Home, Calendar, FileText, Phone } from 'lucide-react';
 import { leasingAgentService, Message, LeadInfo } from '../services/LeasingAgentService';
+import { useAuth } from '../AuthContext';
 
 interface LeasingAgentBotProps {
   sessionId?: string;
@@ -30,6 +31,7 @@ export const LeasingAgentBot: React.FC<LeasingAgentBotProps> = ({
   const [showQuickActions, setShowQuickActions] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { token } = useAuth();
 
   // Initialize conversation on mount
   useEffect(() => {
@@ -86,7 +88,7 @@ export const LeasingAgentBot: React.FC<LeasingAgentBotProps> = ({
 
     try {
       console.log('Calling leasingAgentService.sendMessage...');
-      const response = await leasingAgentService.sendMessage(sessionId, userMessage);
+      const response = await leasingAgentService.sendMessage(sessionId, userMessage, token);
       console.log('Response received:', response);
       setMessages(prev => [...prev, response]);
       
@@ -124,7 +126,7 @@ export const LeasingAgentBot: React.FC<LeasingAgentBotProps> = ({
     setMessages(prev => [...prev, userMsg]);
 
     try {
-      const response = await leasingAgentService.sendMessage(sessionId, action);
+      const response = await leasingAgentService.sendMessage(sessionId, action, token);
       setMessages(prev => [...prev, response]);
       
       // Update lead info

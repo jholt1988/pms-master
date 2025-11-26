@@ -10,6 +10,8 @@ import {
   Phone, Mail, DollarSign, Home, Clock, CheckCircle, XCircle,
   AlertCircle, TrendingUp, Eye, ChevronRight, Download
 } from 'lucide-react';
+import { useAuth } from '../../AuthContext';
+import { apiFetch } from '../../services/apiClient';
 
 interface Lead {
   id: string;
@@ -53,6 +55,7 @@ interface LeadStats {
 }
 
 export const LeadManagementPage: React.FC = () => {
+  const { token } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [stats, setStats] = useState<LeadStats | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -62,8 +65,6 @@ export const LeadManagementPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showConversation, setShowConversation] = useState(false);
 
-  const API_BASE_URL = '/api/leasing';
-
   // Fetch leads and stats on mount
   useEffect(() => {
     fetchLeads();
@@ -71,6 +72,10 @@ export const LeadManagementPage: React.FC = () => {
   }, [statusFilter]);
 
   const fetchLeads = async () => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -78,11 +83,8 @@ export const LeadManagementPage: React.FC = () => {
         params.append('status', statusFilter);
       }
 
-      const response = await fetch(`${API_BASE_URL}/leads?${params}`);
-      if (response.ok) {
-        const data = await response.json();
-        setLeads(data);
-      }
+      const data = await apiFetch(`/leasing/leads?${params}`, { token });
+      setLeads(data);
     } catch (error) {
       console.error('Error fetching leads:', error);
       // Set mock data for demo
@@ -93,12 +95,10 @@ export const LeadManagementPage: React.FC = () => {
   };
 
   const fetchStats = async () => {
+    if (!token) return;
     try {
-      const response = await fetch(`${API_BASE_URL}/statistics`);
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      }
+      const data = await apiFetch('/leasing/statistics', { token });
+      setStats(data);
     } catch (error) {
       console.error('Error fetching stats:', error);
       // Set mock stats
@@ -115,13 +115,11 @@ export const LeadManagementPage: React.FC = () => {
   };
 
   const fetchConversation = async (leadId: string) => {
+    if (!token) return;
     try {
-      const response = await fetch(`${API_BASE_URL}/leads/${leadId}/messages`);
-      if (response.ok) {
-        const data = await response.json();
-        setMessages(data);
-        setShowConversation(true);
-      }
+      const data = await apiFetch(`/leasing/leads/${leadId}/messages`, { token });
+      setMessages(data);
+      setShowConversation(true);
     } catch (error) {
       console.error('Error fetching conversation:', error);
       setMessages(getMockMessages());
@@ -130,18 +128,16 @@ export const LeadManagementPage: React.FC = () => {
   };
 
   const updateLeadStatus = async (leadId: string, newStatus: string) => {
+    if (!token) return;
     try {
-      const response = await fetch(`${API_BASE_URL}/leads/${leadId}/status`, {
+      await apiFetch(`/leasing/leads/${leadId}/status`, {
+        token,
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
+        body: { status: newStatus },
       });
-
-      if (response.ok) {
-        // Refresh leads
-        fetchLeads();
-        fetchStats();
-      }
+      // Refresh leads
+      fetchLeads();
+      fetchStats();
     } catch (error) {
       console.error('Error updating status:', error);
     }

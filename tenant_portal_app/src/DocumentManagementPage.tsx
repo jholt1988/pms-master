@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
+import { apiFetch } from './services/apiClient';
 
 interface Document {
   id: number;
@@ -31,6 +32,10 @@ export default function DocumentManagementPage(): React.ReactElement {
   }, [categoryFilter]);
 
   const fetchDocuments = async () => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -39,17 +44,7 @@ export default function DocumentManagementPage(): React.ReactElement {
         params.append('category', categoryFilter);
       }
 
-      const response = await fetch(`/api/documents?${params}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch documents');
-      }
-
-      const data = await response.json();
+      const data = await apiFetch(`/documents?${params}`, { token });
       setDocuments(data.data || []);
     } catch (err: any) {
       setError(err.message || 'Failed to load documents');
@@ -60,8 +55,10 @@ export default function DocumentManagementPage(): React.ReactElement {
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedFile) {
-      setError('Please select a file');
+    if (!token || !selectedFile) {
+      if (!selectedFile) {
+        setError('Please select a file');
+      }
       return;
     }
 
@@ -74,7 +71,10 @@ export default function DocumentManagementPage(): React.ReactElement {
     }
 
     try {
-      const response = await fetch('/api/documents/upload', {
+      // File uploads need special handling - use fetch directly with FormData
+      const base = import.meta.env.VITE_API_URL ?? '/api';
+      const url = `${base.replace(/\/$/, '')}/documents/upload`;
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -83,7 +83,7 @@ export default function DocumentManagementPage(): React.ReactElement {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({ message: 'Failed to upload document' }));
         throw new Error(errorData.message || 'Failed to upload document');
       }
 
@@ -97,8 +97,12 @@ export default function DocumentManagementPage(): React.ReactElement {
   };
 
   const handleDownload = async (id: number, fileName: string) => {
+    if (!token) return;
     try {
-      const response = await fetch(`/api/documents/${id}/download`, {
+      // File downloads need special handling - use fetch directly for blob response
+      const base = import.meta.env.VITE_API_URL ?? '/api';
+      const url = `${base.replace(/\/$/, '')}/documents/${id}/download`;
+      const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -109,13 +113,13 @@ export default function DocumentManagementPage(): React.ReactElement {
       }
 
       const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const urlObj = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
+      a.href = urlObj;
       a.download = fileName;
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
+      window.URL.revokeObjectURL(urlObj);
       document.body.removeChild(a);
     } catch (err: any) {
       setError(err.message || 'Failed to download document');
@@ -123,22 +127,16 @@ export default function DocumentManagementPage(): React.ReactElement {
   };
 
   const handleDelete = async (id: number) => {
+    if (!token) return;
     if (!window.confirm('Are you sure you want to delete this document?')) {
       return;
     }
 
     try {
-      const response = await fetch(`/api/documents/${id}`, {
+      await apiFetch(`/documents/${id}`, {
+        token,
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete document');
-      }
-
       fetchDocuments();
     } catch (err: any) {
       setError(err.message || 'Failed to delete document');

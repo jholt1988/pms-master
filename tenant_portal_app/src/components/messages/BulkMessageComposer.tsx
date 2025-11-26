@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { apiFetch } from '../../services/apiClient';
 
 type TemplateSummary = {
   id: number;
@@ -119,31 +120,17 @@ const BulkMessageComposer: React.FC<BulkMessageComposerProps> = ({
     return payload;
   };
 
-  const request = async (endpoint: string, payload: any) => {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const message = await response.text();
-      throw new Error(message || 'Request failed');
-    }
-
-    return response.json();
-  };
-
   const handlePreview = async () => {
     setError(null);
     setSuccess(null);
     setLoading('preview');
     try {
       const payload = buildPayload();
-      const data = await request('/api/messaging/bulk/preview', payload);
+      const data = await apiFetch('/messaging/bulk/preview', {
+        token,
+        method: 'POST',
+        body: payload,
+      });
       setPreview(data);
       setSuccess(`Matched ${data.totalRecipients} recipients`);
     } catch (err: any) {
@@ -160,7 +147,11 @@ const BulkMessageComposer: React.FC<BulkMessageComposerProps> = ({
     setLoading('send');
     try {
       const payload = buildPayload();
-      await request('/api/messaging/bulk', payload);
+      await apiFetch('/messaging/bulk', {
+        token,
+        method: 'POST',
+        body: payload,
+      });
       setSuccess('Bulk message queued successfully');
       setPreview(null);
       if (onBatchCreated) {

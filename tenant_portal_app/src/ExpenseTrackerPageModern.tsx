@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthContext';
+import { apiFetch } from './services/apiClient';
 import { StatsCard, FilterBar, DataTable, PageHeader } from './components/ui';
 import { Card, CardBody, Button, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Input, Select, SelectItem, useDisclosure } from '@nextui-org/react';
 
@@ -119,22 +120,9 @@ const ExpenseTrackerPageModern = () => {
       setLoading(true);
       setError(null);
 
-      const [expensesRes, propertiesRes] = await Promise.all([
-        fetch('/api/expenses', {
-          headers: { 'Authorization': `Bearer ${token}` },
-        }),
-        fetch('/api/properties', {
-          headers: { 'Authorization': `Bearer ${token}` },
-        }),
-      ]);
-
-      if (!expensesRes.ok || !propertiesRes.ok) {
-        throw new Error('Failed to fetch data');
-      }
-
       const [expensesData, propertiesData] = await Promise.all([
-        expensesRes.json(),
-        propertiesRes.json(),
+        apiFetch('/expenses', { token }),
+        apiFetch('/properties', { token }),
       ]);
 
       setExpenses(expensesData);
@@ -176,26 +164,18 @@ const ExpenseTrackerPageModern = () => {
       setAddingExpense(true);
       setError(null);
 
-      const response = await fetch('/api/expenses', {
+      await apiFetch('/expenses', {
+        token,
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+        body: {
           description,
           amount: parseFloat(amount),
           date,
           category,
           propertyId: selectedProperty ? Number(selectedProperty) : undefined,
           unitId: selectedUnit ? Number(selectedUnit) : undefined,
-        }),
+        },
       });
-
-      if (!response.ok) {
-        const message = await response.text();
-        throw new Error(message || 'Failed to add expense');
-      }
 
       // Reset form
       setDescription('');
@@ -222,15 +202,10 @@ const ExpenseTrackerPageModern = () => {
       setDeletingId(id);
       setError(null);
 
-      const response = await fetch(`/api/expenses/${id}`, {
+      await apiFetch(`/expenses/${id}`, {
+        token,
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
       });
-
-      if (!response.ok) {
-        const message = await response.text();
-        throw new Error(message || 'Failed to delete expense');
-      }
 
       await fetchData();
     } catch (err) {

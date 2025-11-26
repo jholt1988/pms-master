@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { Button, Card, CardBody, CardHeader, Chip } from '@nextui-org/react';
+import { apiFetch } from './services/apiClient';
 
 interface QuickBooksConnection {
   id: number;
@@ -18,18 +19,14 @@ export default function QuickBooksPage(): React.ReactElement {
 
   useEffect(() => {
     const fetchConnections = async () => {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch('/api/quickbooks/connections', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (!response.ok) {
-          throw new Error('Failed to fetch QuickBooks connections');
-        }
-        const data = await response.json();
+        const data = await apiFetch('/quickbooks/connections', { token });
         setConnections(data.data || []);
       } catch (err: any) {
         setConnections([]);

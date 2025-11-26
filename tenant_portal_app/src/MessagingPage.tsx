@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
+import { apiFetch } from './services/apiClient';
 import BulkMessageComposer from './components/messages/BulkMessageComposer';
 import BulkMessageStatusPanel from './components/messages/BulkMessageStatusPanel';
 
@@ -40,18 +41,10 @@ const MessagingPage = () => {
   const fetchMessages = useCallback(
     async (conversationId: number) => {
       try {
-        const res = await fetch(`/api/messaging/conversations/${conversationId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (!res.ok) {
-          throw new Error('Failed to fetch messages');
-        }
-        const data = await res.json();
-        setMessages(data);
+        const data = await apiFetch(`/messaging/conversations/${conversationId}`, { token });
+        setMessages(data.messages || data || []);
       } catch (error: any) {
-        setError(error.message);
+        setError(error.message || 'Failed to fetch messages');
       }
     },
     [token],
@@ -60,16 +53,8 @@ const MessagingPage = () => {
   useEffect(() => {
     const fetchConversations = async () => {
       try {
-        const res = await fetch('/api/messaging/conversations', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        if (!res.ok) {
-          throw new Error('Failed to fetch conversations');
-        }
-        const data = await res.json();
-        setConversations(data);
+        const data = await apiFetch('/messaging/conversations', { token });
+        setConversations(Array.isArray(data) ? data : []);
         if (Array.isArray(data) && data.length > 0) {
           let shouldFetchFirst = false;
           setSelectedConversation((previous: any | null) => {
@@ -84,7 +69,7 @@ const MessagingPage = () => {
           }
         }
       } catch (error: any) {
-        setError(error.message);
+        setError(error.message || 'Failed to fetch conversations');
       } finally {
         setLoading(false);
       }
@@ -103,12 +88,8 @@ const MessagingPage = () => {
     setBulkError(null);
     try {
       const [batchesResponse, templatesResponse] = await Promise.all([
-        fetch('/api/messaging/bulk', {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch('/api/messaging/templates', {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+        apiFetch('/messaging/bulk', { token }),
+        apiFetch('/messaging/templates', { token }),
       ]);
 
       if (!batchesResponse.ok) {
@@ -149,17 +130,11 @@ const MessagingPage = () => {
     setSending(true);
     setError(null);
     try {
-      const res = await fetch('/api/messaging/messages', {
+      await apiFetch('/messaging/messages', {
+        token,
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ conversationId: selectedConversation.id, content: newMessage.trim() }),
+        body: { conversationId: selectedConversation.id, content: newMessage.trim() },
       });
-      if (!res.ok) {
-        throw new Error('Failed to send message');
-      }
       setNewMessage('');
       fetchMessages(selectedConversation.id);
     } catch (error: any) {

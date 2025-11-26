@@ -40,6 +40,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({ title, description, filter
                   onChange={(e) => filter.onChange({ target: { name: filter.name, value: e.target.value } } as React.ChangeEvent<HTMLSelectElement>)}
                   isDisabled={filter.disabled}
                   className="w-40"
+                  aria-label={`Filter by ${filter.label.toLowerCase()}`}
                 >
                   {[
                     { value: '', label: filter.label === 'Status' || filter.label === 'Priority' ? 'All' : 'Any' },
