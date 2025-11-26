@@ -12,7 +12,7 @@ test.describe('Messaging', () => {
     
     // Navigate to messaging
     await page.goto('/messaging');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
   });
 
   test('should display messaging page', async ({ page }) => {

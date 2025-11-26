@@ -4,7 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { TestDataFactory } from './factories';
-import { Role } from '@prisma/client';
+import { Role, NotificationType } from '@prisma/client';
 
 describe('Notifications API (e2e)', () => {
   let app: INestApplication;
@@ -52,7 +52,7 @@ describe('Notifications API (e2e)', () => {
       await prisma.notification.create({
         data: {
           userId: tenantUser.id,
-          type: 'INFO',
+          type: NotificationType.NEW_MESSAGE,
           title: 'Test Notification',
           message: 'This is a test notification',
         },
@@ -80,7 +80,7 @@ describe('Notifications API (e2e)', () => {
       notification = await prisma.notification.create({
         data: {
           userId: tenantUser.id,
-          type: 'INFO',
+          type: NotificationType.NEW_MESSAGE,
           title: 'Test Notification',
           message: 'This is a test notification',
           read: false,

@@ -80,6 +80,7 @@ export class AILeaseRenewalService {
               take: 10,
             },
           },
+        },
         unit: {
           include: {
             property: true,
@@ -104,7 +105,7 @@ export class AILeaseRenewalService {
     const onTimePayments = lease.tenant.payments.filter((p) => {
       const invoice = lease.invoices.find((inv) => inv.id === p.invoiceId);
       if (!invoice) return false;
-      return p.createdAt <= invoice.dueDate;
+      return p.paymentDate <= invoice.dueDate;
     }).length;
 
     const onTimeRate = totalPayments > 0 ? onTimePayments / totalPayments : 1;
@@ -221,7 +222,7 @@ export class AILeaseRenewalService {
         tenant: {
           include: {
             payments: {
-              orderBy: { createdAt: 'desc' },
+              orderBy: { paymentDate: 'desc' },
               take: 12,
             },
           },
@@ -261,12 +262,20 @@ export class AILeaseRenewalService {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as {
+          recommended_rent?: number;
+          reasoning?: string;
+          factors?: Array<{
+            name: string;
+            impact_percentage?: number;
+            description: string;
+          }>;
+        };
         recommendedRent = data.recommended_rent || currentRent;
-        mlReasoning = data.reasoning || '';
+        mlReasoning = data.reasoning || ''; 
         
         if (data.factors) {
-          factors.push(...data.factors.map((f: any) => ({
+          factors.push(...data.factors.map((f) => ({
             name: f.name,
             impact: f.impact_percentage || 0,
             description: f.description,
@@ -317,7 +326,7 @@ export class AILeaseRenewalService {
         tenant: {
           include: {
             payments: {
-              orderBy: { createdAt: 'desc' },
+              orderBy: { paymentDate: 'desc' },
               take: 12,
             },
           },

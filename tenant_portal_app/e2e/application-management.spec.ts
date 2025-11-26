@@ -10,7 +10,7 @@ test.describe('Application Management (Property Manager)', () => {
     
     // Navigate to applications management
     await page.goto('/rental-applications-management');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
   });
 
   test('should display applications list', async ({ page }) => {

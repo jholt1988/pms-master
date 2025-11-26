@@ -137,9 +137,12 @@ export class NotificationsService {
       if (channel === 'EMAIL' || sendEmail) {
         await this.emailService.sendNotificationEmail(user.username, notification.title, notification.message);
         this.logger.log(`Sent email notification ${notification.id} to user ${user.username}`);
-      } else if (channel === 'SMS' && user.phone) {
-        await this.smsService.sendSms(user.phone, `${notification.title} - ${notification.message}`);
-        this.logger.log(`Sent SMS notification ${notification.id} to user ${user.username}`);
+      } else if (channel === 'SMS') {
+        // Note: User model doesn't have a phone field, SMS functionality would need phone number from another source
+        // For now, skip SMS if phone is not available
+        this.logger.warn(`SMS requested for notification ${notification.id} but user ${user.username} has no phone number`);
+        // Fallback to email
+        await this.emailService.sendNotificationEmail(user.username, notification.title, notification.message);
       } else if (channel === 'PUSH') {
         // TODO: Implement push notification service
         this.logger.log(`Push notification ${notification.id} would be sent to user ${user.username} (not implemented)`);

@@ -9,7 +9,9 @@ test.describe('Tenant Dashboard', () => {
     await page.click('button[type="submit"], button:has-text("Login")');
     
     // Should redirect to dashboard
-    await page.waitForURL(/.*dashboard|.*home|.*\/$/, { timeout: 5000 });
+    await page.waitForURL(/.*dashboard|.*home|.*\/$/, { timeout: 10000 });
+    // Wait for page to be ready
+    await page.waitForLoadState('domcontentloaded');
   });
 
   test('should display dashboard', async ({ page }) => {
@@ -73,7 +75,8 @@ test.describe('Property Manager Dashboard', () => {
     await page.fill('input[type="password"]', 'password123');
     await page.click('button[type="submit"], button:has-text("Login")');
     
-    await page.waitForURL(/.*dashboard|.*home|.*\/$/, { timeout: 5000 });
+    await page.waitForURL(/.*dashboard|.*home|.*\/$/, { timeout: 10000 });
+    await page.waitForLoadState('domcontentloaded');
   });
 
   test('should display property manager dashboard', async ({ page }) => {

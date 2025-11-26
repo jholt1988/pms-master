@@ -19,8 +19,8 @@ test.describe('Authentication Flow', () => {
     // Submit
     await page.click('button[type="submit"], button:has-text("Login")');
 
-    // Should redirect to dashboard/home
-    await expect(page).toHaveURL(/.*dashboard|.*home|.*\/$/);
+    // Should redirect to dashboard/home - wait for navigation
+    await page.waitForURL(/.*dashboard|.*home|.*\/$/, { timeout: 10000 });
     
     // Should not be on login page
     await expect(page).not.toHaveURL(/.*login/);

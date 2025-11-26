@@ -13,7 +13,7 @@ test.describe('Maintenance Requests (Tenant)', () => {
     
     // Navigate to maintenance
     await page.goto('/maintenance');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
   });
 
   test('should display maintenance page', async ({ page }) => {
@@ -103,7 +103,7 @@ test.describe('Maintenance Management (Property Manager)', () => {
     
     // Navigate to maintenance management
     await page.goto('/maintenance-management');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
   });
 
   test('should display maintenance management page', async ({ page }) => {

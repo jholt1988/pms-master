@@ -12,7 +12,7 @@ test.describe('Payments (Tenant)', () => {
     
     // Navigate to payments
     await page.goto('/payments');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
   });
 
   test('should display payments page', async ({ page }) => {
@@ -123,7 +123,7 @@ test.describe('Payment Management (Property Manager)', () => {
   test('should view payment dashboard', async ({ page }) => {
     // Navigate to payments/reporting
     await page.goto('/reporting');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     
     // Should see payment statistics
     await expect(page.locator('text=/payment|revenue|income|statistics/i')).toBeVisible({ timeout: 10000 });

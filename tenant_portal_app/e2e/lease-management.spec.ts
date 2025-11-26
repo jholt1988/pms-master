@@ -12,7 +12,7 @@ test.describe('Lease Management (Property Manager)', () => {
     
     // Navigate to lease management
     await page.goto('/lease-management');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
   });
 
   test('should display lease management page', async ({ page }) => {
@@ -119,7 +119,7 @@ test.describe('My Lease (Tenant)', () => {
     
     // Navigate to my lease
     await page.goto('/my-lease');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
   });
 
   test('should display lease information', async ({ page }) => {
