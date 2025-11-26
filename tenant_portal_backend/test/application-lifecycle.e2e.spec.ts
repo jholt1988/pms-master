@@ -257,7 +257,7 @@ describe('Application Lifecycle API (e2e)', () => {
           startDate: new Date(),
           endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
           rentAmount: 2000,
-          securityDeposit: 2000,
+          depositAmount: 2000,
           status: 'ACTIVE',
         },
       });
@@ -432,7 +432,7 @@ describe('Application Lifecycle API (e2e)', () => {
           startDate: new Date(),
           endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
           rentAmount: 2000,
-          securityDeposit: 2000,
+          depositAmount: 2000,
           status: 'ACTIVE',
         },
       });

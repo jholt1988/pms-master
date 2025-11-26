@@ -154,19 +154,16 @@ describe('AuthController', () => {
       };
 
       const mockRegisterResponse = {
-        user: {
-          id: 5,
-          username: registerDto.username,
-          role: registerDto.role,
-        },
-        message: 'Registration successful',
+        id: 5,
+        username: registerDto.username,
+        role: registerDto.role,
       };
 
       mockAuthService.register.mockResolvedValue(mockRegisterResponse);
 
       const result = await controller.register(registerDto);
 
-      expect(result).toEqual(mockRegisterResponse);
+      expect(result).toEqual({ user: mockRegisterResponse });
       expect(service.register).toHaveBeenCalledWith(registerDto);
       expect(service.register).toHaveBeenCalledTimes(1);
     });

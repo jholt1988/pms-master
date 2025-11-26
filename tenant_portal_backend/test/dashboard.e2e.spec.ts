@@ -4,7 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { TestDataFactory } from './factories';
-import { Role, LeaseStatus, MaintenanceStatus } from '@prisma/client';
+import { Role, LeaseStatus, MaintenanceRequest } from '@prisma/client';
 
 describe('Dashboard API (e2e)', () => {
   let app: INestApplication;
@@ -16,6 +16,7 @@ describe('Dashboard API (e2e)', () => {
   let property: any;
   let unit: any;
   let lease: any;
+  let maintenanceRequest: MaintenanceRequest;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -95,7 +96,7 @@ describe('Dashboard API (e2e)', () => {
         unitId: unit.id,
         title: 'Test Request',
         description: 'Test',
-        status: MaintenanceStatus.PENDING,
+        status: maintenanceRequest.status['PENDING'],
       },
     });
   });

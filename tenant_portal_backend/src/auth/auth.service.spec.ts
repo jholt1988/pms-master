@@ -386,6 +386,7 @@ describe('AuthService', () => {
         username: registerDto.username,
         password: registerDto.password,
         passwordUpdatedAt: expect.any(Date),
+        role: 'TENANT',
       });
       expect(mockSecurityEvents.logEvent).toHaveBeenCalledWith(
         expect.objectContaining({

@@ -698,11 +698,14 @@ model Payment {
   reconciledAt    DateTime?
   paymentMethod   PaymentMethod? @relation(fields: [paymentMethodId], references: [id])
   paymentMethodId Int?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 }
 
 model Conversation {
   id           Int                       @id @default(autoincrement())
   participants ConversationParticipant[]
+  subject      String?
   messages     Message[]
   createdAt    DateTime                  @default(now())
   updatedAt    DateTime                  @updatedAt
@@ -1300,6 +1303,7 @@ enum NotificationType {
   INSPECTION_COMPLETED
   ESIGNATURE_REQUESTED
   ESIGNATURE_COMPLETED
+  SYSTEM_ALERT
 }
 
 model UnitInspection {

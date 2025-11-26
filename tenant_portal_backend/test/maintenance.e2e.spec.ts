@@ -4,7 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { TestDataFactory } from './factories';
-import { Role, MaintenancePriority, MaintenanceStatus } from '@prisma/client';
+import { Role, MaintenancePriority, MaintenanceRequest } from '@prisma/client';
 
 describe('Maintenance API (e2e)', () => {
   let app: INestApplication;
@@ -16,6 +16,7 @@ describe('Maintenance API (e2e)', () => {
   let property: any;
   let unit: any;
   let lease: any;
+  let maintenanceRequest: MaintenanceRequest;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -106,7 +107,7 @@ describe('Maintenance API (e2e)', () => {
 
       expect(response.body).toHaveProperty('id');
       expect(response.body.title).toBe('Leaky faucet');
-      expect(response.body.status).toBe(MaintenanceStatus.PENDING);
+      expect(response.body.status).toBe(maintenanceRequest.status['PENDING']);
       expect(response.body.priority).toBe(MaintenancePriority.MEDIUM);
     });
 
@@ -139,12 +140,12 @@ describe('Maintenance API (e2e)', () => {
     beforeEach(async () => {
       maintenanceRequest = await prisma.maintenanceRequest.create({
         data: {
-          tenantId: tenantUser.id,
+          leaseId: lease.id,
           unitId: unit.id,
           title: 'Test Request',
           description: 'Test description',
           priority: MaintenancePriority.MEDIUM,
-          status: MaintenanceStatus.PENDING,
+          status: maintenanceRequest.status['PENDING'],
         },
       });
     });
@@ -176,7 +177,7 @@ describe('Maintenance API (e2e)', () => {
         .expect(200);
 
       response.body.forEach((req: any) => {
-        expect(req.status).toBe(MaintenanceStatus.PENDING);
+        expect(req.status).toBe(maintenanceRequest.status['PENDING']);
       });
     });
   });
@@ -187,12 +188,12 @@ describe('Maintenance API (e2e)', () => {
     beforeEach(async () => {
       maintenanceRequest = await prisma.maintenanceRequest.create({
         data: {
-          tenantId: tenantUser.id,
+          leaseId: lease.id,
           unitId: unit.id,
           title: 'Test Request',
           description: 'Test description',
           priority: MaintenancePriority.MEDIUM,
-          status: MaintenanceStatus.PENDING,
+          status: maintenanceRequest.status['PENDING'],
         },
       });
     });
@@ -201,17 +202,17 @@ describe('Maintenance API (e2e)', () => {
       const response = await request(app.getHttpServer())
         .put(`/maintenance/${maintenanceRequest.id}/status`)
         .set('Authorization', `Bearer ${propertyManagerToken}`)
-        .send({ status: MaintenanceStatus.IN_PROGRESS })
+        .send({ status: maintenanceRequest.status['IN_PROGRESS'] })
         .expect(200);
 
-      expect(response.body.status).toBe(MaintenanceStatus.IN_PROGRESS);
+      expect(response.body.status).toBe(maintenanceRequest.status['IN_PROGRESS']);
     });
 
     it('should reject status update from tenant', async () => {
       await request(app.getHttpServer())
         .put(`/maintenance/${maintenanceRequest.id}/status`)
         .set('Authorization', `Bearer ${tenantToken}`)
-        .send({ status: MaintenanceStatus.IN_PROGRESS })
+        .send({ status: maintenanceRequest.status['IN_PROGRESS'] })
         .expect(403);
     });
   });
@@ -222,12 +223,12 @@ describe('Maintenance API (e2e)', () => {
     beforeEach(async () => {
       maintenanceRequest = await prisma.maintenanceRequest.create({
         data: {
-          tenantId: tenantUser.id,
+          leaseId: lease.id,
           unitId: unit.id,
           title: 'Test Request',
           description: 'Test description',
           priority: MaintenancePriority.MEDIUM,
-          status: MaintenanceStatus.PENDING,
+              status: maintenanceRequest.status['PENDING'],
         },
       });
     });

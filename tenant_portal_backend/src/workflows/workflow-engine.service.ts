@@ -449,7 +449,7 @@ export class WorkflowEngineService {
       }
 
       const prediction = await this.aiLeaseRenewalService.predictRenewalLikelihood(leaseId);
-      const adjustment = await this.aiLeaseRenewalService.getOptimalRentAdjustment(leaseId);
+      const adjustment = await this.aiLeaseRenewalService.getRentAdjustmentRecommendation(leaseId);
 
       this.logger.log(
         `AI renewal prediction for lease ${leaseId}: ${(prediction.renewalProbability * 100).toFixed(1)}% ` +

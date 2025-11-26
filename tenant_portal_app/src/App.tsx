@@ -108,7 +108,7 @@ const RoleBasedShell = () => {
             </p>
             <Button 
               color="primary" 
-              onClick={handleLogout}
+              onPress={handleLogout}
               fullWidth
             >
               Return to Login
