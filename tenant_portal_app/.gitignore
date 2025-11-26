@@ -1,11 +1,12 @@
+# Dependencies
 node_modules/
+
+# Build outputs
 build/
+dist/
+
+# Environment files (but keep .env.example as template)
 .env
-*.log
-coverage/
-.idea/
-.vscode/
-.DS_Store
 .env.local
 .env.development.local
 .env.test.local
@@ -13,4 +14,17 @@ coverage/
 .env.development
 .env.test
 .env.production
-.env.example
+# Note: .env.example should be tracked
+
+# Logs
+*.log
+
+# Coverage
+coverage/
+
+# IDE
+.idea/
+.vscode/
+
+# OS Files
+.DS_Store

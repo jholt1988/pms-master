@@ -1,5 +1,37 @@
+# Dependencies
 node_modules/
-.env/*
+
+# Build outputs
 dist/
+<<<<<<< HEAD
 .env
 .env.*
+=======
+build/
+
+# Environment files (but keep .env.example as template)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.development
+.env.test
+.env.production
+# Note: .env.example should be tracked
+
+# Logs
+*.log
+logs/
+
+# Coverage
+coverage/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS Files
+.DS_Store
+>>>>>>> 8594ed8 (Update .gitignore files for improved artifact management)
