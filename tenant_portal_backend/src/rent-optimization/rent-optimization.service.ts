@@ -66,22 +66,26 @@ export class RentOptimizationService {
     const { unit_id, recommended_rent, confidence_interval_low, confidence_interval_high, factors, market_comparables, model_version, reasoning } = data;
 
     const unitId = parseInt(unit_id, 10);
-    const unit = await this.prisma.unit.findUnique({ where: { id: unitId } });
+    const unit = await this.prisma.unit.findUnique({ 
+      where: { id: unitId },
+      include: { lease: true },
+    });
 
     if (!unit) {
       throw new NotFoundException(`Unit with ID ${unitId} not found`);
     }
     
-    // Create the rent recommendation
+    // Create the rent recommendation using unchecked input
     return this.prisma.rentRecommendation.create({
       data: {
-        unitId: unit.id,
+        id: `${unitId}-${Date.now().toString()}`,
+        unit: { connect: { id: unitId } },
         currentRent: unit.lease?.rentAmount || 0,
         recommendedRent: recommended_rent,
         confidenceIntervalLow: confidence_interval_low,
         confidenceIntervalHigh: confidence_interval_high,
-        factors,
-        marketComparables: market_comparables,
+        factors: factors as any,
+        marketComparables: market_comparables as any,
         modelVersion: model_version,
         reasoning,
         status: RentRecommendationStatus.PENDING,
@@ -218,13 +222,13 @@ export class RentOptimizationService {
       const recommendation = await this.prisma.rentRecommendation.create({
         data: {
           id: `${unitId}-${Date.now().toString()}`, // Unique ID
-          unitId,
+          unit: { connect: { id: unitId } },
           currentRent: unit.lease?.rentAmount || 0,
           recommendedRent: predictionData.recommendedRent,
           confidenceIntervalLow: predictionData.confidenceIntervalLow,
           confidenceIntervalHigh: predictionData.confidenceIntervalHigh,
-          factors: predictionData.factors,
-          marketComparables: predictionData.marketComparables,
+          factors: predictionData.factors as any,
+          marketComparables: predictionData.marketComparables as any,
           modelVersion: predictionData.modelVersion,
           reasoning: predictionData.reasoning,
           status: RentRecommendationStatus.PENDING,

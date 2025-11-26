@@ -91,7 +91,7 @@ describe('Dashboard API (e2e)', () => {
 
     await prisma.maintenanceRequest.create({
       data: {
-        tenantId: tenantUser.id,
+        authorId: tenantUser.id,
         unitId: unit.id,
         title: 'Test Request',
         description: 'Test',

@@ -517,9 +517,11 @@ export class InspectionService {
 
   private async sendInspectionScheduledNotification(inspection: any): Promise<void> {
     try {
-      if (inspection.inspector?.email) {
+      // Use username as email if email field doesn't exist on User model
+      const inspectorEmail = inspection.inspector?.email || inspection.inspector?.username;
+      if (inspectorEmail) {
         await this.emailService.sendNotificationEmail(
-          inspection.inspector.email,
+          inspectorEmail,
           `Inspection Scheduled - ${inspection.property.name}`,
           `A ${inspection.type} inspection has been scheduled for ${inspection.property.name}${inspection.unit ? ` - ${inspection.unit.name}` : ''} on ${inspection.scheduledDate}.`
         );
@@ -531,9 +533,11 @@ export class InspectionService {
 
   private async sendInspectionStartedNotification(inspection: any): Promise<void> {
     try {
-      if (inspection.tenant?.email) {
+      // Use username as email if email field doesn't exist on User model
+      const tenantEmail = inspection.tenant?.email || inspection.tenant?.username;
+      if (tenantEmail) {
         await this.emailService.sendNotificationEmail(
-          inspection.tenant.email,
+          tenantEmail,
           `Inspection In Progress - ${inspection.property.name}`,
           `The ${inspection.type} inspection for ${inspection.property.name}${inspection.unit ? ` - ${inspection.unit.name}` : ''} has started.`
         );
@@ -550,9 +554,10 @@ export class InspectionService {
     );
 
     try {
+      // Use username as email if email field doesn't exist on User model
       const recipients = [
-        inspection.inspector?.email,
-        inspection.tenant?.email,
+        inspection.inspector?.email || inspection.inspector?.username,
+        inspection.tenant?.email || inspection.tenant?.username,
       ].filter(Boolean);
 
       if (recipients.length > 0) {

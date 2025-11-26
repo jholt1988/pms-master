@@ -91,7 +91,8 @@ describe('InspectionService', () => {
   };
 
   const mockEmailService = {
-    sendMail: jest.fn(),
+    sendNotificationEmail: jest.fn(),
+    sendPasswordResetEmail: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -308,7 +309,7 @@ describe('InspectionService', () => {
         include: expect.any(Object),
       });
       expect(result).toEqual(completedInspection);
-      expect(mockEmailService.sendMail).toHaveBeenCalled();
+      expect(mockEmailService.sendNotificationEmail).toHaveBeenCalled();
     });
 
     it('should throw BadRequestException if inspection is already completed', async () => {

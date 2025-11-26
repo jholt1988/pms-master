@@ -60,12 +60,7 @@ describe('AuthController', () => {
       };
 
       const mockLoginResponse = {
-        accessToken: 'jwt_token_12345',
-        user: {
-          id: 1,
-          username: 'testuser',
-          role: 'TENANT',
-        },
+        access_token: 'jwt_token_12345',
       };
 
       mockAuthService.login.mockResolvedValue(mockLoginResponse);
@@ -93,7 +88,7 @@ describe('AuthController', () => {
         },
       };
 
-      mockAuthService.login.mockResolvedValue({ accessToken: 'token' });
+      mockAuthService.login.mockResolvedValue({ access_token: 'token' });
 
       await controller.login(loginDto, requestWithForwardedIp);
 
@@ -117,7 +112,7 @@ describe('AuthController', () => {
         ip: '10.0.0.1',
       } as any;
 
-      mockAuthService.login.mockResolvedValue({ accessToken: 'token' });
+      mockAuthService.login.mockResolvedValue({ access_token: 'token' });
 
       await controller.login(loginDto, requestWithoutForwarded);
 
@@ -139,7 +134,7 @@ describe('AuthController', () => {
         ip: '10.0.0.1',
       } as any;
 
-      mockAuthService.login.mockResolvedValue({ accessToken: 'token' });
+      mockAuthService.login.mockResolvedValue({ access_token: 'token' });
 
       await controller.login(loginDto, requestWithoutUserAgent);
 
