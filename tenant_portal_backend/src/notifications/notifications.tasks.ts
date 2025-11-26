@@ -38,14 +38,14 @@ export class NotificationTasks {
 
       for (const invoice of upcomingInvoices) {
         try {
-          if (!invoice.lease?.tenantId) {
+          if (!invoice.leaseId) {
             continue;
           }
 
           // Get optimal reminder timing using AI
           const startTime = Date.now();
           const timing = await this.aiPaymentService.determineReminderTiming(
-            invoice.lease.tenantId,
+            invoice.leaseId,
             invoice.id,
           );
           const responseTime = Date.now() - startTime;
