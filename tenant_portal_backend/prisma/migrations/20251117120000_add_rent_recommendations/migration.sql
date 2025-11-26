@@ -2,6 +2,7 @@
 CREATE TYPE "RentRecommendationStatus" AS ENUM ('PENDING', 'ACCEPTED', 'REJECTED');
 
 -- Create table for rent recommendations
+-- Note: Using JSONB instead of JSON, and correct index names to match later migration
 CREATE TABLE "RentRecommendation" (
   "id" TEXT NOT NULL PRIMARY KEY,
   "unitId" INTEGER NOT NULL,
@@ -9,8 +10,8 @@ CREATE TABLE "RentRecommendation" (
   "recommendedRent" DOUBLE PRECISION NOT NULL,
   "confidenceIntervalLow" DOUBLE PRECISION NOT NULL,
   "confidenceIntervalHigh" DOUBLE PRECISION NOT NULL,
-  "factors" JSON NOT NULL DEFAULT '[]'::json,
-  "marketComparables" JSON NOT NULL DEFAULT '[]'::json,
+  "factors" JSONB NOT NULL DEFAULT '[]'::jsonb,
+  "marketComparables" JSONB NOT NULL DEFAULT '[]'::jsonb,
   "modelVersion" TEXT,
   "reasoning" TEXT,
   "status" "RentRecommendationStatus" NOT NULL DEFAULT 'PENDING',
@@ -24,7 +25,7 @@ CREATE TABLE "RentRecommendation" (
 );
 
 ALTER TABLE "RentRecommendation"
-  ADD CONSTRAINT "RentRecommendation_unitId_fkey" FOREIGN KEY ("unitId") REFERENCES "Unit"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT "RentRecommendation_unitId_fkey" FOREIGN KEY ("unitId") REFERENCES "Unit"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 ALTER TABLE "RentRecommendation"
   ADD CONSTRAINT "RentRecommendation_acceptedById_fkey" FOREIGN KEY ("acceptedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -32,7 +33,8 @@ ALTER TABLE "RentRecommendation"
 ALTER TABLE "RentRecommendation"
   ADD CONSTRAINT "RentRecommendation_rejectedById_fkey" FOREIGN KEY ("rejectedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
-CREATE INDEX "RentRecommendation_unitId_index" ON "RentRecommendation"("unitId");
-CREATE INDEX "RentRecommendation_status_index" ON "RentRecommendation"("status");
-CREATE INDEX "RentRecommendation_acceptedById_index" ON "RentRecommendation"("acceptedById");
-CREATE INDEX "RentRecommendation_rejectedById_index" ON "RentRecommendation"("rejectedById");
+-- Create indexes with the correct names (matching the later migration)
+CREATE INDEX "RentRecommendation_unitId_idx" ON "RentRecommendation"("unitId");
+CREATE INDEX "RentRecommendation_status_idx" ON "RentRecommendation"("status");
+CREATE INDEX "RentRecommendation_acceptedById_idx" ON "RentRecommendation"("acceptedById");
+CREATE INDEX "RentRecommendation_rejectedById_idx" ON "RentRecommendation"("rejectedById");

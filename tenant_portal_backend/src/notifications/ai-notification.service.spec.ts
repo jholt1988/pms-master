@@ -116,7 +116,7 @@ describe('AINotificationService', () => {
 
       const timing = await service.determineOptimalTiming(
         1,
-        NotificationType.PAYMENT_OVERDUE,
+        NotificationType.RENT_OVERDUE,
         'HIGH',
       );
 
@@ -246,7 +246,7 @@ describe('AINotificationService', () => {
 
       const channel = await service.selectOptimalChannel(
         1,
-        NotificationType.PAYMENT_OVERDUE,
+        NotificationType.RENT_OVERDUE,
         'HIGH',
       );
 

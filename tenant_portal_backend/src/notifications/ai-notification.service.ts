@@ -236,9 +236,9 @@ export class AINotificationService {
 
     // Critical notification types should use SMS
     const criticalTypes: NotificationType[] = [
-      NotificationType.MAINTENANCE_EMERGENCY,
-      NotificationType.PAYMENT_OVERDUE,
-      NotificationType.LEASE_EXPIRING_SOON,
+      NotificationType.MAINTENANCE_SLA_BREACH,
+      NotificationType.RENT_OVERDUE,
+      NotificationType.LEASE_RENEWAL,
     ];
 
     if (criticalTypes.includes(notificationType)) {
