@@ -66,15 +66,19 @@ export const createMockToken = () => 'mock-jwt-token';
 export const waitForAsync = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 /**
+/**
  * Mock API response helper
  */
-export const mockApiResponse = <T>(data: T, status = 200) => ({
-  ok: status >= 200 && status < 300,
-  status,
-  json: async () => data,
-  text: async () => JSON.stringify(data),
-  headers: new Headers({ 'Content-Type': 'application/json' }),
-});
+export function mockApiResponse<T>(data: T, status: number = 200) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => data,
+    text: async () => JSON.stringify(data),
+    headers: new Headers({ 'Content-Type': 'application/json' }),
+  };
+}
+
 
 /**
  * Mock fetch helper
