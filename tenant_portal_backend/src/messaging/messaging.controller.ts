@@ -50,7 +50,8 @@ export class MessagingController {
     @Request() req: AuthenticatedRequest,
     @Query() query: GetConversationsQueryDto,
   ) {
-    return this.messagingService.getConversations(req.user.userId, query);
+    const result = await this.messagingService.getConversations(req.user.userId, query);
+    return result.conversations;
   }
 
   /**
@@ -85,10 +86,27 @@ export class MessagingController {
     @Request() req: AuthenticatedRequest,
     @Query() query: GetMessagesQueryDto,
   ) {
-    return this.messagingService.getConversationMessages(
+    const result = await this.messagingService.getConversationMessages(
       conversationId,
       req.user.userId,
       query,
+    );
+    return result.messages;
+  }
+
+  /**
+   * Convenience endpoint for posting directly to a conversation
+   */
+  @Post('conversations/:id/messages')
+  @HttpCode(HttpStatus.CREATED)
+  async sendConversationMessage(
+    @Param('id', ParseIntPipe) conversationId: number,
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: CreateMessageDto,
+  ) {
+    return this.messagingService.sendMessage(
+      { ...dto, conversationId },
+      req.user.userId,
     );
   }
 

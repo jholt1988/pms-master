@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { TestDataFactory } from './factories';
 import { Role } from '@prisma/client';
+import { resetDatabase } from './utils/reset-database';
 
 describe('Property API (e2e)', () => {
   let app: INestApplication;
@@ -25,9 +26,7 @@ describe('Property API (e2e)', () => {
   });
 
   beforeEach(async () => {
-    await prisma.unit.deleteMany();
-    await prisma.property.deleteMany();
-    await prisma.user.deleteMany();
+    await resetDatabase(prisma);
 
     propertyManager = await prisma.user.create({
       data: TestDataFactory.createPropertyManager({
@@ -42,9 +41,7 @@ describe('Property API (e2e)', () => {
   });
 
   afterAll(async () => {
-    await prisma.unit.deleteMany();
-    await prisma.property.deleteMany();
-    await prisma.user.deleteMany();
+    await resetDatabase(prisma);
     await app.close();
   });
 

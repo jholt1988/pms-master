@@ -30,7 +30,16 @@ async function bootstrap() {
   
   const globalPrefix = 'api';
   app.setGlobalPrefix(globalPrefix, {
-    exclude: ['leasing', 'esignature', 'api/leasing', 'api/esignature'],
+    exclude: [
+      'leasing',
+      'leasing/(.*)',
+      'api/leasing',
+      'api/leasing/(.*)',
+      'esignature',
+      'esignature/(.*)',
+      'api/esignature',
+      'api/esignature/(.*)',
+    ],
   });
   
   // Enhanced validation with sanitization

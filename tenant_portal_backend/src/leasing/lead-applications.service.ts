@@ -170,6 +170,9 @@ export class LeadApplicationsService {
       LeadApplicationStatus.APPROVED,
       LeadApplicationStatus.CONDITIONALLY_APPROVED,
       LeadApplicationStatus.DENIED,
+      LeadApplicationStatus.SUBMITTED,
+      LeadApplicationStatus.PENDING,
+      LeadApplicationStatus.REJECTED,
     ];
 
     if (application.lead.email && notifyStatuses.includes(normalizedStatus)) {
@@ -177,7 +180,7 @@ export class LeadApplicationsService {
         application,
         application.lead,
         application.property,
-        normalizedStatus as 'APPROVED' | 'CONDITIONALLY_APPROVED' | 'DENIED',
+        normalizedStatus 
       ).catch(err => console.error('Failed to send application status email:', err));
     }
 

@@ -2,8 +2,8 @@ import {
   IsEmail,
   IsNumber,
   IsOptional,
-  IsPhoneNumber,
   IsString,
+  Matches,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -23,7 +23,9 @@ export class SubmitApplicationDto {
   email!: string;
 
   @IsString()
-  @IsPhoneNumber('US')
+  @Matches(/^[0-9+().\-\s]{7,20}$/, {
+    message: 'phoneNumber must be a valid phone number',
+  })
   phoneNumber!: string;
 
   @IsNumber()

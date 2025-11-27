@@ -11,7 +11,7 @@ interface AuthenticatedRequest extends Request {
   };
 }
 
-@Controller('payment-methods')
+@Controller('payments/payment-methods')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class PaymentMethodsController {
   constructor(private readonly paymentMethodsService: PaymentMethodsService) {}

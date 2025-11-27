@@ -6,7 +6,9 @@ export interface PasswordPolicy {
   requireUppercase: boolean;
   requireLowercase: boolean;
   requireNumber: boolean;
+  requireNumbers: boolean;
   requireSymbol: boolean;
+  requireSpecialChars: boolean;
 }
 
 @Injectable()
@@ -14,12 +16,18 @@ export class PasswordPolicyService {
   constructor(private readonly configService: ConfigService) {}
 
   get policy(): PasswordPolicy {
-    return {
+    const basePolicy = {
       minLength: Number(this.configService.get<number>('AUTH_PASSWORD_MIN_LENGTH') ?? 8),
       requireUppercase: this.getBoolean('AUTH_PASSWORD_REQUIRE_UPPERCASE', true),
       requireLowercase: this.getBoolean('AUTH_PASSWORD_REQUIRE_LOWERCASE', true),
       requireNumber: this.getBoolean('AUTH_PASSWORD_REQUIRE_NUMBER', true),
       requireSymbol: this.getBoolean('AUTH_PASSWORD_REQUIRE_SYMBOL', false),
+    };
+
+    return {
+      ...basePolicy,
+      requireNumbers: basePolicy.requireNumber,
+      requireSpecialChars: basePolicy.requireSymbol,
     };
   }
 

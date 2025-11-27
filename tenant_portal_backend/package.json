@@ -13,7 +13,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:e2e": "jest --config test/jest-e2e.json",
+    "test:e2e": "jest --config test/jest-e2e.json --runInBand",
     "test:quickbooks": "ts-node scripts/test-quickbooks-integration.ts",
     "test:quickbooks:interactive": "ts-node scripts/test-quickbooks-integration.ts --interactive"
   },

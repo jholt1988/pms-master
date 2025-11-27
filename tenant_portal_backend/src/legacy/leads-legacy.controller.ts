@@ -78,7 +78,7 @@ export class LeadsLegacyController {
 
   @Patch(':id/status')
   async updateStatus(@Param('id') id: string, @Request() req: AuthenticatedRequest, @Query('status') _status?: string) {
-    const status = _status || req.body?.status;
+    const status = _status || (req as any).body?.status;
     if (!status) {
       throw new BadRequestException('Status is required');
     }

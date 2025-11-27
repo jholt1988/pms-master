@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { TestDataFactory } from './factories';
 import { Role, LeaseStatus } from '@prisma/client';
+import { resetDatabase } from './utils/reset-database';
 
 describe('Lease API (e2e)', () => {
   let app: INestApplication;
@@ -30,11 +31,7 @@ describe('Lease API (e2e)', () => {
   });
 
   beforeEach(async () => {
-    // Clean up
-    await prisma.lease.deleteMany();
-    await prisma.unit.deleteMany();
-    await prisma.property.deleteMany();
-    await prisma.user.deleteMany();
+    await resetDatabase(prisma);
 
     // Create users
     tenantUser = await prisma.user.create({
@@ -78,10 +75,7 @@ describe('Lease API (e2e)', () => {
   });
 
   afterAll(async () => {
-    await prisma.lease.deleteMany();
-    await prisma.unit.deleteMany();
-    await prisma.property.deleteMany();
-    await prisma.user.deleteMany();
+    await resetDatabase(prisma);
     await app.close();
   });
 
@@ -138,16 +132,20 @@ describe('Lease API (e2e)', () => {
         }),
       });
 
+      const availableUnit = await prisma.unit.create({
+        data: TestDataFactory.createUnit(property.id),
+      });
+
       const response = await request(app.getHttpServer())
         .post('/leases')
         .set('Authorization', `Bearer ${propertyManagerToken}`)
         .send({
           tenantId: newTenant.id,
-          unitId: unit.id,
+          unitId: availableUnit.id,
           startDate: new Date().toISOString(),
           endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
           rentAmount: 2000,
-          securityDeposit: 2000,
+          depositAmount: 2000,
         })
         .expect(201);
 

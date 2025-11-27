@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { TestDataFactory } from './factories';
 import { Role, NotificationType } from '@prisma/client';
+import { resetDatabase } from './utils/reset-database';
 
 describe('Notifications API (e2e)', () => {
   let app: INestApplication;
@@ -25,8 +26,7 @@ describe('Notifications API (e2e)', () => {
   });
 
   beforeEach(async () => {
-    await prisma.notification.deleteMany();
-    await prisma.user.deleteMany();
+    await resetDatabase(prisma);
 
     tenantUser = await prisma.user.create({
       data: TestDataFactory.createUser({
@@ -42,8 +42,7 @@ describe('Notifications API (e2e)', () => {
   });
 
   afterAll(async () => {
-    await prisma.notification.deleteMany();
-    await prisma.user.deleteMany();
+    await resetDatabase(prisma);
     await app.close();
   });
 

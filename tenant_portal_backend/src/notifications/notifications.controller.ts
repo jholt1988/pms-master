@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Query, Delete, UseGuards, Req, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Delete, UseGuards, Req, ParseIntPipe, Put } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { NotificationsService } from './notifications.service';
 import { NotificationType } from '@prisma/client';
@@ -26,12 +26,14 @@ export class NotificationsController {
     @Query('take') take?: string,
   ) {
     const userId = req.user.sub;
-    return this.notificationsService.findAll(userId, {
+    const result = await this.notificationsService.findAll(userId, {
       read: read === 'true' ? true : read === 'false' ? false : undefined,
       type,
       skip: skip ? parseInt(skip, 10) : undefined,
       take: take ? parseInt(take, 10) : undefined,
     });
+
+    return result.data;
   }
 
   @Get('unread-count')
@@ -41,11 +43,11 @@ export class NotificationsController {
     return { count };
   }
 
-  @Post(':id/read')
+  @Put(':id/read')
   async markAsRead(@Req() req: AuthenticatedRequest, @Param('id', ParseIntPipe) id: number) {
     const userId = req.user.sub;
-    await this.notificationsService.markAsRead(userId, id);
-    return { success: true };
+    const notification = await this.notificationsService.markAsRead(userId, id);
+    return notification;
   }
 
   @Post('read-all')

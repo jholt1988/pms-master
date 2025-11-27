@@ -14,8 +14,11 @@ import {
   HttpCode,
   HttpException,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { LeasingService } from './leasing.service';
+import { LeadStatus } from '@prisma/client';
 
 @Controller(['api/leasing', 'leasing'])
 export class LeasingController {
@@ -31,21 +34,14 @@ export class LeasingController {
       const { sessionId, ...leadData } = body;
 
       if (!sessionId) {
-        throw new HttpException('Session ID is required', HttpStatus.BAD_REQUEST);
+        throw new HttpException('sessionId is required', HttpStatus.BAD_REQUEST);
       }
 
       const lead = await this.leasingService.upsertLead(sessionId, leadData);
 
-      return {
-        success: true,
-        leadId: lead.id,
-        message: 'Lead saved successfully',
-      };
+      return lead;
     } catch (error) {
-      throw new HttpException(
-        error instanceof Error ? error.message : 'Failed to create lead',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.handleError(error, 'Failed to create lead');
     }
   }
 
@@ -62,15 +58,9 @@ export class LeasingController {
         throw new HttpException('Lead not found', HttpStatus.NOT_FOUND);
       }
 
-      return {
-        success: true,
-        lead,
-      };
+      return lead;
     } catch (error) {
-      throw new HttpException(
-        error instanceof Error ? error.message : 'Failed to fetch lead',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.handleError(error, 'Failed to fetch lead');
     }
   }
 
@@ -87,15 +77,9 @@ export class LeasingController {
         throw new HttpException('Lead not found', HttpStatus.NOT_FOUND);
       }
 
-      return {
-        success: true,
-        lead,
-      };
+      return lead;
     } catch (error) {
-      throw new HttpException(
-        error instanceof Error ? error.message : 'Failed to fetch lead',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.handleError(error, 'Failed to fetch lead');
     }
   }
 
@@ -103,6 +87,7 @@ export class LeasingController {
    * Get all leads with filtering
    * GET /leasing/leads?status=NEW&search=john&limit=20&offset=0
    */
+  @UseGuards(AuthGuard('jwt'))
   @Get('leads')
   async getLeads(
     @Query('status') status?: string,
@@ -111,6 +96,7 @@ export class LeasingController {
     @Query('dateTo') dateTo?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
+    @Query('page') page?: string,
   ) {
     try {
       const filters: any = {};
@@ -119,20 +105,28 @@ export class LeasingController {
       if (search) filters.search = search;
       if (dateFrom) filters.dateFrom = new Date(dateFrom);
       if (dateTo) filters.dateTo = new Date(dateTo);
-      if (limit) filters.limit = parseInt(limit, 10);
-      if (offset) filters.offset = parseInt(offset, 10);
+      const parsedLimit = limit ? parseInt(limit, 10) : undefined;
+      const parsedOffset = offset ? parseInt(offset, 10) : undefined;
+      const parsedPage = page ? parseInt(page, 10) : undefined;
 
-      const result = await this.leasingService.getLeads(filters);
+      if (parsedLimit && parsedLimit > 0) {
+        filters.limit = parsedLimit;
+      }
 
-      return {
-        success: true,
-        ...result,
-      };
+      if (parsedOffset && parsedOffset >= 0) {
+        filters.offset = parsedOffset;
+      } else if (parsedPage && parsedPage > 0) {
+        const effectiveLimit = filters.limit ?? 50;
+        filters.offset = (parsedPage - 1) * effectiveLimit;
+      }
+
+      if (parsedPage && parsedPage > 0) {
+        filters.page = parsedPage;
+      }
+
+      return this.leasingService.getLeads(filters);
     } catch (error) {
-      throw new HttpException(
-        error instanceof Error ? error.message : 'Failed to fetch leads',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.handleError(error, 'Failed to fetch leads');
     }
   }
 
@@ -150,7 +144,7 @@ export class LeasingController {
 
       if (!role || !content) {
         throw new HttpException(
-          'Role and content are required',
+          'role and content are required',
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -162,15 +156,9 @@ export class LeasingController {
         metadata,
       );
 
-      return {
-        success: true,
-        message,
-      };
+      return message;
     } catch (error) {
-      throw new HttpException(
-        error instanceof Error ? error.message : 'Failed to add message',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.handleError(error, 'Failed to add message');
     }
   }
 
@@ -183,15 +171,9 @@ export class LeasingController {
     try {
       const messages = await this.leasingService.getConversationHistory(leadId);
 
-      return {
-        success: true,
-        messages,
-      };
+      return messages;
     } catch (error) {
-      throw new HttpException(
-        error instanceof Error ? error.message : 'Failed to fetch messages',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.handleError(error, 'Failed to fetch messages');
     }
   }
 
@@ -212,17 +194,9 @@ export class LeasingController {
     },
   ) {
     try {
-      const properties = await this.leasingService.searchProperties(criteria);
-
-      return {
-        success: true,
-        properties,
-      };
+      return this.leasingService.searchProperties(criteria);
     } catch (error) {
-      throw new HttpException(
-        error instanceof Error ? error.message : 'Failed to search properties',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.handleError(error, 'Failed to search properties');
     }
   }
 
@@ -239,7 +213,7 @@ export class LeasingController {
       const { propertyId, unitId, interestLevel } = body;
 
       if (!propertyId) {
-        throw new HttpException('Property ID is required', HttpStatus.BAD_REQUEST);
+        throw new HttpException('propertyId is required', HttpStatus.BAD_REQUEST);
       }
 
       const inquiry = await this.leasingService.recordPropertyInquiry(
@@ -249,12 +223,12 @@ export class LeasingController {
         interestLevel as any,
       );
 
-      return inquiry;
+      return {
+        ...inquiry,
+        interestLevel: inquiry.interest,
+      };
     } catch (error) {
-      throw new HttpException(
-        error instanceof Error ? error.message : 'Failed to record inquiry',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.handleError(error, 'Failed to record inquiry');
     }
   }
 
@@ -262,6 +236,7 @@ export class LeasingController {
    * Update lead status
    * PATCH /leasing/leads/:id/status
    */
+  @UseGuards(AuthGuard('jwt'))
   @Patch('leads/:id/status')
   async updateStatus(
     @Param('id') leadId: string,
@@ -274,14 +249,15 @@ export class LeasingController {
         throw new HttpException('Status is required', HttpStatus.BAD_REQUEST);
       }
 
+      if (!(Object.values(LeadStatus) as string[]).includes(status)) {
+        throw new HttpException('Invalid status value', HttpStatus.BAD_REQUEST);
+      }
+
       const lead = await this.leasingService.updateLeadStatus(leadId, status as any);
 
       return lead;
     } catch (error) {
-      throw new HttpException(
-        error instanceof Error ? error.message : 'Failed to update status',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.handleError(error, 'Failed to update status');
     }
   }
 
@@ -289,23 +265,35 @@ export class LeasingController {
    * Get leasing statistics
    * GET /leasing/statistics
    */
+  @UseGuards(AuthGuard('jwt'))
   @Get('statistics')
   async getStatistics(
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo') dateTo?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
   ) {
     try {
-      const stats = await this.leasingService.getLeadStatistics(
-        dateFrom ? new Date(dateFrom) : undefined,
-        dateTo ? new Date(dateTo) : undefined,
-      );
+      const from = dateFrom || startDate;
+      const to = dateTo || endDate;
 
-      return stats;
-    } catch (error) {
-      throw new HttpException(
-        error instanceof Error ? error.message : 'Failed to fetch statistics',
-        HttpStatus.INTERNAL_SERVER_ERROR,
+      return this.leasingService.getLeadStatistics(
+        from ? new Date(from) : undefined,
+        to ? new Date(to) : undefined,
       );
+    } catch (error) {
+      this.handleError(error, 'Failed to fetch statistics');
     }
+  }
+
+  private handleError(error: unknown, fallbackMessage: string): never {
+    if (error instanceof HttpException) {
+      throw error;
+    }
+
+    throw new HttpException(
+      error instanceof Error ? error.message : fallbackMessage,
+      HttpStatus.INTERNAL_SERVER_ERROR,
+    );
   }
 }

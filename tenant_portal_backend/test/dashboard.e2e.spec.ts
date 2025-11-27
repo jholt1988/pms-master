@@ -4,7 +4,8 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { TestDataFactory } from './factories';
-import { Role, LeaseStatus, MaintenanceRequest } from '@prisma/client';
+import { Role, LeaseStatus } from '@prisma/client';
+import { resetDatabase } from './utils/reset-database';
 
 describe('Dashboard API (e2e)', () => {
   let app: INestApplication;
@@ -16,7 +17,6 @@ describe('Dashboard API (e2e)', () => {
   let property: any;
   let unit: any;
   let lease: any;
-  let maintenanceRequest: MaintenanceRequest;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -31,13 +31,7 @@ describe('Dashboard API (e2e)', () => {
   });
 
   beforeEach(async () => {
-    // Clean up
-    await prisma.maintenanceRequest.deleteMany();
-    await prisma.invoice.deleteMany();
-    await prisma.lease.deleteMany();
-    await prisma.unit.deleteMany();
-    await prisma.property.deleteMany();
-    await prisma.user.deleteMany();
+    await resetDatabase(prisma);
 
     // Create users
     tenantUser = await prisma.user.create({
@@ -96,18 +90,13 @@ describe('Dashboard API (e2e)', () => {
         unitId: unit.id,
         title: 'Test Request',
         description: 'Test',
-        status: maintenanceRequest.status['PENDING'],
+        status: 'PENDING',
       },
     });
   });
 
   afterAll(async () => {
-    await prisma.maintenanceRequest.deleteMany();
-    await prisma.invoice.deleteMany();
-    await prisma.lease.deleteMany();
-    await prisma.unit.deleteMany();
-    await prisma.property.deleteMany();
-    await prisma.user.deleteMany();
+    await resetDatabase(prisma);
     await app.close();
   });
 

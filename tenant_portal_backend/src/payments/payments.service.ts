@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Invoice, Payment, Role } from '@prisma/client';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
@@ -69,7 +69,10 @@ export class PaymentsService {
     });
   }
 
-  async createPayment(dto: CreatePaymentDto): Promise<Payment> {
+  async createPayment(
+    dto: CreatePaymentDto,
+    authUser?: { userId: number; role: Role },
+  ): Promise<Payment> {
     const lease = await this.prisma.lease.findUnique({
       where: { id: dto.leaseId },
       include: { tenant: true },
@@ -77,6 +80,10 @@ export class PaymentsService {
 
     if (!lease || !lease.tenantId) {
       throw new BadRequestException('Lease must exist and have an assigned tenant');
+    }
+
+    if (authUser?.role === Role.TENANT && lease.tenantId !== authUser.userId) {
+      throw new ForbiddenException('You can only submit payments for your own lease');
     }
 
     if (dto.invoiceId) {

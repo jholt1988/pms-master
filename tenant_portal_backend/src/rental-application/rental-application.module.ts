@@ -6,11 +6,12 @@ import { ApplicationLifecycleService } from './application-lifecycle.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { SecurityEventsModule } from '../security-events/security-events.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { OptionalJwtAuthGuard } from '../auth/optional-jwt.guard';
 
 @Module({
   imports: [PrismaModule, SecurityEventsModule, NotificationsModule],
   controllers: [RentalApplicationController],
-  providers: [RentalApplicationService, ApplicationLifecycleService],
+  providers: [RentalApplicationService, ApplicationLifecycleService, OptionalJwtAuthGuard],
   exports: [RentalApplicationService, ApplicationLifecycleService],
 })
 export class RentalApplicationModule {}

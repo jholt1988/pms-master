@@ -4,6 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { TestDataFactory } from './factories';
+import { resetDatabase } from './utils/reset-database';
 
 describe('Leasing Agent API (e2e)', () => {
   let app: INestApplication;
@@ -27,14 +28,7 @@ describe('Leasing Agent API (e2e)', () => {
   });
 
   beforeEach(async () => {
-    // Clean database before each test
-    await prisma.leadMessage.deleteMany();
-    await prisma.propertyInquiry.deleteMany();
-    await prisma.lead.deleteMany();
-    await prisma.lease.deleteMany();
-    await prisma.unit.deleteMany();
-    await prisma.property.deleteMany();
-    await prisma.user.deleteMany();
+    await resetDatabase(prisma);
 
     // Create test property manager
     propertyManager = await prisma.user.create({
@@ -64,14 +58,7 @@ describe('Leasing Agent API (e2e)', () => {
   });
 
   afterAll(async () => {
-    // Final cleanup
-    await prisma.leadMessage.deleteMany();
-    await prisma.propertyInquiry.deleteMany();
-    await prisma.lead.deleteMany();
-    await prisma.lease.deleteMany();
-    await prisma.unit.deleteMany();
-    await prisma.property.deleteMany();
-    await prisma.user.deleteMany();
+    await resetDatabase(prisma);
     await app.close();
   });
 
@@ -546,37 +533,46 @@ describe('Leasing Agent API (e2e)', () => {
   describe('GET /leasing/statistics', () => {
     beforeEach(async () => {
       // Create leads with different statuses
-      const today = new Date();
-      const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const lastMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const today = new Date();
+    const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const lastMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-      // Note: Prisma auto-manages createdAt, so we can't set historical dates
-      // These tests will check current statistics only
-      await prisma.lead.createMany({
-        data: [
-          {
-            sessionId: 'stats-1',
-            name: 'Stats Lead 1',
-            status: 'NEW',
-          },
-          {
-            sessionId: 'stats-2',
-            name: 'Stats Lead 2',
-            status: 'QUALIFIED',
-          },
-          {
-            sessionId: 'stats-3',
-            name: 'Stats Lead 3',
-            status: 'CONVERTED',
-            convertedAt: lastWeek,
-          },
-          {
-            sessionId: 'stats-4',
-            name: 'Stats Lead 4',
-            status: 'LOST',
-          },
-        ],
-      });
+    await prisma.lead.create({
+      data: {
+        sessionId: 'stats-1',
+        name: 'Stats Lead 1',
+        status: 'NEW',
+        createdAt: today,
+      },
+    });
+
+    await prisma.lead.create({
+      data: {
+        sessionId: 'stats-2',
+        name: 'Stats Lead 2',
+        status: 'QUALIFIED',
+        createdAt: today,
+      },
+    });
+
+    await prisma.lead.create({
+      data: {
+        sessionId: 'stats-3',
+        name: 'Stats Lead 3',
+        status: 'CONVERTED',
+        convertedAt: lastWeek,
+        createdAt: lastWeek,
+      },
+    });
+
+    await prisma.lead.create({
+      data: {
+        sessionId: 'stats-4',
+        name: 'Stats Lead 4',
+        status: 'LOST',
+        createdAt: lastMonth,
+      },
+    });
     });
 
     it('should return lead statistics without date filters', async () => {

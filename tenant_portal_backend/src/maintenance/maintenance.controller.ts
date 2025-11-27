@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query, Request, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query, Request, UseGuards, Put } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { MaintenanceService } from './maintenance.service';
 import { MaintenancePriority, Role, Status } from '@prisma/client';
@@ -44,6 +44,16 @@ export class MaintenanceController {
   @Patch(':id/status')
   @Roles(Role.PROPERTY_MANAGER)
   async updateStatus(
+    @Param('id') id: string,
+    @Body() updateStatusDto: UpdateMaintenanceStatusDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.maintenanceService.updateStatus(Number(id), updateStatusDto, req.user.userId);
+  }
+
+  @Put(':id/status')
+  @Roles(Role.PROPERTY_MANAGER)
+  async replaceStatus(
     @Param('id') id: string,
     @Body() updateStatusDto: UpdateMaintenanceStatusDto,
     @Request() req: AuthenticatedRequest,

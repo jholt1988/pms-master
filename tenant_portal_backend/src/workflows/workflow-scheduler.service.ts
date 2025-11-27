@@ -17,12 +17,22 @@ interface ScheduledWorkflow {
 export class WorkflowSchedulerService {
   private readonly logger = new Logger(WorkflowSchedulerService.name);
   private scheduledWorkflows: Map<string, ScheduledWorkflow> = new Map();
+  private readonly schedulingEnabled: boolean;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly workflowEngine: WorkflowEngineService,
   ) {
-    this.registerDefaultSchedules();
+    this.schedulingEnabled =
+      process.env.DISABLE_WORKFLOW_SCHEDULER === 'true' || process.env.NODE_ENV === 'test'
+        ? false
+        : true;
+
+    if (this.schedulingEnabled) {
+      this.registerDefaultSchedules();
+    } else {
+      this.logger.log('Workflow scheduler disabled for this environment');
+    }
   }
 
   /**
@@ -33,6 +43,11 @@ export class WorkflowSchedulerService {
     schedule: string,
     input?: Record<string, any>,
   ): string {
+    if (!this.schedulingEnabled) {
+      this.logger.debug(`Skipping schedule for ${workflowId}; scheduler disabled`);
+      return `disabled-${workflowId}`;
+    }
+
     const scheduleId = `sched-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     const scheduled: ScheduledWorkflow = {
@@ -66,6 +81,10 @@ export class WorkflowSchedulerService {
    */
   @Cron(CronExpression.EVERY_MINUTE)
   async runScheduledWorkflows(): Promise<void> {
+    if (!this.schedulingEnabled) {
+      return;
+    }
+
     const now = new Date();
 
     for (const [scheduleId, scheduled] of this.scheduledWorkflows.entries()) {

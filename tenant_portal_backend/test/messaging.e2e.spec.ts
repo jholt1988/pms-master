@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { TestDataFactory } from './factories';
 import { Role } from '@prisma/client';
+import { resetDatabase } from './utils/reset-database';
 
 describe('Messaging API (e2e)', () => {
   let app: INestApplication;
@@ -27,11 +28,7 @@ describe('Messaging API (e2e)', () => {
   });
 
   beforeEach(async () => {
-    // Clean up
-    await prisma.message.deleteMany();
-    await prisma.conversationParticipant.deleteMany();
-    await prisma.conversation.deleteMany();
-    await prisma.user.deleteMany();
+    await resetDatabase(prisma);
 
     // Create users
     tenantUser = await prisma.user.create({
@@ -60,10 +57,7 @@ describe('Messaging API (e2e)', () => {
   });
 
   afterAll(async () => {
-    await prisma.message.deleteMany();
-    await prisma.conversationParticipant.deleteMany();
-    await prisma.conversation.deleteMany();
-    await prisma.user.deleteMany();
+    await resetDatabase(prisma);
     await app.close();
   });
 

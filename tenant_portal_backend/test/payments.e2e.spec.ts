@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { TestDataFactory } from './factories';
 import { Role, LeaseStatus } from '@prisma/client';
+import { resetDatabase } from './utils/reset-database';
 
 describe('Payments API (e2e)', () => {
   let app: INestApplication;
@@ -28,18 +29,13 @@ describe('Payments API (e2e)', () => {
   });
 
   beforeEach(async () => {
-    // Clean up
-    await prisma.payment.deleteMany();
-    await prisma.invoice.deleteMany();
-    await prisma.lease.deleteMany();
-    await prisma.unit.deleteMany();
-    await prisma.property.deleteMany();
-    await prisma.user.deleteMany();
+    await resetDatabase(prisma);
 
     // Create user
     tenantUser = await prisma.user.create({
       data: TestDataFactory.createUser({
         username: 'tenant@test.com',
+        password: 'password123',
         role: Role.TENANT,
       }),
     });
@@ -63,17 +59,13 @@ describe('Payments API (e2e)', () => {
       data: TestDataFactory.createLease(tenantUser.id, unit.id, {
         rentAmount: 2000,
         status: LeaseStatus.ACTIVE,
+        depositAmount: 2000,
       }),
     });
   });
 
   afterAll(async () => {
-    await prisma.payment.deleteMany();
-    await prisma.invoice.deleteMany();
-    await prisma.lease.deleteMany();
-    await prisma.unit.deleteMany();
-    await prisma.property.deleteMany();
-    await prisma.user.deleteMany();
+    await resetDatabase(prisma);
     await app.close();
   });
 
@@ -132,6 +124,7 @@ describe('Payments API (e2e)', () => {
         .set('Authorization', `Bearer ${tenantToken}`)
         .send({
           invoiceId: invoice.id,
+          leaseId: lease.id,
           amount: 2000,
           paymentMethodId: null, // Using test mode
         })
@@ -147,6 +140,7 @@ describe('Payments API (e2e)', () => {
         .set('Authorization', `Bearer ${tenantToken}`)
         .send({
           invoiceId: invoice.id,
+          leaseId: lease.id,
           amount: -100, // Invalid amount
         })
         .expect(400);

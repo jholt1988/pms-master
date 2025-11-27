@@ -8,7 +8,7 @@ export class LegacyPathMiddleware implements NestMiddleware {
       return next();
     }
 
-    const legacyRoutes = ['/leasing', '/esignature'];
+    const legacyRoutes = ['/esignature'];
     for (const route of legacyRoutes) {
       if (req.url.startsWith(route)) {
         req.url = `/api${req.url}`;

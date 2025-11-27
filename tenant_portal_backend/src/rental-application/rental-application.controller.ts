@@ -1,5 +1,5 @@
 
-import { Controller, Get, Post, Body, UseGuards, Request, Param, Put } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Request, Param, Put, HttpCode } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RentalApplicationService } from './rental-application.service';
 import { Roles } from '../auth/roles.decorator';
@@ -7,6 +7,7 @@ import { Role, ApplicationStatus } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
 import { SubmitApplicationDto } from './dto/submit-application.dto';
 import { AddRentalApplicationNoteDto } from './dto/add-note.dto';
+import { OptionalJwtAuthGuard } from '../auth/optional-jwt.guard';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -20,6 +21,7 @@ interface AuthenticatedRequest extends Request {
 export class RentalApplicationController {
   constructor(private readonly rentalApplicationService: RentalApplicationService) {}
 
+  @UseGuards(OptionalJwtAuthGuard)
   @Post()
   submitApplication(@Body() data: SubmitApplicationDto, @Request() req: Request) {
     const authUser = (req as AuthenticatedRequest).user;
@@ -63,6 +65,7 @@ export class RentalApplicationController {
   }
 
   @Post(':id/screen')
+  @HttpCode(200)
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.PROPERTY_MANAGER)
   screenApplication(@Param('id') id: string, @Request() req: AuthenticatedRequest) {

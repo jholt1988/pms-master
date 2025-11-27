@@ -36,7 +36,46 @@ import { RentOptimizationModule } from './rent-optimization/rent-optimization.mo
 import { MonitoringModule } from './monitoring/monitoring.module';
 import { WorkflowsModule } from './workflows/workflows.module';
 import { ChatbotModule } from './chatbot/chatbot.module';
+import { LeasingModule } from './leasing/leasing.module';
 import { LegacyPathMiddleware } from './middleware/legacy-path.middleware';
+
+const rateLimitEnabled =
+  process.env.NODE_ENV !== 'test' && process.env.RATE_LIMIT_ENABLED !== 'false';
+
+const throttlerConfigs = rateLimitEnabled
+  ? [
+      {
+        name: 'short',
+        ttl: 1000, // 1 second
+        limit: 3, // limit each IP to 3 requests per second
+      },
+      {
+        name: 'medium',
+        ttl: 10000, // 10 seconds
+        limit: 20, // limit each IP to 20 requests per 10 seconds
+      },
+      {
+        name: 'long',
+        ttl: 60000, // 1 minute
+        limit: 100, // limit each IP to 100 requests per minute
+      },
+    ]
+  : [
+      {
+        name: 'disabled',
+        ttl: 60000,
+        limit: Number.MAX_SAFE_INTEGER, // effectively disable throttling in tests
+      },
+    ];
+
+const rateLimitProviders = rateLimitEnabled
+  ? [
+      {
+        provide: APP_GUARD,
+        useClass: ThrottlerGuard,
+      },
+    ]
+  : [];
 
 @Module({
   imports: [
@@ -48,23 +87,7 @@ import { LegacyPathMiddleware } from './middleware/legacy-path.middleware';
     // Winston logging
     WinstonModule.forRoot(winstonConfig),
     // Rate limiting configuration
-    ThrottlerModule.forRoot([
-      {
-        name: 'short',
-        ttl: 1000, // 1 second
-        limit: 3, // limit each IP to 3 requests per second
-      },
-      {
-        name: 'medium',
-        ttl: 10000, // 10 seconds  
-        limit: 20, // limit each IP to 20 requests per 10 seconds
-      },
-      {
-        name: 'long',
-        ttl: 60000, // 1 minute
-        limit: 100, // limit each IP to 100 requests per minute
-      },
-    ]),
+    ThrottlerModule.forRoot(throttlerConfigs),
     PrismaModule,
     AuthModule,
     MaintenanceModule,
@@ -93,15 +116,13 @@ import { LegacyPathMiddleware } from './middleware/legacy-path.middleware';
     MonitoringModule,
     WorkflowsModule,
     ChatbotModule,
+    LeasingModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
-    // Global rate limiting guard
-    {
-      provide: APP_GUARD,
-      useClass: ThrottlerGuard,
-    },
+    // Global rate limiting guard (disabled in test environment)
+    ...rateLimitProviders,
   ],
 })
 export class AppModule implements NestModule {

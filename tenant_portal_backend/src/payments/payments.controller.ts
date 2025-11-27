@@ -40,9 +40,12 @@ export class PaymentsController {
   }
 
   @Post()
-  @Roles(Role.PROPERTY_MANAGER)
-  async createPayment(@Body() body: CreatePaymentDto): Promise<Payment> {
-    return this.paymentsService.createPayment(body);
+  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  async createPayment(
+    @Body() body: CreatePaymentDto,
+    @Request() req: AuthenticatedRequest,
+  ): Promise<Payment> {
+    return this.paymentsService.createPayment(body, req.user);
   }
 
   @Get()

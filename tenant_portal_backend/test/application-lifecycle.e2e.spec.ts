@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { TestDataFactory } from './factories';
 import { ApplicationStatus, Role } from '@prisma/client';
+import { resetDatabase } from './utils/reset-database';
 
 describe('Application Lifecycle API (e2e)', () => {
   let app: INestApplication;
@@ -29,14 +30,7 @@ describe('Application Lifecycle API (e2e)', () => {
   });
 
   beforeEach(async () => {
-    // Clean up before each test
-    await prisma.applicationLifecycleEvent.deleteMany();
-    await prisma.rentalApplicationNote.deleteMany();
-    await prisma.rentalApplication.deleteMany();
-    await prisma.lease.deleteMany();
-    await prisma.unit.deleteMany();
-    await prisma.property.deleteMany();
-    await prisma.user.deleteMany();
+    await resetDatabase(prisma);
 
     // Create test users
     tenantUser = await prisma.user.create({
@@ -82,13 +76,7 @@ describe('Application Lifecycle API (e2e)', () => {
   });
 
   afterAll(async () => {
-    await prisma.applicationLifecycleEvent.deleteMany();
-    await prisma.rentalApplicationNote.deleteMany();
-    await prisma.rentalApplication.deleteMany();
-    await prisma.lease.deleteMany();
-    await prisma.unit.deleteMany();
-    await prisma.property.deleteMany();
-    await prisma.user.deleteMany();
+    await resetDatabase(prisma);
     await app.close();
   });
 

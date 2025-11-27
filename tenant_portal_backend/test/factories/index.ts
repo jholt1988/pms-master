@@ -1,4 +1,5 @@
 import { Role, LeaseStatus } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 
 // Simple test data generator without external dependencies
 export const testData = {
@@ -33,11 +34,19 @@ export class TestDataFactory {
    * Create a test user
    */
   static createUser(overrides: any = {}) {
+    const { password: overridePassword, ...rest } = overrides;
+    const rawPassword =
+      overridePassword ?? '$2b$10$EbjqSDgryMwv8OnktwWGTuDyDRhdYa32TcScJ.CgfYT2PWaD0k/IS';
+    const password =
+      typeof rawPassword === 'string' && rawPassword.startsWith('$2')
+        ? rawPassword
+        : bcrypt.hashSync(rawPassword, 10);
+
     return {
       username: testData.email(),
-      password: '$2b$10$EbjqSDgryMwv8OnktwWGTuDyDRhdYa32TcScJ.CgfYT2PWaD0k/IS', // bcrypt hash of 'password123'
+      password, // bcrypt hash of 'password123' by default
       role: Role.TENANT,
-      ...overrides,
+      ...rest,
     };
   }
 
@@ -79,25 +88,27 @@ export class TestDataFactory {
     const unitNum = String(100 + testData.getUniqueId());
     return {
       name: `Unit ${unitNum}`,
-    propertyId,
-    unitNumber: unitNum,
-    bedrooms: 1 + (testData.getUniqueId() % 3),
-    bathrooms: 1 + ((testData.getUniqueId() % 3) * 0.5),
-    squareFeet: 600 + (testData.getUniqueId() % 900),
-    hasParking: testData.boolean(),
-    hasLaundry: testData.boolean(),
-    hasBalcony: testData.boolean(),
-    hasAC: testData.boolean(),
-    isFurnished: testData.boolean(),
-    petsAllowed: testData.boolean(),
-    ...overrides,
-  };
-}
+      propertyId,
+      unitNumber: unitNum,
+      bedrooms: 1 + (testData.getUniqueId() % 3),
+      bathrooms: 1 + ((testData.getUniqueId() % 3) * 0.5),
+      squareFeet: 600 + (testData.getUniqueId() % 900),
+      hasParking: testData.boolean(),
+      hasLaundry: testData.boolean(),
+      hasBalcony: testData.boolean(),
+      hasAC: testData.boolean(),
+      isFurnished: testData.boolean(),
+      petsAllowed: testData.boolean(),
+      ...overrides,
+    };
+  }
 
   /**
    * Create a test lease
    */
   static createLease(tenantId: number, unitId: number, overrides: any = {}) {
+    // Prisma schema no longer exposes securityDeposit, so strip it from overrides to avoid invalid writes
+    const { securityDeposit, ...sanitizedOverrides } = overrides;
     const startDate = testData.date(30);
     const endDate = new Date(startDate);
     endDate.setFullYear(endDate.getFullYear() + 1);
@@ -108,9 +119,9 @@ export class TestDataFactory {
       startDate,
       endDate,
       rentAmount: testData.amount(1000, 3000),
-      securityDeposit: testData.amount(500, 2000),
+      depositAmount: testData.amount(500, 2000),
       status: LeaseStatus.ACTIVE,
-      ...overrides,
+      ...sanitizedOverrides,
     };
   }
 

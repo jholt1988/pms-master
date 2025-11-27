@@ -1,5 +1,4 @@
-
-import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, UnauthorizedException, HttpException, HttpStatus } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -39,7 +38,7 @@ export class AuthService {
   async login(
     dto: LoginRequestDto,
     context: { ipAddress?: string; userAgent?: string },
-  ): Promise<{ access_token: string }> {
+  ): Promise<{ access_token: string; accessToken: string }> {
     const user = await this.usersService.findOne(dto.username);
     if (!user) {
       await this.securityEvents.logEvent({
@@ -64,7 +63,7 @@ export class AuthService {
         userAgent: context.userAgent,
         metadata: { lockoutUntil: user.lockoutUntil.toISOString() },
       });
-      throw new UnauthorizedException('Account is locked. Please try again later.');
+      throw new HttpException('Account is locked. Please try again later.', HttpStatus.LOCKED);
     }
 
 const isMatch = await bcrypt.compare(dto.password, user.password);
@@ -140,7 +139,8 @@ const isMatch = await bcrypt.compare(dto.password, user.password);
     });
 
     const payload = { username: user.username, sub: user.id, role: user.role };
-    return { access_token: this.jwtService.sign(payload) };
+    const token = this.jwtService.sign(payload);
+    return { access_token: token, accessToken: token };
   }
 
   private async safeUpdateUser(userId: number, data: Prisma.UserUpdateInput) {
@@ -162,6 +162,11 @@ const isMatch = await bcrypt.compare(dto.password, user.password);
     const policyErrors = this.passwordPolicy.validate(dto.password);
     if (policyErrors.length) {
       throw new BadRequestException({ message: 'Password policy violation', errors: policyErrors });
+    }
+    
+    const existingUser = await this.usersService.findOne(dto.username);
+    if (existingUser) {
+      throw new BadRequestException('Username already exists');
     }
     
     // Security: Prevent self-registration as PROPERTY_MANAGER
@@ -219,7 +224,7 @@ const isMatch = await bcrypt.compare(dto.password, user.password);
       userAgent: context.userAgent,
     });
 
-    return { secret, otpauthUrl };
+    return { secret, otpauthUrl, qrCodeUrl: otpauthUrl };
   }
 
   async activateMfa(
@@ -319,14 +324,14 @@ const isMatch = await bcrypt.compare(dto.password, user.password);
     const expiresAt = addHours(new Date(), 24);
 
     // Invalidate any existing tokens for this user
-    await this.prisma.PasswordResetToken.updateMany({
+    await this.prisma.passwordResetToken.updateMany({
       where: { userId: user.id, used: false },
       data: { used: true },
     });
 
 
     // Create new token
-    await this.prisma.PasswordResetToken.create({
+    await this.prisma.passwordResetToken.create({
       data: {
         token,
         userId: user.id,
@@ -360,13 +365,21 @@ const isMatch = await bcrypt.compare(dto.password, user.password);
     }
 
     // Find valid token, include the related user
-    const resetToken = await this.prisma.PasswordResetToken.findUnique({
+    const resetToken = await this.prisma.passwordResetToken.findUnique({
       where: { token },
       include: { user: true },
     });
 
-    if (!resetToken || resetToken.used || resetToken.expiresAt < new Date()) {
-      throw new UnauthorizedException('Invalid or expired reset token');
+    if (!resetToken) {
+      throw new UnauthorizedException('Invalid reset token');
+    }
+
+    if (resetToken.used) {
+      throw new BadRequestException('Reset token has already been used');
+    }
+
+    if (resetToken.expiresAt < new Date()) {
+      throw new BadRequestException('Reset token has expired');
     }
 
     // Validate password policy
@@ -379,7 +392,7 @@ const isMatch = await bcrypt.compare(dto.password, user.password);
 
     // Mark token as used
     
-    await this.prisma.PasswordResetToken.update({
+    await this.prisma.passwordResetToken.update({
       where: { id: resetToken.id },
       data: { used: true },
     });

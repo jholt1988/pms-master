@@ -6,6 +6,8 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { TestDataFactory } from './factories';
 import { Status } from '@prisma/client';
 import { APP_GUARD } from '@nestjs/core';
+import { EmailService } from '../src/email/email.service';
+import { resetDatabase } from './utils/reset-database';
 
 // Mock guard that always allows requests (disables rate limiting in tests)
 class MockThrottlerGuard implements CanActivate {
@@ -17,6 +19,15 @@ class MockThrottlerGuard implements CanActivate {
 describe('Auth API (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  const mockEmailService = {
+    sendPasswordResetEmail: jest.fn().mockResolvedValue(true),
+    sendNotificationEmail: jest.fn().mockResolvedValue(true),
+    sendLeadWelcomeEmail: jest.fn().mockResolvedValue(true),
+    sendNewLeadNotificationToPM: jest.fn().mockResolvedValue(true),
+    sendRentPaymentConfirmation: jest.fn().mockResolvedValue(true),
+    sendRentDueReminder: jest.fn().mockResolvedValue(true),
+    sendLateRentNotification: jest.fn().mockResolvedValue(true),
+  };
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -24,6 +35,8 @@ describe('Auth API (e2e)', () => {
     })
       .overrideProvider(APP_GUARD)
       .useClass(MockThrottlerGuard) // disables rate limiting
+      .overrideProvider(EmailService)
+      .useValue(mockEmailService)
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -34,19 +47,11 @@ describe('Auth API (e2e)', () => {
   });
 
   beforeEach(async () => {
-    // Clean up users and related data before each test
-    await prisma.securityEvent.deleteMany();
-    await prisma.passwordResetToken.deleteMany();
-    await prisma.lease.deleteMany();
-    await prisma.user.deleteMany();
+    await resetDatabase(prisma);
   });
 
   afterAll(async () => {
-    // Final cleanup
-    await prisma.securityEvent.deleteMany();
-    await prisma.passwordResetToken.deleteMany();
-    await prisma.lease.deleteMany();
-    await prisma.user.deleteMany();
+    await resetDatabase(prisma);
     await app.close();
   });
 

@@ -5,6 +5,7 @@ import {
   QualificationStatus,
   Recommendation,
   Role,
+  NotificationType,
 } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 
@@ -453,7 +454,7 @@ export class ApplicationLifecycleService {
 
     await this.notificationsService.create({
       userId: application.applicant.id,
-      type: 'APPLICATION_UPDATE' as any,
+      type: NotificationType.APPLICATION_STATUS_CHANGE,
       title,
       message,
       metadata: {

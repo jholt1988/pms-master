@@ -131,6 +131,7 @@ export class LeasingService {
     dateTo?: Date;
     limit?: number;
     offset?: number;
+    page?: number;
   }) {
     const where: Prisma.LeadWhereInput = {};
 
@@ -152,6 +153,11 @@ export class LeasingService {
       if (filters.dateTo) where.createdAt.lte = filters.dateTo;
     }
 
+    const limit = filters?.limit ?? 50;
+    const offset =
+      filters?.offset ??
+      (filters?.page && filters.page > 0 ? (filters.page - 1) * limit : 0);
+
     const [leads, total] = await Promise.all([
       this.prisma.lead.findMany({
         where,
@@ -165,13 +171,23 @@ export class LeasingService {
           },
         },
         orderBy: { createdAt: 'desc' },
-        take: filters?.limit || 50,
-        skip: filters?.offset || 0,
+        take: limit,
+        skip: offset,
       }),
       this.prisma.lead.count({ where }),
     ]);
 
-    return { leads, total };
+    const page =
+      filters?.page ??
+      (limit > 0 ? Math.floor(offset / limit) + 1 : 1);
+
+    return {
+      leads,
+      total,
+      page,
+      limit,
+      totalPages: limit > 0 ? Math.ceil(total / limit) : 1,
+    };
   }
 
   /**
@@ -230,6 +246,20 @@ export class LeasingService {
       where.petsAllowed = true;
     }
 
+    if (criteria.maxRent !== undefined) {
+      where.property = {
+        is: {
+          OR: [
+            { minRent: { lte: criteria.maxRent } },
+            { maxRent: { lte: criteria.maxRent } },
+            {
+              AND: [{ minRent: null }, { maxRent: null }],
+            },
+          ],
+        },
+      };
+    }
+
     // For rent filtering, we'd need to add current rent to Unit model
     // For now, we'll return all matching units
 
@@ -242,20 +272,29 @@ export class LeasingService {
     });
 
     // Transform to match frontend PropertyMatch interface
-    return units.map((unit) => ({
-      propertyId: unit.property.id.toString(),
-      unitId: unit.id.toString(),
-      address: unit.property.address,
-      city: unit.property.city,
-      state: unit.property.state,
-      bedrooms: unit.bedrooms,
-      bathrooms: unit.bathrooms,
-      rent: 1500, // TODO: Get from lease or pricing model
-      available: true,
-      amenities: this.getUnitAmenities(unit, unit.property),
-      matchScore: 0.9, // TODO: Implement matching algorithm
-      images: [], // TODO: Add unit images
-    }));
+    return units.map((unit) => {
+      const estimatedRent =
+        unit.property.minRent ??
+        unit.property.maxRent ??
+        1500;
+
+      return {
+        propertyId: unit.property.id.toString(),
+        unitId: unit.id.toString(),
+        address: unit.property.address,
+        city: unit.property.city,
+        state: unit.property.state,
+        bedrooms: unit.bedrooms,
+        bathrooms: unit.bathrooms,
+        rent: estimatedRent,
+        available: true,
+        status: 'AVAILABLE',
+        petFriendly: !!unit.petsAllowed,
+        amenities: this.getUnitAmenities(unit, unit.property),
+        matchScore: 0.9, // TODO: Implement matching algorithm
+        images: [], // TODO: Add unit images
+      };
+    });
   }
 
   /**
