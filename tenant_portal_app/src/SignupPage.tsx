@@ -74,9 +74,6 @@ const SignupPage: React.FC = () => {
         <div className="rounded-lg bg-white p-6 shadow-lg ring-1 ring-gray-100">
           <form className="space-y-4" onSubmit={handleSignup}>
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-                Username
-              </label>
               <input
                 id="username"
                 type="text"
@@ -84,27 +81,24 @@ const SignupPage: React.FC = () => {
                 required
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                placeholder="Username"
+                aria-label="Username"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
             <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700">
-                Account Type
-              </label>
               <select
                 id="role"
                 value={role}
                 onChange={(event) => setRole(event.target.value as 'TENANT' | 'PROPERTY_MANAGER')}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                aria-label="Account Type"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 <option value="TENANT">Tenant - Access rental applications, lease info, and payments</option>
                 <option value="PROPERTY_MANAGER">Property Manager - Manage properties, tenants, and maintenance</option>
               </select>
             </div>
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
               <input
                 id="password"
                 type="password"
@@ -112,7 +106,9 @@ const SignupPage: React.FC = () => {
                 required
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                placeholder="Password"
+                aria-label="Password"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
 

@@ -514,18 +514,16 @@ export default function PaymentsPage(): React.ReactElement {
                   ))}
                 </select>
               </label>
-              <label className="block text-xs font-medium text-gray-700">
-                Maximum draft amount
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={autopayMaxAmount}
-                  onChange={(event) => setAutopayMaxAmount(event.target.value)}
-                  placeholder="Optional limit"
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={autopayMaxAmount}
+                onChange={(event) => setAutopayMaxAmount(event.target.value)}
+                placeholder="Maximum draft amount (optional limit)"
+                aria-label="Maximum draft amount"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
 
               <div className="rounded-md border border-gray-100 bg-gray-50 px-3 py-2 text-xs text-gray-600">
                 <p className="font-semibold text-gray-700">Status</p>
@@ -614,71 +612,57 @@ export default function PaymentsPage(): React.ReactElement {
                   <option value="CHECK">Check</option>
                 </select>
               </label>
-              <label className="text-xs font-medium text-gray-700">
-                Provider
-                <input
-                  value={methodForm.provider}
-                  onChange={(event) => handleMethodFormChange('provider', event.target.value)}
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  placeholder="Stripe, Dwolla, etc."
-                />
-              </label>
+              <input
+                value={methodForm.provider}
+                onChange={(event) => handleMethodFormChange('provider', event.target.value)}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                placeholder="Provider (Stripe, Dwolla, etc.)"
+                aria-label="Provider"
+              />
               <div className="grid gap-4 sm:grid-cols-2">
-                <label className="text-xs font-medium text-gray-700">
-                  Brand
-                  <input
-                    value={methodForm.brand}
-                    onChange={(event) => handleMethodFormChange('brand', event.target.value)}
-                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    placeholder="Visa, Mastercard…"
-                  />
-                </label>
-                <label className="text-xs font-medium text-gray-700">
-                  Last 4 digits
-                  <input
-                    value={methodForm.last4}
-                    onChange={(event) => handleMethodFormChange('last4', event.target.value)}
-                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    placeholder="1234"
-                  />
-                </label>
-                <label className="text-xs font-medium text-gray-700">
-                  Expiry month
-                  <input
-                    value={methodForm.expMonth}
-                    onChange={(event) => handleMethodFormChange('expMonth', event.target.value)}
-                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    placeholder="MM"
-                  />
-                </label>
-                <label className="text-xs font-medium text-gray-700">
-                  Expiry year
-                  <input
-                    value={methodForm.expYear}
-                    onChange={(event) => handleMethodFormChange('expYear', event.target.value)}
-                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    placeholder="YYYY"
-                  />
-                </label>
+                <input
+                  value={methodForm.brand}
+                  onChange={(event) => handleMethodFormChange('brand', event.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  placeholder="Brand (Visa, Mastercard…)"
+                  aria-label="Brand"
+                />
+                <input
+                  value={methodForm.last4}
+                  onChange={(event) => handleMethodFormChange('last4', event.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  placeholder="Last 4 digits (1234)"
+                  aria-label="Last 4 digits"
+                />
+                <input
+                  value={methodForm.expMonth}
+                  onChange={(event) => handleMethodFormChange('expMonth', event.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  placeholder="Expiry month (MM)"
+                  aria-label="Expiry month"
+                />
+                <input
+                  value={methodForm.expYear}
+                  onChange={(event) => handleMethodFormChange('expYear', event.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  placeholder="Expiry year (YYYY)"
+                  aria-label="Expiry year"
+                />
               </div>
-              <label className="text-xs font-medium text-gray-700">
-                Provider customer ID
-                <input
-                  value={methodForm.providerCustomerId}
-                  onChange={(event) => handleMethodFormChange('providerCustomerId', event.target.value)}
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  placeholder="External reference"
-                />
-              </label>
-              <label className="text-xs font-medium text-gray-700">
-                Provider method ID
-                <input
-                  value={methodForm.providerPaymentMethodId}
-                  onChange={(event) => handleMethodFormChange('providerPaymentMethodId', event.target.value)}
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  placeholder="Token or reference"
-                />
-              </label>
+              <input
+                value={methodForm.providerCustomerId}
+                onChange={(event) => handleMethodFormChange('providerCustomerId', event.target.value)}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                placeholder="Provider customer ID (external reference)"
+                aria-label="Provider customer ID"
+              />
+              <input
+                value={methodForm.providerPaymentMethodId}
+                onChange={(event) => handleMethodFormChange('providerPaymentMethodId', event.target.value)}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                placeholder="Provider method ID (token or reference)"
+                aria-label="Provider method ID"
+              />
 
               <button
                 type="submit"

@@ -74,14 +74,12 @@ export default function PasswordResetPage(): React.ReactElement {
         <h2 className="text-2xl font-bold mb-6 text-center">Reset Password</h2>
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="newPassword">
-              New Password
-            </label>
             <input
               className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
               id="newPassword"
               type="password"
-              placeholder="Enter new password"
+              placeholder="New Password"
+              aria-label="New Password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               required
@@ -89,14 +87,12 @@ export default function PasswordResetPage(): React.ReactElement {
             />
           </div>
           <div className="mb-6">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="confirmPassword">
-              Confirm Password
-            </label>
             <input
               className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
               id="confirmPassword"
               type="password"
-              placeholder="Confirm new password"
+              placeholder="Confirm Password"
+              aria-label="Confirm Password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required

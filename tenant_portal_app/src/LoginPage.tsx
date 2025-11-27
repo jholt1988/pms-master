@@ -56,9 +56,6 @@ export default function LoginPage(): React.ReactElement {
         <div className="rounded-lg bg-white p-6 shadow-lg ring-1 ring-gray-100">
           <form className="space-y-4" onSubmit={handleLogin}>
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-                Username
-              </label>
               <input
                 id="username"
                 type="text"
@@ -66,13 +63,12 @@ export default function LoginPage(): React.ReactElement {
                 required
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                placeholder="Username"
+                aria-label="Username"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
               <input
                 id="password"
                 type="password"
@@ -80,14 +76,13 @@ export default function LoginPage(): React.ReactElement {
                 required
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                placeholder="Password"
+                aria-label="Password"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
             {mfaRequired && (
               <div>
-                <label htmlFor="mfa" className="block text-sm font-medium text-gray-700">
-                  MFA code
-                </label>
                 <input
                   id="mfa"
                   type="text"
@@ -96,7 +91,9 @@ export default function LoginPage(): React.ReactElement {
                   required
                   value={mfaCode}
                   onChange={(event) => setMfaCode(event.target.value)}
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  placeholder="MFA code"
+                  aria-label="MFA code"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
                 <p className="mt-1 text-xs text-gray-500">
                   Enter the multi-factor authentication code sent to your device.

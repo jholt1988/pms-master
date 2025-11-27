@@ -181,12 +181,12 @@ const BulkMessageComposer: React.FC<BulkMessageComposerProps> = ({
       )}
 
       <div className="grid gap-4 md:grid-cols-2">
-        <label className="text-sm">
-          <span className="mb-1 block font-medium text-gray-700">Template</span>
+        <div className="text-sm">
           <select
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             value={templateId}
             onChange={(event) => handleTemplateChange(event.target.value)}
+            aria-label="Template"
           >
             <option value="">Custom message</option>
             {templates.map((template) => (
@@ -198,28 +198,28 @@ const BulkMessageComposer: React.FC<BulkMessageComposerProps> = ({
           {selectedTemplate?.description && (
             <p className="mt-1 text-xs text-gray-500">{selectedTemplate.description}</p>
           )}
-        </label>
+        </div>
 
-        <label className="text-sm">
-          <span className="mb-1 block font-medium text-gray-700">Subject</span>
+        <div className="text-sm">
           <input
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            placeholder="Rent reminder, maintenance update, etc."
+            placeholder="Subject"
+            aria-label="Subject"
           />
-        </label>
+        </div>
       </div>
 
-      <label className="text-sm">
-        <span className="mb-1 block font-medium text-gray-700">Message body</span>
+      <div className="text-sm">
         <textarea
           className="min-h-32 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
           value={body}
           onChange={(event) => setBody(event.target.value)}
-          placeholder="Hi {{username}}, your rent is due on the 1st..."
+          placeholder="Message body - Hi {{username}}, your rent is due on the 1st..."
+          aria-label="Message body"
         />
-      </label>
+      </div>
 
       <div className="grid gap-4 md:grid-cols-3">
         <div>
@@ -244,51 +244,52 @@ const BulkMessageComposer: React.FC<BulkMessageComposerProps> = ({
           </div>
         </div>
 
-        <label className="text-sm">
-          <span className="mb-1 block font-medium text-gray-700">Property IDs</span>
+        <div className="text-sm">
           <input
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             value={propertyIds}
             onChange={(event) => setPropertyIds(event.target.value)}
-            placeholder="e.g. 10, 42"
+            placeholder="Property IDs (e.g. 10, 42)"
+            aria-label="Property IDs"
           />
           <p className="mt-1 text-xs text-gray-500">Optional: limit tenants to certain properties.</p>
-        </label>
+        </div>
 
-        <label className="text-sm">
-          <span className="mb-1 block font-medium text-gray-700">Direct recipient IDs</span>
+        <div className="text-sm">
           <input
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             value={recipientIds}
             onChange={(event) => setRecipientIds(event.target.value)}
-            placeholder="e.g. 4, 9, 11"
+            placeholder="Direct recipient IDs (e.g. 4, 9, 11)"
+            aria-label="Direct recipient IDs"
           />
           <p className="mt-1 text-xs text-gray-500">Overrides filters to force-include specific users.</p>
-        </label>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <label className="text-sm">
-          <span className="mb-1 block font-medium text-gray-700">Throttle (messages/min)</span>
+        <div className="text-sm">
           <input
             type="number"
             min={1}
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             value={throttle}
             onChange={(event) => setThrottle(Number(event.target.value) || 1)}
+            placeholder="Throttle (messages/min)"
+            aria-label="Throttle (messages/min)"
           />
-        </label>
+        </div>
 
-        <label className="text-sm md:col-span-2">
-          <span className="mb-1 block font-medium text-gray-700">Schedule send (optional)</span>
+        <div className="text-sm md:col-span-2">
           <input
             type="datetime-local"
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             value={scheduledAt}
             onChange={(event) => setScheduledAt(event.target.value)}
+            aria-label="Schedule send (optional)"
           />
           <p className="mt-1 text-xs text-gray-500">Leave empty to send immediately.</p>
-        </label>
+        </div>
       </div>
 
       <div>

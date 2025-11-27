@@ -86,7 +86,7 @@ export const LoginPage: React.FC = () => {
           <form className="space-y-4" onSubmit={handleLogin}>
             {/* Username Input */}
             <Input
-              label="Username"
+              label=""
               placeholder="Enter your username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -104,7 +104,7 @@ export const LoginPage: React.FC = () => {
 
             {/* Password Input with Toggle */}
             <Input
-              label="Password"
+              label=""
               placeholder="Enter your password"
               type={showPassword ? 'text' : 'password'}
               value={password}

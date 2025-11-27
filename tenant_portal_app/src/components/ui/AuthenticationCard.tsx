@@ -41,18 +41,16 @@ export const AuthenticationCard = () => {
 
             <div className="space-y-4">
               <div className="group">
-                <label className="text-[10px] uppercase tracking-wider text-gray-400 mb-1 block font-mono">Identity Key (Email)</label>
                 <div className="relative">
                     <Mail className="absolute left-3 top-3 text-gray-500 group-focus-within:text-neon-blue transition-colors" size={16} />
-                    <input type="email" placeholder="user@system.net" className="w-full bg-black/30 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white focus:border-neon-blue/50 focus:outline-none transition-all font-mono text-sm" />
+                    <input type="email" placeholder="Identity Key (Email)" aria-label="Identity Key (Email)" className="w-full bg-black/30 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white focus:border-neon-blue/50 focus:outline-none transition-all font-mono text-sm" />
                 </div>
               </div>
 
               <div className="group">
-                <label className="text-[10px] uppercase tracking-wider text-gray-400 mb-1 block font-mono">Passcode</label>
                 <div className="relative">
                     <Lock className="absolute left-3 top-3 text-gray-500 group-focus-within:text-neon-blue transition-colors" size={16} />
-                    <input type="password" placeholder="••••••••" className="w-full bg-black/30 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white focus:border-neon-blue/50 focus:outline-none transition-all font-mono text-sm" />
+                    <input type="password" placeholder="Passcode" aria-label="Passcode" className="w-full bg-black/30 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white focus:border-neon-blue/50 focus:outline-none transition-all font-mono text-sm" />
                 </div>
               </div>
 
@@ -81,26 +79,23 @@ export const AuthenticationCard = () => {
 
             <div className="space-y-4">
               <div className="group">
-                <label className="text-[10px] uppercase tracking-wider text-gray-400 mb-1 block font-mono">Full Designation</label>
                 <div className="relative">
                     <User className="absolute left-3 top-3 text-gray-500 group-focus-within:text-neon-purple transition-colors" size={16} />
-                    <input type="text" placeholder="Jane Doe" className="w-full bg-black/30 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white focus:border-neon-purple/50 focus:outline-none transition-all font-mono text-sm" />
+                    <input type="text" placeholder="Full Designation" aria-label="Full Designation" className="w-full bg-black/30 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white focus:border-neon-purple/50 focus:outline-none transition-all font-mono text-sm" />
                 </div>
               </div>
               
               <div className="group">
-                <label className="text-[10px] uppercase tracking-wider text-gray-400 mb-1 block font-mono">Communication Link</label>
                 <div className="relative">
                     <Mail className="absolute left-3 top-3 text-gray-500 group-focus-within:text-neon-purple transition-colors" size={16} />
-                    <input type="email" placeholder="jane@example.com" className="w-full bg-black/30 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white focus:border-neon-purple/50 focus:outline-none transition-all font-mono text-sm" />
+                    <input type="email" placeholder="Communication Link" aria-label="Communication Link" className="w-full bg-black/30 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white focus:border-neon-purple/50 focus:outline-none transition-all font-mono text-sm" />
                 </div>
               </div>
 
                <div className="group">
-                <label className="text-[10px] uppercase tracking-wider text-gray-400 mb-1 block font-mono">Security Token</label>
                 <div className="relative">
                     <Lock className="absolute left-3 top-3 text-gray-500 group-focus-within:text-neon-purple transition-colors" size={16} />
-                    <input type="password" placeholder="Create Password" className="w-full bg-black/30 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white focus:border-neon-purple/50 focus:outline-none transition-all font-mono text-sm" />
+                    <input type="password" placeholder="Security Token" aria-label="Security Token" className="w-full bg-black/30 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white focus:border-neon-purple/50 focus:outline-none transition-all font-mono text-sm" />
                 </div>
               </div>
 

@@ -1,33 +1,72 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Mic, X, Sparkles, Cpu, Activity } from 'lucide-react';
-
-// Types for our AI messages
-interface Message {
-  id: string;
-  type: 'user' | 'ai' | 'system';
-  content: string;
-  timestamp: Date;
-  confidence?: number;
-}
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Send, Mic, X, Sparkles, Cpu, Activity, Loader2 } from 'lucide-react';
+import { useAuth } from '../../AuthContext';
+import { aiOperatingSystemService } from '../../services/AIOperatingSystemService';
+import { AISystemMessage } from '../../types/ai-operating-system';
 
 export const AIOperatingSystem: React.FC = () => {
+  const { token, user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [inputValue, setInputValue] = useState('');
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'init-1',
-      type: 'system',
-      content: 'PMS.OS Neural Interface Initialized. Ready for commands.',
-      timestamp: new Date(),
-    },
-    {
-      id: 'init-2',
-      type: 'ai',
-      content: 'Good evening, Property Manager. I have analyzed 14 new maintenance requests and optimized 3 lease renewals. How can I assist?',
-      timestamp: new Date(),
+  const [sessionId, setSessionId] = useState<string | undefined>();
+  // Initialize messages based on authentication status
+  const getInitialMessages = (): AISystemMessage[] => {
+    if (user && token) {
+      return [
+        {
+          id: 'init-1',
+          type: 'system',
+          content: 'PMS.OS Neural Interface Initialized. Ready for commands.',
+          timestamp: new Date(),
+        },
+      ];
+    } else {
+      return [
+        {
+          id: 'init-1',
+          type: 'system',
+          content: 'PMS.OS Neural Interface Initialized. Welcome! I can help you find properties, answer questions, and guide you through the rental application process.',
+          timestamp: new Date(),
+        },
+      ];
     }
-  ]);
+  };
+
+  const [messages, setMessages] = useState<AISystemMessage[]>(getInitialMessages());
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+
+  // Check for Web Speech API support
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      setVoiceSupported(true);
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
+        const transcript = event.results[0][0].transcript;
+        setInputValue(transcript);
+        setIsListening(false);
+        // Auto-send after voice input
+        setTimeout(() => {
+          handleSendMessage();
+        }, 100);
+      };
+      recognitionRef.current.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        setIsListening(false);
+      };
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+      };
+    }
+  }, []);
 
   // Auto-scroll to bottom of chat
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -36,31 +75,142 @@ export const AIOperatingSystem: React.FC = () => {
   };
   useEffect(scrollToBottom, [messages]);
 
-  const handleSendMessage = (e?: React.FormEvent) => {
+  // Load proactive suggestions when opening (only for authenticated users)
+  useEffect(() => {
+    if (isOpen && user && token) {
+      loadProactiveSuggestions();
+    } else if (isOpen && !user) {
+      // For unauthenticated users, show helpful initial message
+      const welcomeMsg: AISystemMessage = {
+        id: `welcome-${Date.now()}`,
+        type: 'ai',
+        content: 'Hello! I\'m here to help you find your perfect rental property. You can ask me about:\n\n• Available properties and units\n• Rental application process\n• Property features and amenities\n• Scheduling tours\n• General questions about renting\n\nWhat would you like to know?',
+        timestamp: new Date(),
+        confidence: 0.95,
+      };
+      setMessages(prev => {
+        // Only add welcome message if it's not already there
+        if (!prev.some(msg => msg.id.startsWith('welcome-'))) {
+          return [...prev, welcomeMsg];
+        }
+        return prev;
+      });
+    }
+  }, [isOpen, user, token]);
+
+  const loadProactiveSuggestions = async () => {
+    if (!user || !token) return;
+    try {
+      const context = {
+        userId: user.sub || user.id || '',
+        username: user.username || '',
+        role: (user.role as 'TENANT' | 'PROPERTY_MANAGER' | 'ADMIN') || 'TENANT',
+        currentPage: location.pathname,
+        currentRoute: location.pathname,
+      };
+      const suggestions = await aiOperatingSystemService.getProactiveSuggestions(context);
+      if (suggestions.length > 0) {
+        const suggestionMsg: AISystemMessage = {
+          id: `suggestion-${Date.now()}`,
+          type: 'ai',
+          content: `💡 Proactive Suggestion: ${suggestions[0].title} - ${suggestions[0].description}`,
+          timestamp: new Date(),
+          metadata: {
+            suggestion: suggestions[0],
+          },
+        };
+        setMessages(prev => [...prev, suggestionMsg]);
+      }
+    } catch (error) {
+      console.error('Failed to load proactive suggestions:', error);
+    }
+  };
+
+  const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() || isLoading) return;
+
+    const messageText = inputValue.trim();
+    setInputValue('');
+    setIsLoading(true);
 
     // Add user message
-    const newUserMsg: Message = {
+    const newUserMsg: AISystemMessage = {
       id: Date.now().toString(),
       type: 'user',
-      content: inputValue,
+      content: messageText,
       timestamp: new Date(),
     };
     setMessages(prev => [...prev, newUserMsg]);
-    setInputValue('');
 
-    // Simulate AI "Thinking" delay then response
-    setTimeout(() => {
-      const aiMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        type: 'ai',
-        content: "I'm processing that request against the current market data...",
-        timestamp: new Date(),
-        confidence: 0.98
+    try {
+      // Get user context (handle unauthenticated users)
+      const userId = user?.sub || user?.id || `guest-${Date.now()}`;
+      const context = {
+        userId: userId,
+        username: user?.username || 'Guest',
+        role: (user?.role as 'TENANT' | 'PROPERTY_MANAGER' | 'ADMIN') || undefined,
+        currentPage: location.pathname,
+        currentRoute: location.pathname,
       };
-      setMessages(prev => [...prev, aiMsg]);
-    }, 1000);
+
+      // Send message to AI service (works without token for basic features)
+      const result = await aiOperatingSystemService.sendMessage(
+        userId,
+        messageText,
+        sessionId,
+        token || undefined,
+        context,
+      );
+
+      setSessionId(result.sessionId);
+
+      // Handle command execution
+      if (result.response.type === 'command' && result.response.metadata?.commandResult) {
+        const commandResult = result.response.metadata.commandResult;
+        if (commandResult.success && commandResult.action.type === 'navigate') {
+          // Execute navigation
+          if (commandResult.action.target) {
+            navigate(commandResult.action.target);
+          }
+        }
+      }
+
+      // Add AI response
+      setMessages(prev => [...prev, result.response]);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      const errorMsg: AISystemMessage = {
+        id: `error-${Date.now()}`,
+        type: 'ai',
+        content: 'I apologize, but I encountered an error processing your request. Please try again.',
+        timestamp: new Date(),
+        confidence: 0,
+      };
+      setMessages(prev => [...prev, errorMsg]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVoiceInput = () => {
+    if (!voiceSupported || !recognitionRef.current) {
+      alert('Voice input is not supported in your browser. Please use Chrome, Edge, or Safari.');
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+      } catch (error) {
+        console.error('Error starting voice recognition:', error);
+        setIsListening(false);
+      }
+    }
   };
 
   return (
@@ -143,21 +293,52 @@ export const AIOperatingSystem: React.FC = () => {
                       ? 'bg-neon-blue/20 border border-neon-blue/50 text-white rounded-br-none' 
                       : msg.type === 'system'
                         ? 'w-full bg-transparent border-b border-white/5 text-gray-500 font-mono text-xs py-2'
+                        : msg.type === 'command'
+                        ? 'bg-yellow-500/10 border border-yellow-500/50 text-yellow-200 rounded-tl-none'
                         : 'bg-white/5 border border-white/10 text-gray-200 rounded-tl-none'}
                   `}>
                     {msg.type !== 'system' && msg.content}
                     {msg.type === 'system' && <div className="flex items-center justify-center gap-2"><Activity size={10}/> {msg.content}</div>}
                     
+                    {/* Suggested Actions */}
+                    {msg.suggestedActions && msg.suggestedActions.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {msg.suggestedActions.map((action, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => {
+                              if (action.action === 'navigate' && action.params?.path) {
+                                navigate(action.params.path);
+                              }
+                            }}
+                            className="px-3 py-1 text-xs bg-neon-purple/20 hover:bg-neon-purple/30 border border-neon-purple/50 rounded-md text-neon-purple transition-colors"
+                          >
+                            {action.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    
                     {/* Confidence Meter for AI */}
                     {msg.confidence && (
                       <div className="mt-2 flex items-center gap-1 text-[10px] text-neon-purple uppercase font-bold opacity-70">
                         <Sparkles size={10} />
-                        Confidence Score: {msg.confidence * 100}%
+                        Confidence Score: {Math.round(msg.confidence * 100)}%
                       </div>
                     )}
                   </div>
                 </div>
               ))}
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-white/5 border border-white/10 text-gray-200 rounded-2xl rounded-tl-none p-4">
+                    <div className="flex items-center gap-2">
+                      <Loader2 size={16} className="animate-spin text-neon-purple" />
+                      <span className="text-sm">Processing...</span>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div ref={messagesEndRef} />
             </div>
 
@@ -171,7 +352,9 @@ export const AIOperatingSystem: React.FC = () => {
                   type="text"
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
-                  placeholder="Ask PMS.OS to analyze rents, draft leases, or check maintenance..."
+                  placeholder={user && token 
+                    ? "Ask PMS.OS to analyze rents, draft leases, or check maintenance..."
+                    : "Ask about available properties, rental applications, or property features..."}
                   className="flex-1 bg-transparent border-none outline-none text-white placeholder-gray-500 font-mono text-sm h-10"
                   autoFocus
                   aria-label="AI assistant input"
@@ -179,30 +362,35 @@ export const AIOperatingSystem: React.FC = () => {
                 />
                 
                 {/* Mic Button */}
-                <button
-                  type="button"
-                  onClick={() => setIsListening(!isListening)}
-                  className={`p-2 rounded-lg transition-colors ${isListening ? 'text-red-500 bg-red-500/10 animate-pulse' : 'text-gray-400 hover:text-white'}`}
-                  aria-label={isListening ? 'Stop listening' : 'Start voice input'}
-                  aria-pressed={isListening}
-                >
-                  <Mic size={18} />
-                </button>
+                {voiceSupported && (
+                  <button
+                    type="button"
+                    onClick={handleVoiceInput}
+                    className={`p-2 rounded-lg transition-colors ${isListening ? 'text-red-500 bg-red-500/10 animate-pulse' : 'text-gray-400 hover:text-white'}`}
+                    aria-label={isListening ? 'Stop listening' : 'Start voice input'}
+                    aria-pressed={isListening}
+                  >
+                    <Mic size={18} />
+                  </button>
+                )}
 
                 {/* Send Button */}
                 <button 
                   type="submit"
-                  disabled={!inputValue.trim()}
+                  disabled={!inputValue.trim() || isLoading}
                   className="p-2 bg-neon-purple/20 hover:bg-neon-purple text-neon-purple hover:text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-label="Send message"
                 >
-                  <Send size={18} />
+                  {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
                 </button>
               </form>
               
               {/* Quick Actions / Hints */}
               <div className="mt-3 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                {['Draft Lease Renewal', 'Analyze Market Rates', 'Show Vacancies', 'Email All Tenants'].map((action) => (
+                {(user && token 
+                  ? ['Draft Lease Renewal', 'Analyze Market Rates', 'Show Vacancies', 'Email All Tenants']
+                  : ['Show Available Properties', 'How to Apply', 'Schedule a Tour', 'Property Features']
+                ).map((action) => (
                   <button 
                     key={action}
                     onClick={() => setInputValue(action)}

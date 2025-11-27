@@ -82,6 +82,7 @@ This service provides AI-powered rent predictions using machine learning models 
      venv\Scripts\activate
      ```
    - macOS/Linux:
+   
      ```bash
      source venv/bin/activate
      ```

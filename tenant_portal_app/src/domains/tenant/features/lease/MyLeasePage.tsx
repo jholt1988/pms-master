@@ -595,25 +595,21 @@ const MyLeasePage: React.FC = () => {
               <option value="OTHER">Other</option>
             </select>
           </label>
-          <label className="text-xs font-medium text-gray-700">
-            Desired move-out date
-            <input
-              type="date"
-              className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-              value={noticeForm.desiredMoveOut}
-              onChange={(event) => handleNoticeChange('desiredMoveOut', event.target.value)}
-            />
-          </label>
-          <label className="text-xs font-medium text-gray-700 md:col-span-2">
-            Notes for the property team
-            <textarea
-              rows={3}
-              className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-              value={noticeForm.message}
-              placeholder="Share any special considerations (cleaning, forwarding address, pets, etc.)"
-              onChange={(event) => handleNoticeChange('message', event.target.value)}
-            />
-          </label>
+          <input
+            type="date"
+            className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+            value={noticeForm.desiredMoveOut}
+            onChange={(event) => handleNoticeChange('desiredMoveOut', event.target.value)}
+            aria-label="Desired move-out date"
+          />
+          <textarea
+            rows={3}
+            className="w-full rounded border border-gray-300 px-2 py-1 text-sm md:col-span-2"
+            value={noticeForm.message}
+            placeholder="Notes for the property team - Share any special considerations (cleaning, forwarding address, pets, etc.)"
+            onChange={(event) => handleNoticeChange('message', event.target.value)}
+            aria-label="Notes for the property team"
+          />
         </div>
         <div className="flex justify-end">
           <button

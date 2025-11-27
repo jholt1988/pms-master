@@ -209,15 +209,13 @@ export default function InspectionManagementPage(): React.ReactElement {
               <option value="CANCELLED">Cancelled</option>
             </select>
           </label>
-          <label className="flex flex-col text-sm text-foreground-500">
-            Inspection Type
-            <input
-              className="border border-input rounded px-3 py-2 mt-1"
-              placeholder="Routine, Move-in, etc."
-              value={filters.type}
-              onChange={(event) => setFilters((prev) => ({ ...prev, type: event.target.value }))}
-            />
-          </label>
+          <input
+            className="border border-input rounded px-3 py-2"
+            placeholder="Inspection Type (Routine, Move-in, etc.)"
+            aria-label="Inspection Type"
+            value={filters.type}
+            onChange={(event) => setFilters((prev) => ({ ...prev, type: event.target.value }))}
+          />
         </div>
       </div>
 
@@ -398,42 +396,35 @@ export default function InspectionManagementPage(): React.ReactElement {
                   ))}
                 </select>
               </label>
-              <label className="flex flex-col text-sm text-foreground-500">
-                Unit
-                <input
-                  className="border border-input rounded px-3 py-2 mt-1"
-                  placeholder="Unit name or identifier"
-                  value={createForm.unitName}
-                  onChange={(event) => setCreateForm((prev) => ({ ...prev, unitName: event.target.value }))}
-                />
-              </label>
-              <label className="flex flex-col text-sm text-foreground-500">
-                Inspection Type
-                <input
-                  className="border border-input rounded px-3 py-2 mt-1"
-                  placeholder="Routine, Move-in, Move-out"
-                  value={createForm.type}
-                  onChange={(event) => setCreateForm((prev) => ({ ...prev, type: event.target.value }))}
-                />
-              </label>
-              <label className="flex flex-col text-sm text-foreground-500">
-                Scheduled At
-                <input
-                  type="datetime-local"
-                  className="border border-input rounded px-3 py-2 mt-1"
-                  value={createForm.scheduledDate}
-                  onChange={(event) => setCreateForm((prev) => ({ ...prev, scheduledDate: event.target.value }))}
-                />
-              </label>
-              <label className="flex flex-col text-sm text-foreground-500">
-                Notes
-                <textarea
-                  className="border border-input rounded px-3 py-2 mt-1"
-                  rows={3}
-                  value={createForm.notes}
-                  onChange={(event) => setCreateForm((prev) => ({ ...prev, notes: event.target.value }))}
-                />
-              </label>
+              <input
+                className="border border-input rounded px-3 py-2"
+                placeholder="Unit name or identifier"
+                aria-label="Unit"
+                value={createForm.unitName}
+                onChange={(event) => setCreateForm((prev) => ({ ...prev, unitName: event.target.value }))}
+              />
+              <input
+                className="border border-input rounded px-3 py-2"
+                placeholder="Inspection Type (Routine, Move-in, Move-out)"
+                aria-label="Inspection Type"
+                value={createForm.type}
+                onChange={(event) => setCreateForm((prev) => ({ ...prev, type: event.target.value }))}
+              />
+              <input
+                type="datetime-local"
+                className="border border-input rounded px-3 py-2"
+                aria-label="Scheduled At"
+                value={createForm.scheduledDate}
+                onChange={(event) => setCreateForm((prev) => ({ ...prev, scheduledDate: event.target.value }))}
+              />
+              <textarea
+                className="border border-input rounded px-3 py-2"
+                rows={3}
+                placeholder="Notes"
+                aria-label="Notes"
+                value={createForm.notes}
+                onChange={(event) => setCreateForm((prev) => ({ ...prev, notes: event.target.value }))}
+              />
             </form>
           </ModalBody>
           <ModalFooter>
@@ -452,11 +443,11 @@ export default function InspectionManagementPage(): React.ReactElement {
           <ModalHeader>Complete Inspection</ModalHeader>
           <ModalBody>
             <form id="complete-inspection-form" onSubmit={handleCompleteSubmit} className="space-y-4">
-              <label className="flex flex-col text-sm text-foreground-500">
-                Completion Notes
-                <textarea
-                  className="border border-input rounded px-3 py-2 mt-1"
-                  rows={3}
+              <textarea
+                className="border border-input rounded px-3 py-2"
+                rows={3}
+                placeholder="Completion Notes"
+                aria-label="Completion Notes"
                   value={completionNotes}
                   onChange={(event) => setCompletionNotes(event.target.value)}
                 />

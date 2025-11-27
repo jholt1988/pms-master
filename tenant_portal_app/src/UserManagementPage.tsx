@@ -258,31 +258,33 @@ export default function UserManagementPage(): React.ReactElement {
             <h2 className="text-2xl font-bold mb-4">Create User</h2>
             <form onSubmit={handleCreate}>
               <div className="mb-4">
-                <label className="block text-sm font-bold mb-2">Username</label>
                 <input
                   type="text"
                   value={formData.username}
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  placeholder="Username"
+                  aria-label="Username"
                   className="w-full border rounded px-3 py-2"
                   required
                 />
               </div>
               <div className="mb-4">
-                <label className="block text-sm font-bold mb-2">Password</label>
                 <input
                   type="password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder="Password"
+                  aria-label="Password"
                   className="w-full border rounded px-3 py-2"
                   required
                   minLength={8}
                 />
               </div>
               <div className="mb-4">
-                <label className="block text-sm font-bold mb-2">Role</label>
                 <select
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value as 'TENANT' | 'PROPERTY_MANAGER' })}
+                  aria-label="Role"
                   className="w-full border rounded px-3 py-2"
                 >
                   <option value="TENANT">Tenant</option>
@@ -313,29 +315,31 @@ export default function UserManagementPage(): React.ReactElement {
             <h2 className="text-2xl font-bold mb-4">Edit User</h2>
             <form onSubmit={handleUpdate}>
               <div className="mb-4">
-                <label className="block text-sm font-bold mb-2">Username</label>
                 <input
                   type="text"
                   value={formData.username}
                   disabled
+                  placeholder="Username"
+                  aria-label="Username"
                   className="w-full border rounded px-3 py-2 bg-gray-100"
                 />
               </div>
               <div className="mb-4">
-                <label className="block text-sm font-bold mb-2">New Password (leave blank to keep current)</label>
                 <input
                   type="password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder="New Password (leave blank to keep current)"
+                  aria-label="New Password"
                   className="w-full border rounded px-3 py-2"
                   minLength={8}
                 />
               </div>
               <div className="mb-4">
-                <label className="block text-sm font-bold mb-2">Role</label>
                 <select
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value as 'TENANT' | 'PROPERTY_MANAGER' })}
+                  aria-label="Role"
                   className="w-full border rounded px-3 py-2"
                 >
                   <option value="TENANT">Tenant</option>

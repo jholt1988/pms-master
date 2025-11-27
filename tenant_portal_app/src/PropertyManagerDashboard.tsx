@@ -20,7 +20,13 @@ import {
   FileText,
   AlertTriangle,
   TrendingUp,
-  Calendar
+  Calendar,
+  Plus,
+  Users,
+  Search,
+  BarChart3,
+  FileCheck,
+  Settings
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { PageHeader } from './components/ui/PageHeader';
@@ -226,7 +232,129 @@ export const PropertyManagerDashboard: React.FC = () => {
         </Link>
       </div>
 
-      {/* ... (rest of the dashboard) */}
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <div>
+            <p className="text-xs uppercase tracking-wider text-foreground-500">Quick Actions</p>
+            <p className="text-lg font-semibold text-foreground">Common tasks and shortcuts</p>
+          </div>
+        </CardHeader>
+        <CardBody>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            <Link to="/properties">
+              <Button
+                variant="flat"
+                className="w-full h-auto flex-col gap-2 py-4"
+                startContent={<Building2 className="w-5 h-5" />}
+              >
+                <span className="text-sm">Properties</span>
+              </Button>
+            </Link>
+            <Link to="/lease-management">
+              <Button
+                variant="flat"
+                className="w-full h-auto flex-col gap-2 py-4"
+                startContent={<FileText className="w-5 h-5" />}
+              >
+                <span className="text-sm">Leases</span>
+              </Button>
+            </Link>
+            <Link to="/rental-applications-management">
+              <Button
+                variant="flat"
+                className="w-full h-auto flex-col gap-2 py-4"
+                startContent={<Users className="w-5 h-5" />}
+              >
+                <span className="text-sm">Applications</span>
+              </Button>
+            </Link>
+            <Link to="/maintenance-management">
+              <Button
+                variant="flat"
+                className="w-full h-auto flex-col gap-2 py-4"
+                startContent={<Wrench className="w-5 h-5" />}
+              >
+                <span className="text-sm">Maintenance</span>
+              </Button>
+            </Link>
+            <Link to="/properties/search">
+              <Button
+                variant="flat"
+                className="w-full h-auto flex-col gap-2 py-4"
+                startContent={<Search className="w-5 h-5" />}
+              >
+                <span className="text-sm">Search</span>
+              </Button>
+            </Link>
+            <Link to="/rent-optimization">
+              <Button
+                variant="flat"
+                className="w-full h-auto flex-col gap-2 py-4"
+                startContent={<TrendingUp className="w-5 h-5" />}
+              >
+                <span className="text-sm">Rent Analysis</span>
+              </Button>
+            </Link>
+            <Link to="/expense-tracker">
+              <Button
+                variant="flat"
+                className="w-full h-auto flex-col gap-2 py-4"
+                startContent={<DollarSign className="w-5 h-5" />}
+              >
+                <span className="text-sm">Expenses</span>
+              </Button>
+            </Link>
+            <Link to="/inspection-management">
+              <Button
+                variant="flat"
+                className="w-full h-auto flex-col gap-2 py-4"
+                startContent={<FileCheck className="w-5 h-5" />}
+              >
+                <span className="text-sm">Inspections</span>
+              </Button>
+            </Link>
+            <Link to="/documents">
+              <Button
+                variant="flat"
+                className="w-full h-auto flex-col gap-2 py-4"
+                startContent={<FileText className="w-5 h-5" />}
+              >
+                <span className="text-sm">Documents</span>
+              </Button>
+            </Link>
+            <Link to="/reporting">
+              <Button
+                variant="flat"
+                className="w-full h-auto flex-col gap-2 py-4"
+                startContent={<BarChart3 className="w-5 h-5" />}
+              >
+                <span className="text-sm">Reports</span>
+              </Button>
+            </Link>
+            <Link to="/user-management">
+              <Button
+                variant="flat"
+                className="w-full h-auto flex-col gap-2 py-4"
+                startContent={<Users className="w-5 h-5" />}
+              >
+                <span className="text-sm">Users</span>
+              </Button>
+            </Link>
+            <Link to="/schedule">
+              <Button
+                variant="flat"
+                className="w-full h-auto flex-col gap-2 py-4"
+                startContent={<Calendar className="w-5 h-5" />}
+              >
+                <span className="text-sm">Schedule</span>
+              </Button>
+            </Link>
+          </div>
+        </CardBody>
+      </Card>
+
+      {/* Recent Activity */}
       <Card>
         <CardHeader>
           <div>

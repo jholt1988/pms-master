@@ -22,6 +22,7 @@ import {
   ArrowRight,
   Info
 } from 'lucide-react';
+import { AIOperatingSystem } from '../../../components/ui/AIOperatingSystem';
 
 const steps = [
   {
@@ -78,6 +79,11 @@ export const ApplicationLandingPage: React.FC = () => {
       {/* Ambient Background Glows */}
       <div className="fixed top-[-20%] left-[-10%] w-[40%] h-[40%] bg-neon-purple/20 rounded-full blur-[120px] animate-pulse-slow pointer-events-none" />
       <div className="fixed bottom-[-20%] right-[-10%] w-[40%] h-[40%] bg-neon-blue/10 rounded-full blur-[120px] animate-pulse-slow pointer-events-none" />
+
+      {/* AI Operating System - Available for prospective tenants */}
+      <div className="fixed top-4 right-4 z-50">
+        <AIOperatingSystem />
+      </div>
 
       <div className="relative z-10 py-12 px-4">
         <div className="max-w-4xl mx-auto space-y-8">

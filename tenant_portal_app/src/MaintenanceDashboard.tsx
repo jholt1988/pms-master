@@ -902,28 +902,25 @@ const MaintenanceDashboard = () => {
               Keep everyone in the loop by logging a new maintenance issue.
             </p>
             <form className="mt-4 space-y-4" onSubmit={handleSubmit}>
-              <label className="text-xs font-medium text-gray-700">
-                Title
-                <input
-                  name="title"
-                  required
-                  value={createForm.title}
-                  onChange={handleCreateChange}
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-              </label>
-              <label className="text-xs font-medium text-gray-700">
-                Description
-                <textarea
-                  name="description"
-                  required
-                  rows={3}
-                  value={createForm.description}
-                  onChange={handleCreateChange}
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  placeholder="Describe the problem and any relevant context…"
-                />
-              </label>
+              <input
+                name="title"
+                required
+                value={createForm.title}
+                onChange={handleCreateChange}
+                placeholder="Title"
+                aria-label="Title"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+              <textarea
+                name="description"
+                required
+                rows={3}
+                value={createForm.description}
+                onChange={handleCreateChange}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                placeholder="Description - Describe the problem and any relevant context…"
+                aria-label="Description"
+              />
               <label className="text-xs font-medium text-gray-700">
                 Priority
                 <select

@@ -921,14 +921,14 @@ function LeaseManagementPage(): React.ReactElement {
                 </button>
               </div>
               <div className="grid gap-3 md:grid-cols-2">
-                <label className="text-xs font-medium text-gray-700">
-                  Status
+                <div>
                   <select
-                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
                     value={statusForm.status}
                     onChange={(event) =>
                       handleStatusFieldChange(lease, 'status', event.target.value as LeaseStatus)
                     }
+                    aria-label="Status"
                   >
                     {allStatuses.map((status) => (
                       <option key={status} value={status}>
@@ -936,70 +936,70 @@ function LeaseManagementPage(): React.ReactElement {
                       </option>
                     ))}
                   </select>
-                </label>
-                <label className="text-xs font-medium text-gray-700">
-                  Notice period (days)
+                </div>
+                <div>
                   <input
                     type="number"
                     min={0}
-                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
                     value={statusForm.noticePeriodDays}
                     onChange={(event) => handleStatusFieldChange(lease, 'noticePeriodDays', event.target.value)}
+                    placeholder="Notice period (days)"
+                    aria-label="Notice period (days)"
                   />
-                </label>
-                <label className="text-xs font-medium text-gray-700">
-                  Move-in date
+                </div>
+                <div>
                   <input
                     type="date"
-                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
                     value={statusForm.moveInAt}
                     onChange={(event) => handleStatusFieldChange(lease, 'moveInAt', event.target.value)}
+                    aria-label="Move-in date"
                   />
-                </label>
-                <label className="text-xs font-medium text-gray-700">
-                  Move-out date
+                </div>
+                <div>
                   <input
                     type="date"
-                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
                     value={statusForm.moveOutAt}
                     onChange={(event) => handleStatusFieldChange(lease, 'moveOutAt', event.target.value)}
+                    aria-label="Move-out date"
                   />
-                </label>
-                <label className="text-xs font-medium text-gray-700">
-                  Renewal due at
+                </div>
+                <div>
                   <input
                     type="date"
-                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
                     value={statusForm.renewalDueAt}
                     onChange={(event) => handleStatusFieldChange(lease, 'renewalDueAt', event.target.value)}
+                    aria-label="Renewal due at"
                   />
-                </label>
-                <label className="text-xs font-medium text-gray-700">
-                  Renewal accepted at
+                </div>
+                <div>
                   <input
                     type="date"
-                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
                     value={statusForm.renewalAcceptedAt}
                     onChange={(event) =>
                       handleStatusFieldChange(lease, 'renewalAcceptedAt', event.target.value)
                     }
+                    aria-label="Renewal accepted at"
                   />
-                </label>
-                <label className="text-xs font-medium text-gray-700">
-                  Termination effective
+                </div>
+                <div>
                   <input
                     type="date"
-                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
                     value={statusForm.terminationEffectiveAt}
                     onChange={(event) =>
                       handleStatusFieldChange(lease, 'terminationEffectiveAt', event.target.value)
                     }
+                    aria-label="Termination effective"
                   />
-                </label>
-                <label className="text-xs font-medium text-gray-700">
-                  Termination requested by
+                </div>
+                <div>
                   <select
-                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
                     value={statusForm.terminationRequestedBy}
                     onChange={(event) =>
                       handleStatusFieldChange(
@@ -1008,6 +1008,7 @@ function LeaseManagementPage(): React.ReactElement {
                         event.target.value as LeaseTerminationParty | '',
                       )
                     }
+                    aria-label="Termination requested by"
                   >
                     <option value="">—</option>
                     {terminationRequesterOptions.map((option) => (
@@ -1016,49 +1017,52 @@ function LeaseManagementPage(): React.ReactElement {
                       </option>
                     ))}
                   </select>
-                </label>
-                <label className="text-xs font-medium text-gray-700 md:col-span-2">
-                  Termination reason
+                </div>
+                <div className="md:col-span-2">
                   <textarea
                     rows={2}
-                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
                     value={statusForm.terminationReason}
                     onChange={(event) => handleStatusFieldChange(lease, 'terminationReason', event.target.value)}
+                    placeholder="Termination reason"
+                    aria-label="Termination reason"
                   />
-                </label>
-                <label className="text-xs font-medium text-gray-700">
-                  Rent escalation %
+                </div>
+                <div>
                   <input
                     type="number"
                     step="0.01"
-                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
                     value={statusForm.rentEscalationPercent}
                     onChange={(event) =>
                       handleStatusFieldChange(lease, 'rentEscalationPercent', event.target.value)
                     }
+                    placeholder="Rent escalation %"
+                    aria-label="Rent escalation %"
                   />
-                </label>
-                <label className="text-xs font-medium text-gray-700">
-                  Escalation effective
+                </div>
+                <div>
                   <input
                     type="date"
-                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
                     value={statusForm.rentEscalationEffectiveAt}
                     onChange={(event) =>
                       handleStatusFieldChange(lease, 'rentEscalationEffectiveAt', event.target.value)
                     }
+                    aria-label="Escalation effective"
                   />
-                </label>
-                <label className="text-xs font-medium text-gray-700">
-                  Current balance
+                </div>
+                <div>
                   <input
                     type="number"
                     step="0.01"
-                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
                     value={statusForm.currentBalance}
                     onChange={(event) => handleStatusFieldChange(lease, 'currentBalance', event.target.value)}
+                    placeholder="Current balance"
+                    aria-label="Current balance"
                   />
-                </label>
+                </div>
                 <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
                   <input
                     type="checkbox"
@@ -1083,64 +1087,55 @@ function LeaseManagementPage(): React.ReactElement {
                 </button>
               </div>
               <div className="grid gap-3 md:grid-cols-2">
-                <label className="text-xs font-medium text-gray-700">
-                  Proposed rent
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                    value={renewalForm.proposedRent}
-                    onChange={(event) => handleRenewalFieldChange(lease, 'proposedRent', event.target.value)}
-                  />
-                </label>
-                <label className="text-xs font-medium text-gray-700">
-                  Escalation %
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                    value={renewalForm.escalationPercent}
-                    onChange={(event) =>
-                      handleRenewalFieldChange(lease, 'escalationPercent', event.target.value)
-                    }
-                  />
-                </label>
-                <label className="text-xs font-medium text-gray-700">
-                  Proposed start
-                  <input
-                    type="date"
-                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                    value={renewalForm.proposedStart}
-                    onChange={(event) => handleRenewalFieldChange(lease, 'proposedStart', event.target.value)}
-                  />
-                </label>
-                <label className="text-xs font-medium text-gray-700">
-                  Proposed end
-                  <input
-                    type="date"
-                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                    value={renewalForm.proposedEnd}
-                    onChange={(event) => handleRenewalFieldChange(lease, 'proposedEnd', event.target.value)}
-                  />
-                </label>
-                <label className="text-xs font-medium text-gray-700">
-                  Offer expires
-                  <input
-                    type="date"
-                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                    value={renewalForm.expiresAt}
-                    onChange={(event) => handleRenewalFieldChange(lease, 'expiresAt', event.target.value)}
-                  />
-                </label>
-                <label className="text-xs font-medium text-gray-700 md:col-span-2">
-                  Message to tenant
-                  <textarea
-                    rows={2}
-                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                    value={renewalForm.message}
-                    onChange={(event) => handleRenewalFieldChange(lease, 'message', event.target.value)}
-                  />
-                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  value={renewalForm.proposedRent}
+                  onChange={(event) => handleRenewalFieldChange(lease, 'proposedRent', event.target.value)}
+                  placeholder="Proposed rent"
+                  aria-label="Proposed rent"
+                />
+                <input
+                  type="number"
+                  step="0.01"
+                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  value={renewalForm.escalationPercent}
+                  onChange={(event) =>
+                    handleRenewalFieldChange(lease, 'escalationPercent', event.target.value)
+                  }
+                  placeholder="Escalation %"
+                  aria-label="Escalation %"
+                />
+                <input
+                  type="date"
+                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  value={renewalForm.proposedStart}
+                  onChange={(event) => handleRenewalFieldChange(lease, 'proposedStart', event.target.value)}
+                  aria-label="Proposed start"
+                />
+                <input
+                  type="date"
+                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  value={renewalForm.proposedEnd}
+                  onChange={(event) => handleRenewalFieldChange(lease, 'proposedEnd', event.target.value)}
+                  aria-label="Proposed end"
+                />
+                <input
+                  type="date"
+                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  value={renewalForm.expiresAt}
+                  onChange={(event) => handleRenewalFieldChange(lease, 'expiresAt', event.target.value)}
+                  aria-label="Offer expires"
+                />
+                <textarea
+                  rows={2}
+                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm md:col-span-2"
+                  value={renewalForm.message}
+                  onChange={(event) => handleRenewalFieldChange(lease, 'message', event.target.value)}
+                  placeholder="Message to tenant"
+                  aria-label="Message to tenant"
+                />
               </div>
               <div className="mt-3 space-y-2">
                 <p className="text-xs font-semibold text-gray-700">Recent renewal activity</p>
@@ -1212,24 +1207,21 @@ function LeaseManagementPage(): React.ReactElement {
                     ))}
                   </select>
                 </label>
-                <label className="text-xs font-medium text-gray-700">
-                  Acknowledged at
-                  <input
-                    type="date"
-                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                    value={noticeForm.acknowledgedAt}
-                    onChange={(event) => handleNoticeFieldChange(lease, 'acknowledgedAt', event.target.value)}
-                  />
-                </label>
-                <label className="text-xs font-medium text-gray-700 md:col-span-2">
-                  Message
-                  <textarea
-                    rows={2}
-                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                    value={noticeForm.message}
-                    onChange={(event) => handleNoticeFieldChange(lease, 'message', event.target.value)}
-                  />
-                </label>
+                <input
+                  type="date"
+                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  value={noticeForm.acknowledgedAt}
+                  onChange={(event) => handleNoticeFieldChange(lease, 'acknowledgedAt', event.target.value)}
+                  aria-label="Acknowledged at"
+                />
+                <textarea
+                  rows={2}
+                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm md:col-span-2"
+                  value={noticeForm.message}
+                  onChange={(event) => handleNoticeFieldChange(lease, 'message', event.target.value)}
+                  placeholder="Message"
+                  aria-label="Message"
+                />
               </div>
               <div className="mt-3 space-y-2">
                 <p className="text-xs font-semibold text-gray-700">Recent notices</p>

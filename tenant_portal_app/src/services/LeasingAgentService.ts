@@ -88,7 +88,7 @@ export interface ApplicationData {
   }>;
 }
 
-class LeasingAgentService {
+export class LeasingAgentService {
   private readonly API_BASE_URL = getApiBase();
   private conversationState: Map<string, LeadInfo> = new Map();
 
@@ -260,7 +260,7 @@ To get started, could you tell me a bit about what you're looking for? For examp
       /\((\d{3})\)\s*(\d{3})[-.]?(\d{4})/,           // (555) 123-4567
       /(\d{3})[-.\s](\d{3})[-.\s](\d{4})/,            // 555-123-4567, 555.123.4567, 555 123 4567
       /(\d{3})(\d{3})(\d{4})/,                        // 5551234567
-      /phone[:\s]+([\d\s\-\(\)\.]+)/i,                // "phone: 555-123-4567"
+      /phone[:\s]+([\d\s\-().]+)/i,                // "phone: 555-123-4567"
     ];
     const emailMatch = message.match(emailRegex);
     let phoneMatch = null;

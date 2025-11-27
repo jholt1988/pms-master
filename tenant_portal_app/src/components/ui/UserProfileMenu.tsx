@@ -143,37 +143,34 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
                 /* Edit Mode */
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs text-gray-400 mb-2 font-mono uppercase">
-                      Username
-                    </label>
                     <input
                       type="text"
                       value={editForm.username}
                       onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
+                      placeholder="Username"
+                      aria-label="Username"
                       className="w-full px-3 py-2 bg-black/20 border border-white/10 rounded-lg text-white text-sm focus:border-neon-blue/50 focus:outline-none"
                     />
                   </div>
                   
                   <div>
-                    <label className="block text-xs text-gray-400 mb-2 font-mono uppercase">
-                      Email
-                    </label>
                     <input
                       type="email"
                       value={editForm.email}
                       onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                      placeholder="Email"
+                      aria-label="Email"
                       className="w-full px-3 py-2 bg-black/20 border border-white/10 rounded-lg text-white text-sm focus:border-neon-blue/50 focus:outline-none"
                     />
                   </div>
                   
                   <div>
-                    <label className="block text-xs text-gray-400 mb-2 font-mono uppercase">
-                      Phone
-                    </label>
                     <input
                       type="tel"
                       value={editForm.phone}
                       onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                      placeholder="Phone"
+                      aria-label="Phone"
                       className="w-full px-3 py-2 bg-black/20 border border-white/10 rounded-lg text-white text-sm focus:border-neon-blue/50 focus:outline-none"
                     />
                   </div>
