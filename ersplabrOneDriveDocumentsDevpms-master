@@ -1,0 +1,72 @@
+[33mcommit b7c0fd83e6515e57501891690a477ba7317e57d0[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Author: ashtonl1110-bot <ashtonl1110@gmail.com>
+Date:   Thu Nov 27 00:43:12 2025 -0600
+
+    Update API Keys and Enhance Rate Limiting Configuration
+    
+    - Updated OpenAI API keys in both tenant_portal_app and tenant_portal_backend .env files for improved security.
+    - Modified test:e2e script in package.json to run tests in sequence, enhancing reliability.
+    - Refactored rate limiting configuration in app.module.ts to enable or disable based on environment settings, improving flexibility.
+    - Enhanced global request handling in index.ts to exclude additional API paths for better routing management.
+    - Added new endpoints for password reset and forgot password functionality in auth.controller.ts, improving user experience.
+    - Updated email service to handle application status notifications, enhancing communication with users.
+    - Refactored lead applications service to include new application statuses, improving tracking and management.
+
+tenant_portal_backend/package.json
+tenant_portal_backend/prisma/migrations/20251127000100_add_conversation_subject/migration.sql
+tenant_portal_backend/prisma/migrations/20251127001050_ensure_application_lifecycle_support/migration.sql
+tenant_portal_backend/prisma/migrations/20251127003000_add_payment_timestamps/migration.sql
+tenant_portal_backend/src/app.module.ts
+tenant_portal_backend/src/auth/auth.controller.ts
+tenant_portal_backend/src/auth/auth.service.ts
+tenant_portal_backend/src/auth/jwt.strategy.ts
+tenant_portal_backend/src/auth/optional-jwt.guard.ts
+tenant_portal_backend/src/auth/password-policy.service.ts
+tenant_portal_backend/src/email/email.service.ts
+tenant_portal_backend/src/index.ts
+tenant_portal_backend/src/leasing/lead-applications.service.ts
+tenant_portal_backend/src/leasing/leasing.controller.ts
+tenant_portal_backend/src/leasing/leasing.service.ts
+tenant_portal_backend/src/legacy/leads-legacy.controller.ts
+tenant_portal_backend/src/maintenance/maintenance.controller.ts
+tenant_portal_backend/src/messaging/messaging.controller.ts
+tenant_portal_backend/src/middleware/legacy-path.middleware.ts
+tenant_portal_backend/src/notifications/notifications.controller.ts
+tenant_portal_backend/src/notifications/notifications.service.ts
+tenant_portal_backend/src/payments/payment-methods.controller.ts
+tenant_portal_backend/src/payments/payments.controller.ts
+tenant_portal_backend/src/payments/payments.module.ts
+tenant_portal_backend/src/payments/payments.service.ts
+tenant_portal_backend/src/property/property.controller.ts
+tenant_portal_backend/src/rental-application/application-lifecycle.service.ts
+tenant_portal_backend/src/rental-application/dto/submit-application.dto.ts
+tenant_portal_backend/src/rental-application/rental-application.controller.ts
+tenant_portal_backend/src/rental-application/rental-application.module.ts
+tenant_portal_backend/src/workflows/workflow-scheduler.service.ts
+tenant_portal_backend/test/application-lifecycle.e2e.spec.ts
+tenant_portal_backend/test/auth.e2e.spec.ts
+tenant_portal_backend/test/dashboard.e2e.spec.ts
+tenant_portal_backend/test/factories/index.ts
+tenant_portal_backend/test/lease.e2e.spec.ts
+tenant_portal_backend/test/leasing.e2e.spec.ts
+tenant_portal_backend/test/maintenance.e2e.spec.ts
+tenant_portal_backend/test/messaging.e2e.spec.ts
+tenant_portal_backend/test/notifications.e2e.spec.ts
+tenant_portal_backend/test/payments.e2e.spec.ts
+tenant_portal_backend/test/property.e2e.spec.ts
+tenant_portal_backend/test/setup.ts
+tenant_portal_backend/test/utils/reset-database.ts
+tenant_portal_backend/uploads/057ab3ceeb5ccac193f1b87008252cc2.pdf
+tenant_portal_backend/uploads/1b9ee76481f214576f489e0324e1a60d.pdf
+tenant_portal_backend/uploads/235a5e5422adaf34dc4c9430e724b6f0.pdf
+tenant_portal_backend/uploads/2a7e35697af6de9392ff7439c1d058ab.pdf
+tenant_portal_backend/uploads/31bcc27b0ec58867bb2adb023e11417d.pdf
+tenant_portal_backend/uploads/3ab6a1abc1be86ae96d9cdbe45626811.pdf
+tenant_portal_backend/uploads/644cad9290c6897b655a45527c3dc0ff.pdf
+tenant_portal_backend/uploads/6d51b15d11e58c991d1416f4a12eb34b.pdf
+tenant_portal_backend/uploads/840561cf04b3260d82cc3c1562641a9d.pdf
+tenant_portal_backend/uploads/8d50d32669236dec087e15a830261ada.pdf
+tenant_portal_backend/uploads/c1b3fb18f8cc90043da65c48ce622265.pdf
+tenant_portal_backend/uploads/c88e9f37337c16084cb831c0bc045ce3.pdf
+tenant_portal_backend/uploads/e1283fb72f17f7881d4d207890a77cab.pdf
+tenant_portal_backend/uploads/eb0e2f445eceba4624faaec9a8c97ba7.pdf

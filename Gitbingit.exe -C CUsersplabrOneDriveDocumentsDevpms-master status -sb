@@ -1,0 +1,75 @@
+[33mcommit e77898a361c13240d1fb28ad8bcfbc21e6af10e3[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Author: ashtonl1110-bot <ashtonl1110@gmail.com>
+Date:   Thu Nov 27 00:43:12 2025 -0600
+
+    Update API Keys and Enhance Rate Limiting Configuration
+    
+    - Updated OpenAI API keys in both tenant_portal_app and tenant_portal_backend .env files for improved security.
+    - Modified test:e2e script in package.json to run tests in sequence, enhancing reliability.
+    - Refactored rate limiting configuration in app.module.ts to enable or disable based on environment settings, improving flexibility.
+    - Enhanced global request handling in index.ts to exclude additional API paths for better routing management.
+    - Added new endpoints for password reset and forgot password functionality in auth.controller.ts, improving user experience.
+    - Updated email service to handle application status notifications, enhancing communication with users.
+    - Refactored lead applications service to include new application statuses, improving tracking and management.
+
+ tenant_portal_app/.env                             |   2 [32m+[m[31m-[m
+ tenant_portal_backend/.env                         |   2 [32m+[m[31m-[m
+ tenant_portal_backend/package.json                 |   2 [32m+[m[31m-[m
+ .../migration.sql                                  |   4 [32m+[m
+ .../migration.sql                                  |  57 [32m+++++++[m
+ .../migration.sql                                  |  18 [32m+++[m
+ tenant_portal_backend/src/app.module.ts            |  57 [32m++++[m[31m---[m
+ tenant_portal_backend/src/auth/auth.controller.ts  |  48 [32m+++[m[31m---[m
+ tenant_portal_backend/src/auth/auth.service.ts     |  37 [32m+++[m[31m--[m
+ tenant_portal_backend/src/auth/jwt.strategy.ts     |   2 [32m+[m[31m-[m
+ .../src/auth/optional-jwt.guard.ts                 |  17 [32m+++[m
+ .../src/auth/password-policy.service.ts            |  10 [32m+[m[31m-[m
+ tenant_portal_backend/src/email/email.service.ts   | 163 [32m++++++++++++++++++++[m[31m-[m
+ tenant_portal_backend/src/index.ts                 |  11 [32m+[m[31m-[m
+ .../src/leasing/lead-applications.service.ts       |   5 [32m+[m[31m-[m
+ .../src/leasing/leasing.controller.ts              | 154 [32m+++++++++[m[31m----------[m
+ .../src/leasing/leasing.service.ts                 |  73 [32m++++++[m[31m---[m
+ .../src/legacy/leads-legacy.controller.ts          |   2 [32m+[m[31m-[m
+ .../src/maintenance/maintenance.controller.ts      |  12 [32m+[m[31m-[m
+ .../src/messaging/messaging.controller.ts          |  22 [32m++[m[31m-[m
+ .../src/middleware/legacy-path.middleware.ts       |   2 [32m+[m[31m-[m
+ .../src/notifications/notifications.controller.ts  |  12 [32m+[m[31m-[m
+ .../src/notifications/notifications.service.ts     |  19 [32m++[m[31m-[m
+ .../src/payments/payment-methods.controller.ts     |   2 [32m+[m[31m-[m
+ .../src/payments/payments.controller.ts            |   9 [32m+[m[31m-[m
+ .../src/payments/payments.module.ts                |   8 [32m+[m[31m-[m
+ .../src/payments/payments.service.ts               |  11 [32m+[m[31m-[m
+ .../src/property/property.controller.ts            |   2 [32m+[m[31m-[m
+ .../application-lifecycle.service.ts               |   3 [32m+[m[31m-[m
+ .../dto/submit-application.dto.ts                  |   6 [32m+[m[31m-[m
+ .../rental-application.controller.ts               |   5 [32m+[m[31m-[m
+ .../rental-application.module.ts                   |   3 [32m+[m[31m-[m
+ .../src/workflows/workflow-scheduler.service.ts    |  21 [32m++[m[31m-[m
+ .../test/application-lifecycle.e2e.spec.ts         |  18 [32m+[m[31m--[m
+ tenant_portal_backend/test/auth.e2e.spec.ts        |  25 [32m++[m[31m--[m
+ tenant_portal_backend/test/dashboard.e2e.spec.ts   |  21 [32m+[m[31m--[m
+ tenant_portal_backend/test/factories/index.ts      |  47 [32m+++[m[31m---[m
+ tenant_portal_backend/test/lease.e2e.spec.ts       |  20 [32m++[m[31m-[m
+ tenant_portal_backend/test/leasing.e2e.spec.ts     |  90 [32m++++++[m[31m------[m
+ tenant_portal_backend/test/maintenance.e2e.spec.ts |  60 [32m++++[m[31m----[m
+ tenant_portal_backend/test/messaging.e2e.spec.ts   |  12 [32m+[m[31m-[m
+ .../test/notifications.e2e.spec.ts                 |   7 [32m+[m[31m-[m
+ tenant_portal_backend/test/payments.e2e.spec.ts    |  20 [32m+[m[31m--[m
+ tenant_portal_backend/test/property.e2e.spec.ts    |   9 [32m+[m[31m-[m
+ tenant_portal_backend/test/setup.ts                |  37 [32m++++[m[31m-[m
+ tenant_portal_backend/test/utils/reset-database.ts |  39 [32m+++++[m
+ .../uploads/057ab3ceeb5ccac193f1b87008252cc2.pdf   |   1 [32m+[m
+ .../uploads/1b9ee76481f214576f489e0324e1a60d.pdf   |   1 [32m+[m
+ .../uploads/235a5e5422adaf34dc4c9430e724b6f0.pdf   |   1 [32m+[m
+ .../uploads/2a7e35697af6de9392ff7439c1d058ab.pdf   |   1 [32m+[m
+ .../uploads/31bcc27b0ec58867bb2adb023e11417d.pdf   |   1 [32m+[m
+ .../uploads/3ab6a1abc1be86ae96d9cdbe45626811.pdf   |   1 [32m+[m
+ .../uploads/644cad9290c6897b655a45527c3dc0ff.pdf   |   1 [32m+[m
+ .../uploads/6d51b15d11e58c991d1416f4a12eb34b.pdf   |   1 [32m+[m
+ .../uploads/840561cf04b3260d82cc3c1562641a9d.pdf   |   1 [32m+[m
+ .../uploads/8d50d32669236dec087e15a830261ada.pdf   |   1 [32m+[m
+ .../uploads/c1b3fb18f8cc90043da65c48ce622265.pdf   |   1 [32m+[m
+ .../uploads/c88e9f37337c16084cb831c0bc045ce3.pdf   |   1 [32m+[m
+ .../uploads/e1283fb72f17f7881d4d207890a77cab.pdf   |   1 [32m+[m
+ .../uploads/eb0e2f445eceba4624faaec9a8c97ba7.pdf   |   1 [32m+[m
+ 60 files changed, 840 insertions(+), 380 deletions(-)
