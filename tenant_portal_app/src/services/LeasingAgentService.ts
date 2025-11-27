@@ -4,7 +4,7 @@
  * property showings, application processing, and lead management
  */
 
-import { getApiBase } from "./apiClient";
+import { getApiBase, apiFetch } from "./apiClient";
 
 export interface LeadInfo {
   id?: string;
@@ -255,17 +255,43 @@ To get started, could you tell me a bit about what you're looking for? For examp
 
     // Extract contact info
     const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/;
-    const phoneRegex = /\b(?:\+?1[-.]?)?\(?(\d{3})\)?[-.]?(\d{3})[-.]?(\d{4})\b/;
+    // Improved phone regex to match various formats
+    const phonePatterns = [
+      /\((\d{3})\)\s*(\d{3})[-.]?(\d{4})/,           // (555) 123-4567
+      /(\d{3})[-.\s](\d{3})[-.\s](\d{4})/,            // 555-123-4567, 555.123.4567, 555 123 4567
+      /(\d{3})(\d{3})(\d{4})/,                        // 5551234567
+      /phone[:\s]+([\d\s\-\(\)\.]+)/i,                // "phone: 555-123-4567"
+    ];
     const emailMatch = message.match(emailRegex);
-    const phoneMatch = message.match(phoneRegex);
+    let phoneMatch = null;
+    for (const pattern of phonePatterns) {
+      phoneMatch = message.match(pattern);
+      if (phoneMatch) break;
+    }
 
     if (emailMatch && !lead.email) {
       lead.email = emailMatch[0];
       console.log('Extracted email:', lead.email);
     }
     if (phoneMatch && !lead.phone) {
-      lead.phone = phoneMatch[0];
-      console.log('Extracted phone:', lead.phone);
+      // Extract digits and format consistently
+      let phoneNumber = '';
+      if (phoneMatch[1] && phoneMatch[2] && phoneMatch[3]) {
+        // Standard format with groups
+        phoneNumber = `${phoneMatch[1]}-${phoneMatch[2]}-${phoneMatch[3]}`;
+      } else if (phoneMatch[1] && phoneMatch[1].match(/\d/)) {
+        // Extract all digits from the match
+        const digits = phoneMatch[0].replace(/\D/g, '');
+        if (digits.length >= 10) {
+          phoneNumber = `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+        } else if (digits.length === 7) {
+          phoneNumber = `${digits.slice(0, 3)}-${digits.slice(3)}`;
+        }
+      }
+      if (phoneNumber) {
+        lead.phone = phoneNumber;
+        console.log('Extracted phone:', lead.phone);
+      }
     }
 
     // Extract name - improved patterns
@@ -542,13 +568,24 @@ Do you have pets? Tell me about them!`;
     }
 
     // Check if user hasn't provided basic info yet
-    if (!lead.bedrooms || !lead.budget || !lead.moveInDate) {
+    if (!lead.bedrooms || !lead.budget) {
       const missing = [];
       if (!lead.bedrooms) missing.push('number of bedrooms');
       if (!lead.budget) missing.push('budget range');
-      if (!lead.moveInDate) missing.push('move-in date');
 
       return `To help find the perfect place for you, I still need to know your ${missing.join(' and ')}. Could you share that information?`;
+    }
+
+    // If we have bedrooms and budget, offer property search even without moveInDate
+    if (lead.bedrooms && lead.budget && !lead.moveInDate) {
+      return `Perfect! I have your preferences - ${lead.bedrooms} bedrooms and a $${lead.budget}/month budget. 
+
+I can search for available properties that match your criteria right now! Would you like me to:
+1. 🏠 Show you available ${lead.bedrooms}-bedroom units within your budget
+2. 📅 Schedule property tours
+3. 📝 Start your rental application
+
+What would you like to do?`;
     }
 
     // If we have basic info, suggest next steps

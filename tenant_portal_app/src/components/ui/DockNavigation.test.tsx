@@ -1,9 +1,18 @@
-import React from 'react';
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { BrowserRouter } from 'react-router-dom';
-import { DockNavigation } from './DockNavigation';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// Mock useAuth BEFORE any other imports
+vi.mock('../../AuthContext', () => {
+  const React = require('react');
+  return {
+    useAuth: () => ({
+      token: 'test-token',
+      user: { id: 1, username: 'test@test.com', role: 'TENANT' },
+      login: vi.fn(),
+      logout: vi.fn(),
+    }),
+    AuthProvider: ({ children }: { children: any }) => React.createElement(React.Fragment, null, children),
+  };
+});
 
 // Mock useNavigate
 const mockNavigate = vi.fn();
@@ -14,6 +23,12 @@ vi.mock('react-router-dom', async () => {
     useNavigate: () => mockNavigate,
   };
 });
+
+import React from 'react';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { BrowserRouter } from 'react-router-dom';
+import { DockNavigation } from './DockNavigation';
 
 const renderDock = () => {
   return render(
@@ -35,7 +50,7 @@ describe('DockNavigation', () => {
     expect(screen.getByLabelText(/maintenance/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/payments/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/messages/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/leases/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/my lease/i)).toBeInTheDocument();
   });
 
   it('has correct ARIA labels for accessibility', () => {
@@ -46,8 +61,8 @@ describe('DockNavigation', () => {
       'Maintenance',
       'Payments',
       'Messages',
-      'Leases',
-      'Properties',
+      'My Lease',
+      'Inspections',
     ];
 
     items.forEach((item) => {

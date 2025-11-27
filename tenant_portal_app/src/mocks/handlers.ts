@@ -532,6 +532,159 @@ export const handlers = [
     });
   }),
 
+  // ==================== Leasing/Leads ====================
+  http.post(`${API_BASE}/leads`, async ({ request }) => {
+    await networkDelay();
+    const body = await request.json() as any;
+    
+    return HttpResponse.json({
+      id: `lead-${Date.now()}`,
+      sessionId: body.sessionId || `session-${Date.now()}`,
+      name: body.name || null,
+      email: body.email || null,
+      phone: body.phone || null,
+      status: body.status || 'NEW',
+      bedrooms: body.bedrooms || null,
+      budget: body.budget || null,
+      moveInDate: body.moveInDate || null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }, { status: 201 });
+  }),
+
+  http.get(`${API_BASE}/leads/:id`, async ({ params, request }) => {
+    await networkDelay();
+    
+    return HttpResponse.json({
+      id: params.id,
+      sessionId: `session-${params.id}`,
+      name: 'Test Lead',
+      email: 'test@example.com',
+      phone: '555-1234',
+      status: 'NEW',
+      createdAt: new Date().toISOString(),
+    });
+  }),
+
+  http.get(`${API_BASE}/leads/session/:sessionId`, async ({ params, request }) => {
+    await networkDelay();
+    
+    return HttpResponse.json({
+      id: `lead-${params.sessionId}`,
+      sessionId: params.sessionId,
+      name: 'Test Lead',
+      email: 'test@example.com',
+      phone: '555-1234',
+      status: 'NEW',
+      createdAt: new Date().toISOString(),
+    });
+  }),
+
+  // ==================== Property Search ====================
+  http.get(`${API_BASE}/properties/search`, async ({ request }) => {
+    await networkDelay();
+    const url = new URL(request.url);
+    const bedrooms = url.searchParams.get('bedrooms');
+    const maxRent = url.searchParams.get('maxRent');
+    
+    return HttpResponse.json([
+      {
+        propertyId: '1',
+        unitId: '1',
+        address: '123 Main Street',
+        city: 'Springfield',
+        state: 'CA',
+        bedrooms: bedrooms ? parseInt(bedrooms) : 2,
+        bathrooms: 2,
+        rent: maxRent ? Math.min(parseInt(maxRent), 1700) : 1700,
+        available: true,
+        status: 'AVAILABLE',
+        petFriendly: true,
+        amenities: ['Parking', 'Pool', 'Gym'],
+        matchScore: 0.95,
+        images: [],
+      },
+      {
+        propertyId: '2',
+        unitId: '2',
+        address: '456 Oak Avenue',
+        city: 'Springfield',
+        state: 'CA',
+        bedrooms: bedrooms ? parseInt(bedrooms) : 2,
+        bathrooms: 1,
+        rent: maxRent ? Math.min(parseInt(maxRent), 1600) : 1600,
+        available: true,
+        status: 'AVAILABLE',
+        petFriendly: true,
+        amenities: ['Parking', 'Pet-friendly', 'Balcony'],
+        matchScore: 0.85,
+        images: [],
+      },
+      {
+        propertyId: '3',
+        unitId: '3',
+        address: '789 Pine Boulevard',
+        city: 'Springfield',
+        state: 'CA',
+        bedrooms: bedrooms ? parseInt(bedrooms) : 2,
+        bathrooms: 2,
+        rent: maxRent ? Math.min(parseInt(maxRent), 1800) : 1800,
+        available: true,
+        status: 'AVAILABLE',
+        petFriendly: false,
+        amenities: ['Gym', 'Pool', 'Concierge'],
+        matchScore: 0.90,
+        images: [],
+      },
+    ]);
+  }),
+
+  // ==================== Bulk Messaging ====================
+  http.post(`${API_BASE}/messaging/bulk/preview`, async ({ request }) => {
+    await networkDelay();
+    if (!isAuthenticated(request)) {
+      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const body = await request.json() as any;
+    
+    return HttpResponse.json({
+      totalRecipients: body.filters?.propertyIds?.length ? body.filters.propertyIds.length * 2 : 2,
+      sample: [],
+    });
+  }),
+
+  http.post(`${API_BASE}/messaging/bulk`, async ({ request }) => {
+    await networkDelay();
+    if (!isAuthenticated(request)) {
+      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const body = await request.json() as any;
+    
+    return HttpResponse.json({
+      id: Math.floor(Math.random() * 1000),
+      title: body.title,
+      status: 'QUEUED',
+      createdAt: new Date().toISOString(),
+      deliverySummary: { total: 0, sent: 0, failed: 0, pending: 0 },
+    }, { status: 201 });
+  }),
+
+  // ==================== Lead Messages ====================
+  http.post(`${API_BASE}/leads/:id/messages`, async ({ params, request }) => {
+    await networkDelay();
+    const body = await request.json() as any;
+    
+    return HttpResponse.json({
+      id: Math.floor(Math.random() * 1000),
+      leadId: params.id,
+      role: body.role,
+      content: body.content,
+      createdAt: new Date().toISOString(),
+    }, { status: 201 });
+  }),
+
   // Default catch-all for unmocked endpoints
   http.all(`${API_BASE}/*`, ({ request }) => {
     console.warn(`[MSW] Unhandled ${request.method} request to ${request.url}`);

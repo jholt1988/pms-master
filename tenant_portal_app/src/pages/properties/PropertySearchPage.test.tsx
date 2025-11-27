@@ -1,13 +1,14 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { vi } from 'vitest';
 import { PropertySearchPage } from './PropertySearchPage';
 import {
   fetchPropertySearch,
   fetchSavedFilters,
 } from '../../services/propertySearch';
 
-jest.mock('@nextui-org/react', () => {
+vi.mock('@nextui-org/react', () => {
   const React = require('react');
 
   const Div = ({ children }: any) => <div>{children}</div>;
@@ -76,15 +77,15 @@ jest.mock('@nextui-org/react', () => {
   };
 });
 
-jest.mock('../../AuthContext', () => ({
-  useAuth: () => ({ token: 'test-token', user: { role: 'PROPERTY_MANAGER' }, login: jest.fn(), logout: jest.fn() }),
+vi.mock('../../AuthContext', () => ({
+  useAuth: () => ({ token: 'test-token', user: { role: 'PROPERTY_MANAGER' }, login: vi.fn(), logout: vi.fn() }),
 }));
 
-jest.mock('../../services/propertySearch', () => ({
-  fetchPropertySearch: jest.fn(),
-  fetchSavedFilters: jest.fn(),
-  savePropertyFilter: jest.fn(),
-  deletePropertyFilter: jest.fn(),
+vi.mock('../../services/propertySearch', () => ({
+  fetchPropertySearch: vi.fn(),
+  fetchSavedFilters: vi.fn(),
+  savePropertyFilter: vi.fn(),
+  deletePropertyFilter: vi.fn(),
 }));
 
 const mockResponse = {
@@ -123,7 +124,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
 });
 
 describe('PropertySearchPage', () => {
@@ -138,7 +139,8 @@ describe('PropertySearchPage', () => {
     render(<PropertySearchPage />);
     await screen.findByText('Test Property');
 
-    fireEvent.click(screen.getByTestId('property-type-option-Apartment'));
+    const apartmentOptions = screen.getAllByTestId('property-type-option-Apartment');
+    fireEvent.click(apartmentOptions[0]);
     fireEvent.click(screen.getAllByText('Apply filters')[0]);
 
     await waitFor(() => expect(mockFetchPropertySearch).toHaveBeenCalledTimes(2));

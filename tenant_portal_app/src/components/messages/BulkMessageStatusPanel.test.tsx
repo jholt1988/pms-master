@@ -1,9 +1,10 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { vi } from 'vitest';
 import BulkMessageStatusPanel from './BulkMessageStatusPanel';
 
 describe('BulkMessageStatusPanel', () => {
-  const mockFetch = jest.fn();
+  const mockFetch = vi.fn();
 
   beforeEach(() => {
     mockFetch.mockReset();
@@ -33,7 +34,7 @@ describe('BulkMessageStatusPanel', () => {
           createdAt: new Date().toISOString(),
           deliverySummary: { total: 0, sent: 0, failed: 0, pending: 0 },
         }]}
-        onRefresh={jest.fn()}
+        onRefresh={vi.fn()}
       />,
     );
 

@@ -36,8 +36,19 @@ if (process.env.SKIP_TEST_MIGRATIONS !== 'true') {
 
 const prismaTestClient = new PrismaClient();
 
+// Only reset database for e2e tests (unit tests use mocks and don't need DB reset)
+// Detect e2e tests by checking if jest-e2e.json config is being used
+const isE2ETest = process.argv.some(arg => arg.includes('jest-e2e.json')) ||
+  process.env.JEST_CONFIG_PATH?.includes('jest-e2e.json') ||
+  // Check if testRegex in current config matches e2e pattern
+  (global as any).__JEST_CONFIG__?.testRegex?.toString().includes('e2e');
+
 beforeEach(async () => {
-  await resetDatabase(prismaTestClient as any);
+  // Only reset database for e2e tests to avoid deadlocks in parallel unit tests
+  // Unit tests should use mocks and not touch the real database
+  if (isE2ETest) {
+    await resetDatabase(prismaTestClient as any);
+  }
 });
 
 afterAll(async () => {

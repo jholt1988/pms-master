@@ -1,16 +1,17 @@
 import React from 'react';
 import '@testing-library/jest-dom';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { vi } from 'vitest';
 import { LeaseEsignPanel } from './LeaseEsignPanel';
 import * as EsignatureApi from '../../services/EsignatureApi';
 
-jest.mock('../../services/EsignatureApi');
+vi.mock('../../services/EsignatureApi');
 
-const mockCreateEnvelope = EsignatureApi.createEnvelope as jest.Mock;
+const mockCreateEnvelope = EsignatureApi.createEnvelope as ReturnType<typeof vi.fn>;
 
 describe('LeaseEsignPanel', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('renders envelope data and participant statuses', () => {
@@ -41,7 +42,7 @@ describe('LeaseEsignPanel', () => {
   });
 
   it('submits a new signature request', async () => {
-    const onEnvelopeCreated = jest.fn();
+    const onEnvelopeCreated = vi.fn();
     mockCreateEnvelope.mockResolvedValue({
       id: 6,
       leaseId: 1,
