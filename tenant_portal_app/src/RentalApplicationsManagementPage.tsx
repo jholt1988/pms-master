@@ -34,16 +34,51 @@ const formatDateTime = (value?: string | null): string => {
   return date.toLocaleString();
 };
 
-const statusOptions = [
-  { value: 'PENDING', label: 'Pending review' },
-  { value: 'APPROVED', label: 'Approved' },
-  { value: 'REJECTED', label: 'Rejected' },
-];
+// Get available status options based on current status
+const getAvailableStatusOptions = (currentStatus: string) => {
+  const allOptions = [
+    { value: 'PENDING', label: 'Pending review' },
+    { value: 'UNDER_REVIEW', label: 'Under Review' },
+    { value: 'SCREENING', label: 'Screening' },
+    { value: 'BACKGROUND_CHECK', label: 'Background Check' },
+    { value: 'DOCUMENTS_REVIEW', label: 'Documents Review' },
+    { value: 'INTERVIEW', label: 'Interview' },
+    { value: 'APPROVED', label: 'Approved' },
+    { value: 'REJECTED', label: 'Rejected' },
+    { value: 'WITHDRAWN', label: 'Withdrawn' },
+  ];
+
+  // Define valid transitions based on backend rules
+  const validTransitions: Record<string, string[]> = {
+    PENDING: ['UNDER_REVIEW', 'SCREENING', 'REJECTED', 'WITHDRAWN'],
+    UNDER_REVIEW: ['SCREENING', 'BACKGROUND_CHECK', 'DOCUMENTS_REVIEW', 'APPROVED', 'REJECTED'],
+    SCREENING: ['BACKGROUND_CHECK', 'UNDER_REVIEW', 'APPROVED', 'REJECTED'],
+    BACKGROUND_CHECK: ['INTERVIEW', 'UNDER_REVIEW', 'APPROVED', 'REJECTED'],
+    DOCUMENTS_REVIEW: ['UNDER_REVIEW', 'APPROVED', 'REJECTED'],
+    INTERVIEW: ['UNDER_REVIEW', 'APPROVED', 'REJECTED'],
+    APPROVED: [], // Terminal state
+    REJECTED: [], // Terminal state
+    WITHDRAWN: [], // Terminal state
+  };
+
+  const allowedStatuses = validTransitions[currentStatus] || [];
+  
+  // Always include current status and allowed transitions
+  return allOptions.filter(option => 
+    option.value === currentStatus || allowedStatuses.includes(option.value)
+  );
+};
 
 const statusBadgeClasses: Record<string, string> = {
   PENDING: 'bg-amber-100 text-amber-700',
+  UNDER_REVIEW: 'bg-blue-100 text-blue-700',
+  SCREENING: 'bg-purple-100 text-purple-700',
+  BACKGROUND_CHECK: 'bg-indigo-100 text-indigo-700',
+  DOCUMENTS_REVIEW: 'bg-cyan-100 text-cyan-700',
+  INTERVIEW: 'bg-violet-100 text-violet-700',
   APPROVED: 'bg-emerald-100 text-emerald-700',
   REJECTED: 'bg-rose-100 text-rose-700',
+  WITHDRAWN: 'bg-gray-100 text-gray-700',
 };
 
 const qualificationLabels: Record<string, string> = {
@@ -91,18 +126,39 @@ const RentalApplicationsManagementPage = () => {
     setError(null);
     try {
       setStatusUpdatingId(id);
-      await apiFetch(`/rental-applications/${id}/status`, {
+      const updatedApplication = await apiFetch(`/rental-applications/${id}/status`, {
         token,
         method: 'PUT',
         body: { status },
       });
 
-      // Update the local state
+      // Update the local state with the full updated application object
       setApplications((prevApplications) =>
-        prevApplications.map((app) => (app.id === id ? { ...app, status } : app))
+        prevApplications.map((app) => 
+          app.id === id ? { ...app, ...updatedApplication, status } : app
+        )
       );
-    } catch (error: any) {
-      setError(error.message);
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to update application status';
+      if (err instanceof Error) {
+        errorMessage = err.message;
+        // Check for 404 specifically
+        if (err.message.includes('404')) {
+          errorMessage = 'Application endpoint not found. Please check if the backend is running and the route is correct.';
+        }
+        // Check for invalid status transition
+        if (err.message.includes('Invalid status transition') || err.message.includes('400')) {
+          try {
+            const errorText = err.message.split(' - ')[1];
+            const errorObj = JSON.parse(errorText);
+            errorMessage = errorObj.message || 'Invalid status transition. Please select a valid status from the dropdown.';
+          } catch {
+            errorMessage = 'Invalid status transition. The selected status is not allowed from the current status. Please select a valid status from the dropdown.';
+          }
+        }
+      }
+      setError(errorMessage);
+      console.error('Error updating application status:', err);
     } finally {
       setStatusUpdatingId(null);
     }
@@ -259,8 +315,8 @@ const RentalApplicationsManagementPage = () => {
                     <span
                       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusClass}`}
                     >
-                      {statusOptions.find((option) => option.value === application.status)?.label ??
-                        application.status}
+                      {getAvailableStatusOptions(application.status).find((option) => option.value === application.status)?.label ??
+                        application.status.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
                     </span>
                     {application.qualificationStatus && (
                       <span className="rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-semibold text-sky-700">
@@ -302,7 +358,7 @@ const RentalApplicationsManagementPage = () => {
                       disabled={statusUpdatingId === application.id}
                       className="rounded-md border border-gray-300 px-2 py-1 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:bg-gray-100"
                     >
-                      {statusOptions.map((option) => (
+                      {getAvailableStatusOptions(application.status).map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}
                         </option>

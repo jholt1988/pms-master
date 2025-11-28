@@ -1,13 +1,19 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User, Check, X, Search, ShieldCheck } from 'lucide-react';
 import { GlassCard } from './GlassCard';
 
 export const RentalApplicationsCard = () => {
+  const navigate = useNavigate();
+  
   return (
     <div className="w-full">
         <div className="flex flex-col gap-3">
             {/* Row 1 */}
-            <div className="flex items-center justify-between p-3 bg-transparent border border-white/10 rounded-xl hover:border-neon-blue/50 hover:shadow-[0_0_15px_rgba(0,240,255,0.3)] transition-all backdrop-blur-sm">
+            <div 
+              onClick={() => navigate('/rental-applications-management')}
+              className="flex items-center justify-between p-3 bg-transparent border border-white/10 rounded-xl hover:border-neon-blue/50 hover:shadow-[0_0_15px_rgba(0,240,255,0.3)] transition-all backdrop-blur-sm cursor-pointer"
+            >
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-black border border-white/20 flex items-center justify-center">
                         <User size={18} className="text-gray-300" />
@@ -47,7 +53,10 @@ export const RentalApplicationsCard = () => {
             </div>
 
             {/* Row 2 */}
-            <div className="flex items-center justify-between p-3 bg-transparent border border-white/10 rounded-xl hover:border-neon-blue/50 hover:shadow-[0_0_15px_rgba(0,240,255,0.3)] transition-all opacity-70 hover:opacity-100 backdrop-blur-sm">
+            <div 
+              onClick={() => navigate('/rental-applications-management')}
+              className="flex items-center justify-between p-3 bg-transparent border border-white/10 rounded-xl hover:border-neon-blue/50 hover:shadow-[0_0_15px_rgba(0,240,255,0.3)] transition-all opacity-70 hover:opacity-100 backdrop-blur-sm cursor-pointer"
+            >
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-black border border-white/20 flex items-center justify-center">
                         <User size={18} className="text-gray-300" />

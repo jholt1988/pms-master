@@ -13,9 +13,9 @@ export const MasterDetailLayout: React.FC<MasterDetailLayoutProps> = ({ master, 
   const isMobile = viewport === 'mobile' || viewport === 'tablet-portrait';
 
   return (
-    <div className="flex h-full">
+    <div className="flex w-full">
       {isMobile ? (
-        <div className="relative w-full h-full overflow-hidden">
+        <div className="relative w-full overflow-hidden">
           <AnimatePresence initial={false}>
             {!showDetail && (
               <motion.div
@@ -24,7 +24,7 @@ export const MasterDetailLayout: React.FC<MasterDetailLayoutProps> = ({ master, 
                 animate={{ x: 0 }}
                 exit={{ x: '-100%' }}
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
-                className="absolute w-full h-full"
+                className="absolute w-full"
               >
                 {master}
               </motion.div>
@@ -38,7 +38,7 @@ export const MasterDetailLayout: React.FC<MasterDetailLayoutProps> = ({ master, 
                 animate={{ x: 0 }}
                 exit={{ x: '100%' }}
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
-                className="absolute w-full h-full bg-white dark:bg-black"
+                className="absolute w-full bg-white dark:bg-black"
               >
                 {detail}
               </motion.div>
@@ -47,10 +47,10 @@ export const MasterDetailLayout: React.FC<MasterDetailLayoutProps> = ({ master, 
         </div>
       ) : (
         <>
-          <div className="w-1/3 border-r border-gray-200 dark:border-gray-800">
+          <div className="w-1/3 border-r border-gray-200 dark:border-gray-800 overflow-y-auto">
             {master}
           </div>
-          <div className="w-2/3">
+          <div className="w-2/3 overflow-y-auto">
             {detail}
           </div>
         </>

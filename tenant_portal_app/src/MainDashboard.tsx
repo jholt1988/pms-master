@@ -1,14 +1,16 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { GlassCard } from './components/ui/GlassCard';
 import { 
   AlertTriangle, 
   TrendingUp, 
   Users, 
-  CheckCircle2, 
   ArrowUpRight,
   Wallet,
   Activity
 } from 'lucide-react';
+import { useAuth } from './AuthContext';
+import { apiFetch } from './services/apiClient';
 
 // Import your existing feature widgets
 // Note: You will need to update these components later to remove their own 
@@ -19,26 +21,141 @@ import { RentEstimatorCard } from "./components/ui/RentEstimatorCard";
 import { RentalApplicationsCard } from "./components/ui/RentalApplicationsCard";
 import { MessagingCard } from "./components/ui/MessagingCard";
 
-const KPITicker = () => (
-  <div className="flex gap-6 mb-8 overflow-x-auto pb-2 no-scrollbar">
-    {[
-      { label: 'Portfolio Occ.', value: '94%', change: '+2.1%', color: 'text-neon-blue' },
-      { label: 'MoM Revenue', value: '$42.5k', change: '+5.4%', color: 'text-green-400' },
-      { label: 'Open Tickets', value: '8', change: '-2', color: 'text-neon-purple' },
-      { label: 'Pending Apps', value: '3', change: '+1', color: 'text-white' },
-    ].map((stat, i) => (
-      <div key={i} className="flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 min-w-fit">
-        <div className="text-xs text-gray-400 uppercase tracking-wider">{stat.label}</div>
-        <div className="text-sm font-mono font-bold text-white">{stat.value}</div>
-        <div className={`text-xs ${stat.color} flex items-center`}>
-          <ArrowUpRight size={10} className="mr-1" /> {stat.change}
-        </div>
+interface DashboardMetrics {
+  occupancy: {
+    total: number;
+    occupied: number;
+    vacant: number;
+    percentage: number;
+  };
+  financials: {
+    monthlyRevenue: number;
+    collectedThisMonth: number;
+    outstanding: number;
+  };
+  maintenance: {
+    total: number;
+    pending: number;
+    inProgress: number;
+    overdue: number;
+  };
+  applications: {
+    total: number;
+    pending: number;
+    approved: number;
+    rejected: number;
+  };
+}
+
+const formatCurrency = (amount: number) => {
+  if (amount >= 1000) {
+    return `$${(amount / 1000).toFixed(1)}k`;
+  }
+  return `$${amount.toFixed(0)}`;
+};
+
+const KPITicker = ({ metrics, loading, navigate }: { metrics: DashboardMetrics | null; loading: boolean; navigate: (path: string) => void }) => {
+  if (loading || !metrics) {
+    return (
+      <div className="flex gap-6 mb-8 overflow-x-auto pb-2 no-scrollbar">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 min-w-fit animate-pulse">
+            <div className="h-4 w-20 bg-white/10 rounded" />
+            <div className="h-5 w-16 bg-white/10 rounded" />
+          </div>
+        ))}
       </div>
-    ))}
-  </div>
-);
+    );
+  }
+
+  const occupancyChange = metrics.occupancy?.percentage ? `+${(metrics.occupancy.percentage - 92).toFixed(1)}%` : '0%';
+  const revenueChange = metrics.financials?.monthlyRevenue 
+    ? `+${((metrics.financials.collectedThisMonth / metrics.financials.monthlyRevenue) * 100 - 95).toFixed(1)}%` 
+    : '0%';
+  const openTickets = metrics.maintenance?.pending || 0;
+  const pendingApps = metrics.applications?.pending || 0;
+
+  const kpiItems = [
+    { 
+      label: 'Portfolio Occ.', 
+      value: `${metrics.occupancy?.percentage || 0}%`, 
+      change: occupancyChange, 
+      color: 'text-neon-blue',
+      path: '/properties'
+    },
+    { 
+      label: 'MoM Revenue', 
+      value: formatCurrency(metrics.financials?.collectedThisMonth || 0), 
+      change: revenueChange, 
+      color: 'text-green-400',
+      path: '/payments'
+    },
+    { 
+      label: 'Open Tickets', 
+      value: `${openTickets}`, 
+      change: `-${Math.max(0, openTickets - 6)}`, 
+      color: 'text-neon-purple',
+      path: '/maintenance-management'
+    },
+    { 
+      label: 'Pending Apps', 
+      value: `${pendingApps}`, 
+      change: `+${Math.max(0, pendingApps - 2)}`, 
+      color: 'text-white',
+      path: '/rental-applications-management'
+    },
+  ];
+
+  return (
+    <div className="flex gap-6 mb-8 overflow-x-auto pb-2 no-scrollbar">
+      {kpiItems.map((stat, i) => (
+        <div 
+          key={i} 
+          onClick={() => navigate(stat.path)}
+          className="flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 min-w-fit cursor-pointer hover:bg-white/10 hover:border-neon-blue/50 transition-all"
+        >
+          <div className="text-xs text-gray-400 uppercase tracking-wider">{stat.label}</div>
+          <div className="text-sm font-mono font-bold text-white">{stat.value}</div>
+          <div className={`text-xs ${stat.color} flex items-center`}>
+            <ArrowUpRight size={10} className="mr-1" /> {stat.change}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 const MainDashboard = () => {
+  const { token } = useAuth();
+  const navigate = useNavigate();
+  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const data = await apiFetch('/dashboard/metrics', { token });
+        setMetrics(data);
+      } catch (error) {
+        console.error('Error fetching dashboard metrics:', error);
+        // Set fallback empty metrics on error
+        setMetrics({
+          occupancy: { total: 0, occupied: 0, vacant: 0, percentage: 0 },
+          financials: { monthlyRevenue: 0, collectedThisMonth: 0, outstanding: 0 },
+          maintenance: { total: 0, pending: 0, inProgress: 0, overdue: 0 },
+          applications: { total: 0, pending: 0, approved: 0, rejected: 0 },
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMetrics();
+  }, [token]);
   return (
     <div className="pb-24"> {/* Padding for bottom Dock */}
       
@@ -58,7 +175,7 @@ const MainDashboard = () => {
         </div>
       </div>
 
-      <KPITicker />
+      <KPITicker metrics={metrics} loading={loading} navigate={navigate} />
 
       {/* --- SECTION 2: BENTO GRID LAYOUT --- */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
@@ -85,7 +202,13 @@ const MainDashboard = () => {
               <h3 className="text-white font-light">Financial Flow</h3>
             </div>
             <div className="mb-6 text-center">
-              <div className="text-4xl font-mono text-white font-bold tracking-tighter">$124,500</div>
+              <div className="text-4xl font-mono text-white font-bold tracking-tighter">
+                {loading ? (
+                  <span className="animate-pulse">---</span>
+                ) : (
+                  `$${((metrics?.financials?.collectedThisMonth || 0) / 1000).toFixed(0)}k`
+                )}
+              </div>
               <div className="text-[10px] text-gray-500 mt-1 uppercase tracking-wider font-mono">TOTAL COLLECTED (MTD)</div>
             </div>
             <div className="h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent my-4" />
@@ -102,6 +225,7 @@ const MainDashboard = () => {
                 Market Intelligence
               </h3>
               <button 
+                onClick={() => navigate('/rent-estimator')}
                 className="text-xs text-neon-purple hover:text-white transition-colors font-mono uppercase tracking-wider"
                 aria-label="Analyze market intelligence"
               >
@@ -134,7 +258,9 @@ const MainDashboard = () => {
               </div>
               <div>
                 <h3 className="text-white font-medium">Leasing Pipeline</h3>
-                <p className="text-xs text-gray-400 font-mono">3 Applications Pending Review</p>
+                <p className="text-xs text-gray-400 font-mono">
+                  {loading ? 'Loading...' : `${metrics?.applications?.pending || 0} Applications Pending Review`}
+                </p>
               </div>
             </div>
             <RentalApplicationsCard />

@@ -26,6 +26,8 @@ export interface WorkflowStep {
   onTrue?: string; // Next step if condition is true
   onFalse?: string; // Next step if condition is false
   handler?: (execution: WorkflowExecution, userId?: number) => Promise<any>; // For custom steps
+  dependsOn?: string[]; // Step IDs this step depends on (for parallel execution)
+  parallel?: boolean; // Can run in parallel with other independent steps
 }
 
 export interface WorkflowExecutionStep {

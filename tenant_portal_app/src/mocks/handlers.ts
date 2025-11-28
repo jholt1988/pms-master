@@ -28,6 +28,72 @@ const isAuthenticated = (request: Request): boolean => {
 };
 
 export const handlers = [
+  // ==================== Rental Applications ====================
+  // POST /rental-applications - Submit new application (must be first to ensure proper matching)
+  http.post(`${API_BASE}/rental-applications`, async ({ request }) => {
+    await networkDelay();
+    const body = await request.json() as any;
+    
+    // Return the application with all submitted data
+    return HttpResponse.json({
+      id: Math.floor(Math.random() * 1000),
+      propertyId: body.propertyId,
+      unitId: body.unitId,
+      fullName: body.fullName,
+      email: body.email,
+      phoneNumber: body.phoneNumber,
+      previousAddress: body.previousAddress,
+      income: body.income,
+      creditScore: body.creditScore,
+      monthlyDebt: body.monthlyDebt,
+      status: 'PENDING',
+      references: body.references || [],
+      pastLandlords: body.pastLandlords || [],
+      employments: body.employments || [],
+      additionalIncomes: body.additionalIncomes || [],
+      pets: body.pets || [],
+      vehicles: body.vehicles || [],
+      authorizeCreditCheck: body.authorizeCreditCheck,
+      authorizeBackgroundCheck: body.authorizeBackgroundCheck,
+      authorizeEmploymentVerification: body.authorizeEmploymentVerification,
+      negativeAspectsExplanation: body.negativeAspectsExplanation,
+      applicationDate: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+    }, { status: 201 });
+  }),
+  
+  // Also handle with explicit /api path
+  http.post('/api/rental-applications', async ({ request }) => {
+    await networkDelay();
+    const body = await request.json() as any;
+    
+    return HttpResponse.json({
+      id: Math.floor(Math.random() * 1000),
+      propertyId: body.propertyId,
+      unitId: body.unitId,
+      fullName: body.fullName,
+      email: body.email,
+      phoneNumber: body.phoneNumber,
+      previousAddress: body.previousAddress,
+      income: body.income,
+      creditScore: body.creditScore,
+      monthlyDebt: body.monthlyDebt,
+      status: 'PENDING',
+      references: body.references || [],
+      pastLandlords: body.pastLandlords || [],
+      employments: body.employments || [],
+      additionalIncomes: body.additionalIncomes || [],
+      pets: body.pets || [],
+      vehicles: body.vehicles || [],
+      authorizeCreditCheck: body.authorizeCreditCheck,
+      authorizeBackgroundCheck: body.authorizeBackgroundCheck,
+      authorizeEmploymentVerification: body.authorizeEmploymentVerification,
+      negativeAspectsExplanation: body.negativeAspectsExplanation,
+      applicationDate: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+    }, { status: 201 });
+  }),
+
   // ==================== Authentication ====================
   http.post(`${API_BASE}/auth/login`, async ({ request }) => {
     await networkDelay();
@@ -133,27 +199,303 @@ export const handlers = [
     ]);
   }),
 
-  // ==================== Rental Applications ====================
-  http.post(`${API_BASE}/rental-applications`, async ({ request }) => {
+  http.get(`${API_BASE}/properties`, async ({ request }) => {
     await networkDelay();
+    if (!isAuthenticated(request)) {
+      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    
+    return HttpResponse.json([
+      {
+        id: 1,
+        name: 'Maple Street Apartments',
+        address: '123 Maple St',
+        city: 'Springfield',
+        state: 'CA',
+        zipCode: '12345',
+        unitCount: 10,
+        propertyType: 'APARTMENT',
+        units: [
+          { id: 1, name: 'Unit 1A', rent: 1200, status: 'OCCUPIED', propertyId: 1 },
+          { id: 2, name: 'Unit 2B', rent: 1350, status: 'VACANT', propertyId: 1 },
+          { id: 3, name: 'Unit 3C', rent: 1500, status: 'OCCUPIED', propertyId: 1 },
+        ],
+        marketingProfile: {
+          availabilityStatus: 'AVAILABLE',
+          isSyndicationEnabled: false,
+          minRent: 1200,
+          maxRent: 1500,
+        },
+        tags: ['pet-friendly', 'parking'],
+        photos: [
+          {
+            id: 1,
+            url: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800',
+            caption: 'Building exterior',
+            isPrimary: true,
+            displayOrder: 0,
+          },
+        ],
+        amenities: [
+          {
+            id: 1,
+            key: 'parking',
+            label: 'Parking',
+            isFeatured: true,
+          },
+          {
+            id: 2,
+            key: 'gym',
+            label: 'Fitness Center',
+            isFeatured: true,
+          },
+        ],
+      },
+      {
+        id: 2,
+        name: 'Oak Avenue Complex',
+        address: '456 Oak Ave',
+        city: 'Springfield',
+        state: 'CA',
+        zipCode: '12345',
+        unitCount: 8,
+        propertyType: 'APARTMENT',
+        units: [
+          { id: 4, name: 'Unit 1A', rent: 1100, status: 'VACANT', propertyId: 2 },
+          { id: 5, name: 'Unit 2B', rent: 1250, status: 'OCCUPIED', propertyId: 2 },
+        ],
+        marketingProfile: {
+          availabilityStatus: 'LIMITED',
+          isSyndicationEnabled: true,
+          minRent: 1100,
+          maxRent: 1250,
+        },
+        tags: ['furnished'],
+      },
+    ]);
+  }),
+
+  http.get(`${API_BASE}/properties/:id/marketing`, async ({ params, request }) => {
+    await networkDelay();
+    if (!isAuthenticated(request)) {
+      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    
+    return HttpResponse.json({
+      property: {
+        id: Number(params.id),
+        name: 'Maple Street Apartments',
+        address: '123 Maple St',
+      },
+      marketingProfile: {
+        minRent: 1200,
+        maxRent: 1500,
+        availabilityStatus: 'AVAILABLE',
+        marketingHeadline: 'Beautiful Apartments in Prime Location',
+        marketingDescription: 'Spacious units with modern amenities',
+        isSyndicationEnabled: false,
+        lastSyncedAt: new Date().toISOString(),
+      },
+      photos: [
+        {
+          id: 1,
+          url: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800',
+          caption: 'Building exterior',
+          isPrimary: true,
+          displayOrder: 0,
+        },
+        {
+          id: 2,
+          url: 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800',
+          caption: 'Lobby area',
+          isPrimary: false,
+          displayOrder: 1,
+        },
+      ],
+      amenities: [
+        {
+          id: 1,
+          key: 'parking',
+          label: 'Parking',
+          description: 'On-site parking available',
+          category: 'Parking',
+          isFeatured: true,
+          value: 'Covered parking',
+        },
+        {
+          id: 2,
+          key: 'gym',
+          label: 'Fitness Center',
+          description: '24/7 fitness center',
+          category: 'Amenities',
+          isFeatured: true,
+        },
+        {
+          id: 3,
+          key: 'pool',
+          label: 'Swimming Pool',
+          description: 'Outdoor swimming pool',
+          category: 'Amenities',
+          isFeatured: false,
+        },
+      ],
+      unitCount: 10,
+    });
+  }),
+
+  http.get(`${API_BASE}/listings/syndication/:id/status`, async ({ params, request }) => {
+    await networkDelay();
+    if (!isAuthenticated(request)) {
+      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    
+    return HttpResponse.json([
+      {
+        id: 1,
+        channel: 'ZILLOW',
+        status: 'ACTIVE',
+        lastAttemptAt: new Date().toISOString(),
+      },
+    ]);
+  }),
+
+  http.get(`${API_BASE}/listings/syndication/credentials/all`, async ({ request }) => {
+    await networkDelay();
+    if (!isAuthenticated(request)) {
+      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    
+    return HttpResponse.json([]);
+  }),
+
+  http.post(`${API_BASE}/listings/syndication/:id/trigger`, async ({ params, request }) => {
+    await networkDelay();
+    if (!isAuthenticated(request)) {
+      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    
+    return HttpResponse.json({ success: true });
+  }),
+
+  http.post(`${API_BASE}/listings/syndication/:id/pause`, async ({ params, request }) => {
+    await networkDelay();
+    if (!isAuthenticated(request)) {
+      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    
+    return HttpResponse.json({ success: true });
+  }),
+
+  http.post(`${API_BASE}/properties`, async ({ request }) => {
+    await networkDelay();
+    if (!isAuthenticated(request)) {
+      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    
     const body = await request.json() as any;
     
     return HttpResponse.json({
       id: Math.floor(Math.random() * 1000),
-      propertyId: body.propertyId,
-      unitId: body.unitId,
-      fullName: body.fullName,
-      email: body.email,
-      phoneNumber: body.phoneNumber,
-      income: body.income,
-      employmentStatus: body.employmentStatus,
-      previousAddress: body.previousAddress,
-      creditScore: body.creditScore,
-      monthlyDebt: body.monthlyDebt,
-      status: 'PENDING',
-      applicationDate: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
+      ...body,
+      unitCount: 0,
+      units: [],
+      photos: [],
+      amenities: [],
+      tags: body.tags || [],
+      marketingProfile: {
+        availabilityStatus: 'AVAILABLE',
+        isSyndicationEnabled: false,
+      },
     }, { status: 201 });
+  }),
+
+  http.patch(`${API_BASE}/properties/:id`, async ({ params, request }) => {
+    await networkDelay();
+    if (!isAuthenticated(request)) {
+      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const body = await request.json() as any;
+    
+    return HttpResponse.json({
+      id: Number(params.id),
+      ...body,
+    });
+  }),
+
+  http.post(`${API_BASE}/properties/:id/units`, async ({ params, request }) => {
+    await networkDelay();
+    if (!isAuthenticated(request)) {
+      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const body = await request.json() as {
+      name: string;
+      bedrooms?: number;
+      bathrooms?: number;
+      squareFeet?: number;
+      hasParking?: boolean;
+      hasLaundry?: boolean;
+      hasBalcony?: boolean;
+      hasAC?: boolean;
+      isFurnished?: boolean;
+      petsAllowed?: boolean;
+    };
+    
+    return HttpResponse.json({
+      id: Math.floor(Math.random() * 1000),
+      name: body.name,
+      propertyId: Number(params.id),
+      status: 'VACANT',
+      bedrooms: body.bedrooms,
+      bathrooms: body.bathrooms,
+      squareFeet: body.squareFeet,
+      hasParking: body.hasParking || false,
+      hasLaundry: body.hasLaundry || false,
+      hasBalcony: body.hasBalcony || false,
+      hasAC: body.hasAC || false,
+      isFurnished: body.isFurnished || false,
+      petsAllowed: body.petsAllowed || false,
+    }, { status: 201 });
+  }),
+
+  http.post(`${API_BASE}/properties/:id/marketing`, async ({ params, request }) => {
+    await networkDelay();
+    if (!isAuthenticated(request)) {
+      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const body = await request.json() as {
+      photos?: Array<{ url: string; caption?: string; isPrimary?: boolean; displayOrder?: number }>;
+      amenities?: Array<{ key: string; label: string; value?: string; isFeatured?: boolean }>;
+      minRent?: number;
+      maxRent?: number;
+      availabilityStatus?: string;
+      marketingHeadline?: string;
+      marketingDescription?: string;
+      isSyndicationEnabled?: boolean;
+    };
+    
+    // Return updated marketing profile
+    return HttpResponse.json({
+      property: {
+        id: Number(params.id),
+        name: 'Maple Street Apartments',
+        address: '123 Maple St',
+      },
+      marketingProfile: {
+        minRent: body.minRent,
+        maxRent: body.maxRent,
+        availabilityStatus: body.availabilityStatus || 'AVAILABLE',
+        marketingHeadline: body.marketingHeadline,
+        marketingDescription: body.marketingDescription,
+        isSyndicationEnabled: body.isSyndicationEnabled ?? false,
+        lastSyncedAt: new Date().toISOString(),
+      },
+      photos: body.photos || [],
+      amenities: body.amenities || [],
+      unitCount: 10,
+    });
   }),
 
   http.get(`${API_BASE}/rental-applications`, async ({ request }) => {
@@ -176,7 +518,52 @@ export const handlers = [
     ]);
   }),
 
-  http.get(`${API_BASE}/rental-applications/:id`, async ({ params, request }) => {
+  // More specific routes must come before less specific ones in MSW
+  // PUT /rental-applications/:id/status - Update application status (approve/reject)
+  http.put(`${API_BASE}/rental-applications/:id/status`, async ({ params, request }) => {
+    await networkDelay();
+    if (!isAuthenticated(request)) {
+      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const body = await request.json() as { status: string };
+    const applicationId = Number(params.id);
+    
+    // Return the full updated application object to match backend behavior
+    // This should match the structure returned by rental-application.service.ts updateApplicationStatus
+    return HttpResponse.json({
+      id: applicationId,
+      status: body.status,
+      fullName: 'John Doe',
+      email: 'john.doe@test.com',
+      phoneNumber: '(555) 123-4567',
+      income: 5000,
+      employmentStatus: 'Full-time',
+      creditScore: 720,
+      monthlyDebt: 500,
+      previousAddress: '123 Previous St, City, State',
+      property: { 
+        id: 1,
+        name: 'Maple Street Apartments',
+        address: '123 Maple St'
+      },
+      unit: { 
+        id: 1,
+        name: 'Unit 1A',
+        propertyId: 1
+      },
+      applicant: {
+        id: 1,
+        username: 'john.doe@test.com',
+        role: 'TENANT'
+      },
+      manualNotes: [],
+      createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+  }),
+
+  http.post(`${API_BASE}/rental-applications/:id/screen`, async ({ params, request }) => {
     await networkDelay();
     if (!isAuthenticated(request)) {
       return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
@@ -184,12 +571,27 @@ export const handlers = [
     
     return HttpResponse.json({
       id: Number(params.id),
-      fullName: 'John Doe',
-      email: 'john.doe@test.com',
-      status: 'PENDING',
-      property: { name: 'Maple Street Apartments' },
-      unit: { name: 'Unit 1A' },
+      screeningScore: 75,
+      qualificationStatus: 'QUALIFIED',
+      recommendation: 'RECOMMEND_RENT',
+      screenedAt: new Date().toISOString(),
     });
+  }),
+
+  http.post(`${API_BASE}/rental-applications/:id/notes`, async ({ params, request }) => {
+    await networkDelay();
+    if (!isAuthenticated(request)) {
+      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const body = await request.json() as { content: string };
+    
+    return HttpResponse.json({
+      id: Math.floor(Math.random() * 1000),
+      applicationId: Number(params.id),
+      content: body.content,
+      createdAt: new Date().toISOString(),
+    }, { status: 201 });
   }),
 
   http.get(`${API_BASE}/rental-applications/:id/timeline`, async ({ params, request }) => {
@@ -223,22 +625,7 @@ export const handlers = [
     });
   }),
 
-  http.put(`${API_BASE}/rental-applications/:id/status`, async ({ params, request }) => {
-    await networkDelay();
-    if (!isAuthenticated(request)) {
-      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    }
-    
-    const body = await request.json() as { status: string };
-    
-    return HttpResponse.json({
-      id: Number(params.id),
-      status: body.status,
-      updatedAt: new Date().toISOString(),
-    });
-  }),
-
-  http.post(`${API_BASE}/rental-applications/:id/screen`, async ({ params, request }) => {
+  http.get(`${API_BASE}/rental-applications/:id`, async ({ params, request }) => {
     await networkDelay();
     if (!isAuthenticated(request)) {
       return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
@@ -246,10 +633,11 @@ export const handlers = [
     
     return HttpResponse.json({
       id: Number(params.id),
-      screeningScore: 75,
-      qualificationStatus: 'QUALIFIED',
-      recommendation: 'RECOMMEND_RENT',
-      screenedAt: new Date().toISOString(),
+      fullName: 'John Doe',
+      email: 'john.doe@test.com',
+      status: 'PENDING',
+      property: { name: 'Maple Street Apartments' },
+      unit: { name: 'Unit 1A' },
     });
   }),
 
@@ -260,7 +648,32 @@ export const handlers = [
       return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
     
-    return HttpResponse.json(mockMaintenanceRequests);
+    // Transform mock data to match expected format
+    const formattedRequests = mockMaintenanceRequests.map((req) => ({
+      id: req.id,
+      title: req.title,
+      description: req.description || 'No description provided',
+      status: req.status,
+      priority: req.priority === 'HIGH' ? 'HIGH' : req.priority === 'MEDIUM' ? 'MEDIUM' : 'LOW',
+      createdAt: req.createdAt,
+      updatedAt: req.updatedAt,
+      unit: {
+        id: 1,
+        name: req.unit,
+        property: {
+          id: 1,
+          name: 'Sample Property',
+        },
+      },
+      author: {
+        id: 1,
+        username: 'tenant@example.com',
+      },
+      photos: [],
+    }));
+    
+    // Return in format expected by MaintenanceManagementPage - return array directly
+    return HttpResponse.json(formattedRequests);
   }),
 
   http.post(`${API_BASE}/maintenance`, async ({ request }) => {
@@ -291,6 +704,99 @@ export const handlers = [
       id: Number(params.id),
       status: body.status,
       updatedAt: new Date().toISOString(),
+    });
+  }),
+
+  // ==================== Leases ====================
+  http.get(`${API_BASE}/leases`, async ({ request }) => {
+    await networkDelay();
+    if (!isAuthenticated(request)) {
+      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const mockLeases = [
+      {
+        id: 1,
+        startDate: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString(),
+        endDate: new Date(Date.now() + 185 * 24 * 60 * 60 * 1000).toISOString(),
+        rentAmount: 1200,
+        depositAmount: 2400,
+        status: 'ACTIVE',
+        tenant: {
+          id: 1,
+          username: 'tenant@example.com',
+        },
+        unit: {
+          name: 'Unit 1A',
+          property: {
+            name: 'Maple Street Apartments',
+          },
+        },
+        esignEnvelopes: [],
+      },
+      {
+        id: 2,
+        startDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
+        endDate: new Date(Date.now() + 275 * 24 * 60 * 60 * 1000).toISOString(),
+        rentAmount: 1350,
+        depositAmount: 2700,
+        status: 'ACTIVE',
+        tenant: {
+          id: 2,
+          username: 'tenant2@example.com',
+        },
+        unit: {
+          name: 'Unit 2B',
+          property: {
+            name: 'Maple Street Apartments',
+          },
+        },
+        esignEnvelopes: [],
+      },
+      {
+        id: 3,
+        startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        endDate: new Date(Date.now() + 335 * 24 * 60 * 60 * 1000).toISOString(),
+        rentAmount: 1500,
+        depositAmount: 3000,
+        status: 'ACTIVE',
+        tenant: {
+          id: 3,
+          username: 'tenant3@example.com',
+        },
+        unit: {
+          name: 'Unit 3C',
+          property: {
+            name: 'Oak Avenue Complex',
+          },
+        },
+        esignEnvelopes: [],
+      },
+    ];
+    
+    // Return array directly - LeaseManagementPageModern handles both formats
+    return HttpResponse.json(mockLeases);
+  }),
+
+  http.get(`${API_BASE}/leases/my-lease`, async ({ request }) => {
+    await networkDelay();
+    if (!isAuthenticated(request)) {
+      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    
+    return HttpResponse.json({
+      id: 1,
+      startDate: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString(),
+      endDate: new Date(Date.now() + 185 * 24 * 60 * 60 * 1000).toISOString(),
+      rentAmount: 1200,
+      depositAmount: 2400,
+      status: 'ACTIVE',
+      unit: {
+        name: 'Unit 1A',
+        property: {
+          name: 'Maple Street Apartments',
+        },
+      },
     });
   }),
 
@@ -482,6 +988,55 @@ export const handlers = [
         pendingApplications: 3,
       },
       recentActivity: [],
+    });
+  }),
+
+  http.get(`${API_BASE}/dashboard/metrics`, async ({ request }) => {
+    await networkDelay();
+    if (!isAuthenticated(request)) {
+      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    
+    return HttpResponse.json({
+      occupancy: {
+        total: 25,
+        occupied: 23,
+        vacant: 2,
+        percentage: 92,
+      },
+      financials: {
+        monthlyRevenue: 45000,
+        collectedThisMonth: 42500,
+        outstanding: 2500,
+      },
+      maintenance: {
+        total: 12,
+        pending: 3,
+        inProgress: 5,
+        overdue: 2,
+      },
+      applications: {
+        total: 8,
+        pending: 3,
+        approved: 4,
+        rejected: 1,
+      },
+      recentActivity: [
+        {
+          id: 1,
+          type: 'maintenance',
+          title: 'HVAC repair completed',
+          date: new Date().toISOString(),
+          status: 'completed',
+        },
+        {
+          id: 2,
+          type: 'application',
+          title: 'New rental application submitted',
+          date: new Date(Date.now() - 3600000).toISOString(),
+          status: 'pending',
+        },
+      ],
     });
   }),
 

@@ -66,19 +66,24 @@ export default function MaintenanceManagementPage(): React.ReactElement {
   const { token } = useAuth();
   const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | undefined>(undefined);
   const { selectedItem: selectedRequest, showDetail, selectItem: selectRequest, clearSelection } = useMasterDetail<MaintenanceRequest>();
   const viewport = useViewportCategory();
 
   const fetchRequests = useCallback(async () => {
     setLoading(true);
-    setError(null);
+    setError(undefined);
     try {
-      const data = await apiFetch('/maintenance', { token });
-      setRequests(data.data || []);
-    } catch (err: any) {
+      const data = await apiFetch('/maintenance', { token: token || undefined });
+      console.log('Maintenance data received:', data);
+      // Handle both { data: [...] } and [...] formats
+      const requests = Array.isArray(data) ? data : (data?.data || data || []);
+      setRequests(requests);
+    } catch (err: unknown) {
+      console.error('Error fetching maintenance requests:', err);
       setRequests([]);
-      setError(err.message || 'Failed to load maintenance requests');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load maintenance requests';
+      setError(errorMessage || undefined);
     } finally {
       setLoading(false);
     }
@@ -93,21 +98,37 @@ export default function MaintenanceManagementPage(): React.ReactElement {
   };
 
   const master = (
-    <div className="p-4 sm:p-6">
-      <h1 className="text-2xl sm:text-3xl font-bold mb-6">Maintenance Requests</h1>
-      {error && <p className="text-danger">{error}</p>}
+    <div className="p-4 sm:p-6 w-full">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-6 text-white">Maintenance Requests</h1>
+      <div className="mb-4 text-sm text-gray-300">
+        Debug: {requests.length} requests loaded, loading: {loading ? 'true' : 'false'}
+      </div>
       {loading ? (
-        <p>Loading...</p>
+        <div className="flex items-center justify-center py-12">
+          <p className="text-gray-300">Loading maintenance requests...</p>
+        </div>
+      ) : error ? (
+        <Card className="border-danger-200 bg-danger-50">
+          <CardBody>
+            <p className="text-sm text-danger-700">{error}</p>
+          </CardBody>
+        </Card>
+      ) : requests.length === 0 ? (
+        <Card className="border-dashed border-gray-600">
+          <CardBody className="py-12 text-center">
+            <p className="text-sm text-gray-300">No maintenance requests found.</p>
+          </CardBody>
+        </Card>
       ) : (
         <div className="space-y-4">
           {requests.map((request) => (
-            <Card key={request.id} isPressable onPress={() => selectRequest(request)}>
+            <Card key={request.id} isPressable onPress={() => selectRequest(request)} className="bg-white/5 border-white/10">
               <CardBody>
                 <div className="flex justify-between">
-                  <h3 className="font-bold">{request.title}</h3>
+                  <h3 className="font-bold text-white">{request.title}</h3>
                   <Chip color={getStatusColor(request.status)} size="sm">{request.status}</Chip>
                 </div>
-                <p className="text-sm text-gray-500">{request.unit.property.name} - {request.unit.name}</p>
+                <p className="text-sm text-gray-300 mt-2">{request.unit?.property?.name || 'Unknown'} - {request.unit?.name || 'Unknown'}</p>
                 <div className="flex justify-between items-center mt-4">
                   <p className="text-xs text-gray-400">Created: {new Date(request.createdAt).toLocaleDateString()}</p>
                   <Chip color={getPriorityColor(request.priority)} size="sm">{request.priority}</Chip>
@@ -141,7 +162,7 @@ export default function MaintenanceManagementPage(): React.ReactElement {
         </>
       ) : (
         <div className="flex items-center justify-center h-full">
-          <p className="text-gray-500">Select a request to see the details</p>
+          <p className="text-gray-300">Select a request to see the details</p>
         </div>
       )}
     </div>

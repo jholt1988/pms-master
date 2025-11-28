@@ -51,8 +51,12 @@ const LeaseManagementPageModern = () => {
 
     try {
       const data = await apiFetch('/leases', { token });
-      setLeases(data?.data ?? data ?? []);
+      console.log('Leases data received:', data);
+      // Handle both { data: [...] } and [...] formats
+      const leases = Array.isArray(data) ? data : (data?.data ?? data ?? []);
+      setLeases(leases);
     } catch (err: any) {
+      console.error('Error fetching leases:', err);
       setError(err.message ?? 'Failed to load leases');
       setLeases([]);
     } finally {
@@ -84,12 +88,15 @@ const LeaseManagementPageModern = () => {
   ];
 
   const master = (
-    <div className="p-4 sm:p-6">
+    <div className="p-4 sm:p-6 w-full">
       <PageHeader
         title="Lease Lifecycle Manager"
         subtitle="Track occupancy, renewals, and compliance so every lease stays on schedule."
         breadcrumbs={breadcrumbs}
       />
+      <div className="mb-4 text-sm text-gray-300">
+        Debug: {leases.length} leases loaded, loading: {loading ? 'true' : 'false'}
+      </div>
 
       {error && (
         <Card className="border-danger-200 bg-danger-50">
@@ -107,25 +114,25 @@ const LeaseManagementPageModern = () => {
       {/* Leases List */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">All Leases</h2>
+          <h2 className="text-lg font-semibold text-white">All Leases</h2>
         </div>
         
         {loading ? (
-          <Card className="border-dashed">
+          <Card className="border-dashed border-gray-600">
             <CardBody className="py-12 text-center">
-              <p className="text-sm text-foreground-500">Loading leases…</p>
+              <p className="text-sm text-gray-300">Loading leases…</p>
             </CardBody>
           </Card>
         ) : leases.length === 0 ? (
-          <Card className="border-dashed">
+          <Card className="border-dashed border-gray-600">
             <CardBody className="py-12 text-center">
-              <p className="text-sm text-foreground-500">No leases found.</p>
+              <p className="text-sm text-gray-300">No leases found.</p>
             </CardBody>
           </Card>
         ) : (
           <div className="space-y-4">
             {leases.map((lease) => (
-              <div key={lease.id} onClick={() => selectLease(lease)}>
+              <div key={lease.id} onClick={() => selectLease(lease)} className="cursor-pointer">
                 <LeaseCard
                   lease={lease}
                   onManage={() => {}}
@@ -156,17 +163,17 @@ const LeaseManagementPageModern = () => {
             <CardBody>
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <h4 className="font-semibold text-foreground mb-2">Lease Details</h4>
-                  <div className="space-y-1 text-sm">
-                    <p><span className="font-medium">Start Date:</span> {new Date(selectedLease.startDate).toLocaleDateString()}</p>
-                    <p><span className="font-medium">End Date:</span> {new Date(selectedLease.endDate).toLocaleDateString()}</p>
-                    <p><span className="font-medium">Rent:</span> ${selectedLease.rentAmount.toLocaleString()}/month</p>
-                    <p><span className="font-medium">Deposit:</span> ${selectedLease.depositAmount.toLocaleString()}</p>
+                  <h4 className="font-semibold text-white mb-2">Lease Details</h4>
+                  <div className="space-y-1 text-sm text-gray-300">
+                    <p><span className="font-medium text-white">Start Date:</span> {new Date(selectedLease.startDate).toLocaleDateString()}</p>
+                    <p><span className="font-medium text-white">End Date:</span> {new Date(selectedLease.endDate).toLocaleDateString()}</p>
+                    <p><span className="font-medium text-white">Rent:</span> ${selectedLease.rentAmount.toLocaleString()}/month</p>
+                    <p><span className="font-medium text-white">Deposit:</span> ${selectedLease.depositAmount.toLocaleString()}</p>
                   </div>
                 </div>
                 <div>
-                  <h4 className="font-semibold text-foreground mb-2">Actions</h4>
-                  <p className="text-sm text-foreground-500">
+                  <h4 className="font-semibold text-white mb-2">Actions</h4>
+                  <p className="text-sm text-gray-300">
                     Lease management actions will be available here based on the current status.
                   </p>
                   {token && (
@@ -187,7 +194,7 @@ const LeaseManagementPageModern = () => {
         </>
       ) : (
         <div className="flex items-center justify-center h-full">
-          <p className="text-gray-500">Select a lease to see the details</p>
+          <p className="text-gray-300">Select a lease to see the details</p>
         </div>
       )}
     </div>

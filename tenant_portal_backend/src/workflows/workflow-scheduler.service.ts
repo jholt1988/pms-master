@@ -78,6 +78,7 @@ export class WorkflowSchedulerService {
 
   /**
    * Run scheduled workflows (called by cron)
+   * Uses database advisory lock to prevent concurrent execution
    */
   @Cron(CronExpression.EVERY_MINUTE)
   async runScheduledWorkflows(): Promise<void> {
@@ -85,30 +86,68 @@ export class WorkflowSchedulerService {
       return;
     }
 
-    const now = new Date();
+    // Use advisory lock to prevent concurrent execution across instances
+    const lockKey = 'workflow-scheduler';
+    let lockAcquired = false;
 
-    for (const [scheduleId, scheduled] of this.scheduledWorkflows.entries()) {
-      if (!scheduled.enabled) {
-        continue;
+    try {
+      // Try to acquire PostgreSQL advisory lock
+      const lockResult = await this.prisma.$queryRaw<Array<{ pg_try_advisory_lock: boolean }>>`
+        SELECT pg_try_advisory_lock(hashtext(${lockKey})) as "pg_try_advisory_lock"
+      `;
+
+      lockAcquired = lockResult[0]?.pg_try_advisory_lock ?? false;
+
+      if (!lockAcquired) {
+        this.logger.debug('Scheduler already running in another instance, skipping');
+        return;
       }
 
-      // Check if it's time to run (simplified - in production, use a proper cron parser)
-      if (this.shouldRun(scheduled, now)) {
-        try {
-          this.logger.log(`Running scheduled workflow: ${scheduled.workflowId}`);
-          
-          await this.workflowEngine.executeWorkflow(
-            scheduled.workflowId,
-            scheduled.input || {},
-          );
+      const now = new Date();
 
-          scheduled.lastRun = now;
-          scheduled.nextRun = this.calculateNextRun(scheduled.schedule, now);
+      for (const [scheduleId, scheduled] of this.scheduledWorkflows.entries()) {
+        if (!scheduled.enabled) {
+          continue;
+        }
+
+        // Check if it's time to run (simplified - in production, use a proper cron parser)
+        if (this.shouldRun(scheduled, now)) {
+          try {
+            this.logger.log(`Running scheduled workflow: ${scheduled.workflowId}`, {
+              scheduleId,
+              workflowId: scheduled.workflowId,
+            });
+
+            await this.workflowEngine.executeWorkflow(
+              scheduled.workflowId,
+              scheduled.input || {},
+            );
+
+            scheduled.lastRun = now;
+            scheduled.nextRun = this.calculateNextRun(scheduled.schedule, now);
+          } catch (error) {
+            this.logger.error(
+              `Error running scheduled workflow ${scheduled.workflowId}`,
+              {
+                scheduleId,
+                workflowId: scheduled.workflowId,
+                error: error instanceof Error ? error.message : String(error),
+              },
+            );
+          }
+        }
+      }
+    } finally {
+      // Release the lock
+      if (lockAcquired) {
+        try {
+          await this.prisma.$queryRaw`
+            SELECT pg_advisory_unlock(hashtext(${lockKey}))
+          `;
         } catch (error) {
-          this.logger.error(
-            `Error running scheduled workflow ${scheduled.workflowId}`,
-            error,
-          );
+          this.logger.warn('Failed to release scheduler lock', {
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
       }
     }

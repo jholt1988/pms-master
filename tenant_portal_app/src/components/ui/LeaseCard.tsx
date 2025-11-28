@@ -42,11 +42,11 @@ const formatDate = (dateString: string) => {
 
 export const LeaseCard: React.FC<LeaseCardProps> = ({ lease, onManage }) => {
   return (
-    <Card className="shadow-medium">
+    <Card className="shadow-medium bg-white/5 border-white/10">
       <CardHeader className="flex-row items-center justify-between px-4 py-3">
         <div className="flex flex-col gap-1">
-          <h3 className="font-semibold text-foreground">{lease.tenant?.username ?? 'Tenant'}</h3>
-          <p className="text-sm text-foreground-500">
+          <h3 className="font-semibold text-white">{lease.tenant?.username ?? 'Tenant'}</h3>
+          <p className="text-sm text-gray-300">
             {lease.unit.property ? `${lease.unit.property.name} · ` : ''}{lease.unit.name}
           </p>
         </div>
@@ -54,13 +54,13 @@ export const LeaseCard: React.FC<LeaseCardProps> = ({ lease, onManage }) => {
           <Chip color={getStatusColor(lease.status)} size="sm" variant="flat">
             {lease.status.replace('_', ' ')}
           </Chip>
-          <span className="text-xs text-foreground-500">End {formatDate(lease.endDate)}</span>
+          <span className="text-xs text-gray-400">End {formatDate(lease.endDate)}</span>
         </div>
       </CardHeader>
       <CardBody className="px-4 py-3 pt-0">
         <div className="flex items-center justify-between">
           {lease.rentAmount && (
-            <span className="text-sm font-medium text-foreground">
+            <span className="text-sm font-medium text-white">
               ${lease.rentAmount.toLocaleString()}/mo
             </span>
           )}

@@ -5,22 +5,21 @@ import {
   CardHeader,
   Button,
   Input,
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
   Chip,
   Textarea,
   Select,
   SelectItem,
+  Tabs,
+  Tab,
 } from '@nextui-org/react';
-import { Building2, Plus, MapPin, ArrowLeft } from 'lucide-react';
+import { Building2, Plus, MapPin, ArrowLeft, Edit, DollarSign, Home, Image as ImageIcon } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { MasterDetailLayout } from './components/ui/MasterDetailLayout';
 import { useMasterDetail } from './hooks/useMasterDetail';
 import { useViewportCategory } from './hooks/useViewportCategory';
 import { apiFetch } from './services/apiClient';
+import { PropertyForm } from './components/properties/PropertyForm';
+import { BulkUnitCreator } from './components/properties/BulkUnitCreator';
 
 type AvailabilityStatus = 'AVAILABLE' | 'LIMITED' | 'WAITLISTED' | 'COMING_SOON' | 'UNAVAILABLE';
 
@@ -30,8 +29,12 @@ interface Property {
   address?: string;
   city?: string;
   state?: string;
+  zipCode?: string;
+  country?: string;
   unitCount?: number;
   propertyType?: string;
+  description?: string;
+  yearBuilt?: number;
   marketingProfile?: {
     availabilityStatus?: AvailabilityStatus;
     isSyndicationEnabled?: boolean;
@@ -40,6 +43,14 @@ interface Property {
   };
   tags?: string[];
   units?: Unit[];
+  photos?: Array<{ id?: number; url: string; caption?: string; isPrimary?: boolean }>;
+  amenities?: Array<{ id?: number; key: string; label: string; value?: string; isFeatured?: boolean }>;
+  taxId?: string;
+  annualTaxAmount?: number;
+  mortgageLender?: string;
+  mortgageAccountNumber?: string;
+  monthlyMortgagePayment?: number;
+  mortgageInterestRate?: number;
 }
 
 interface Unit {
@@ -48,6 +59,15 @@ interface Unit {
   propertyId: number;
   status?: string;
   rent?: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  squareFeet?: number;
+  hasParking?: boolean;
+  hasLaundry?: boolean;
+  hasBalcony?: boolean;
+  hasAC?: boolean;
+  isFurnished?: boolean;
+  petsAllowed?: boolean;
 }
 
 interface MarketingProfileResponse {
@@ -185,8 +205,6 @@ const PropertyManagementPage: React.FC = () => {
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isPropertyModalOpen, setIsPropertyModalOpen] = useState(false);
-  const [isUnitModalOpen, setIsUnitModalOpen] = useState(false);
   const [marketingProfile, setMarketingProfile] = useState<MarketingProfileResponse | null>(null);
   const [marketingProfileLoading, setMarketingProfileLoading] = useState(false);
   const [marketingForm, setMarketingForm] = useState<MarketingFormState>({
@@ -206,17 +224,14 @@ const PropertyManagementPage: React.FC = () => {
   const [savingCredential, setSavingCredential] = useState<ChannelKey | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [pausing, setPausing] = useState(false);
-  const [newPropertyForm, setNewPropertyForm] = useState({
-    name: '',
-    address: '',
-    city: '',
-    state: '',
-  });
+  const [isPropertyModalOpen, setIsPropertyModalOpen] = useState(false);
+  const [isEditingProperty, setIsEditingProperty] = useState(false);
   const [propertySaving, setPropertySaving] = useState(false);
   const [propertyModalError, setPropertyModalError] = useState<string | null>(null);
-  const [newUnitName, setNewUnitName] = useState('');
+  const [isBulkUnitModalOpen, setIsBulkUnitModalOpen] = useState(false);
   const [unitSaving, setUnitSaving] = useState(false);
   const [unitModalError, setUnitModalError] = useState<string | null>(null);
+  const [detailTab, setDetailTab] = useState('overview');
 
   const { selectedItem: selectedProperty, showDetail, selectItem: selectProperty, clearSelection } =
     useMasterDetail<Property>();
@@ -231,10 +246,14 @@ const PropertyManagementPage: React.FC = () => {
     setErrorMessage(null);
     try {
       const data = await apiFetch('/properties', { token });
-      setProperties(data);
+      console.log('Properties data received:', data);
+      // Handle both array and object formats
+      const properties = Array.isArray(data) ? data : (data?.data ?? data ?? []);
+      setProperties(properties);
     } catch (error) {
       console.error('fetchProperties', error);
       setErrorMessage('Unable to load properties right now.');
+      setProperties([]);
     } finally {
       setLoading(false);
     }
@@ -328,63 +347,163 @@ const PropertyManagementPage: React.FC = () => {
     fetchSyndicationStatus();
   }, [selectedProperty, fetchMarketingProfile, fetchSyndicationStatus]);
 
-  const handleCreateProperty = async () => {
+  const handleCreateOrUpdateProperty = async (formData: {
+    name: string;
+    address: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    country: string;
+    propertyType: string;
+    description: string;
+    yearBuilt: string;
+    taxId: string;
+    annualTaxAmount: string;
+    mortgageLender: string;
+    mortgageAccountNumber: string;
+    monthlyMortgagePayment: string;
+    mortgageInterestRate: string;
+    features: string[];
+    amenities: Array<{ key: string; label: string; value?: string; isFeatured: boolean }>;
+    photos: Array<{ url: string; caption: string; isPrimary: boolean }>;
+    tags: string[];
+  }) => {
     if (!token) {
-      return;
-    }
-    if (!newPropertyForm.name.trim() || !newPropertyForm.address.trim()) {
-      setPropertyModalError('Property name and address are required.');
       return;
     }
     setPropertySaving(true);
     setPropertyModalError(null);
     try {
-      await apiFetch('/properties', {
-        token,
-        method: 'POST',
-        body: {
-          name: newPropertyForm.name.trim(),
-          address: newPropertyForm.address.trim(),
-          city: newPropertyForm.city.trim() || undefined,
-          state: newPropertyForm.state.trim() || undefined,
-        },
-      });
+      const propertyPayload: any = {
+        name: formData.name.trim(),
+        address: formData.address.trim(),
+        city: formData.city.trim() || undefined,
+        state: formData.state.trim() || undefined,
+        zipCode: formData.zipCode.trim() || undefined,
+        country: formData.country.trim() || undefined,
+        propertyType: formData.propertyType || undefined,
+        description: formData.description.trim() || undefined,
+        yearBuilt: formData.yearBuilt ? parseInt(formData.yearBuilt) : undefined,
+        tags: formData.tags || [],
+      };
+
+      // Create or update property
+      let property;
+      if (isEditingProperty && selectedProperty) {
+        // Update existing property - would need PATCH endpoint
+        property = await apiFetch(`/properties/${selectedProperty.id}`, {
+          token,
+          method: 'PATCH',
+          body: propertyPayload,
+        });
+      } else {
+        property = await apiFetch('/properties', {
+          token,
+          method: 'POST',
+          body: propertyPayload,
+        });
+      }
+
+      // Update marketing profile with photos, amenities, and financial info
+      const marketingPayload: {
+        photos?: Array<{ url: string; caption?: string; isPrimary?: boolean; displayOrder?: number }>;
+        amenities?: Array<{ key: string; label: string; value?: string; isFeatured?: boolean }>;
+      } = {
+        photos: formData.photos.map((photo, index: number) => ({
+          url: photo.url,
+          caption: photo.caption || undefined,
+          isPrimary: photo.isPrimary || index === 0,
+          displayOrder: index,
+        })),
+        amenities: formData.amenities.map((amenity) => ({
+          key: amenity.key,
+          label: amenity.label,
+          value: amenity.value || undefined,
+          isFeatured: amenity.isFeatured || false,
+        })),
+      };
+
+      // Update marketing profile with photos and amenities
+      if (property.id) {
+        await apiFetch(`/properties/${property.id}/marketing`, {
+          token,
+          method: 'POST',
+          body: marketingPayload,
+        });
+      }
+
       await fetchProperties();
       setIsPropertyModalOpen(false);
-      setNewPropertyForm({ name: '', address: '', city: '', state: '' });
+      setIsEditingProperty(false);
     } catch (error) {
-      console.error('handleCreateProperty', error);
-      setPropertyModalError('Unable to create property right now.');
+      console.error('handleCreateOrUpdateProperty', error);
+      setPropertyModalError('Unable to save property right now.');
+      throw error;
     } finally {
       setPropertySaving(false);
     }
   };
 
-  const handleAddUnit = async () => {
+  const handleBulkCreateUnits = async (unitsData: Array<{
+    name: string;
+    bedrooms: string;
+    bathrooms: string;
+    squareFeet: string;
+    rent: string;
+    features: string[];
+    amenities: string[];
+  }>) => {
     if (!token || !selectedProperty) {
-      return;
-    }
-    if (!newUnitName.trim()) {
-      setUnitModalError('Unit name is required.');
       return;
     }
     setUnitSaving(true);
     setUnitModalError(null);
     try {
-      const createdUnit: Unit = await apiFetch(`/properties/${selectedProperty.id}/units`, {
-        token,
-        method: 'POST',
-        body: { name: newUnitName.trim() },
-      });
-      const updatedUnits = [...units, createdUnit];
+      const createdUnits: Unit[] = [];
+      
+      // Create units one by one (or batch if backend supports it)
+      for (const unitData of unitsData) {
+        const unitPayload: {
+          name: string;
+          bedrooms?: number;
+          bathrooms?: number;
+          squareFeet?: number;
+          hasParking?: boolean;
+          hasLaundry?: boolean;
+          hasBalcony?: boolean;
+          hasAC?: boolean;
+          isFurnished?: boolean;
+          petsAllowed?: boolean;
+        } = {
+          name: unitData.name.trim(),
+          bedrooms: unitData.bedrooms ? parseFloat(unitData.bedrooms) : undefined,
+          bathrooms: unitData.bathrooms ? parseFloat(unitData.bathrooms) : undefined,
+          squareFeet: unitData.squareFeet ? parseInt(unitData.squareFeet) : undefined,
+          hasParking: unitData.features.includes('Parking'),
+          hasLaundry: unitData.features.includes('Laundry'),
+          hasBalcony: unitData.features.includes('Balcony'),
+          hasAC: unitData.features.includes('AC'),
+          isFurnished: unitData.features.includes('Furnished'),
+          petsAllowed: unitData.features.includes('Pet Friendly'),
+        };
+
+        // Note: Backend may need to be updated to accept these fields
+        const createdUnit: Unit = await apiFetch(`/properties/${selectedProperty.id}/units`, {
+          token,
+          method: 'POST',
+          body: unitPayload,
+        });
+        createdUnits.push(createdUnit);
+      }
+
+      const updatedUnits = [...units, ...createdUnits];
       setUnits(updatedUnits);
       selectProperty({ ...selectedProperty, units: updatedUnits });
       await fetchProperties();
-      setNewUnitName('');
-      setIsUnitModalOpen(false);
+      setIsBulkUnitModalOpen(false);
     } catch (error) {
-      console.error('handleAddUnit', error);
-      setUnitModalError('Unable to save the new unit.');
+      console.error('handleBulkCreateUnits', error);
+      setUnitModalError('Unable to create units. Please try again.');
     } finally {
       setUnitSaving(false);
     }
@@ -516,32 +635,52 @@ const PropertyManagementPage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p className="text-sm text-foreground-500">Loading properties…</p>
+        <p className="text-sm text-gray-300">Loading properties…</p>
       </div>
     );
   }
   const master = (
-    <div className="p-4 sm:p-6 h-full flex flex-col gap-4">
+    <div className="p-4 sm:p-6 w-full flex flex-col gap-4">
       <div className="flex justify-between items-start gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Properties</h1>
-          <p className="text-sm text-foreground-500 mt-1">Maintain listings, units, and marketing feeds.</p>
+          <h1 className="text-2xl font-bold text-white">Properties</h1>
+          <p className="text-sm text-gray-300 mt-1">Maintain listings, units, and marketing feeds.</p>
         </div>
-        <Button
-          color="primary"
-          startContent={<Plus size={18} />}
-          onClick={() => setIsPropertyModalOpen(true)}
-        >
-          Add Property
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            color="primary"
+            startContent={<Plus size={18} />}
+            onClick={() => {
+              setIsEditingProperty(false);
+              setIsPropertyModalOpen(true);
+            }}
+          >
+            Add Property
+          </Button>
+          {selectedProperty && (
+            <Button
+              variant="bordered"
+              startContent={<Edit size={18} />}
+              onClick={() => {
+                setIsEditingProperty(true);
+                setIsPropertyModalOpen(true);
+              }}
+            >
+              Edit Property
+            </Button>
+          )}
+        </div>
       </div>
       {errorMessage && (
         <p className="text-sm text-danger-600">{errorMessage}</p>
       )}
+      <div className="mb-2 text-sm text-gray-300">
+        Debug: {properties.length} properties loaded, loading: {loading ? 'true' : 'false'}
+      </div>
       <Card className="flex-1 overflow-hidden">
         <CardBody className="space-y-4 overflow-y-auto max-h-[calc(100vh-220px)]">
           {properties.length === 0 && (
-            <div className="text-sm text-foreground-500">
+            <div className="text-sm text-gray-300">
               No properties yet. Use the button above to add the first asset.
             </div>
           )}
@@ -557,10 +696,10 @@ const PropertyManagementPage: React.FC = () => {
                 <CardBody className="space-y-2">
                   <div className="flex justify-between items-start gap-3">
                     <div className="flex items-start gap-3">
-                      <Building2 size={20} className="text-foreground-500" />
+                      <Building2 size={20} className="text-gray-300" />
                       <div>
-                        <p className="text-base font-semibold text-foreground">{property.name}</p>
-                        <p className="text-xs text-foreground-500">
+                        <p className="text-base font-semibold text-white">{property.name}</p>
+                        <p className="text-xs text-gray-300">
                           <MapPin size={12} className="inline mr-1" />
                           {formatAddress(property) || 'Address not set'}
                         </p>
@@ -574,7 +713,7 @@ const PropertyManagementPage: React.FC = () => {
                       {property.marketingProfile?.availabilityStatus ?? 'Unknown status'}
                     </Chip>
                   </div>
-                  <div className="flex items-center justify-between text-sm text-foreground-500">
+                  <div className="flex items-center justify-between text-sm text-gray-300">
                     <span>
                       {property.units?.length ?? property.unitCount ?? 0} units
                     </span>
@@ -617,12 +756,19 @@ const PropertyManagementPage: React.FC = () => {
               <ArrowLeft size={20} />
             </Button>
           )}
-          <Card>
+          
+          <Tabs
+            selectedKey={detailTab}
+            onSelectionChange={(key) => setDetailTab(key as string)}
+            className="w-full"
+          >
+            <Tab key="overview" title="Overview">
+              <Card>
             <CardHeader className="flex justify-between items-start gap-4">
               <div>
-                <p className="text-xs uppercase tracking-wide text-foreground-500">Property overview</p>
-                <h2 className="text-2xl font-semibold text-foreground">{selectedProperty.name}</h2>
-                <p className="text-sm text-foreground-500">
+                <p className="text-xs uppercase tracking-wide text-gray-400">Property overview</p>
+                <h2 className="text-2xl font-semibold text-white">{selectedProperty.name}</h2>
+                <p className="text-sm text-gray-300">
                   {formatAddress(selectedProperty) || 'Address not provided yet'}
                 </p>
               </div>
@@ -637,8 +783,8 @@ const PropertyManagementPage: React.FC = () => {
             </CardHeader>
             <CardBody className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-2">
-                <p className="text-xs uppercase tracking-wide text-foreground-500">Property type</p>
-                <p className="text-sm text-foreground">{selectedProperty.propertyType ?? 'Residential'}</p>
+                <p className="text-xs uppercase tracking-wide text-gray-400">Property type</p>
+                <p className="text-sm text-white">{selectedProperty.propertyType ?? 'Residential'}</p>
                 <div className="flex flex-wrap gap-2">
                   {selectedProperty.tags?.map((tag) => (
                     <Chip key={`tag-${tag}`} size="sm" variant="flat">
@@ -648,39 +794,194 @@ const PropertyManagementPage: React.FC = () => {
                 </div>
               </div>
               <div className="space-y-2">
-                <p className="text-xs uppercase tracking-wide text-foreground-500">Last synced</p>
-                <p className="text-sm text-foreground">
+                <p className="text-xs uppercase tracking-wide text-gray-400">Last synced</p>
+                <p className="text-sm text-white">
                   {marketingProfile?.marketingProfile?.lastSyncedAt ?
                     formatDateTime(marketingProfile.marketingProfile.lastSyncedAt) : 'Not synced yet'}
                 </p>
               </div>
             </CardBody>
           </Card>
+            </Tab>
+
+            <Tab key="financial" title="Financial">
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <DollarSign size={18} className="text-gray-300" />
+                      <h3 className="text-lg font-semibold text-white">Tax & Mortgage Information</h3>
+                    </div>
+                  </CardHeader>
+                  <CardBody className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-400 mb-1">Tax ID / Parcel Number</p>
+                        <p className="text-sm text-white">{selectedProperty.taxId || 'Not set'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400 mb-1">Annual Tax Amount</p>
+                        <p className="text-sm text-white">
+                          {selectedProperty.annualTaxAmount 
+                            ? formatCurrency(selectedProperty.annualTaxAmount) 
+                            : 'Not set'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-400 mb-1">Mortgage Lender</p>
+                        <p className="text-sm text-white">{selectedProperty.mortgageLender || 'Not set'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400 mb-1">Account Number</p>
+                        <p className="text-sm text-white">{selectedProperty.mortgageAccountNumber || 'Not set'}</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-400 mb-1">Monthly Payment</p>
+                        <p className="text-sm text-white">
+                          {selectedProperty.monthlyMortgagePayment 
+                            ? formatCurrency(selectedProperty.monthlyMortgagePayment) 
+                            : 'Not set'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400 mb-1">Interest Rate</p>
+                        <p className="text-sm text-white">
+                          {selectedProperty.mortgageInterestRate 
+                            ? `${selectedProperty.mortgageInterestRate}%` 
+                            : 'Not set'}
+                        </p>
+                      </div>
+                    </div>
+                  </CardBody>
+                </Card>
+              </div>
+            </Tab>
+
+            <Tab key="photos" title="Photos">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center gap-2">
+                      <ImageIcon size={18} className="text-gray-300" />
+                      <h3 className="text-lg font-semibold text-white">Property Photos</h3>
+                    </div>
+                    <Chip size="sm" variant="flat">
+                      {selectedProperty.photos?.length || 0} photos
+                    </Chip>
+                  </div>
+                </CardHeader>
+                <CardBody>
+                  {selectedProperty.photos && selectedProperty.photos.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      {selectedProperty.photos.map((photo, index) => (
+                        <div key={index} className="relative">
+                          <img
+                            src={photo.url}
+                            alt={photo.caption || `Photo ${index + 1}`}
+                            className="w-full h-48 object-cover rounded-lg"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = 'https://via.placeholder.com/300x200?text=Invalid+URL';
+                            }}
+                          />
+                          {photo.isPrimary && (
+                            <Chip size="sm" color="primary" className="absolute top-2 left-2">
+                              Primary
+                            </Chip>
+                          )}
+                          {photo.caption && (
+                            <p className="text-xs text-gray-400 mt-2">{photo.caption}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-400 text-center py-8">No photos added yet</p>
+                  )}
+                </CardBody>
+              </Card>
+            </Tab>
+
+            <Tab key="amenities" title="Amenities">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Home size={18} className="text-gray-300" />
+                    <h3 className="text-lg font-semibold text-white">Property Features & Amenities</h3>
+                  </div>
+                </CardHeader>
+                <CardBody>
+                  {selectedProperty.amenities && selectedProperty.amenities.length > 0 ? (
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-xs text-gray-400 mb-2">Featured Amenities</p>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedProperty.amenities
+                            .filter((a) => a.isFeatured)
+                            .map((amenity) => (
+                              <Chip key={amenity.key} color="primary" variant="flat">
+                                {amenity.label}
+                                {amenity.value && `: ${amenity.value}`}
+                              </Chip>
+                            ))}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400 mb-2">All Amenities</p>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedProperty.amenities.map((amenity) => (
+                            <Chip
+                              key={amenity.key}
+                              variant="bordered"
+                              color={amenity.isFeatured ? 'primary' : 'default'}
+                            >
+                              {amenity.label}
+                              {amenity.value && `: ${amenity.value}`}
+                            </Chip>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-400 text-center py-8">No amenities added yet</p>
+                  )}
+                </CardBody>
+              </Card>
+            </Tab>
+          </Tabs>
 
           <div className="grid gap-4 lg:grid-cols-3">
             <Card className="lg:col-span-2">
               <CardHeader className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-foreground-500">Units</p>
-                  <h3 className="text-lg font-semibold text-foreground">Manage units</h3>
+                  <p className="text-xs uppercase tracking-wide text-gray-400">Units</p>
+                  <h3 className="text-lg font-semibold text-white">Manage units</h3>
                 </div>
-                <Button size="sm" color="primary" onClick={() => setIsUnitModalOpen(true)} startContent={<Plus size={16} />}>
-                  Add unit
+                <Button 
+                  size="sm" 
+                  color="primary" 
+                  onClick={() => setIsBulkUnitModalOpen(true)} 
+                  startContent={<Plus size={16} />}
+                >
+                  Add Units
                 </Button>
               </CardHeader>
               <CardBody className="space-y-3 max-h-[420px] overflow-y-auto">
                 {units.length === 0 && (
-                  <p className="text-sm text-foreground-500">No units recorded yet.</p>
+                  <p className="text-sm text-gray-300">No units recorded yet.</p>
                 )}
                 {units.map((unit) => (
                   <div key={unit.id} className="flex items-center justify-between gap-3 border-b border-dashed border-foreground/20 py-2 last:border-none">
                     <div>
-                      <p className="font-semibold text-foreground">{unit.name}</p>
-                      <p className="text-xs text-foreground-500">
+                      <p className="font-semibold text-white">{unit.name}</p>
+                      <p className="text-xs text-gray-300">
                         {unit.status ?? 'Status pending'}
                       </p>
                     </div>
-                    <p className="text-sm font-medium text-foreground">
+                    <p className="text-sm font-medium text-white">
                       {unit.rent ? formatCurrency(unit.rent) : 'Rent TBD'}
                     </p>
                   </div>
@@ -692,8 +993,8 @@ const PropertyManagementPage: React.FC = () => {
               <Card>
                 <CardHeader className="flex justify-between items-center">
                   <div>
-                    <p className="text-xs uppercase tracking-wide text-foreground-500">Marketing</p>
-                    <h3 className="text-lg font-semibold text-foreground">Listing details</h3>
+                    <p className="text-xs uppercase tracking-wide text-gray-400">Marketing</p>
+                    <h3 className="text-lg font-semibold text-white">Listing details</h3>
                   </div>
                   <Chip color="secondary" variant="flat">
                     {marketingProfile?.marketingProfile?.availabilityStatus ?? 'Draft'}
@@ -744,7 +1045,7 @@ const PropertyManagementPage: React.FC = () => {
                     onChange={(event) => setMarketingForm((prev) => ({ ...prev, marketingDescription: event.target.value }))}
                   />
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm text-foreground-500">
+                    <p className="text-sm text-gray-300">
                       Auto-syndication is {marketingForm.isSyndicationEnabled ? 'Enabled' : 'Disabled'}
                     </p>
                     <Button
@@ -759,12 +1060,12 @@ const PropertyManagementPage: React.FC = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs uppercase tracking-wide text-foreground-500">Photos</p>
-                      <p className="text-sm text-foreground">{marketingProfile?.photos?.length ?? 0} saved</p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-foreground-500">Amenities</p>
-                      <p className="text-sm text-foreground">{marketingProfile?.amenities?.length ?? 0} mapped</p>
+                      <p className="text-xs uppercase tracking-wide text-gray-400">Photos</p>
+                      <p className="text-sm text-white">{marketingProfile?.photos?.length ?? 0} saved</p>
+                      </div>
+                      <div>
+                      <p className="text-xs uppercase tracking-wide text-gray-400">Amenities</p>
+                      <p className="text-sm text-white">{marketingProfile?.amenities?.length ?? 0} mapped</p>
                     </div>
                   </div>
                   <Button
@@ -781,8 +1082,8 @@ const PropertyManagementPage: React.FC = () => {
               <Card>
                 <CardHeader className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs uppercase tracking-wide text-foreground-500">Listing syndication</p>
-                    <h3 className="text-lg font-semibold text-foreground">Sync status</h3>
+                    <p className="text-xs uppercase tracking-wide text-gray-400">Listing syndication</p>
+                    <h3 className="text-lg font-semibold text-white">Sync status</h3>
                   </div>
                   <div className="flex gap-2">
                     <Button size="sm" color="primary" onClick={handleTriggerSyndication} isLoading={syncing}>
@@ -795,9 +1096,9 @@ const PropertyManagementPage: React.FC = () => {
                 </CardHeader>
                 <CardBody className="space-y-3">
                   {syndicationLoading ? (
-                    <p className="text-sm text-foreground-500">Refreshing syndication state...</p>
+                    <p className="text-sm text-gray-300">Refreshing syndication state...</p>
                   ) : syndicationStatus.length === 0 ? (
-                    <p className="text-sm text-foreground-500">No syndication history yet.</p>
+                    <p className="text-sm text-gray-300">No syndication history yet.</p>
                   ) : (
                     syndicationStatus.map((entry) => {
                       const channelLabel =
@@ -809,8 +1110,8 @@ const PropertyManagementPage: React.FC = () => {
                           className="flex items-center justify-between rounded-lg border border-foreground/10 p-3"
                         >
                           <div>
-                            <p className="text-sm font-semibold text-foreground">{channelLabel}</p>
-                            <p className="text-xs text-foreground-500">
+                            <p className="text-sm font-semibold text-white">{channelLabel}</p>
+                            <p className="text-xs text-gray-300">
                               {entry.lastAttemptAt ? formatDateTime(entry.lastAttemptAt) : 'Awaiting first sync'}
                             </p>
                             {entry.lastError && (
@@ -832,8 +1133,8 @@ const PropertyManagementPage: React.FC = () => {
           <Card>
             <CardHeader>
               <div>
-                <p className="text-xs uppercase tracking-wide text-foreground-500">Channel credentials</p>
-                <h3 className="text-lg font-semibold text-foreground">Listing syndication APIs</h3>
+                <p className="text-xs uppercase tracking-wide text-gray-400">Channel credentials</p>
+                <h3 className="text-lg font-semibold text-white">Listing syndication APIs</h3>
               </div>
             </CardHeader>
             <CardBody className="space-y-6">
@@ -843,8 +1144,8 @@ const PropertyManagementPage: React.FC = () => {
                   <div key={definition.key} className="space-y-3 rounded-lg border border-foreground/10 p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-semibold text-foreground">{definition.label}</p>
-                        <p className="text-xs text-foreground-500">{definition.description}</p>
+                        <p className="font-semibold text-white">{definition.label}</p>
+                        <p className="text-xs text-gray-300">{definition.description}</p>
                       </div>
                       <Chip color={form.isEnabled ? 'success' : 'default'} size="sm" variant="flat">
                         {form.isEnabled ? 'Enabled' : 'Disabled'}
@@ -882,7 +1183,7 @@ const PropertyManagementPage: React.FC = () => {
         </>
       ) : (
         <div className="flex items-center justify-center h-full">
-          <p className="text-sm text-foreground-500">Select a property to view and manage its marketing.</p>
+          <p className="text-sm text-gray-300">Select a property to view and manage its marketing.</p>
         </div>
       )}
     </div>
@@ -891,84 +1192,58 @@ const PropertyManagementPage: React.FC = () => {
     <>
       <MasterDetailLayout master={master} detail={detail} showDetail={showDetail} />
 
-      <Modal
+      <PropertyForm
         isOpen={isPropertyModalOpen}
         onClose={() => {
           setIsPropertyModalOpen(false);
+          setIsEditingProperty(false);
           setPropertyModalError(null);
         }}
-      >
-        <ModalContent>
-          <ModalHeader>
-            Add new property
-          </ModalHeader>
-          <ModalBody className="space-y-4">
-            {propertyModalError && (
-              <p className="text-sm text-danger-600">{propertyModalError}</p>
-            )}
-            <Input
-              label="Property name"
-              value={newPropertyForm.name}
-              onChange={(event) => setNewPropertyForm((prev) => ({ ...prev, name: event.target.value }))}
-            />
-            <Input
-              label="Address"
-              value={newPropertyForm.address}
-              onChange={(event) => setNewPropertyForm((prev) => ({ ...prev, address: event.target.value }))}
-            />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Input
-                label="City"
-                value={newPropertyForm.city}
-                onChange={(event) => setNewPropertyForm((prev) => ({ ...prev, city: event.target.value }))}
-              />
-              <Input
-                label="State"
-                value={newPropertyForm.state}
-                onChange={(event) => setNewPropertyForm((prev) => ({ ...prev, state: event.target.value }))}
-              />
-            </div>
-          </ModalBody>
-          <ModalFooter className="flex justify-end gap-3">
-            <Button variant="ghost" onClick={() => setIsPropertyModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button color="primary" onClick={handleCreateProperty} isDisabled={propertySaving} isLoading={propertySaving}>
-              Save property
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+        onSubmit={handleCreateOrUpdateProperty}
+        initialData={isEditingProperty && selectedProperty ? {
+          name: selectedProperty.name,
+          address: selectedProperty.address || '',
+          city: selectedProperty.city || '',
+          state: selectedProperty.state || '',
+          zipCode: selectedProperty.zipCode || '',
+          country: selectedProperty.country || 'USA',
+          propertyType: selectedProperty.propertyType || '',
+          description: selectedProperty.description || '',
+          yearBuilt: selectedProperty.yearBuilt?.toString() || '',
+          taxId: selectedProperty.taxId || '',
+          annualTaxAmount: selectedProperty.annualTaxAmount?.toString() || '',
+          mortgageLender: selectedProperty.mortgageLender || '',
+          mortgageAccountNumber: selectedProperty.mortgageAccountNumber || '',
+          monthlyMortgagePayment: selectedProperty.monthlyMortgagePayment?.toString() || '',
+          mortgageInterestRate: selectedProperty.mortgageInterestRate?.toString() || '',
+          features: [],
+          amenities: (selectedProperty.amenities || []).map(a => ({
+            key: a.key,
+            label: a.label,
+            value: a.value,
+            isFeatured: a.isFeatured ?? false,
+          })),
+          photos: (selectedProperty.photos || []).map(p => ({
+            url: p.url,
+            caption: p.caption || '',
+            isPrimary: p.isPrimary ?? false,
+          })),
+          tags: selectedProperty.tags || [],
+        } : undefined}
+        isLoading={propertySaving}
+        error={propertyModalError}
+      />
 
-      <Modal
-        isOpen={isUnitModalOpen}
+      <BulkUnitCreator
+        isOpen={isBulkUnitModalOpen}
         onClose={() => {
-          setIsUnitModalOpen(false);
+          setIsBulkUnitModalOpen(false);
           setUnitModalError(null);
         }}
-      >
-        <ModalContent>
-          <ModalHeader>Add unit</ModalHeader>
-          <ModalBody className="space-y-4">
-            {unitModalError && (
-              <p className="text-sm text-danger-600">{unitModalError}</p>
-            )}
-            <Input
-              label="Unit name"
-              value={newUnitName}
-              onChange={(event) => setNewUnitName(event.target.value)}
-            />
-          </ModalBody>
-          <ModalFooter className="flex justify-end gap-3">
-            <Button variant="ghost" onClick={() => setIsUnitModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button color="primary" onClick={handleAddUnit} isDisabled={unitSaving} isLoading={unitSaving}>
-              Add unit
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+        onSubmit={handleBulkCreateUnits}
+        isLoading={unitSaving}
+        error={unitModalError}
+      />
     </>
   );
 };

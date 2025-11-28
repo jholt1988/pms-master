@@ -1600,3 +1600,57 @@ model QuickBooksConnection {
   @@unique([userId, companyId])
   @@map("quickbooks_connections")
 }
+
+// Workflow Execution Models
+model WorkflowExecution {
+  id          String   @id @default(uuid())
+  workflowId  String
+  status      String   // PENDING, RUNNING, COMPLETED, FAILED, CANCELLED
+  input       Json
+  output      Json     @default("{}")
+  error       String?
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  steps WorkflowExecutionStep[]
+
+  @@index([workflowId, status])
+  @@index([startedAt])
+  @@map("workflow_executions")
+}
+
+model WorkflowExecutionStep {
+  id          Int      @id @default(autoincrement())
+  executionId String
+  stepId      String
+  status      String   // PENDING, RUNNING, COMPLETED, FAILED, SKIPPED
+  input       Json     @default("{}")
+  output      Json     @default("{}")
+  error       String?
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+
+  execution WorkflowExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@unique([executionId, stepId])
+  @@index([executionId])
+  @@map("workflow_execution_steps")
+}
+
+model DeadLetterQueue {
+  id          String   @id @default(uuid())
+  workflowId  String
+  executionId String
+  input       Json
+  error       String
+  errorCode   String
+  retryCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+  processedAt DateTime?
+
+  @@index([workflowId])
+  @@index([createdAt])
+  @@map("dead_letter_queue")
+}

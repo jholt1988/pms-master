@@ -1,10 +1,20 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ForbiddenException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { WorkflowStep, WorkflowExecution, WorkflowStatus } from './workflow.types';
 import { AIMaintenanceService } from '../maintenance/ai-maintenance.service';
 import { AIPaymentService } from '../payments/ai-payment.service';
 import { AILeaseRenewalService } from '../lease/ai-lease-renewal.service';
 import { AINotificationService } from '../notifications/ai-notification.service';
+import { WorkflowError, WorkflowErrorCode } from './workflow.errors';
+import { WorkflowMetricsService } from './workflow-metrics.service';
+import { WorkflowCacheService } from './workflow-cache.service';
+import { WorkflowRateLimiterService } from './workflow-rate-limiter.service';
+import { callAIServiceWithRetry } from './workflow-ai-helper';
+import { buildStepGraph, topologicalSort } from './workflow-parallel-executor';
+import { Parser } from 'expr-eval';
+import { v4 as uuidv4 } from 'uuid';
+import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 
 export interface WorkflowDefinition {
   id: string;
@@ -15,19 +25,52 @@ export interface WorkflowDefinition {
   maxRetries?: number;
 }
 
+// Input validation schema
+const WorkflowInputSchema = z.object({
+  tenantId: z.number().optional(),
+  unitId: z.number().optional(),
+  userId: z.number().optional(),
+  leaseId: z.number().optional(),
+  requestId: z.number().optional(),
+  invoiceId: z.number().optional(),
+  tenantEmail: z.string().email().optional(),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  content: z.string().optional(),
+  notificationType: z.string().optional(),
+  urgency: z.string().optional(),
+}).passthrough();
+
 @Injectable()
 export class WorkflowEngineService {
   private readonly logger = new Logger(WorkflowEngineService.name);
   private workflows: Map<string, WorkflowDefinition> = new Map();
+  private stepRetryCount: Map<string, Map<string, number>> = new Map(); // executionId -> stepId -> count
+  private readonly conditionParser = new Parser();
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiMaintenanceService?: AIMaintenanceService,
-    private readonly aiPaymentService?: AIPaymentService,
-    private readonly aiLeaseRenewalService?: AILeaseRenewalService,
-    private readonly aiNotificationService?: AINotificationService,
+    @Optional() private readonly workflowMetrics?: WorkflowMetricsService,
+    @Optional() private readonly workflowCache?: WorkflowCacheService,
+    @Optional() private readonly rateLimiter?: WorkflowRateLimiterService,
+    @Optional() private readonly aiMaintenanceService?: AIMaintenanceService,
+    @Optional() private readonly aiPaymentService?: AIPaymentService,
+    @Optional() private readonly aiLeaseRenewalService?: AILeaseRenewalService,
+    @Optional() private readonly aiNotificationService?: AINotificationService,
   ) {
     this.registerDefaultWorkflows();
+    // Clear expired cache entries periodically
+    if (this.workflowCache) {
+      setInterval(() => {
+        this.workflowCache!.clearExpiredEntries();
+      }, 60000); // Every minute
+    }
+    // Clear expired rate limit entries periodically
+    if (this.rateLimiter) {
+      setInterval(() => {
+        this.rateLimiter!.clearExpiredEntries();
+      }, 60000); // Every minute
+    }
   }
 
   /**
@@ -39,100 +82,307 @@ export class WorkflowEngineService {
   }
 
   /**
-   * Execute a workflow
+   * Execute a workflow with full production-grade error handling
    */
   async executeWorkflow(
     workflowId: string,
     input: Record<string, any>,
     userId?: number,
   ): Promise<WorkflowExecution> {
-    const workflow = this.workflows.get(workflowId);
-    if (!workflow) {
-      throw new Error(`Workflow ${workflowId} not found`);
+    const correlationId = uuidv4();
+    const startTime = Date.now();
+
+    // Validate input
+    let validatedInput: Record<string, any>;
+    try {
+      validatedInput = WorkflowInputSchema.parse(input);
+    } catch (error) {
+      this.logger.error('Invalid workflow input', {
+        correlationId,
+        workflowId,
+        error: error instanceof z.ZodError ? error.errors : error,
+        input: this.maskSensitiveData(input),
+      });
+      throw new WorkflowError(
+        WorkflowErrorCode.INVALID_INPUT,
+        'Invalid workflow input',
+        { validationErrors: error instanceof z.ZodError ? error.errors : [] },
+      );
     }
 
-    const execution: WorkflowExecution = {
-      id: `exec-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      workflowId,
-      status: 'RUNNING',
-      input,
-      output: {},
-      steps: [],
-      startedAt: new Date(),
-      completedAt: null,
-      error: null,
-    };
+    // Get workflow (check cache first)
+    let workflow = this.workflowCache?.getWorkflow(workflowId) || null;
+    if (!workflow) {
+      workflow = this.workflows.get(workflowId) || null;
+      if (workflow && this.workflowCache) {
+        // Cache the workflow
+        this.workflowCache.setWorkflow(workflowId, workflow);
+      }
+    }
 
+    if (!workflow) {
+      this.logger.error('Workflow not found', { correlationId, workflowId });
+      throw new WorkflowError(
+        WorkflowErrorCode.WORKFLOW_NOT_FOUND,
+        `Workflow ${workflowId} not found`,
+      );
+    }
+
+    // Check permissions
+    if (userId) {
+      const hasPermission = await this.checkWorkflowPermission(userId, workflowId);
+      if (!hasPermission) {
+        this.logger.warn('Unauthorized workflow execution attempt', {
+          correlationId,
+          workflowId,
+          userId,
+        });
+        throw new WorkflowError(
+          WorkflowErrorCode.UNAUTHORIZED,
+          `User ${userId} not authorized to execute workflow ${workflowId}`,
+        );
+      }
+
+      // Check rate limit
+      if (this.rateLimiter) {
+        const rateLimitKey = this.rateLimiter.generateUserKey(userId, workflowId);
+        const rateLimit = await this.rateLimiter.checkRateLimit(rateLimitKey, 10, 60); // 10 per minute
+
+        if (!rateLimit.allowed) {
+          this.logger.warn('Rate limit exceeded', {
+            correlationId,
+            workflowId,
+            userId,
+            resetAt: new Date(rateLimit.resetAt),
+          });
+          throw new WorkflowError(
+            WorkflowErrorCode.TIMEOUT,
+            `Rate limit exceeded. Try again after ${new Date(rateLimit.resetAt).toISOString()}`,
+          );
+        }
+      }
+    }
+
+    // Execute in transaction
     try {
-      // Execute steps sequentially or in parallel based on workflow definition
-      for (const step of workflow.steps) {
-        const stepResult = await this.executeStep(step, execution, userId);
+      return await this.prisma.$transaction(async (tx) => {
+        const executionId = `exec-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-        execution.steps.push({
-          stepId: step.id,
-          status: stepResult.success ? 'COMPLETED' : 'FAILED',
-          input: stepResult.input,
-          output: stepResult.output,
-          error: stepResult.error,
-          startedAt: stepResult.startedAt,
-          completedAt: stepResult.completedAt,
+        // Create execution record
+        const execution: WorkflowExecution = {
+          id: executionId,
+          workflowId,
+          status: 'RUNNING',
+          input: validatedInput,
+          output: {},
+          steps: [],
+          startedAt: new Date(),
+          completedAt: null,
+          error: null,
+        };
+
+        this.logger.log('Workflow execution started', {
+          correlationId,
+          executionId,
+          workflowId,
+          userId,
+          input: this.maskSensitiveData(validatedInput),
         });
 
-        // Check if step failed and handle according to workflow error strategy
-        if (!stepResult.success) {
-          if (workflow.onError === 'STOP') {
-            execution.status = 'FAILED';
-            execution.error = stepResult.error;
-            break;
-          } else if (workflow.onError === 'RETRY') {
-            const retries = execution.steps.filter(
-              (s) => s.stepId === step.id && s.status === 'FAILED',
-            ).length;
+        // Initialize retry tracking for this execution
+        this.stepRetryCount.set(executionId, new Map());
 
-            if (retries < (workflow.maxRetries || 3)) {
-              // Retry the step
-              this.logger.log(`Retrying step ${step.id} (attempt ${retries + 1})`);
-              const retryResult = await this.executeStep(step, execution, userId);
-              execution.steps[execution.steps.length - 1] = {
+        try {
+          // Persist initial execution state
+          await this.persistExecution(tx, execution);
+
+          // Execute steps (with parallel execution support)
+          const stepGraph = buildStepGraph(workflow.steps);
+          const executionGroups = topologicalSort(stepGraph);
+
+          this.logger.log('Workflow execution plan', {
+            correlationId,
+            executionId,
+            workflowId,
+            totalSteps: workflow.steps.length,
+            executionGroups: executionGroups.length,
+            parallelGroups: executionGroups.filter((g) => g.length > 1).length,
+          });
+
+          // Execute step groups (each group can run in parallel)
+          for (const stepGroup of executionGroups) {
+            if (stepGroup.length === 1) {
+              // Single step - execute normally
+              const step = stepGroup[0];
+              const stepResult = await this.executeStepWithRetry(
+                step,
+                execution,
+                userId,
+                correlationId,
+                workflow,
+              );
+
+              execution.steps.push({
                 stepId: step.id,
-                status: retryResult.success ? 'COMPLETED' : 'FAILED',
-                input: retryResult.input,
-                output: retryResult.output,
-                error: retryResult.error,
-                startedAt: retryResult.startedAt,
-                completedAt: retryResult.completedAt,
-              };
+                status: stepResult.success ? 'COMPLETED' : 'FAILED',
+                input: stepResult.input,
+                output: stepResult.output,
+                error: stepResult.error,
+                startedAt: stepResult.startedAt,
+                completedAt: stepResult.completedAt,
+              });
+
+              // Handle step failure
+              if (!stepResult.success) {
+                if (workflow.onError === 'STOP') {
+                  execution.status = 'FAILED';
+                  execution.error = stepResult.error || 'Step execution failed';
+                  break;
+                } else if (workflow.onError === 'CONTINUE') {
+                  this.logger.warn('Step failed, continuing workflow', {
+                    correlationId,
+                    executionId,
+                    stepId: step.id,
+                    error: stepResult.error,
+                  });
+                }
+              }
+
+              // Update execution output
+              if (stepResult.output) {
+                execution.output = { ...execution.output, ...stepResult.output };
+              }
             } else {
-              execution.status = 'FAILED';
-              execution.error = `Step ${step.id} failed after ${retries} retries`;
-              break;
+              // Multiple steps - execute in parallel
+              this.logger.log('Executing steps in parallel', {
+                correlationId,
+                executionId,
+                stepIds: stepGroup.map((s) => s.id),
+              });
+
+              const stepResults = await Promise.all(
+                stepGroup.map((step) =>
+                  this.executeStepWithRetry(step, execution, userId, correlationId, workflow),
+                ),
+              );
+
+              // Process results
+              for (let i = 0; i < stepGroup.length; i++) {
+                const step = stepGroup[i];
+                const stepResult = stepResults[i];
+
+                execution.steps.push({
+                  stepId: step.id,
+                  status: stepResult.success ? 'COMPLETED' : 'FAILED',
+                  input: stepResult.input,
+                  output: stepResult.output,
+                  error: stepResult.error,
+                  startedAt: stepResult.startedAt,
+                  completedAt: stepResult.completedAt,
+                });
+
+                // Handle step failure
+                if (!stepResult.success) {
+                  if (workflow.onError === 'STOP') {
+                    execution.status = 'FAILED';
+                    execution.error = stepResult.error || 'Step execution failed';
+                    break;
+                  } else if (workflow.onError === 'CONTINUE') {
+                    this.logger.warn('Step failed, continuing workflow', {
+                      correlationId,
+                      executionId,
+                      stepId: step.id,
+                      error: stepResult.error,
+                    });
+                  }
+                }
+
+                // Update execution output
+                if (stepResult.output) {
+                  execution.output = { ...execution.output, ...stepResult.output };
+                }
+              }
+
+              // If any step failed and workflow should stop, break
+              if (execution.status === 'FAILED' && workflow.onError === 'STOP') {
+                break;
+              }
             }
+
+            // Checkpoint execution state after each group
+            await this.checkpointExecution(tx, execution);
           }
-          // If onError is 'CONTINUE', just log and continue
+
+          // Mark as completed if still running
+          if (execution.status === 'RUNNING') {
+            execution.status = 'COMPLETED';
+          }
+
+          execution.completedAt = new Date();
+
+          // Final persistence
+          await this.persistExecution(tx, execution);
+
+          const duration = Date.now() - startTime;
+          const failedStepCount = execution.steps.filter((s) => s.status === 'FAILED').length;
+
+          // Record metrics
+          if (this.workflowMetrics) {
+            this.workflowMetrics.recordMetric({
+              workflowId,
+              executionId,
+              status: execution.status as 'COMPLETED' | 'FAILED' | 'CANCELLED',
+              duration,
+              stepCount: execution.steps.length,
+              failedStepCount,
+              errorCode: execution.error
+                ? this.extractErrorCode(execution.error)
+                : undefined,
+            });
+          }
+
+          this.logger.log('Workflow execution completed', {
+            correlationId,
+            executionId,
+            workflowId,
+            status: execution.status,
+            duration,
+            stepCount: execution.steps.length,
+            failedStepCount,
+            errorCode: execution.error ? this.extractErrorCode(execution.error) : undefined,
+          });
+
+          return execution;
+        } catch (error) {
+          execution.status = 'FAILED';
+          execution.error = error instanceof Error ? error.message : 'Unknown error';
+          execution.completedAt = new Date();
+
+          await this.persistExecution(tx, execution);
+
+          // Send to dead letter queue if max retries exceeded
+          if (error instanceof WorkflowError && error.code === WorkflowErrorCode.MAX_RETRIES_EXCEEDED) {
+            await this.sendToDeadLetterQueue(tx, execution, error);
+          }
+
+          throw error;
+        } finally {
+          // Clean up retry tracking
+          this.stepRetryCount.delete(executionId);
         }
-
-        // Update execution output with step output
-        if (stepResult.output) {
-          execution.output = { ...execution.output, ...stepResult.output };
-        }
-      }
-
-      if (execution.status === 'RUNNING') {
-        execution.status = 'COMPLETED';
-      }
-
-      execution.completedAt = new Date();
+      });
     } catch (error) {
-      execution.status = 'FAILED';
-      execution.error = error instanceof Error ? error.message : 'Unknown error';
-      execution.completedAt = new Date();
-      this.logger.error(`Workflow ${workflowId} failed`, error);
+      const duration = Date.now() - startTime;
+      this.logger.error('Workflow execution failed', {
+        correlationId,
+        workflowId,
+        error: error instanceof Error ? error.message : String(error),
+        errorType: error instanceof Error ? error.constructor.name : 'Unknown',
+        duration,
+      });
+
+      throw error;
     }
-
-    // Store execution in database (if table exists)
-    await this.storeExecution(execution);
-
-    return execution;
   }
 
   /**
@@ -141,7 +391,8 @@ export class WorkflowEngineService {
   private async executeStep(
     step: WorkflowStep,
     execution: WorkflowExecution,
-    userId?: number,
+    userId: number | undefined,
+    correlationId: string,
   ): Promise<{
     success: boolean;
     input: any;
@@ -175,16 +426,16 @@ export class WorkflowEngineService {
           output = await this.executeSendNotification(step, execution, userId);
           break;
         case 'ASSIGN_PRIORITY_AI':
-          output = await this.executeAssignPriorityAI(step, execution, userId);
+          output = await this.executeAssignPriorityAI(step, execution, userId, correlationId);
           break;
         case 'ASSESS_PAYMENT_RISK_AI':
-          output = await this.executeAssessPaymentRiskAI(step, execution, userId);
+          output = await this.executeAssessPaymentRiskAI(step, execution, userId, correlationId);
           break;
         case 'PREDICT_RENEWAL_AI':
-          output = await this.executePredictRenewalAI(step, execution, userId);
+          output = await this.executePredictRenewalAI(step, execution, userId, correlationId);
           break;
         case 'PERSONALIZE_NOTIFICATION_AI':
-          output = await this.executePersonalizeNotificationAI(step, execution, userId);
+          output = await this.executePersonalizeNotificationAI(step, execution, userId, correlationId);
           break;
         case 'CONDITIONAL':
           output = await this.executeConditional(step, execution, userId);
@@ -205,6 +456,14 @@ export class WorkflowEngineService {
         completedAt: new Date(),
       };
     } catch (error) {
+      this.logger.error('Step execution failed', {
+        correlationId,
+        executionId: execution.id,
+        stepId: step.id,
+        stepType: step.type,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
       return {
         success: false,
         input: step.input || {},
@@ -331,51 +590,97 @@ export class WorkflowEngineService {
     step: WorkflowStep,
     execution: WorkflowExecution,
     userId?: number,
+    correlationId?: string,
   ): Promise<any> {
-    this.logger.log(`Executing ASSIGN_PRIORITY_AI step: ${step.id}`);
+    this.logger.log(`Executing ASSIGN_PRIORITY_AI step: ${step.id}`, { correlationId });
 
     if (!this.aiMaintenanceService) {
-      this.logger.warn('AIMaintenanceService not available, skipping AI priority assignment');
+      this.logger.warn('AIMaintenanceService not available, skipping AI priority assignment', {
+        correlationId,
+        stepId: step.id,
+      });
       return { priority: 'MEDIUM', note: 'AI service not available' };
     }
 
-    try {
-      const requestId = step.input?.requestId || execution.output?.maintenanceRequestId;
-      if (!requestId) {
-        throw new Error('Request ID is required for AI priority assignment');
-      }
+    const requestId = step.input?.requestId || execution.output?.maintenanceRequestId;
+    if (!requestId) {
+      throw new WorkflowError(
+        WorkflowErrorCode.INVALID_INPUT,
+        'Request ID is required for AI priority assignment',
+      );
+    }
 
-      const request = await this.prisma.maintenanceRequest.findUnique({
-        where: { id: requestId },
-        select: { title: true, description: true },
-      });
+    const request = await this.prisma.maintenanceRequest.findUnique({
+      where: { id: requestId },
+      select: { title: true, description: true },
+    });
 
-      if (!request) {
-        throw new Error(`Maintenance request ${requestId} not found`);
-      }
+    if (!request) {
+      throw new WorkflowError(
+        WorkflowErrorCode.STEP_EXECUTION_FAILED,
+        `Maintenance request ${requestId} not found`,
+      );
+    }
 
-      const priority = await this.aiMaintenanceService.assignPriorityWithAI(
-        request.title,
-        request.description || '',
+    // Check cache first
+    const cacheKey = this.workflowCache?.generateAIResponseKey('AIMaintenanceService', 'assignPriorityWithAI', {
+      title: request.title,
+      description: request.description || '',
+    });
+    let priority = cacheKey ? this.workflowCache.getAIResponse(cacheKey) : null;
+
+    if (!priority) {
+      // Use retry wrapper with circuit breaker
+      priority = await callAIServiceWithRetry(
+        'AIMaintenanceService',
+        'assignPriorityWithAI',
+        async () => {
+          return await this.aiMaintenanceService!.assignPriorityWithAI(
+            request.title,
+            request.description || '',
+          );
+        },
+        this.logger,
+        {
+          retry: {
+            maxRetries: 3,
+            baseDelay: 1000,
+            maxDelay: 10000,
+            timeout: 10000,
+          },
+          correlationId,
+        },
       );
 
-      // Update the request with AI-assigned priority
-      await this.prisma.maintenanceRequest.update({
-        where: { id: requestId },
-        data: { priority },
-      });
-
-      this.logger.log(`AI assigned priority ${priority} to request ${requestId}`);
-
-      return {
-        priority,
+      // Cache the result
+      if (cacheKey && this.workflowCache) {
+        this.workflowCache.setAIResponse(cacheKey, priority, 300000); // 5 minutes
+      }
+    } else {
+      this.logger.log('AI response retrieved from cache', {
+        correlationId,
         requestId,
-        assignedBy: 'AI',
-      };
-    } catch (error) {
-      this.logger.error(`Error in AI priority assignment: ${step.id}`, error);
-      throw error;
+        cacheKey,
+      });
     }
+
+    // Update the request with AI-assigned priority
+    await this.prisma.maintenanceRequest.update({
+      where: { id: requestId },
+      data: { priority },
+    });
+
+    this.logger.log(`AI assigned priority ${priority} to request ${requestId}`, {
+      correlationId,
+      requestId,
+      priority,
+    });
+
+    return {
+      priority,
+      requestId,
+      assignedBy: 'AI',
+    };
   }
 
   /**
@@ -385,6 +690,7 @@ export class WorkflowEngineService {
     step: WorkflowStep,
     execution: WorkflowExecution,
     userId?: number,
+    correlationId?: string,
   ): Promise<any> {
     this.logger.log(`Executing ASSESS_PAYMENT_RISK_AI step: ${step.id}`);
 
@@ -430,6 +736,7 @@ export class WorkflowEngineService {
     step: WorkflowStep,
     execution: WorkflowExecution,
     userId?: number,
+    correlationId?: string,
   ): Promise<any> {
     this.logger.log(`Executing PREDICT_RENEWAL_AI step: ${step.id}`);
 
@@ -479,6 +786,7 @@ export class WorkflowEngineService {
     step: WorkflowStep,
     execution: WorkflowExecution,
     userId?: number,
+    correlationId?: string,
   ): Promise<any> {
     this.logger.log(`Executing PERSONALIZE_NOTIFICATION_AI step: ${step.id}`);
 
@@ -575,32 +883,323 @@ export class WorkflowEngineService {
   }
 
   /**
-   * Evaluate a condition
+   * Safe condition evaluation (replaces eval with expr-eval)
    */
   private evaluateCondition(condition: string, execution: WorkflowExecution): boolean {
-    // Simple condition evaluation
-    // In production, you'd use a proper expression evaluator
     try {
       // Replace variables with execution values
       let evaluated = condition;
+      const scope: Record<string, any> = {};
+
       for (const [key, value] of Object.entries(execution.output)) {
-        evaluated = evaluated.replace(new RegExp(`\\$\\{${key}\\}`, 'g'), String(value));
+        const regex = new RegExp(`\\$\\{${key}\\}`, 'g');
+        evaluated = evaluated.replace(regex, String(value));
+        // Also add to scope for direct variable access
+        scope[key] = value;
       }
 
-      // Evaluate as JavaScript expression (simplified - use a proper evaluator in production)
-      return eval(evaluated) as boolean;
+      // Parse and evaluate safely using expr-eval
+      const expr = this.conditionParser.parse(evaluated);
+      return expr.evaluate(scope) as boolean;
     } catch (error) {
-      this.logger.error(`Error evaluating condition: ${condition}`, error);
+      this.logger.error('Condition evaluation failed', {
+        condition,
+        error: error instanceof Error ? error.message : String(error),
+      });
       return false;
     }
   }
 
   /**
-   * Store workflow execution in database
+   * Execute step with retry logic and exponential backoff
    */
-  private async storeExecution(execution: WorkflowExecution): Promise<void> {
-    // In production, this would store in WorkflowExecution table
-    this.logger.debug(`Storing workflow execution: ${execution.id}`);
+  private async executeStepWithRetry(
+    step: WorkflowStep,
+    execution: WorkflowExecution,
+    userId: number | undefined,
+    correlationId: string,
+    workflow: WorkflowDefinition,
+  ): Promise<{
+    success: boolean;
+    input: any;
+    output: any;
+    error: string | null;
+    startedAt: Date;
+    completedAt: Date;
+  }> {
+    const retryMap = this.stepRetryCount.get(execution.id) || new Map();
+    const maxRetries = workflow.maxRetries || 3;
+    let attempt = 0;
+
+    while (attempt <= maxRetries) {
+      try {
+        const result = await this.executeStep(step, execution, userId, correlationId);
+
+        // Reset retry count on success
+        retryMap.delete(step.id);
+
+        return result;
+      } catch (error) {
+        attempt++;
+        const currentRetries = retryMap.get(step.id) || 0;
+
+        if (currentRetries >= maxRetries) {
+          this.logger.error('Step failed after max retries', {
+            correlationId,
+            executionId: execution.id,
+            stepId: step.id,
+            retries: currentRetries,
+            error: error instanceof Error ? error.message : String(error),
+          });
+
+          throw new WorkflowError(
+            WorkflowErrorCode.MAX_RETRIES_EXCEEDED,
+            `Step ${step.id} failed after ${maxRetries} retries`,
+            { stepId: step.id, error: error instanceof Error ? error.message : 'Unknown error' },
+          );
+        }
+
+        // Calculate backoff
+        const backoffMs = this.calculateBackoff(currentRetries);
+        retryMap.set(step.id, currentRetries + 1);
+
+        // Only retry if workflow error strategy is RETRY
+        if (workflow.onError === 'RETRY') {
+          this.logger.warn('Step failed, retrying', {
+            correlationId,
+            executionId: execution.id,
+            stepId: step.id,
+            attempt: currentRetries + 1,
+            maxRetries,
+            backoffMs,
+          });
+
+          // Wait before retry
+          await this.delay(backoffMs);
+        } else {
+          // If not retrying, return failure
+          return {
+            success: false,
+            input: step.input || {},
+            output: {},
+            error: error instanceof Error ? error.message : 'Unknown error',
+            startedAt: new Date(),
+            completedAt: new Date(),
+          };
+        }
+      }
+    }
+
+    // Should never reach here, but TypeScript needs it
+    throw new WorkflowError(
+      WorkflowErrorCode.STEP_EXECUTION_FAILED,
+      `Step ${step.id} execution failed`,
+    );
+  }
+
+  /**
+   * Persist execution to database
+   */
+  private async persistExecution(
+    tx: Prisma.TransactionClient,
+    execution: WorkflowExecution,
+  ): Promise<void> {
+    // Type assertion needed until Prisma types are fully regenerated
+    const txClient = tx as any;
+    await txClient.workflowExecution.upsert({
+      where: { id: execution.id },
+      update: {
+        status: execution.status,
+        output: execution.output as Prisma.InputJsonValue,
+        error: execution.error,
+        completedAt: execution.completedAt,
+      },
+      create: {
+        id: execution.id,
+        workflowId: execution.workflowId,
+        status: execution.status,
+        input: execution.input as Prisma.InputJsonValue,
+        output: execution.output as Prisma.InputJsonValue,
+        error: execution.error,
+        startedAt: execution.startedAt,
+        completedAt: execution.completedAt,
+      },
+    });
+
+    // Persist steps
+    for (const step of execution.steps) {
+      await txClient.workflowExecutionStep.upsert({
+        where: {
+          executionId_stepId: {
+            executionId: execution.id,
+            stepId: step.stepId,
+          },
+        },
+        update: {
+          status: step.status,
+          input: step.input as Prisma.InputJsonValue,
+          output: step.output as Prisma.InputJsonValue,
+          error: step.error,
+          completedAt: step.completedAt,
+        },
+        create: {
+          executionId: execution.id,
+          stepId: step.stepId,
+          status: step.status,
+          input: step.input as Prisma.InputJsonValue,
+          output: step.output as Prisma.InputJsonValue,
+          error: step.error,
+          startedAt: step.startedAt,
+          completedAt: step.completedAt,
+        },
+      });
+    }
+  }
+
+  /**
+   * Checkpoint execution state
+   */
+  private async checkpointExecution(
+    tx: Prisma.TransactionClient,
+    execution: WorkflowExecution,
+  ): Promise<void> {
+    const txClient = tx as any;
+    await txClient.workflowExecution.update({
+      where: { id: execution.id },
+      data: {
+        status: execution.status,
+        output: execution.output as Prisma.InputJsonValue,
+      },
+    });
+  }
+
+  /**
+   * Send failed execution to dead letter queue
+   */
+  private async sendToDeadLetterQueue(
+    tx: Prisma.TransactionClient,
+    execution: WorkflowExecution,
+    error: Error,
+  ): Promise<void> {
+    const txClient = tx as any;
+    await txClient.deadLetterQueue.create({
+      data: {
+        workflowId: execution.workflowId,
+        executionId: execution.id,
+        input: execution.input as Prisma.InputJsonValue,
+        error: error.message,
+        errorCode: error instanceof WorkflowError ? error.code : 'UNKNOWN',
+      },
+    });
+
+    this.logger.error('Workflow sent to dead letter queue', {
+      executionId: execution.id,
+      workflowId: execution.workflowId,
+      error: error.message,
+    });
+  }
+
+  /**
+   * Check user permission to execute workflow
+   */
+  private async checkWorkflowPermission(
+    userId: number,
+    workflowId: string,
+  ): Promise<boolean> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+
+      if (!user) {
+        return false;
+      }
+
+      // Property Manager can execute any workflow
+      if (user.role === 'PROPERTY_MANAGER') {
+        return true;
+      }
+
+      // Tenant can only execute tenant-specific workflows
+      if (user.role === 'TENANT') {
+        const tenantWorkflows = ['new-tenant-onboarding'];
+        return tenantWorkflows.includes(workflowId);
+      }
+
+      return false;
+    } catch (error) {
+      this.logger.error('Error checking workflow permission', {
+        userId,
+        workflowId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Calculate exponential backoff with jitter
+   */
+  private calculateBackoff(attempt: number, baseDelay: number = 1000): number {
+    const exponentialDelay = Math.pow(2, attempt) * baseDelay;
+    const jitter = Math.random() * 1000; // 0-1000ms jitter
+    return Math.min(exponentialDelay + jitter, 60000); // Cap at 60s
+  }
+
+  /**
+   * Delay helper
+   */
+  private async delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Extract error code from error message
+   */
+  private extractErrorCode(error: string): string {
+    // Try to extract WorkflowErrorCode from error message
+    const errorCodeMatch = error.match(/\[(\w+)\]/);
+    if (errorCodeMatch) {
+      return errorCodeMatch[1];
+    }
+
+    // Check if it's a known error code
+    const knownCodes = Object.values(WorkflowErrorCode);
+    for (const code of knownCodes) {
+      if (error.includes(code)) {
+        return code;
+      }
+    }
+
+    return 'UNKNOWN';
+  }
+
+  /**
+   * Mask sensitive data in logs
+   */
+  private maskSensitiveData(data: any): any {
+    if (typeof data !== 'object' || data === null) {
+      return data;
+    }
+
+    const masked = { ...data };
+    const sensitiveFields = ['email', 'password', 'ssn', 'creditCard', 'phone', 'token', 'apiKey'];
+
+    for (const field of sensitiveFields) {
+      if (masked[field]) {
+        masked[field] = '***MASKED***';
+      }
+    }
+
+    // Recursively mask nested objects
+    for (const key in masked) {
+      if (typeof masked[key] === 'object' && masked[key] !== null) {
+        masked[key] = this.maskSensitiveData(masked[key]);
+      }
+    }
+
+    return masked;
   }
 
   /**

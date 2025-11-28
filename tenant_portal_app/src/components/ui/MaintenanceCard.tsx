@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   AlertCircle, 
   Clock, 
@@ -47,6 +48,7 @@ const formatTimeAgo = (dateString: string): string => {
 
 export const MaintenanceCard = () => {
   const { token } = useAuth();
+  const navigate = useNavigate();
   const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -123,6 +125,7 @@ export const MaintenanceCard = () => {
       {requests.map((item) => (
         <div 
           key={item.id}
+          onClick={() => navigate('/maintenance-management')}
           className="group relative flex items-center justify-between p-4 rounded-xl bg-transparent border border-white/10 hover:border-neon-blue/50 hover:shadow-[0_0_15px_rgba(0,240,255,0.3)] transition-all duration-300 cursor-pointer backdrop-blur-sm"
         >
           {/* Left: Status Icon & Details */}
@@ -167,6 +170,7 @@ export const MaintenanceCard = () => {
 
       {/* Footer Action */}
       <button 
+        onClick={() => navigate('/maintenance-management')}
         className="w-full py-3 mt-2 flex items-center justify-center gap-2 text-xs font-mono text-gray-400 hover:text-neon-blue transition-colors border-t border-dashed border-white/10"
         aria-label="View all maintenance tickets"
       >
