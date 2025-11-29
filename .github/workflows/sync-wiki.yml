@@ -5,7 +5,7 @@ on:
     branches:
       - master
     paths:
-      - 'tenant_portal_app/docs/wiki/**'
+      - 'docs/guides/wiki/**'
   workflow_dispatch:
 
 jobs:
@@ -26,7 +26,7 @@ jobs:
             echo "changes=true" >> $GITHUB_OUTPUT
           else
             # Check if there are actual changes in wiki directory
-            if git diff --name-only HEAD~1 2>/dev/null | grep -q "tenant_portal_app/docs/wiki/" || git show --name-only --format= | grep -q "tenant_portal_app/docs/wiki/"; then
+            if git diff --name-only HEAD~1 2>/dev/null | grep -q "docs/guides/wiki/" || git show --name-only --format= | grep -q "docs/guides/wiki/"; then
               echo "changes=true" >> $GITHUB_OUTPUT
             else
               echo "changes=false" >> $GITHUB_OUTPUT
@@ -45,9 +45,9 @@ jobs:
           # Clone wiki repository with authentication
           git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.wiki.git" wiki-repo
           
-          # Copy all markdown files from docs/wiki to wiki repo
-          if ls tenant_portal_app/docs/wiki/*.md >/dev/null 2>&1; then
-            cp tenant_portal_app/docs/wiki/*.md wiki-repo/
+          # Copy all markdown files from docs/guides/wiki to wiki repo
+          if ls docs/guides/wiki/*.md >/dev/null 2>&1; then
+            cp docs/guides/wiki/*.md wiki-repo/
           else
             echo "No markdown files found to sync"
             exit 0
@@ -66,7 +66,7 @@ jobs:
           fi
           
           # Commit and push changes
-          git commit -m "Auto-sync wiki from tenant_portal_app/docs/wiki [skip ci]"
+          git commit -m "Auto-sync wiki from docs/guides/wiki [skip ci]"
           git push origin master
           
           # Cleanup
