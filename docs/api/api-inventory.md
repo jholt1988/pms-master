@@ -2,6 +2,33 @@
 
 This document lists all the API endpoints exposed by the backend application.
 
+**Last Updated:** November 29, 2025  
+**Note:** All endpoints now return structured error responses with `errorCode` fields. See error code reference below.
+
+## Error Response Format
+
+All endpoints return structured error responses:
+
+```json
+{
+  "statusCode": 400,
+  "message": "Error message",
+  "errorCode": "ERROR_CODE_HERE",
+  "details": { /* optional additional context */ },
+  "retryable": false,
+  "timestamp": "2025-11-29T12:00:00.000Z"
+}
+```
+
+**Common Error Codes:**
+- `INVALID_INPUT` - Validation errors
+- `RESOURCE_NOT_FOUND` - Resource doesn't exist
+- `AUTH_UNAUTHORIZED` - Authentication required
+- `FORBIDDEN_RESOURCE` - Insufficient permissions
+- `UNKNOWN_ERROR` - Unexpected server error
+
+See `tenant_portal_backend/src/common/errors/error-codes.enum.ts` for complete list.
+
 ## Auth
 
 | Method | Path                               | Controller Method | DTOs                                                              | Response Summary                               | Auth/Roles Required |

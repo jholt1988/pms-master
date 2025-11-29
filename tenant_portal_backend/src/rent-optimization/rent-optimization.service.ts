@@ -1,7 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RentRecommendationStatus } from '@prisma/client';
 import axios from 'axios';
+import { ApiException } from '../common/errors';
+import { ErrorCode } from '../common/errors/error-codes.enum';
 
 interface MLPredictionRequest {
   unit_id: string;
@@ -72,7 +74,11 @@ export class RentOptimizationService {
     });
 
     if (!unit) {
-      throw new NotFoundException(`Unit with ID ${unitId} not found`);
+      throw ApiException.notFound(
+        ErrorCode.UNIT_NOT_FOUND,
+        `Unit with ID ${unitId} not found`,
+        { unitId },
+      );
     }
     
     // Create the rent recommendation using unchecked input
@@ -147,7 +153,11 @@ export class RentOptimizationService {
     });
 
     if (!recommendation) {
-      throw new NotFoundException(`Recommendation with ID ${id} not found`);
+      throw ApiException.notFound(
+        ErrorCode.RENT_RECOMMENDATION_NOT_FOUND,
+        `Recommendation with ID ${id} not found`,
+        { recommendationId: id },
+      );
     }
 
     return recommendation;
@@ -199,7 +209,11 @@ export class RentOptimizationService {
       });
 
       if (!unit) {
-        throw new NotFoundException(`Unit with ID ${unitId} not found`);
+        throw ApiException.notFound(
+        ErrorCode.UNIT_NOT_FOUND,
+        `Unit with ID ${unitId} not found`,
+        { unitId },
+      );
       }
 
       // Get prediction from ML service or fallback to mock
@@ -326,12 +340,18 @@ export class RentOptimizationService {
     });
 
     if (!recommendation) {
-      throw new NotFoundException(`Recommendation with ID ${id} not found`);
+      throw ApiException.notFound(
+        ErrorCode.RENT_RECOMMENDATION_NOT_FOUND,
+        `Recommendation with ID ${id} not found`,
+        { recommendationId: id },
+      );
     }
 
     if (recommendation.status !== RentRecommendationStatus.PENDING) {
-      throw new BadRequestException(
-        `Recommendation is already ${recommendation.status.toLowerCase()}`,
+      throw ApiException.badRequest(
+        ErrorCode.RENT_RECOMMENDATION_INVALID_STATUS,
+        `Recommendation is already ${recommendation.status.toLowerCase()}. Only pending recommendations can be rejected.`,
+        { recommendationId: id, currentStatus: recommendation.status },
       );
     }
 
@@ -374,12 +394,18 @@ export class RentOptimizationService {
     });
 
     if (!recommendation) {
-      throw new NotFoundException(`Recommendation with ID ${id} not found`);
+      throw ApiException.notFound(
+        ErrorCode.RENT_RECOMMENDATION_NOT_FOUND,
+        `Recommendation with ID ${id} not found`,
+        { recommendationId: id },
+      );
     }
 
     if (recommendation.status !== RentRecommendationStatus.PENDING) {
-      throw new BadRequestException(
-        `Recommendation is already ${recommendation.status.toLowerCase()}`,
+      throw ApiException.badRequest(
+        ErrorCode.RENT_RECOMMENDATION_INVALID_STATUS,
+        `Recommendation is already ${recommendation.status.toLowerCase()}. Only pending recommendations can be rejected.`,
+        { recommendationId: id, currentStatus: recommendation.status },
       );
     }
 
@@ -560,7 +586,11 @@ export class RentOptimizationService {
     });
 
     if (!unit) {
-      throw new NotFoundException(`Unit with ID ${unitId} not found`);
+      throw ApiException.notFound(
+        ErrorCode.UNIT_NOT_FOUND,
+        `Unit with ID ${unitId} not found`,
+        { unitId },
+      );
     }
 
     const recommendations = await this.prisma.rentRecommendation.findMany({
@@ -620,7 +650,11 @@ export class RentOptimizationService {
     });
 
     if (units.length === 0) {
-      throw new NotFoundException(`No units found for property ${propertyId}`);
+      throw ApiException.notFound(
+        ErrorCode.UNIT_NOT_FOUND,
+        `No units found for property ${propertyId}`,
+        { propertyId },
+      );
     }
 
     const unitIds = units.map((u) => u.id);
@@ -633,7 +667,10 @@ export class RentOptimizationService {
     });
 
     if (units.length === 0) {
-      throw new NotFoundException('No units found in the system');
+      throw ApiException.notFound(
+        ErrorCode.UNIT_NOT_FOUND,
+        'No units found in the system',
+      );
     }
 
     const unitIds = units.map((u) => u.id);
@@ -655,19 +692,29 @@ export class RentOptimizationService {
     });
 
     if (!recommendation) {
-      throw new NotFoundException(`Recommendation with ID ${id} not found`);
+      throw ApiException.notFound(
+        ErrorCode.RENT_RECOMMENDATION_NOT_FOUND,
+        `Recommendation with ID ${id} not found`,
+        { recommendationId: id },
+      );
     }
 
     if (recommendation.status !== RentRecommendationStatus.ACCEPTED) {
-      throw new BadRequestException(
+      throw ApiException.badRequest(
+        ErrorCode.RENT_RECOMMENDATION_INVALID_STATUS,
         'Only accepted recommendations can be applied. Please accept the recommendation first.',
+        { recommendationId: id, currentStatus: recommendation.status },
       );
     }
 
     // Update the current lease rent amount
     const currentLease = recommendation.unit.lease;
     if (!currentLease) {
-      throw new BadRequestException('No active lease found for this unit');
+      throw ApiException.badRequest(
+        ErrorCode.BUSINESS_PRECONDITION_FAILED,
+        'No active lease found for this unit',
+        { unitId: recommendation.unitId },
+      );
     }
 
     await this.prisma.lease.update({
@@ -698,17 +745,27 @@ export class RentOptimizationService {
     });
 
     if (!recommendation) {
-      throw new NotFoundException(`Recommendation with ID ${id} not found`);
+      throw ApiException.notFound(
+        ErrorCode.RENT_RECOMMENDATION_NOT_FOUND,
+        `Recommendation with ID ${id} not found`,
+        { recommendationId: id },
+      );
     }
 
     if (recommendation.status !== RentRecommendationStatus.PENDING) {
-      throw new BadRequestException(
+      throw ApiException.badRequest(
+        ErrorCode.RENT_RECOMMENDATION_INVALID_STATUS,
         'Only pending recommendations can be updated',
+        { recommendationId: id, currentStatus: recommendation.status },
       );
     }
 
     if (recommendedRent <= 0) {
-      throw new BadRequestException('Recommended rent must be greater than 0');
+      throw ApiException.badRequest(
+        ErrorCode.VALIDATION_OUT_OF_RANGE,
+        'Recommended rent must be greater than 0',
+        { recommendedRent },
+      );
     }
 
     const updated = await this.prisma.rentRecommendation.update({
@@ -743,12 +800,18 @@ export class RentOptimizationService {
     });
 
     if (!recommendation) {
-      throw new NotFoundException(`Recommendation with ID ${id} not found`);
+      throw ApiException.notFound(
+        ErrorCode.RENT_RECOMMENDATION_NOT_FOUND,
+        `Recommendation with ID ${id} not found`,
+        { recommendationId: id },
+      );
     }
 
     if (recommendation.status === RentRecommendationStatus.ACCEPTED) {
-      throw new BadRequestException(
+      throw ApiException.badRequest(
+        ErrorCode.RENT_RECOMMENDATION_CANNOT_DELETE_ACCEPTED,
         'Cannot delete an accepted recommendation. Please reject it first if you want to remove it.',
+        { recommendationId: id, currentStatus: recommendation.status },
       );
     }
 

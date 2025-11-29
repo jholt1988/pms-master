@@ -4,6 +4,7 @@ import { RentOptimizationService } from './rent-optimization.service';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
+import { GenerateRecommendationsDto, UpdateRecommendationDto } from './dto/rent-optimization.dto';
 
 @Controller('rent-recommendations')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
@@ -11,11 +12,18 @@ import { RolesGuard } from '../auth/roles.guard';
 export class RentOptimizationController {
   constructor(private readonly rentOptimizationService: RentOptimizationService) {}
 
+  // ============================================================================
+  // GET ROUTES - Ordered from most specific to least specific
+  // CRITICAL: Dynamic routes (/:id) MUST come after all specific routes
+  // ============================================================================
+
+  // Base route - get all recommendations
   @Get()
   async getAllRecommendations() {
     return this.rentOptimizationService.getAllRecommendations();
   }
 
+  // Specific routes (must come before dynamic routes)
   @Get('stats')
   async getStats() {
     return this.rentOptimizationService.getStats();
@@ -41,6 +49,7 @@ export class RentOptimizationController {
     return this.rentOptimizationService.getRecommendationsByStatus('REJECTED');
   }
 
+  // Parameterized specific routes
   @Get('property/:propertyId')
   async getRecommendationsByProperty(@Param('propertyId') propertyId: string) {
     return this.rentOptimizationService.getRecommendationsByProperty(Number(propertyId));
@@ -56,14 +65,20 @@ export class RentOptimizationController {
     return this.rentOptimizationService.getRecommendationByUnit(Number(unitId));
   }
 
+  // Dynamic route - MUST be last to prevent intercepting specific routes
   @Get(':id')
   async getRecommendation(@Param('id') id: string) {
     return this.rentOptimizationService.getRecommendation(id);
   }
 
+  // ============================================================================
+  // POST ROUTES - Ordered from most specific to least specific
+  // ============================================================================
+
+  // Specific routes
   @Post('generate')
-  async generateRecommendations(@Body() body: { unitIds: number[] }) {
-    return this.rentOptimizationService.generateRecommendations(body.unitIds);
+  async generateRecommendations(@Body() dto: GenerateRecommendationsDto) {
+    return this.rentOptimizationService.generateRecommendations(dto.unitIds);
   }
 
   @Post('bulk-generate/property/:propertyId')
@@ -76,6 +91,7 @@ export class RentOptimizationController {
     return this.rentOptimizationService.bulkGenerateAll();
   }
 
+  // Dynamic routes (must come after specific routes)
   @Post(':id/accept')
   async acceptRecommendation(
     @Param('id') id: string,
@@ -100,13 +116,21 @@ export class RentOptimizationController {
     return this.rentOptimizationService.applyRecommendation(id, req.user.userId);
   }
 
+  // ============================================================================
+  // PUT ROUTES
+  // ============================================================================
+
   @Put(':id/update')
   async updateRecommendation(
     @Param('id') id: string,
-    @Body() body: { recommendedRent: number; reasoning?: string },
+    @Body() dto: UpdateRecommendationDto,
   ) {
-    return this.rentOptimizationService.updateRecommendation(id, body.recommendedRent, body.reasoning);
+    return this.rentOptimizationService.updateRecommendation(id, dto.recommendedRent, dto.reasoning);
   }
+
+  // ============================================================================
+  // DELETE ROUTES
+  // ============================================================================
 
   @Delete(':id')
   async deleteRecommendation(@Param('id') id: string) {

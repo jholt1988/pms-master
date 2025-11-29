@@ -6,12 +6,13 @@ import { Card, CardBody } from '@nextui-org/card';
 import { Button } from '@nextui-org/button';
 import { useAuth } from './AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { PageErrorBoundary } from './components/PageErrorBoundary';
 import "./index.css";
 
 // Lazy load pages for code splitting
 const ForgotPasswordPage = lazy(() => import('./ForgotPasswordPage'));
 const PasswordResetPage = lazy(() => import('./PasswordResetPage'));
-const MessagingPage = lazy(() => import('./MessagingPage'));
+const MessagingPage = lazy(() => import('./domains/shared/features/messaging').then(m => ({ default: m.MessagingPage })));
 const LeaseManagementPageModern = lazy(() => import('./LeaseManagementPageModern'));
 const RentalApplicationsManagementPage = lazy(() => import('./RentalApplicationsManagementPage'));
 const ExpenseTrackerPageModern = lazy(() => import('./ExpenseTrackerPageModern'));
@@ -177,7 +178,11 @@ export default function App({className}: {className: string}): React.ReactElemen
               {/* Dashboard route - role-based rendering */}
               <Route path="dashboard" element={<DashboardRouter />} />
               
-              <Route path="maintenance" element={<TenantMaintenancePage />} />
+              <Route path="maintenance" element={
+                <PageErrorBoundary pageName="Maintenance">
+                  <TenantMaintenancePage />
+                </PageErrorBoundary>
+              } />
               
               {/* Legacy routes with redirect */}
               <Route path="lease" element={<Navigate to="/my-lease" replace />} />
@@ -186,8 +191,16 @@ export default function App({className}: {className: string}): React.ReactElemen
               <Route path="lease-management-old" element={<Navigate to="/lease-management" replace />} />
               <Route path="expense-tracker-old" element={<Navigate to="/expense-tracker" replace />} />
               
-              <Route path="payments" element={<PaymentsPage />} />
-              <Route path="messaging" element={<MessagingPage />} />
+              <Route path="payments" element={
+                <PageErrorBoundary pageName="Payments">
+                  <PaymentsPage />
+                </PageErrorBoundary>
+              } />
+              <Route path="messaging" element={
+                <PageErrorBoundary pageName="Messaging">
+                  <MessagingPage />
+                </PageErrorBoundary>
+              } />
 
               <Route element={<RequireRole allowedRoles={['PROPERTY_MANAGER']} />}>
                 <Route path="properties" element={<PropertyManagementPage />} />
@@ -208,8 +221,16 @@ export default function App({className}: {className: string}): React.ReactElemen
               </Route>
 
               <Route element={<RequireRole allowedRoles={['TENANT']} />}>
-                <Route path="my-lease" element={<MyLeasePage />} />
-                <Route path="inspections" element={<TenantInspectionPage />} />
+                <Route path="my-lease" element={
+                  <PageErrorBoundary pageName="My Lease">
+                    <MyLeasePage />
+                  </PageErrorBoundary>
+                } />
+                <Route path="inspections" element={
+                  <PageErrorBoundary pageName="Inspections">
+                    <TenantInspectionPage />
+                  </PageErrorBoundary>
+                } />
               </Route>
 
               {/* Catch-all within authenticated area */}

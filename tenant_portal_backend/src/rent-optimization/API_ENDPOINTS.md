@@ -482,14 +482,20 @@ REJECTED
 
 ## Error Responses
 
-All endpoints return standard error responses:
+All endpoints return structured error responses with error codes:
 
 **400 Bad Request:**
 ```json
 {
   "statusCode": 400,
   "message": "Only pending recommendations can be updated",
-  "error": "Bad Request"
+  "errorCode": "RENT_RECOMMENDATION_INVALID_STATUS_TRANSITION",
+  "details": {
+    "recommendationId": "uuid",
+    "currentStatus": "ACCEPTED"
+  },
+  "retryable": false,
+  "timestamp": "2025-11-29T12:00:00.000Z"
 }
 ```
 
@@ -498,7 +504,12 @@ All endpoints return standard error responses:
 {
   "statusCode": 404,
   "message": "Recommendation with ID {id} not found",
-  "error": "Not Found"
+  "errorCode": "RENT_RECOMMENDATION_NOT_FOUND",
+  "details": {
+    "recommendationId": "uuid"
+  },
+  "retryable": false,
+  "timestamp": "2025-11-29T12:00:00.000Z"
 }
 ```
 
@@ -506,7 +517,10 @@ All endpoints return standard error responses:
 ```json
 {
   "statusCode": 401,
-  "message": "Unauthorized"
+  "message": "Unauthorized",
+  "errorCode": "AUTH_UNAUTHORIZED",
+  "retryable": false,
+  "timestamp": "2025-11-29T12:00:00.000Z"
 }
 ```
 
@@ -515,9 +529,43 @@ All endpoints return standard error responses:
 {
   "statusCode": 403,
   "message": "Forbidden resource",
-  "error": "Forbidden"
+  "errorCode": "FORBIDDEN_RESOURCE",
+  "retryable": false,
+  "timestamp": "2025-11-29T12:00:00.000Z"
 }
 ```
+
+**500 Internal Server Error:**
+```json
+{
+  "statusCode": 500,
+  "message": "Internal server error",
+  "errorCode": "UNKNOWN_ERROR",
+  "retryable": true,
+  "timestamp": "2025-11-29T12:00:00.000Z"
+}
+```
+
+### Error Code Reference
+
+| Error Code | HTTP Status | Description |
+|------------|-------------|-------------|
+| `RENT_RECOMMENDATION_NOT_FOUND` | 404 | Recommendation does not exist |
+| `RENT_RECOMMENDATION_INVALID_STATUS_TRANSITION` | 400 | Invalid status change attempted |
+| `RENT_RECOMMENDATION_ALREADY_ACCEPTED` | 400 | Recommendation already accepted |
+| `RENT_RECOMMENDATION_ALREADY_REJECTED` | 400 | Recommendation already rejected |
+| `RENT_RECOMMENDATION_APPLY_FAILED` | 400 | Failed to apply recommendation to lease |
+| `RENT_RECOMMENDATION_UPDATE_FAILED` | 400 | Failed to update recommendation |
+| `RENT_RECOMMENDATION_DELETE_ACCEPTED` | 400 | Cannot delete accepted recommendation |
+| `RENT_RECOMMENDATION_NO_UNITS_FOUND` | 400 | No units found for generation |
+| `RENT_RECOMMENDATION_ML_SERVICE_ERROR` | 500 | ML service unavailable |
+| `RENT_RECOMMENDATION_INVALID_RENT_AMOUNT` | 400 | Invalid rent amount provided |
+| `UNIT_NOT_FOUND` | 404 | Unit does not exist |
+| `UNIT_NO_ACTIVE_LEASE` | 400 | Unit has no active lease |
+| `AUTH_UNAUTHORIZED` | 401 | Authentication required |
+| `FORBIDDEN_RESOURCE` | 403 | Insufficient permissions |
+| `INVALID_INPUT` | 400 | Invalid request data |
+| `UNKNOWN_ERROR` | 500 | Unexpected server error |
 
 ---
 

@@ -356,6 +356,404 @@ class RentOptimizationService {
   }
 
   /**
+   * Get statistics about all recommendations
+   */
+  async getStats(): Promise<AIServiceResponse<any>> {
+    const token = getAuthToken();
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
+    try {
+      const data = await apiFetch(`${API_BASE}/stats`, { token });
+      return {
+        success: true,
+        data,
+        metadata: {
+          requestId: `stats-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          code: error.errorCode || 'STATS_ERROR',
+          message: error.message || 'Failed to fetch statistics',
+          retryable: error.retryable !== false,
+        },
+        metadata: {
+          requestId: `stats-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    }
+  }
+
+  /**
+   * Get recent recommendations
+   */
+  async getRecentRecommendations(limit: number = 10): Promise<AIServiceResponse<RentRecommendation[]>> {
+    const token = getAuthToken();
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
+    try {
+      const data = await apiFetch(`${API_BASE}/recent?limit=${limit}`, { token });
+      const recommendations = Array.isArray(data) 
+        ? data.map((item: any) => this.transformBackendResponse(item, item.unitId?.toString() || ''))
+        : [];
+      
+      return {
+        success: true,
+        data: recommendations,
+        metadata: {
+          requestId: `recent-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          code: error.errorCode || 'RECENT_ERROR',
+          message: error.message || 'Failed to fetch recent recommendations',
+          retryable: error.retryable !== false,
+        },
+        metadata: {
+          requestId: `recent-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    }
+  }
+
+  /**
+   * Get recommendations by status
+   */
+  async getRecommendationsByStatus(status: 'pending' | 'accepted' | 'rejected'): Promise<AIServiceResponse<RentRecommendation[]>> {
+    const token = getAuthToken();
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
+    try {
+      const data = await apiFetch(`${API_BASE}/${status}`, { token });
+      const recommendations = Array.isArray(data)
+        ? data.map((item: any) => this.transformBackendResponse(item, item.unitId?.toString() || ''))
+        : [];
+      
+      return {
+        success: true,
+        data: recommendations,
+        metadata: {
+          requestId: `status-${status}-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          code: error.errorCode || 'STATUS_ERROR',
+          message: error.message || `Failed to fetch ${status} recommendations`,
+          retryable: error.retryable !== false,
+        },
+        metadata: {
+          requestId: `status-${status}-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    }
+  }
+
+  /**
+   * Get recommendations by property
+   */
+  async getRecommendationsByProperty(propertyId: number): Promise<AIServiceResponse<RentRecommendation[]>> {
+    const token = getAuthToken();
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
+    try {
+      const data = await apiFetch(`${API_BASE}/property/${propertyId}`, { token });
+      const recommendations = Array.isArray(data)
+        ? data.map((item: any) => this.transformBackendResponse(item, item.unitId?.toString() || ''))
+        : [];
+      
+      return {
+        success: true,
+        data: recommendations,
+        metadata: {
+          requestId: `property-${propertyId}-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          code: error.errorCode || 'PROPERTY_ERROR',
+          message: error.message || 'Failed to fetch property recommendations',
+          retryable: error.retryable !== false,
+        },
+        metadata: {
+          requestId: `property-${propertyId}-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    }
+  }
+
+  /**
+   * Generate recommendations for specific units
+   */
+  async generateRecommendations(unitIds: number[]): Promise<AIServiceResponse<RentRecommendation[]>> {
+    const token = getAuthToken();
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
+    try {
+      const data = await apiFetch(`${API_BASE}/generate`, {
+        token,
+        method: 'POST',
+        body: { unitIds },
+      });
+      
+      const recommendations = Array.isArray(data)
+        ? data.map((item: any) => this.transformBackendResponse(item, item.unitId?.toString() || ''))
+        : [];
+      
+      return {
+        success: true,
+        data: recommendations,
+        metadata: {
+          requestId: `generate-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          code: error.errorCode || 'GENERATE_ERROR',
+          message: error.message || 'Failed to generate recommendations',
+          retryable: error.retryable !== false,
+        },
+        metadata: {
+          requestId: `generate-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    }
+  }
+
+  /**
+   * Accept a recommendation
+   */
+  async acceptRecommendation(recommendationId: string): Promise<AIServiceResponse<any>> {
+    const token = getAuthToken();
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
+    try {
+      const data = await apiFetch(`${API_BASE}/${recommendationId}/accept`, {
+        token,
+        method: 'POST',
+      });
+      
+      return {
+        success: true,
+        data,
+        metadata: {
+          requestId: `accept-${recommendationId}-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          code: error.errorCode || 'ACCEPT_ERROR',
+          message: error.message || 'Failed to accept recommendation',
+          retryable: error.retryable !== false,
+        },
+        metadata: {
+          requestId: `accept-${recommendationId}-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    }
+  }
+
+  /**
+   * Reject a recommendation
+   */
+  async rejectRecommendation(recommendationId: string): Promise<AIServiceResponse<any>> {
+    const token = getAuthToken();
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
+    try {
+      const data = await apiFetch(`${API_BASE}/${recommendationId}/reject`, {
+        token,
+        method: 'POST',
+      });
+      
+      return {
+        success: true,
+        data,
+        metadata: {
+          requestId: `reject-${recommendationId}-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          code: error.errorCode || 'REJECT_ERROR',
+          message: error.message || 'Failed to reject recommendation',
+          retryable: error.retryable !== false,
+        },
+        metadata: {
+          requestId: `reject-${recommendationId}-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    }
+  }
+
+  /**
+   * Apply a recommendation to the lease (updates actual rent)
+   */
+  async applyRecommendation(recommendationId: string): Promise<AIServiceResponse<any>> {
+    const token = getAuthToken();
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
+    try {
+      const data = await apiFetch(`${API_BASE}/${recommendationId}/apply`, {
+        token,
+        method: 'POST',
+      });
+      
+      return {
+        success: true,
+        data,
+        metadata: {
+          requestId: `apply-${recommendationId}-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          code: error.errorCode || 'APPLY_ERROR',
+          message: error.message || 'Failed to apply recommendation',
+          retryable: error.retryable !== false,
+        },
+        metadata: {
+          requestId: `apply-${recommendationId}-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    }
+  }
+
+  /**
+   * Update a recommendation
+   */
+  async updateRecommendation(
+    recommendationId: string,
+    recommendedRent: number,
+    reasoning?: string
+  ): Promise<AIServiceResponse<RentRecommendation>> {
+    const token = getAuthToken();
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
+    try {
+      const data = await apiFetch(`${API_BASE}/${recommendationId}/update`, {
+        token,
+        method: 'PUT',
+        body: { recommendedRent, reasoning },
+      });
+      
+      const recommendation = this.transformBackendResponse(data, data.unitId?.toString() || '');
+      
+      return {
+        success: true,
+        data: recommendation,
+        metadata: {
+          requestId: `update-${recommendationId}-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          code: error.errorCode || 'UPDATE_ERROR',
+          message: error.message || 'Failed to update recommendation',
+          retryable: error.retryable !== false,
+        },
+        metadata: {
+          requestId: `update-${recommendationId}-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    }
+  }
+
+  /**
+   * Delete a recommendation
+   */
+  async deleteRecommendation(recommendationId: string): Promise<AIServiceResponse<any>> {
+    const token = getAuthToken();
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
+    try {
+      const data = await apiFetch(`${API_BASE}/${recommendationId}`, {
+        token,
+        method: 'DELETE',
+      });
+      
+      return {
+        success: true,
+        data,
+        metadata: {
+          requestId: `delete-${recommendationId}-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          code: error.errorCode || 'DELETE_ERROR',
+          message: error.message || 'Failed to delete recommendation',
+          retryable: error.retryable !== false,
+        },
+        metadata: {
+          requestId: `delete-${recommendationId}-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+        },
+      };
+    }
+  }
+
+  /**
    * Transform backend response to frontend format
    */
   private transformBackendResponse(data: any, unitId: string): RentRecommendation {

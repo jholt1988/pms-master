@@ -7,6 +7,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
+import { CreatePaymentPlanDto } from './dto/create-payment-plan.dto';
 import { Request as ExpressRequest } from 'express';
 
 type AuthenticatedRequest = ExpressRequest & {
@@ -92,12 +93,12 @@ export class PaymentsController {
   @Post('payment-plans')
   @Roles(Role.PROPERTY_MANAGER)
   async createPaymentPlan(
-    @Body() body: { invoiceId: number; installments: number; amountPerInstallment: number; totalAmount: number },
+    @Body() dto: CreatePaymentPlanDto,
   ) {
-    return this.paymentsService.createPaymentPlan(body.invoiceId, {
-      installments: body.installments,
-      amountPerInstallment: body.amountPerInstallment,
-      totalAmount: body.totalAmount,
+    return this.paymentsService.createPaymentPlan(dto.invoiceId, {
+      installments: dto.installments,
+      amountPerInstallment: dto.amountPerInstallment,
+      totalAmount: dto.totalAmount,
     });
   }
 

@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { ROUTES } from '../../../../constants/routes';
 import { 
   Card, 
   CardBody, 
@@ -254,7 +255,7 @@ export const ApplicationLandingPage: React.FC = () => {
         {/* Footer Note */}
         <p className="text-center text-sm text-gray-400">
           Questions about the application process?{' '}
-          <Link to="/messaging" className="text-neon-blue hover:underline">
+          <Link to={ROUTES.TENANT.MESSAGING} className="text-neon-blue hover:underline">
             Contact us
           </Link>
         </p>
