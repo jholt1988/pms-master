@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, RootModel
 
 
 class ComparableProperty(BaseModel):
@@ -60,11 +60,12 @@ class PredictionResponse(BaseModel):
     seasonality_factor: float = 1.0
 
 
-class BatchPredictionRequest(BaseModel):
-    __root__: List[PredictionRequest]
+# Pydantic v2 way of defining root models
+class BatchPredictionRequest(RootModel[List[PredictionRequest]]):
+    root: List[PredictionRequest]
 
     def __iter__(self):
-        return iter(self.__root__)
+        return iter(self.root)
 
 
 class BatchPredictionResponse(BaseModel):

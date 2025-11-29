@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PaymentsService } from './payments.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
+import { AIPaymentService } from './ai-payment.service';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { TestDataFactory } from '../../test/factories';
 
@@ -25,6 +26,10 @@ describe('PaymentsService', () => {
       create: jest.fn(),
       findMany: jest.fn(),
     },
+    paymentPlan: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+    },
     lateFee: {
       findMany: jest.fn(),
     },
@@ -37,12 +42,19 @@ describe('PaymentsService', () => {
     sendLateRentNotification: jest.fn(),
   };
 
+  // Mock AIPaymentService
+  const mockAIPaymentService = {
+    assessPaymentRisk: jest.fn(),
+    determineReminderTiming: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PaymentsService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: EmailService, useValue: mockEmailService },
+        { provide: AIPaymentService, useValue: mockAIPaymentService },
       ],
     }).compile();
 
@@ -597,6 +609,185 @@ describe('PaymentsService', () => {
       await expect(service.testLateRentNotification(999)).rejects.toThrow(
         NotFoundException
       );
+    });
+  });
+
+  describe('createPaymentPlan', () => {
+    it('should create a payment plan successfully', async () => {
+      const invoiceId = 1;
+      const tenantId = 10;
+      const leaseId = 5;
+      const dueDate = new Date('2025-01-15');
+
+      const mockInvoice = {
+        id: invoiceId,
+        amount: 1500,
+        dueDate,
+        leaseId,
+        paymentPlan: null,
+        lease: {
+          id: leaseId,
+          tenantId,
+          tenant: { id: tenantId },
+        },
+      };
+
+      const mockPaymentPlan = {
+        id: 1,
+        invoiceId,
+        installments: 3,
+        amountPerInstallment: 500,
+        totalAmount: 1500,
+        status: 'PENDING',
+      };
+
+      mockPrismaService.invoice.findUnique.mockResolvedValue(mockInvoice);
+      mockPrismaService.paymentPlan.create.mockResolvedValue(mockPaymentPlan);
+
+      const plan = {
+        installments: 3,
+        amountPerInstallment: 500,
+        totalAmount: 1500,
+      };
+
+      const result = await service.createPaymentPlan(invoiceId, plan);
+
+      expect(result).toEqual({
+        id: mockPaymentPlan.id,
+        status: mockPaymentPlan.status,
+      });
+      expect(mockPrismaService.invoice.findUnique).toHaveBeenCalledWith({
+        where: { id: invoiceId },
+        include: {
+          paymentPlan: true,
+          lease: {
+            include: {
+              tenant: true,
+            },
+          },
+        },
+      });
+      expect(mockPrismaService.paymentPlan.create).toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException when invoice not found', async () => {
+      mockPrismaService.invoice.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.createPaymentPlan(999, {
+          installments: 3,
+          amountPerInstallment: 500,
+          totalAmount: 1500,
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw BadRequestException when payment plan already exists', async () => {
+      const invoiceId = 1;
+      const mockInvoice = {
+        id: invoiceId,
+        paymentPlan: {
+          id: 1,
+          status: 'PENDING',
+        },
+        lease: {
+          tenantId: 10,
+          tenant: { id: 10 },
+        },
+      };
+
+      mockPrismaService.invoice.findUnique.mockResolvedValue(mockInvoice);
+
+      await expect(
+        service.createPaymentPlan(invoiceId, {
+          installments: 3,
+          amountPerInstallment: 500,
+          totalAmount: 1500,
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrismaService.paymentPlan.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when lease has no tenant', async () => {
+      const invoiceId = 1;
+      const mockInvoice = {
+        id: invoiceId,
+        paymentPlan: null,
+        lease: {
+          tenantId: null,
+          tenant: null,
+        },
+      };
+
+      mockPrismaService.invoice.findUnique.mockResolvedValue(mockInvoice);
+
+      await expect(
+        service.createPaymentPlan(invoiceId, {
+          installments: 3,
+          amountPerInstallment: 500,
+          totalAmount: 1500,
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrismaService.paymentPlan.create).not.toHaveBeenCalled();
+    });
+
+    it('should create payment plan with correct installment dates', async () => {
+      const invoiceId = 1;
+      const tenantId = 10;
+      const leaseId = 5;
+      const dueDate = new Date('2025-01-15');
+
+      const mockInvoice = {
+        id: invoiceId,
+        amount: 1500,
+        dueDate,
+        leaseId,
+        paymentPlan: null,
+        lease: {
+          id: leaseId,
+          tenantId,
+          tenant: { id: tenantId },
+        },
+      };
+
+      const mockPaymentPlan = {
+        id: 1,
+        invoiceId,
+        installments: 3,
+        amountPerInstallment: 500,
+        totalAmount: 1500,
+        status: 'PENDING',
+      };
+
+      mockPrismaService.invoice.findUnique.mockResolvedValue(mockInvoice);
+      mockPrismaService.paymentPlan.create.mockResolvedValue(mockPaymentPlan);
+
+      const plan = {
+        installments: 3,
+        amountPerInstallment: 500,
+        totalAmount: 1500,
+      };
+
+      await service.createPaymentPlan(invoiceId, plan);
+
+      // Verify payment plan creation was called
+      expect(mockPrismaService.paymentPlan.create).toHaveBeenCalled();
+      const createCall = mockPrismaService.paymentPlan.create.mock.calls[0][0];
+
+      // Verify installments are created
+      expect(createCall.data.paymentPlanPayments.create).toHaveLength(3);
+      expect(createCall.data.paymentPlanPayments.create[0].installmentNumber).toBe(1);
+      expect(createCall.data.paymentPlanPayments.create[1].installmentNumber).toBe(2);
+      expect(createCall.data.paymentPlanPayments.create[2].installmentNumber).toBe(3);
+
+      // Verify due dates are calculated correctly (monthly increments)
+      const firstDueDate = new Date(createCall.data.paymentPlanPayments.create[0].dueDate);
+      const secondDueDate = new Date(createCall.data.paymentPlanPayments.create[1].dueDate);
+      const thirdDueDate = new Date(createCall.data.paymentPlanPayments.create[2].dueDate);
+
+      expect(firstDueDate.getMonth()).toBe(dueDate.getMonth());
+      expect(secondDueDate.getMonth()).toBe(dueDate.getMonth() + 1);
+      expect(thirdDueDate.getMonth()).toBe(dueDate.getMonth() + 2);
     });
   });
 });

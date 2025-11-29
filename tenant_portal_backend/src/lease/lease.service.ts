@@ -601,7 +601,12 @@ export class LeaseService {
     const lease = await this.prisma.lease.findUnique({
       where: { id: leaseId },
       include: {
-        unit: true,
+        unit: {
+          include: {
+            property: true,
+          },
+        },
+        tenant: true,
       },
     });
 
@@ -611,18 +616,64 @@ export class LeaseService {
 
     this.logger.log(`Preparing for vacancy: Lease ${leaseId} ending, unit ${lease.unitId} will be available`);
 
-    // In a full implementation, you would:
-    // 1. Mark unit as potentially available
-    // 2. Start marketing the unit
-    // 3. Schedule move-out inspection
-    // 4. Notify property manager
+    // 1. Mark unit as potentially available (set availableOn to lease end date)
+    await this.prisma.unit.update({
+      where: { id: lease.unitId },
+      data: {
+        availableOn: lease.endDate,
+      },
+    });
 
-    // For now, just log the action
+    // 2. Ensure marketing profile exists or create one
+    const property = lease.unit.property;
+    if (property) {
+      const existingProfile = await this.prisma.propertyMarketingProfile.findUnique({
+        where: { propertyId: property.id },
+      });
+
+      if (!existingProfile) {
+        await this.prisma.propertyMarketingProfile.create({
+          data: {
+            propertyId: property.id,
+            isActive: true,
+            isSyndicationEnabled: true,
+          },
+        });
+        this.logger.log(`Created marketing profile for property ${property.id}`);
+      } else if (!existingProfile.isActive) {
+        await this.prisma.propertyMarketingProfile.update({
+          where: { propertyId: property.id },
+          data: { isActive: true },
+        });
+        this.logger.log(`Activated marketing profile for property ${property.id}`);
+      }
+    }
+
+    // 3. Schedule move-out inspection (7 days before lease ends)
+    const inspectionDate = new Date(lease.endDate);
+    inspectionDate.setDate(inspectionDate.getDate() - 7);
+
+    await this.prisma.unitInspection.create({
+      data: {
+        unitId: lease.unitId,
+        propertyId: property?.id || 0,
+        leaseId: leaseId,
+        type: 'MOVE_OUT',
+        status: 'SCHEDULED',
+        scheduledDate: inspectionDate,
+        notes: 'Automatically scheduled due to low renewal likelihood',
+      },
+    });
+    this.logger.log(`Scheduled move-out inspection for lease ${leaseId} on ${inspectionDate.toISOString()}`);
+
+    // 4. Log the action
     await this.logHistory(leaseId, 0, {
       fromStatus: lease.status,
       toStatus: lease.status,
-      note: 'Prepared for vacancy due to low renewal likelihood',
+      note: `Prepared for vacancy due to low renewal likelihood. Unit marked available on ${lease.endDate.toISOString()}, inspection scheduled for ${inspectionDate.toISOString()}`,
     });
+
+    this.logger.log(`Successfully prepared for vacancy: Lease ${leaseId}, Unit ${lease.unitId}`);
   }
 
   private addDays(date: Date, days: number) {

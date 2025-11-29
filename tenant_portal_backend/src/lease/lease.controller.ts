@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Body, UseGuards, Request, Param, Put } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { LeaseService } from './lease.service';
+import { AILeaseRenewalMetricsService } from './ai-lease-renewal-metrics.service';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
@@ -22,7 +23,10 @@ interface AuthenticatedRequest extends Request {
 @Controller('leases')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class LeaseController {
-  constructor(private readonly leaseService: LeaseService) {}
+  constructor(
+    private readonly leaseService: LeaseService,
+    private readonly aiMetrics: AILeaseRenewalMetricsService,
+  ) {}
 
   @Post()
   @Roles(Role.PROPERTY_MANAGER)
@@ -118,5 +122,11 @@ export class LeaseController {
     @Request() req: AuthenticatedRequest,
   ) {
     return this.leaseService.submitTenantNotice(Number(id), dto, req.user.userId);
+  }
+
+  @Get('ai-metrics')
+  @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
+  getAIMetrics() {
+    return this.aiMetrics.getMetrics();
   }
 }

@@ -40,8 +40,10 @@ export const LoginPage: React.FC = () => {
 
       if (data.access_token) {
         login(data.access_token);
-        // Redirect to the original destination or dashboard after successful login
-        navigate(redirectUrl);
+        // Wait for auth state to update, then redirect
+        // Use a small delay to ensure token is stored and state is updated
+        await new Promise(resolve => setTimeout(resolve, 50));
+        navigate(redirectUrl || '/dashboard', { replace: true });
       }
     } catch (err: unknown) {
       let message = 'Login failed';

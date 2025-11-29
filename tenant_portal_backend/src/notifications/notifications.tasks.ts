@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from './notifications.service';
 import { PaymentsService } from '../payments/payments.service';
 import { AIPaymentService } from '../payments/ai-payment.service';
+import { AIPaymentMetricsService } from '../payments/ai-payment-metrics.service';
 import { SmsService } from './sms.service';
 import { NotificationType } from '@prisma/client';
 import { differenceInDays, addDays } from 'date-fns';
@@ -17,6 +18,7 @@ export class NotificationTasks {
     private readonly notificationsService: NotificationsService,
     private readonly paymentsService: PaymentsService,
     private readonly aiPaymentService: AIPaymentService,
+    private readonly aiMetrics: AIPaymentMetricsService,
     private readonly smsService: SmsService,
   ) {}
 
@@ -44,11 +46,36 @@ export class NotificationTasks {
 
           // Get optimal reminder timing using AI
           const startTime = Date.now();
-          const timing = await this.aiPaymentService.determineReminderTiming(
-            invoice.leaseId,
-            invoice.id,
-          );
-          const responseTime = Date.now() - startTime;
+          let timing;
+          let responseTime: number;
+          try {
+            timing = await this.aiPaymentService.determineReminderTiming(
+              invoice.leaseId,
+              invoice.id,
+            );
+            responseTime = Date.now() - startTime;
+
+            // Record metric
+            this.aiMetrics.recordMetric({
+              operation: 'determineReminderTiming',
+              success: true,
+              responseTime,
+              tenantId: invoice.leaseId,
+              invoiceId: invoice.id,
+            });
+          } catch (error) {
+            responseTime = Date.now() - startTime;
+            // Record failed metric
+            this.aiMetrics.recordMetric({
+              operation: 'determineReminderTiming',
+              success: false,
+              responseTime,
+              tenantId: invoice.leaseId,
+              invoiceId: invoice.id,
+              error: error instanceof Error ? error.message : String(error),
+            });
+            throw error;
+          }
 
           // Check if it's time to send the reminder
           const now = new Date();

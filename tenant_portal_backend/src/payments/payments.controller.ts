@@ -1,6 +1,7 @@
-import { BadRequestException, Controller, Get, Post, Body, UseGuards, Request, Query } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Post, Body, UseGuards, Request, Query, Param } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { PaymentsService } from './payments.service';
+import { AIPaymentMetricsService } from './ai-payment-metrics.service';
 import { Invoice, Payment, Role } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -18,7 +19,10 @@ type AuthenticatedRequest = ExpressRequest & {
 @Controller('payments')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class PaymentsController {
-  constructor(private readonly paymentsService: PaymentsService) {}
+  constructor(
+    private readonly paymentsService: PaymentsService,
+    private readonly aiMetrics: AIPaymentMetricsService,
+  ) {}
 
   @Post('invoices')
   @Roles(Role.PROPERTY_MANAGER)
@@ -59,5 +63,60 @@ export class PaymentsController {
       throw new BadRequestException('leaseId must be a number');
     }
     return this.paymentsService.getPaymentsForUser(req.user.userId, req.user.role, parsedLeaseId);
+  }
+
+  @Get('ai-metrics')
+  @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
+  async getAIMetrics() {
+    return this.aiMetrics.getMetrics();
+  }
+
+  @Get(':id')
+  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  async getPaymentById(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ): Promise<Payment> {
+    return this.paymentsService.getPaymentById(Number(id), req.user.userId, req.user.role);
+  }
+
+  @Get('invoices/:id')
+  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  async getInvoiceById(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ): Promise<Invoice> {
+    return this.paymentsService.getInvoiceById(Number(id), req.user.userId, req.user.role);
+  }
+
+  @Post('payment-plans')
+  @Roles(Role.PROPERTY_MANAGER)
+  async createPaymentPlan(
+    @Body() body: { invoiceId: number; installments: number; amountPerInstallment: number; totalAmount: number },
+  ) {
+    return this.paymentsService.createPaymentPlan(body.invoiceId, {
+      installments: body.installments,
+      amountPerInstallment: body.amountPerInstallment,
+      totalAmount: body.totalAmount,
+    });
+  }
+
+  @Get('payment-plans')
+  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  async getPaymentPlans(
+    @Request() req: AuthenticatedRequest,
+    @Query('invoiceId') invoiceId?: string,
+  ) {
+    const parsedInvoiceId = invoiceId ? Number(invoiceId) : undefined;
+    return this.paymentsService.getPaymentPlans(req.user.userId, req.user.role, parsedInvoiceId);
+  }
+
+  @Get('payment-plans/:id')
+  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  async getPaymentPlanById(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.paymentsService.getPaymentPlanById(Number(id), req.user.userId, req.user.role);
   }
 }

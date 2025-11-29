@@ -18,6 +18,8 @@ import { UpdateMaintenanceStatusDto } from './dto/update-maintenance-status.dto'
 import { AssignTechnicianDto } from './dto/assign-technician.dto';
 import { AddMaintenanceNoteDto } from './dto/add-maintenance-note.dto';
 import { AIMaintenanceService } from './ai-maintenance.service';
+import { SystemUserService } from '../shared/system-user.service';
+import { AIMaintenanceMetricsService } from './ai-maintenance-metrics.service';
 
 interface MaintenanceListFilters {
   status?: Status;
@@ -36,6 +38,8 @@ export class MaintenanceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiMaintenanceService: AIMaintenanceService,
+    private readonly systemUserService: SystemUserService,
+    private readonly aiMetrics?: AIMaintenanceMetricsService,
   ) {}
 
   async create(userId: number, dto: CreateMaintenanceRequestDto): Promise<MaintenanceRequest> {
@@ -56,13 +60,32 @@ export class MaintenanceService {
           `AI assigned priority: ${priority} for request: "${dto.title}" (${responseTime}ms)`,
         );
         aiPriorityUsed = true;
+
+        // Record metric
+        this.aiMetrics?.recordMetric({
+          operation: 'assignPriority',
+          success: true,
+          responseTime,
+          fallbackUsed: false,
+        });
       } catch (error) {
+        const fallbackStartTime = Date.now();
         this.logger.warn(
           `AI priority assignment failed for request: "${dto.title}", using fallback`,
           error instanceof Error ? error.message : String(error),
         );
         // Fallback to keyword-based priority assignment
         priority = this.fallbackPriorityAssignment(dto.title, dto.description);
+        const fallbackResponseTime = Date.now() - fallbackStartTime;
+
+        // Record metric with fallback
+        this.aiMetrics?.recordMetric({
+          operation: 'assignPriority',
+          success: true, // Fallback succeeded
+          responseTime: fallbackResponseTime,
+          fallbackUsed: true,
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
     
@@ -95,6 +118,19 @@ export class MaintenanceService {
         : 'Request created',
       changedById: userId,
     });
+
+    return request;
+  }
+
+  async findById(id: number): Promise<MaintenanceRequest> {
+    const request = await this.prisma.maintenanceRequest.findUnique({
+      where: { id },
+      include: this.defaultRequestInclude,
+    });
+
+    if (!request) {
+      throw new NotFoundException(`Maintenance request with ID ${id} not found`);
+    }
 
     return request;
   }
@@ -243,6 +279,15 @@ export class MaintenanceService {
             `AI assigned technician: ${aiMatch.technician.name} (ID: ${technicianId}) ` +
             `for request: ${id} with score: ${aiMatch.score.toFixed(1)} (${responseTime}ms)`,
           );
+
+          // Record metric
+          this.aiMetrics?.recordMetric({
+            operation: 'assignTechnician',
+            success: true,
+            responseTime,
+            requestId: id,
+            fallbackUsed: false,
+          });
         } else {
           throw new BadRequestException(
             'No suitable technician found. Please assign manually or ensure technicians are available.',
@@ -359,18 +404,19 @@ export class MaintenanceService {
       include: this.defaultRequestInclude,
     });
 
-    // Record history
+    // Record history using system user
+    const systemUserId = await this.systemUserService.getSystemUserId();
     await this.recordHistory(requestId, {
       fromStatus: existing.status,
       toStatus: updated.status,
       note: escalationNote,
-      // Use system user (0) or null for automated escalations
-      changedById: undefined,
+      changedById: systemUserId,
     });
 
-    // Add a note about the escalation
+    // Add a note about the escalation using system user
     try {
-      await this.addNote(requestId, { body: escalationNote }, existing.authorId);
+      const systemUserId = await this.systemUserService.getSystemUserId();
+      await this.addNote(requestId, { body: escalationNote }, systemUserId);
     } catch (error) {
       // If note creation fails, log but don't fail the escalation
       this.logger.warn(`Failed to add escalation note for request ${requestId}:`, error);

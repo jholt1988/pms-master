@@ -192,6 +192,6 @@ AI_SERVICE_TIMEOUT=15000   # Longer timeout for production
 
 ## Related Documentation
 
-- [AI Services Integration Plan](./AI-SERVICES-INTEGRATION-PLAN.md)
-- [Overall User Guide](./docs/Overall_User_Guide.md)
+- [AI Services Integration Plan](./ai-services-integration-plan.md)
+- [Overall User Guide](../guides/overall-user-guide.md)
 

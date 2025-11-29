@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Param, Query, Delete, UseGuards, Req, ParseIntPipe, Put } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Delete, UseGuards, Req, ParseIntPipe, Put, Body } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { NotificationsService } from './notifications.service';
+import { NotificationPreferencesService, NotificationPreferencesDto } from './notification-preferences.service';
 import { NotificationType } from '@prisma/client';
 import { Request } from 'express';
 
@@ -15,7 +16,10 @@ interface AuthenticatedRequest extends Request {
 @Controller('notifications')
 @UseGuards(AuthGuard('jwt'))
 export class NotificationsController {
-  constructor(private readonly notificationsService: NotificationsService) {}
+  constructor(
+    private readonly notificationsService: NotificationsService,
+    private readonly preferencesService: NotificationPreferencesService,
+  ) {}
 
   @Get()
   async getNotifications(
@@ -62,6 +66,23 @@ export class NotificationsController {
     const userId = req.user.sub;
     await this.notificationsService.delete(userId, id);
     return { success: true };
+  }
+
+  @Get('preferences')
+  async getPreferences(@Req() req: AuthenticatedRequest) {
+    const userId = req.user.sub;
+    const preferences = await this.preferencesService.getPreferences(userId);
+    return preferences;
+  }
+
+  @Put('preferences')
+  async updatePreferences(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: NotificationPreferencesDto,
+  ) {
+    const userId = req.user.sub;
+    const preferences = await this.preferencesService.updatePreferences(userId, dto);
+    return preferences;
   }
 }
 

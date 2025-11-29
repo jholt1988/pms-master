@@ -122,6 +122,13 @@ async function ensureAsset(propertyId: number, unitId: number | null, name: stri
 }
 
 async function main() {
+  // Check if seeding is disabled via environment variable
+  if (process.env.DISABLE_AUTO_SEED === 'true' || process.env.SKIP_SEED === 'true') {
+    console.info('⏭️  Auto-seeding is disabled. Skipping seed process.');
+    console.info('   To seed manually, run: npm run db:seed');
+    return;
+  }
+
   console.info('🌱 Seeding comprehensive test data...');
 
   // 0. Create initial Property Manager account

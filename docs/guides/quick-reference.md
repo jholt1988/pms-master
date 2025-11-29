@@ -331,9 +331,9 @@ Currently: `import { PageHeader } from '../../../../components/ui/PageHeader';`
 - Does it have too much business logic? → Extract hooks/utilities
 
 ## 📚 Further Reading
-- [ARCHITECTURE.md](./ARCHITECTURE.md) - Full architecture explanation
-- [ADR.md](./ADR.md) - Architecture decision records
-- [DOMAIN_IMPLEMENTATION_STATUS.md](../DOMAIN_IMPLEMENTATION_STATUS.md) - Current progress
+- [App Architecture](../architecture/app-architecture.md) - Full architecture explanation
+- [Architecture Decision Records](../architecture/adr.md) - Architecture decision records
+- [App Domain Implementation Status](../implementation/app-domain-implementation-status.md) - Current progress
 
 ---
 

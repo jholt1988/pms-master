@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationPreferencesService } from './notification-preferences.service';
 import OpenAI from 'openai';
 import { NotificationType, User } from '@prisma/client';
 
@@ -28,6 +29,7 @@ export class AINotificationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly preferencesService: NotificationPreferencesService,
   ) {
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
     const aiEnabled = this.configService.get<string>('AI_ENABLED', 'false') === 'true';
@@ -116,14 +118,39 @@ export class AINotificationService {
    * Get user notification preferences
    */
   private async getUserPreferences(userId: number): Promise<NotificationPreference> {
-    // In a real implementation, this would query a NotificationPreference table
-    // For now, return defaults
+    // Get preferences from database
+    const dbPreferences = await this.preferencesService.getPreferences(userId);
+    
+    // Convert database preferences to AI service format
+    const preferredChannels: ('EMAIL' | 'SMS' | 'PUSH')[] = [];
+    if (dbPreferences.emailEnabled) preferredChannels.push('EMAIL');
+    if (dbPreferences.smsEnabled) preferredChannels.push('SMS');
+    if (dbPreferences.pushEnabled) preferredChannels.push('PUSH');
+    
+    // Default to EMAIL if no channels enabled
+    if (preferredChannels.length === 0) {
+      preferredChannels.push('EMAIL');
+    }
+
+    // Parse quiet hours
+    let quietHoursStart = 22; // Default 10 PM
+    let quietHoursEnd = 8; // Default 8 AM
+    if (dbPreferences.quietHoursStart && dbPreferences.quietHoursEnd) {
+      const [startHour, startMin] = dbPreferences.quietHoursStart.split(':').map(Number);
+      const [endHour, endMin] = dbPreferences.quietHoursEnd.split(':').map(Number);
+      quietHoursStart = startHour;
+      quietHoursEnd = endHour;
+    }
+
+    // Default preferred times (can be enhanced with AI analysis)
+    const preferredTimes = [9, 14, 18]; // 9 AM, 2 PM, 6 PM
+
     return {
-      preferredChannels: ['EMAIL', 'PUSH'],
-      preferredTimes: [9, 14, 18], // 9 AM, 2 PM, 6 PM
-      timezone: 'America/New_York',
-      quietHoursStart: 22, // 10 PM
-      quietHoursEnd: 8, // 8 AM
+      preferredChannels,
+      preferredTimes,
+      timezone: 'America/New_York', // Could be stored in user profile
+      quietHoursStart,
+      quietHoursEnd,
     };
   }
 

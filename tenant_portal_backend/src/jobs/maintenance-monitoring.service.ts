@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { AIMaintenanceService } from '../maintenance/ai-maintenance.service';
+import { AIMaintenanceMetricsService } from '../maintenance/ai-maintenance-metrics.service';
 import { MaintenanceService } from '../maintenance/maintenance.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { Status, MaintenancePriority, NotificationType, Role } from '@prisma/client';
@@ -14,6 +15,7 @@ export class MaintenanceMonitoringService {
     private readonly prisma: PrismaService,
     private readonly aiMaintenanceService: AIMaintenanceService,
     private readonly maintenanceService: MaintenanceService,
+    private readonly aiMetrics: AIMaintenanceMetricsService,
     private readonly notificationsService: NotificationsService,
   ) {}
 
@@ -48,7 +50,18 @@ export class MaintenanceMonitoringService {
 
       for (const request of allRequests) {
         try {
+          const startTime = Date.now();
           const prediction = await this.aiMaintenanceService.predictSLABreach(request.id);
+          const responseTime = Date.now() - startTime;
+
+          // Record metric
+          this.aiMetrics.recordMetric({
+            operation: 'predictSLABreach',
+            success: true,
+            responseTime,
+            requestId: request.id,
+            fallbackUsed: false,
+          });
 
           if (prediction.riskLevel === 'HIGH' || prediction.riskLevel === 'CRITICAL') {
             this.logger.warn(
@@ -71,6 +84,15 @@ export class MaintenanceMonitoringService {
             `Error predicting SLA breach for request ${request.id}`,
             error instanceof Error ? error.message : String(error),
           );
+
+          // Record failed metric
+          this.aiMetrics.recordMetric({
+            operation: 'predictSLABreach',
+            success: false,
+            responseTime: 0,
+            requestId: request.id,
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
       }
 

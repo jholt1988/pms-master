@@ -3,7 +3,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationType, Prisma } from '@prisma/client';
 import { EmailService } from '../email/email.service';
 import { SmsService } from './sms.service';
+import { PushService } from './push.service';
 import { AINotificationService } from './ai-notification.service';
+import { NotificationPreferencesService } from './notification-preferences.service';
 
 @Injectable()
 export class NotificationsService {
@@ -13,7 +15,9 @@ export class NotificationsService {
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
     private readonly smsService: SmsService,
+    private readonly pushService: PushService,
     private readonly aiNotificationService: AINotificationService,
+    private readonly preferencesService: NotificationPreferencesService,
   ) {}
 
   async create(data: {
@@ -89,17 +93,37 @@ export class NotificationsService {
       }
     }
 
-    // Create notification
+    // Check user preferences
+    const preferences = await this.preferencesService.getPreferences(data.userId);
+    
+    // Override channel based on preferences if available
+    if (preferences) {
+      if (preferences.preferredChannel && preferences.preferredChannel !== 'AUTO') {
+        channel = preferences.preferredChannel as 'EMAIL' | 'SMS' | 'PUSH';
+      }
+      
+      // Check if notification type is disabled
+      if (preferences.notificationTypes) {
+        const typeEnabled = (preferences.notificationTypes as Record<string, boolean>)[data.type];
+        if (typeEnabled === false) {
+          this.logger.debug(`Notification type ${data.type} disabled for user ${data.userId}`);
+          // Still create the notification but don't send
+        }
+      }
+    }
+
+    // Create notification with scheduledFor field
+    const scheduledFor = sendAt > new Date() ? sendAt : null;
     const notification = await this.prisma.notification.create({
       data: {
         userId: data.userId,
         type: data.type,
         title,
         message,
+        scheduledFor,
         metadata: {
           ...data.metadata,
           channel,
-          scheduledFor: sendAt > new Date() ? sendAt.toISOString() : undefined,
         },
       },
     });
@@ -133,21 +157,56 @@ export class NotificationsService {
         return;
       }
 
+      // Get user preferences
+      const preferences = await this.preferencesService.getPreferences(notification.userId);
+
       // Send via selected channel
       if (channel === 'EMAIL' || sendEmail) {
-        await this.emailService.sendNotificationEmail(user.username, notification.title, notification.message);
-        this.logger.log(`Sent email notification ${notification.id} to user ${user.username}`);
+        if (!preferences || preferences.emailEnabled !== false) {
+          await this.emailService.sendNotificationEmail(user.username, notification.title, notification.message);
+          this.logger.log(`Sent email notification ${notification.id} to user ${user.username}`);
+        } else {
+          this.logger.debug(`Email disabled for user ${user.username}, skipping email notification ${notification.id}`);
+        }
       } else if (channel === 'SMS') {
-        // Note: User model doesn't have a phone field, SMS functionality would need phone number from another source
-        // For now, skip SMS if phone is not available
-        this.logger.warn(`SMS requested for notification ${notification.id} but user ${user.username} has no phone number`);
-        // Fallback to email
-        await this.emailService.sendNotificationEmail(user.username, notification.title, notification.message);
+        if (user.phoneNumber) {
+          if (!preferences || preferences.smsEnabled !== false) {
+            const result = await this.smsService.sendSms(user.phoneNumber, notification.message);
+            if (result.success) {
+              this.logger.log(`Sent SMS notification ${notification.id} to user ${user.username} (${user.phoneNumber})`);
+            } else {
+              this.logger.warn(`SMS failed for notification ${notification.id}: ${result.error}`);
+              // Fallback to email
+              await this.emailService.sendNotificationEmail(user.username, notification.title, notification.message);
+            }
+          } else {
+            this.logger.debug(`SMS disabled for user ${user.username}, falling back to email`);
+            await this.emailService.sendNotificationEmail(user.username, notification.title, notification.message);
+          }
+        } else {
+          this.logger.warn(`SMS requested for notification ${notification.id} but user ${user.username} has no phone number`);
+          // Fallback to email
+          await this.emailService.sendNotificationEmail(user.username, notification.title, notification.message);
+        }
       } else if (channel === 'PUSH') {
-        // TODO: Implement push notification service
-        this.logger.log(`Push notification ${notification.id} would be sent to user ${user.username} (not implemented)`);
-        // Fallback to email if push not available
-        await this.emailService.sendNotificationEmail(user.username, notification.title, notification.message);
+        if (!preferences || preferences.pushEnabled !== false) {
+          const result = await this.pushService.sendPush(
+            notification.userId,
+            notification.title,
+            notification.message,
+            notification.metadata as Record<string, any>,
+          );
+          if (result.success) {
+            this.logger.log(`Sent push notification ${notification.id} to user ${user.username}`);
+          } else {
+            this.logger.warn(`Push failed for notification ${notification.id}: ${result.error}`);
+            // Fallback to email
+            await this.emailService.sendNotificationEmail(user.username, notification.title, notification.message);
+          }
+        } else {
+          this.logger.debug(`Push disabled for user ${user.username}, falling back to email`);
+          await this.emailService.sendNotificationEmail(user.username, notification.title, notification.message);
+        }
       }
     } catch (error) {
       this.logger.error(`Failed to send notification ${notification.id} via ${channel}:`, error);
@@ -278,46 +337,47 @@ export class NotificationsService {
    */
   async processScheduledNotifications(): Promise<number> {
     const now = new Date();
-    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000); // Check notifications from last hour
+    const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000); // Include notifications scheduled in next 5 minutes
     let processedCount = 0;
 
     try {
-      // Fetch recent notifications (from last hour) that might be scheduled
-      // We can't easily query JSON fields in Prisma, so we fetch recent ones and filter
-      const recentNotifications = await this.prisma.notification.findMany({
+      // Fetch scheduled notifications using indexed scheduledFor field
+      const scheduledNotifications = await this.prisma.notification.findMany({
         where: {
-          createdAt: {
-            gte: oneHourAgo,
+          scheduledFor: {
+            not: null,
+            lte: fiveMinutesFromNow, // Include notifications due now or in next 5 minutes
           },
         },
-        take: 100, // Limit to avoid processing too many
+        take: 100, // Limit to avoid processing too many at once
+        orderBy: {
+          scheduledFor: 'asc', // Process oldest first
+        },
       });
 
-      for (const notification of recentNotifications) {
-        const metadata = notification.metadata as any;
-        const scheduledFor = metadata?.scheduledFor;
-
-        if (!scheduledFor) {
+      for (const notification of scheduledNotifications) {
+        if (!notification.scheduledFor) {
           continue;
         }
 
-        const scheduledTime = new Date(scheduledFor);
+        // Only process if scheduled time has passed (with 1 minute buffer)
+        const scheduledTime = new Date(notification.scheduledFor);
+        const oneMinuteAgo = new Date(now.getTime() - 60 * 1000);
         
-        // Only process if scheduled time has passed
-        if (scheduledTime <= now) {
+        if (scheduledTime <= oneMinuteAgo) {
+          const metadata = notification.metadata as any;
           const channel = (metadata?.channel as 'EMAIL' | 'SMS' | 'PUSH') || 'EMAIL';
           const sendEmail = channel === 'EMAIL';
 
           try {
             await this.sendNotification(notification, channel, sendEmail);
-            
-            // Remove scheduledFor from metadata since it's been sent
-            const updatedMetadata = { ...metadata };
-            delete updatedMetadata.scheduledFor;
-            
+
+            // Mark as sent by clearing scheduledFor field
             await this.prisma.notification.update({
               where: { id: notification.id },
-              data: { metadata: updatedMetadata },
+              data: {
+                scheduledFor: null,
+              },
             });
 
             processedCount++;
@@ -334,4 +394,5 @@ export class NotificationsService {
     return processedCount;
   }
 }
+
 

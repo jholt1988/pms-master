@@ -98,7 +98,7 @@ Click the microphone button and speak your question (Chrome/Edge/Safari only).
 
 ## Next Steps
 
-- Read the [Full Documentation](./AI_OPERATING_SYSTEM.md) for advanced features
-- Explore [Command Processing](./AI_OPERATING_SYSTEM.md#command-processing) for automation
-- Learn about [Context Awareness](./AI_OPERATING_SYSTEM.md#context-awareness) for personalized responses
+- Read the [Full Documentation](./ai-operating-system.md) for advanced features
+- Explore [Command Processing](./ai-operating-system.md#command-processing) for automation
+- Learn about [Context Awareness](./ai-operating-system.md#context-awareness) for personalized responses
 

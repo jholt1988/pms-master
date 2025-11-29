@@ -10,6 +10,7 @@
     "seed:missing": "ts-node scripts/seed-missing.ts",
     "build": "tsc",
     "db:seed": "ts-node prisma/seed.ts",
+    "db:seed:admin": "ts-node prisma/seedAdmin.ts",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",

@@ -262,62 +262,343 @@ def fetch_from_database() -> pd.DataFrame:
     """
     Fetch training data from PostgreSQL database.
     
-    This function should be implemented when database connection is available.
-    It should query:
-    - Unit table for basic features
+    Queries:
+    - Unit table for basic features (bedrooms, bathrooms, square_feet, etc.)
     - Expense table for operating costs (MAINTENANCE, TAXES, INSURANCE, REPAIRS, OTHER)
-    - Lease table for vacancy calculations
+    - Lease table for vacancy calculations and rent amounts
     - MaintenanceRequest table for maintenance frequency
     - Property table for location and age
     
-    Returns:
-        DataFrame with all training features
-    """
-    # TODO: Implement database queries
-    # Example structure:
-    # import psycopg2
-    # from psycopg2.extras import RealDictCursor
-    # 
-    # conn = psycopg2.connect(...)
-    # 
-    # # Query operating costs
-    # expense_query = """
-    #     SELECT 
-    #         propertyId,
-    #         category,
-    #         SUM(amount) as total_amount,
-    #         COUNT(*) as expense_count
-    #     FROM Expense
-    #     WHERE category IN ('MAINTENANCE', 'TAXES', 'INSURANCE', 'REPAIRS', 'OTHER')
-    #       AND date >= CURRENT_DATE - INTERVAL '12 months'
-    #     GROUP BY propertyId, category
-    # """
-    # 
-    # # Query vacancy rate
-    # vacancy_query = """
-    #     SELECT 
-    #         p.id as propertyId,
-    #         COUNT(DISTINCT u.id) as total_units,
-    #         COUNT(DISTINCT l.id) as active_leases
-    #     FROM Property p
-    #     LEFT JOIN Unit u ON u.propertyId = p.id
-    #     LEFT JOIN Lease l ON l.unitId = u.id AND l.status = 'ACTIVE'
-    #     GROUP BY p.id
-    # """
-    # 
-    # # Similar queries for maintenance requests, location features, etc.
-    # 
-    # return pd.DataFrame(...)
+    Requires:
+    - DATABASE_URL environment variable set to PostgreSQL connection string
+    - psycopg2 library installed (pip install psycopg2-binary)
     
-    # For now, return sample data
-    df = fetch_sample_training_data()
-    # Validate the data before returning
-    return validate_training_data(df)
+    Returns:
+        DataFrame with all training features matching the format from fetch_sample_training_data()
+        
+    Example DATABASE_URL format:
+        postgresql://username:password@localhost:5432/database_name?schema=public
+    """
+    import os
+    
+    # Check if psycopg2 is available
+    try:
+        import psycopg2
+        from psycopg2.extras import RealDictCursor
+    except ImportError:
+        print("Error: psycopg2 not installed. Install it with: pip install psycopg2-binary")
+        print("Falling back to sample data.")
+        return validate_training_data(fetch_sample_training_data())
+    
+    # Get database URL from environment variable
+    database_url = os.getenv('DATABASE_URL')
+    if not database_url:
+        print("Warning: DATABASE_URL environment variable not set. Using sample data.")
+        return validate_training_data(fetch_sample_training_data())
+    
+    try:
+        # Parse and clean DATABASE_URL - remove schema parameter that psycopg2 doesn't understand
+        from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+        
+        parsed = urlparse(database_url)
+        query_params = parse_qs(parsed.query, keep_blank_values=True)
+        
+        # Remove 'schema' parameter if present (Prisma uses it, but psycopg2 doesn't)
+        query_params.pop('schema', None)
+        
+        # Rebuild URL without schema parameter
+        if query_params:
+            cleaned_query = urlencode(query_params, doseq=True)
+        else:
+            cleaned_query = ''
+            
+        cleaned_url = urlunparse((
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            parsed.params,
+            cleaned_query,
+            parsed.fragment
+        ))
+        
+        # Connect to database with cleaned URL
+        # If URL ends with '?' or has empty query, remove it
+        if cleaned_url.endswith('?'):
+            cleaned_url = cleaned_url[:-1]
+            
+        conn = psycopg2.connect(cleaned_url)
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Main query: Get unit data with property, lease, and aggregated metrics
+        main_query = """
+        WITH unit_base AS (
+            SELECT 
+                u.id as unit_id,
+                u."propertyId",
+                u."unitNumber",
+                u.bedrooms,
+                u.bathrooms,
+                u."squareFeet",
+                u."hasParking",
+                u."hasLaundry",
+                u."hasBalcony",
+                u."hasAC",
+                u."isFurnished",
+                u."petsAllowed",
+                -- Property features
+                p.name as property_name,
+                p.city,
+                p.state,
+                p."zipCode" as zip_code,
+                p."yearBuilt",
+                p."propertyType",
+                p.latitude,
+                p.longitude,
+                -- Current lease info
+                l.id as lease_id,
+                l."rentAmount" as current_rent,
+                l.status as lease_status,
+                l."startDate" as lease_start_date,
+                l."endDate" as lease_end_date,
+                -- Calculate property age
+                CASE 
+                    WHEN p."yearBuilt" IS NOT NULL 
+                    THEN EXTRACT(YEAR FROM CURRENT_DATE) - p."yearBuilt"
+                    ELSE NULL
+                END as property_age
+            FROM "Unit" u
+            INNER JOIN "Property" p ON u."propertyId" = p.id
+            LEFT JOIN "Lease" l ON u.id = l."unitId" AND l.status = 'ACTIVE'
+        ),
+        expense_agg AS (
+            SELECT 
+                COALESCE(e."unitId", e."propertyId") as id,
+                COALESCE(e."unitId" IS NOT NULL, false) as is_unit_level,
+                SUM(CASE WHEN e.category = 'MAINTENANCE' THEN e.amount ELSE 0 END) as maintenance_yearly_total,
+                SUM(CASE WHEN e.category = 'TAXES' THEN e.amount ELSE 0 END) as taxes_yearly_total,
+                SUM(CASE WHEN e.category = 'INSURANCE' THEN e.amount ELSE 0 END) as insurance_yearly_total,
+                SUM(CASE WHEN e.category = 'REPAIRS' THEN e.amount ELSE 0 END) as repairs_yearly_total,
+                SUM(CASE WHEN e.category = 'OTHER' THEN e.amount ELSE 0 END) as other_yearly_total,
+                COUNT(CASE WHEN e.category = 'MAINTENANCE' THEN 1 END) as maintenance_count,
+                COUNT(CASE WHEN e.category = 'TAXES' THEN 1 END) as taxes_count,
+                COUNT(CASE WHEN e.category = 'INSURANCE' THEN 1 END) as insurance_count,
+                COUNT(CASE WHEN e.category = 'REPAIRS' THEN 1 END) as repairs_count,
+                COUNT(CASE WHEN e.category = 'OTHER' THEN 1 END) as other_count
+            FROM "Expense" e
+            WHERE e.date >= CURRENT_DATE - INTERVAL '12 months'
+              AND e.category IN ('MAINTENANCE', 'TAXES', 'INSURANCE', 'REPAIRS', 'OTHER')
+            GROUP BY COALESCE(e."unitId", e."propertyId"), COALESCE(e."unitId" IS NOT NULL, false)
+        ),
+        maintenance_req_counts AS (
+            SELECT 
+                COALESCE(mr."unitId", mr."propertyId") as id,
+                COALESCE(mr."unitId" IS NOT NULL, false) as is_unit_level,
+                COUNT(*) as maintenance_requests_12mo
+            FROM "MaintenanceRequest" mr
+            WHERE mr."createdAt" >= CURRENT_DATE - INTERVAL '12 months'
+            GROUP BY COALESCE(mr."unitId", mr."propertyId"), COALESCE(mr."unitId" IS NOT NULL, false)
+        ),
+        vacancy_rates AS (
+            SELECT 
+                p.id as property_id,
+                COUNT(DISTINCT u.id) as total_units,
+                COUNT(DISTINCT CASE WHEN l.status = 'ACTIVE' THEN l.id END) as active_leases,
+                CASE 
+                    WHEN COUNT(DISTINCT u.id) > 0 
+                    THEN 1.0 - (COUNT(DISTINCT CASE WHEN l.status = 'ACTIVE' THEN l.id END)::float / COUNT(DISTINCT u.id))
+                    ELSE 0.0
+                END as vacancy_rate
+            FROM "Property" p
+            LEFT JOIN "Unit" u ON u."propertyId" = p.id
+            LEFT JOIN "Lease" l ON l."unitId" = u.id
+            GROUP BY p.id
+        ),
+        city_property_counts AS (
+            SELECT 
+                city,
+                state,
+                COUNT(DISTINCT id) as properties_in_city_count
+            FROM "Property"
+            WHERE city IS NOT NULL AND state IS NOT NULL
+            GROUP BY city, state
+        )
+        SELECT 
+            ub.unit_id,
+            ub.bedrooms,
+            ub.bathrooms,
+            ub."squareFeet" as square_feet,
+            COALESCE(ub.current_rent, 0) as current_rent,
+            COALESCE(ub.current_rent, 0) as achieved_rent,  -- Use current rent as achieved rent if no historical data
+            -- Operating costs (use unit-level if available, otherwise property-level)
+            COALESCE(
+                (SELECT maintenance_yearly_total FROM expense_agg WHERE id = ub.unit_id AND is_unit_level = true),
+                (SELECT maintenance_yearly_total FROM expense_agg WHERE id = ub."propertyId" AND is_unit_level = false),
+                0
+            ) as maintenance_yearly_total,
+            COALESCE(
+                (SELECT taxes_yearly_total FROM expense_agg WHERE id = ub.unit_id AND is_unit_level = true),
+                (SELECT taxes_yearly_total FROM expense_agg WHERE id = ub."propertyId" AND is_unit_level = false),
+                0
+            ) as taxes_yearly_total,
+            COALESCE(
+                (SELECT insurance_yearly_total FROM expense_agg WHERE id = ub.unit_id AND is_unit_level = true),
+                (SELECT insurance_yearly_total FROM expense_agg WHERE id = ub."propertyId" AND is_unit_level = false),
+                0
+            ) as insurance_yearly_total,
+            COALESCE(
+                (SELECT repairs_yearly_total FROM expense_agg WHERE id = ub.unit_id AND is_unit_level = true),
+                (SELECT repairs_yearly_total FROM expense_agg WHERE id = ub."propertyId" AND is_unit_level = false),
+                0
+            ) as repairs_yearly_total,
+            COALESCE(
+                (SELECT other_yearly_total FROM expense_agg WHERE id = ub.unit_id AND is_unit_level = true),
+                (SELECT other_yearly_total FROM expense_agg WHERE id = ub."propertyId" AND is_unit_level = false),
+                0
+            ) as other_yearly_total,
+            -- Vacancy rate (property-level)
+            COALESCE(vr.vacancy_rate, 0.0) as vacancy_rate,
+            -- Maintenance request counts
+            COALESCE(
+                (SELECT maintenance_requests_12mo FROM maintenance_req_counts WHERE id = ub.unit_id AND is_unit_level = true),
+                (SELECT maintenance_requests_12mo FROM maintenance_req_counts WHERE id = ub."propertyId" AND is_unit_level = false),
+                0
+            ) as maintenance_requests_12mo,
+            -- Location and property features
+            COALESCE(ub.property_age, 0) as property_age,
+            COALESCE(ub.city, 'Unknown') as city,
+            COALESCE(ub.state, 'Unknown') as state,
+            COALESCE(ub.zip_code, 'Unknown') as zip_code,
+            COALESCE(cpc.properties_in_city_count, 1) as properties_in_city_count,
+            -- Market competition score (placeholder - could be calculated from nearby properties)
+            0.5 as market_competition_score
+        FROM unit_base ub
+        LEFT JOIN vacancy_rates vr ON ub."propertyId" = vr.property_id
+        LEFT JOIN city_property_counts cpc ON ub.city = cpc.city AND ub.state = cpc.state
+        WHERE ub."squareFeet" IS NOT NULL 
+          AND ub."squareFeet" > 0
+          AND ub.bedrooms IS NOT NULL
+        ORDER BY ub.unit_id
+        """
+        
+        cur.execute(main_query)
+        rows = cur.fetchall()
+        
+        if not rows:
+            print("Warning: No data found in database. Using sample data.")
+            cur.close()
+            conn.close()
+            return validate_training_data(fetch_sample_training_data())
+        
+        # Convert to DataFrame
+        df = pd.DataFrame(rows)
+        
+        # Calculate monthly averages and per-square-foot metrics
+        df['maintenance_monthly_avg'] = df['maintenance_yearly_total'] / 12.0
+        df['taxes_monthly_avg'] = df['taxes_yearly_total'] / 12.0
+        df['insurance_monthly_avg'] = df['insurance_yearly_total'] / 12.0
+        df['repairs_monthly_avg'] = df['repairs_yearly_total'] / 12.0
+        df['other_monthly_avg'] = df['other_yearly_total'] / 12.0
+        
+        # Calculate per-square-foot metrics
+        df['maintenance_per_sqft'] = df['maintenance_yearly_total'] / df['square_feet'].replace(0, 1)
+        df['taxes_per_sqft'] = df['taxes_yearly_total'] / df['square_feet'].replace(0, 1)
+        df['insurance_per_sqft'] = df['insurance_yearly_total'] / df['square_feet'].replace(0, 1)
+        df['repairs_per_sqft'] = df['repairs_yearly_total'] / df['square_feet'].replace(0, 1)
+        df['other_per_sqft'] = df['other_yearly_total'] / df['square_feet'].replace(0, 1)
+        
+        # Calculate total operating costs
+        df['total_operating_cost_monthly'] = (
+            df['maintenance_monthly_avg'] + 
+            df['taxes_monthly_avg'] + 
+            df['insurance_monthly_avg'] + 
+            df['repairs_monthly_avg'] + 
+            df['other_monthly_avg']
+        )
+        df['total_operating_cost_yearly'] = df['total_operating_cost_monthly'] * 12.0
+        df['total_operating_cost_per_sqft'] = df['total_operating_cost_yearly'] / df['square_feet'].replace(0, 1)
+        
+        # Calculate maintenance requests per unit (for property-level aggregation)
+        # This is already unit-level in the query, but we can calculate per-unit for properties
+        df['maintenance_requests_per_unit'] = df['maintenance_requests_12mo']
+        
+        # Calculate maintenance frequency bucket (0=low, 1=medium, 2=high)
+        maintenance_counts = df['maintenance_requests_12mo'].fillna(0)
+        df['maintenance_frequency_bucket'] = 0  # Default to low
+        df.loc[maintenance_counts > 3, 'maintenance_frequency_bucket'] = 1  # Medium
+        df.loc[maintenance_counts > 8, 'maintenance_frequency_bucket'] = 2  # High
+        df['maintenance_frequency_bucket'] = df['maintenance_frequency_bucket'].astype(int)
+        
+        # Clean up any remaining NaN values
+        numeric_cols = df.select_dtypes(include=[float, int]).columns
+        df[numeric_cols] = df[numeric_cols].fillna(0)
+        
+        # Select and order columns to match expected format
+        columns_order = [
+            'bedrooms', 'bathrooms', 'square_feet', 'current_rent', 'achieved_rent',
+            'maintenance_monthly_avg', 'maintenance_yearly_total', 'maintenance_per_sqft',
+            'taxes_monthly_avg', 'taxes_yearly_total', 'taxes_per_sqft',
+            'insurance_monthly_avg', 'insurance_yearly_total', 'insurance_per_sqft',
+            'repairs_monthly_avg', 'repairs_yearly_total', 'repairs_per_sqft',
+            'other_monthly_avg', 'other_yearly_total', 'other_per_sqft',
+            'total_operating_cost_monthly', 'total_operating_cost_yearly', 'total_operating_cost_per_sqft',
+            'vacancy_rate',
+            'maintenance_requests_12mo', 'maintenance_requests_per_unit', 'maintenance_frequency_bucket',
+            'property_age', 'city', 'state', 'zip_code', 'properties_in_city_count',
+            'market_competition_score'
+        ]
+        
+        # Only select columns that exist
+        available_columns = [col for col in columns_order if col in df.columns]
+        result_df: pd.DataFrame = pd.DataFrame(df[available_columns].copy())
+        
+        cur.close()
+        conn.close()
+        
+        print(f"Successfully fetched {len(result_df)} units from database")
+        
+        # Validate and return
+        validated_df = validate_training_data(result_df)
+        return validated_df
+        
+    except psycopg2.Error as e:
+        print(f"Database error: {e}")
+        print("Falling back to sample data.")
+        return validate_training_data(fetch_sample_training_data())
+    except Exception as e:
+        print(f"Error fetching from database: {e}")
+        print("Falling back to sample data.")
+        return validate_training_data(fetch_sample_training_data())
 
 
 def main() -> None:
-    df = fetch_sample_training_data()
-    print(df.head())
+    """Main function to test data extraction."""
+    import os
+    
+    # Check if DATABASE_URL is set
+    database_url = os.getenv('DATABASE_URL')
+    
+    if database_url:
+        print("DATABASE_URL found. Attempting to fetch from database...")
+        try:
+            df = fetch_from_database()
+            print(f"\nFetched {len(df)} rows from database")
+            print("\nFirst 5 rows:")
+            print(df.head())
+            print("\nData summary:")
+            print(df.describe())
+        except Exception as e:
+            print(f"Error: {e}")
+            print("\nFalling back to sample data...")
+            df = fetch_sample_training_data()
+            print(f"\nUsing {len(df)} sample rows")
+            print("\nFirst 5 rows:")
+            print(df.head())
+    else:
+        print("DATABASE_URL not set. Using sample data...")
+        df = fetch_sample_training_data()
+        print(f"\nUsing {len(df)} sample rows")
+        print("\nFirst 5 rows:")
+        print(df.head())
 
 
 if __name__ == "__main__":

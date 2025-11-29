@@ -28,6 +28,25 @@ const isAuthenticated = (request: Request): boolean => {
 };
 
 export const handlers = [
+  // ==================== Test Handler ====================
+  // Simple test to verify MSW is working - handle multiple possible paths
+  http.get('/api/test-msw', async () => {
+    console.log('[MSW] ✅ Test handler matched (/api/test-msw) - MSW is working!');
+    return HttpResponse.json({ 
+      message: 'MSW is working!', 
+      timestamp: new Date().toISOString(),
+      apiBase: API_BASE 
+    });
+  }),
+  http.get(`${API_BASE}/test-msw`, async () => {
+    console.log(`[MSW] ✅ Test handler matched (${API_BASE}/test-msw) - MSW is working!`);
+    return HttpResponse.json({ 
+      message: 'MSW is working!', 
+      timestamp: new Date().toISOString(),
+      apiBase: API_BASE 
+    });
+  }),
+
   // ==================== Rental Applications ====================
   // POST /rental-applications - Submit new application (must be first to ensure proper matching)
   http.post(`${API_BASE}/rental-applications`, async ({ request }) => {
@@ -409,20 +428,7 @@ export const handlers = [
     }, { status: 201 });
   }),
 
-  http.patch(`${API_BASE}/properties/:id`, async ({ params, request }) => {
-    await networkDelay();
-    if (!isAuthenticated(request)) {
-      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    }
-    
-    const body = await request.json() as any;
-    
-    return HttpResponse.json({
-      id: Number(params.id),
-      ...body,
-    });
-  }),
-
+  // POST /properties/:id/units - Create unit (must come before PATCH routes)
   http.post(`${API_BASE}/properties/:id/units`, async ({ params, request }) => {
     await networkDelay();
     if (!isAuthenticated(request)) {
@@ -431,32 +437,206 @@ export const handlers = [
     
     const body = await request.json() as {
       name: string;
-      bedrooms?: number;
-      bathrooms?: number;
-      squareFeet?: number;
-      hasParking?: boolean;
-      hasLaundry?: boolean;
-      hasBalcony?: boolean;
-      hasAC?: boolean;
-      isFurnished?: boolean;
-      petsAllowed?: boolean;
     };
+    
+    // Validate that only 'name' is provided (backend DTO only accepts name)
+    if (!body.name || typeof body.name !== 'string' || body.name.trim().length === 0) {
+      return HttpResponse.json(
+        { message: 'Validation failed', errors: [{ field: 'name', message: 'name should not be empty' }] },
+        { status: 400 }
+      );
+    }
     
     return HttpResponse.json({
       id: Math.floor(Math.random() * 1000),
       name: body.name,
       propertyId: Number(params.id),
       status: 'VACANT',
-      bedrooms: body.bedrooms,
-      bathrooms: body.bathrooms,
-      squareFeet: body.squareFeet,
-      hasParking: body.hasParking || false,
-      hasLaundry: body.hasLaundry || false,
-      hasBalcony: body.hasBalcony || false,
-      hasAC: body.hasAC || false,
-      isFurnished: body.isFurnished || false,
-      petsAllowed: body.petsAllowed || false,
+      bedrooms: undefined,
+      bathrooms: undefined,
+      squareFeet: undefined,
+      hasParking: false,
+      hasLaundry: false,
+      hasBalcony: false,
+      hasAC: false,
+      isFurnished: false,
+      petsAllowed: false,
     }, { status: 201 });
+  }),
+
+  // PATCH /properties/:id/units/:unitId - Update unit (MUST come before PATCH /properties/:id)
+  // Handle both /api/properties and /properties paths
+  http.patch('/api/properties/:id/units/:unitId', async ({ params, request }) => {
+    await networkDelay();
+    console.log('[MSW] PATCH unit matched (/api path)', { 
+      propertyId: params.id, 
+      unitId: params.unitId,
+      url: request.url 
+    });
+    
+    if (!isAuthenticated(request)) {
+      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const body = await request.json() as {
+      name: string;
+    };
+    
+    if (!body.name || typeof body.name !== 'string' || body.name.trim().length === 0) {
+      return HttpResponse.json(
+        { message: 'Validation failed', errors: [{ field: 'name', message: 'name should not be empty' }] },
+        { status: 400 }
+      );
+    }
+    
+    return HttpResponse.json({
+      id: Number(params.unitId),
+      name: body.name,
+      propertyId: Number(params.id),
+      status: 'VACANT',
+      rent: undefined,
+      bedrooms: undefined,
+      bathrooms: undefined,
+      squareFeet: undefined,
+      hasParking: false,
+      hasLaundry: false,
+      hasBalcony: false,
+      hasAC: false,
+      isFurnished: false,
+      petsAllowed: false,
+    }, { status: 200 });
+  }),
+
+  http.patch(`${API_BASE}/properties/:id/units/:unitId`, async ({ params, request }) => {
+    await networkDelay();
+    console.log(`[MSW] ✅ PATCH unit matched (${API_BASE}/properties/:id/units/:unitId)`, { 
+      propertyId: params.id, 
+      unitId: params.unitId,
+      url: request.url,
+      apiBase: API_BASE,
+      method: request.method
+    });
+    
+    if (!isAuthenticated(request)) {
+      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const body = await request.json() as {
+      name: string;
+    };
+    
+    if (!body.name || typeof body.name !== 'string' || body.name.trim().length === 0) {
+      return HttpResponse.json(
+        { message: 'Validation failed', errors: [{ field: 'name', message: 'name should not be empty' }] },
+        { status: 400 }
+      );
+    }
+    
+    return HttpResponse.json({
+      id: Number(params.unitId),
+      name: body.name,
+      propertyId: Number(params.id),
+      status: 'VACANT',
+      rent: undefined,
+      bedrooms: undefined,
+      bathrooms: undefined,
+      squareFeet: undefined,
+      hasParking: false,
+      hasLaundry: false,
+      hasBalcony: false,
+      hasAC: false,
+      isFurnished: false,
+      petsAllowed: false,
+    }, { status: 200 });
+  }),
+
+  // PATCH /properties/:id - Update property (must come after more specific routes)
+  // Handle both /api/properties and /properties paths
+  // IMPORTANT: This must come AFTER the PATCH /properties/:id/units/:unitId handler
+  http.patch('/api/properties/:id', async ({ params, request }) => {
+    await networkDelay();
+    // Only match if it's NOT a units endpoint
+    if (request.url.includes('/units/')) {
+      // This shouldn't happen if routes are ordered correctly, but log it
+      console.warn('[MSW] ⚠️ PATCH /api/properties/:id matched but URL contains /units/', request.url);
+    }
+    console.log('[MSW] ✅ PATCH property matched (/api/properties/:id)', { 
+      propertyId: params.id,
+      url: request.url,
+      method: request.method
+    });
+    
+    if (!isAuthenticated(request)) {
+      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const body = await request.json() as any;
+    
+    return HttpResponse.json({
+      id: Number(params.id),
+      name: body.name || 'Updated Property',
+      address: body.address,
+      city: body.city,
+      state: body.state,
+      zipCode: body.zipCode,
+      country: body.country || 'USA',
+      propertyType: body.propertyType,
+      description: body.description,
+      yearBuilt: body.yearBuilt,
+      tags: body.tags || [],
+      units: [],
+      unitCount: 0,
+      photos: [],
+      amenities: [],
+      marketingProfile: {
+        availabilityStatus: 'AVAILABLE',
+        isSyndicationEnabled: false,
+      },
+    }, { status: 200 });
+  }),
+
+  http.patch(`${API_BASE}/properties/:id`, async ({ params, request }) => {
+    await networkDelay();
+    // Only match if it's NOT a units endpoint
+    if (request.url.includes('/units/')) {
+      // This shouldn't happen if routes are ordered correctly, but log it
+      console.warn(`[MSW] ⚠️ PATCH ${API_BASE}/properties/:id matched but URL contains /units/`, request.url);
+    }
+    console.log(`[MSW] ✅ PATCH property matched (${API_BASE}/properties/:id)`, { 
+      propertyId: params.id,
+      url: request.url,
+      apiBase: API_BASE,
+      method: request.method
+    });
+    
+    if (!isAuthenticated(request)) {
+      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const body = await request.json() as any;
+    
+    // Return updated property with all fields
+    return HttpResponse.json({
+      id: Number(params.id),
+      name: body.name || 'Updated Property',
+      address: body.address,
+      city: body.city,
+      state: body.state,
+      zipCode: body.zipCode,
+      country: body.country || 'USA',
+      propertyType: body.propertyType,
+      description: body.description,
+      yearBuilt: body.yearBuilt,
+      tags: body.tags || [],
+      units: [],
+      unitCount: 0,
+      photos: [],
+      amenities: [],
+      marketingProfile: {
+        availabilityStatus: 'AVAILABLE',
+        isSyndicationEnabled: false,
+      },
+    }, { status: 200 });
   }),
 
   http.post(`${API_BASE}/properties/:id/marketing`, async ({ params, request }) => {
@@ -1240,9 +1420,40 @@ export const handlers = [
     }, { status: 201 });
   }),
 
-  // Default catch-all for unmocked endpoints
+  // Catch-all for PATCH requests to help debug (must come after specific handlers)
+  http.patch(`${API_BASE}/*`, ({ request }) => {
+    const url = request.url;
+    console.error(`[MSW] ❌ PATCH request NOT matched by specific handler: ${url}`);
+    console.error(`[MSW] This means the route pattern didn't match. Check the URL pattern.`);
+    
+    // Try to provide helpful error message
+    if (url.includes('/properties/') && url.includes('/units/')) {
+      return HttpResponse.json(
+        { 
+          error: 'PATCH /properties/:id/units/:unitId endpoint not matched', 
+          url: url,
+          hint: 'Check if MSW handlers are in correct order and route patterns match'
+        },
+        { status: 404 }
+      );
+    }
+    
+    return HttpResponse.json(
+      { error: 'PATCH endpoint not specifically mocked', url: url, method: 'PATCH' },
+      { status: 404 }
+    );
+  }),
+
+  // Default catch-all for unmocked endpoints (must be last)
   http.all(`${API_BASE}/*`, ({ request }) => {
-    console.warn(`[MSW] Unhandled ${request.method} request to ${request.url}`);
+    if (request.method !== 'PATCH') {
+      console.warn(`[MSW] Unhandled ${request.method} request to ${request.url}`);
+      return HttpResponse.json(
+        { error: 'Endpoint not mocked', url: request.url },
+        { status: 404 }
+      );
+    }
+    // PATCH requests are handled by the PATCH catch-all above
     return HttpResponse.json(
       { error: 'Endpoint not mocked', url: request.url },
       { status: 404 }
@@ -1250,3 +1461,17 @@ export const handlers = [
   }),
 ];
 
+// Debug: Log handlers count at module load time
+// This runs when the module is first imported
+try {
+  console.log('[MSW handlers.ts] ✅ Module loaded successfully');
+  console.log('[MSW handlers.ts] Handlers count:', handlers.length);
+  console.log('[MSW handlers.ts] API_BASE:', API_BASE);
+  if (handlers.length === 0) {
+    console.error('[MSW handlers.ts] ❌ ERROR: handlers array is empty!');
+    throw new Error('Handlers array is empty - this will break MSW');
+  }
+} catch (error) {
+  console.error('[MSW handlers.ts] ❌ ERROR loading handlers module:', error);
+  throw error; // Re-throw to prevent silent failure
+}

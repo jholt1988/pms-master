@@ -10,7 +10,7 @@ echo "Wiki Sync Test Script"
 echo "================================================"
 echo ""
 
-WIKI_SOURCE_DIR="tenant_portal_app/docs/wiki"
+WIKI_SOURCE_DIR="docs/guides/wiki"
 TEST_WIKI_DIR="/tmp/test-wiki-sync"
 
 # Cleanup function

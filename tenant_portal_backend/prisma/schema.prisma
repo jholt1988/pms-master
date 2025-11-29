@@ -15,6 +15,7 @@ model User {
   username                  String                      @unique
   password                  String
   role                      Role                        @default(TENANT)
+  phoneNumber               String?
   failedLoginAttempts       Int                         @default(0)
   lockoutUntil              DateTime?
   mfaEnabled                Boolean                     @default(false)
@@ -44,6 +45,7 @@ model User {
   LeaseNotice               LeaseNotice[]
   passwordResetTokens       PasswordResetToken[]
   notifications             Notification[]
+  notificationPreference    NotificationPreference?
   documents                 Document[]
   sharedDocuments           Document[]                  @relation("DocumentShares")
   createdEsignEnvelopes     EsignEnvelope[]             @relation("EnvelopeCreator")
@@ -71,6 +73,7 @@ model User {
   savedPropertyFilters    SavedPropertyFilter[]
   acceptedRecommendations RentRecommendation[]   @relation("AcceptedRentRecommendations")
   rejectedRecommendations RentRecommendation[]   @relation("RejectedRentRecommendations")
+  resolvedAnomalies       AnomalyLog[]           @relation("AnomalyResolver")
 }
 
 model Property {
@@ -679,6 +682,7 @@ model Invoice {
   issuedAt    DateTime                  @default(now())
   externalId  String?                   @unique
   lateFees    LateFee[]
+  paymentPlan PaymentPlan?
   schedule    RecurringInvoiceSchedule? @relation(fields: [scheduleId], references: [id])
   scheduleId  Int?
 }
@@ -698,6 +702,7 @@ model Payment {
   reconciledAt    DateTime?
   paymentMethod   PaymentMethod? @relation(fields: [paymentMethodId], references: [id])
   paymentMethodId Int?
+  paymentPlanPayments PaymentPlanPayment[] @relation("PaymentPlanPayment")
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 }
@@ -1212,6 +1217,35 @@ model LateFee {
   waived     Boolean  @default(false)
 }
 
+model PaymentPlan {
+  id                    Int       @id @default(autoincrement())
+  invoice               Invoice   @relation(fields: [invoiceId], references: [id])
+  invoiceId            Int       @unique
+  installments         Int
+  amountPerInstallment  Float
+  totalAmount          Float
+  status               String    @default("PENDING") // PENDING, ACTIVE, COMPLETED, CANCELLED
+  acceptedAt           DateTime?
+  completedAt          DateTime?
+  cancelledAt          DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  paymentPlanPayments   PaymentPlanPayment[]
+}
+
+model PaymentPlanPayment {
+  id            Int         @id @default(autoincrement())
+  paymentPlan   PaymentPlan @relation(fields: [paymentPlanId], references: [id], onDelete: Cascade)
+  paymentPlanId Int
+  payment       Payment     @relation("PaymentPlanPayment", fields: [paymentId], references: [id], onDelete: Cascade)
+  paymentId     Int         @unique
+  installmentNumber Int
+  dueDate       DateTime
+  paidAt        DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
 model AutopayEnrollment {
   id              Int           @id @default(autoincrement())
   lease           Lease         @relation(fields: [leaseId], references: [id])
@@ -1271,20 +1305,64 @@ enum SecurityEventType {
 }
 
 model Notification {
-  id        Int              @id @default(autoincrement())
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    Int
-  type      NotificationType
-  title     String
-  message   String
-  read      Boolean          @default(false)
-  readAt    DateTime?
-  metadata  Json?
-  createdAt DateTime         @default(now())
+  id          Int              @id @default(autoincrement())
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      Int
+  type        NotificationType
+  title       String
+  message     String
+  read        Boolean          @default(false)
+  readAt      DateTime?
+  scheduledFor DateTime?
+  metadata    Json?
+  createdAt   DateTime         @default(now())
 
   @@index([userId, read])
   @@index([userId, createdAt])
   @@index([type])
+  @@index([scheduledFor])
+  @@index([userId, scheduledFor])
+}
+
+model NotificationPreference {
+  id                Int                @id @default(autoincrement())
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId            Int                @unique
+  emailEnabled      Boolean            @default(true)
+  smsEnabled        Boolean            @default(false)
+  pushEnabled       Boolean            @default(false)
+  preferredChannel  String             @default("EMAIL") // EMAIL, SMS, PUSH
+  quietHoursStart   String?            // e.g., "22:00"
+  quietHoursEnd     String?            // e.g., "08:00"
+  notificationTypes Json?              // Map of NotificationType -> enabled boolean
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([userId])
+}
+
+model AnomalyLog {
+  id                Int       @id @default(autoincrement())
+  type              String    // PAYMENT, MAINTENANCE, PERFORMANCE, DATABASE
+  severity          String    // LOW, MEDIUM, HIGH, CRITICAL
+  description       String
+  metrics           Json
+  recommendedActions Json
+  detectedAt        DateTime  @default(now())
+  resolvedAt        DateTime?
+  resolvedBy        User?     @relation("AnomalyResolver", fields: [resolvedById], references: [id])
+  resolvedById      Int?
+  resolutionNotes   String?
+  status            String    @default("DETECTED") // DETECTED, INVESTIGATING, RESOLVED, FALSE_POSITIVE
+  duplicateOf       Int?      // Reference to another anomaly if this is a duplicate
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([type])
+  @@index([severity])
+  @@index([status])
+  @@index([detectedAt])
+  @@index([type, severity])
 }
 
 enum NotificationType {

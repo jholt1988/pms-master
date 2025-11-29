@@ -1,0 +1,154 @@
+-- ============================================
+-- Real-World Data Migration SQL
+-- ============================================
+-- This file contains real-world data for seeding the database
+-- Date: 2025-01-28
+--
+-- IMPORTANT NOTES:
+-- 1. This script assumes an EMPTY database. Auto-increment IDs will start at 1.
+-- 2. Foreign key references assume sequential ID generation (User 1-17, Property 1-15, Unit 1-26, Lease 1-13)
+-- 3. If inserting into a database with existing data, adjust all foreign key IDs accordingly
+-- 4. All timestamp columns use CURRENT_TIMESTAMP or explicit dates in PostgreSQL format
+-- 5. Boolean fields with defaults can use DEFAULT keyword or explicit true/false
+
+-- ============================================
+-- USERS
+-- ============================================
+-- Note: passwordUpdatedAt has a default value, so we omit it to use the default
+INSERT INTO "User" (id, username, password, role, "phoneNumber", "failedLoginAttempts", "lockoutUntil", "mfaEnabled", "mfaSecret", "mfaTempSecret", "lastLoginAt", "stripeCustomerId")
+VALUES
+    (NULL, 'admin', 'admin123', 'PROPERTY_MANAGER', '1111111111', DEFAULT, NULL, DEFAULT, NULL, NULL, NULL, NULL),
+    (NULL, 'jholt', 'adminpass', 'PROPERTY_MANAGER', '3162445752', DEFAULT, NULL, DEFAULT, NULL, NULL, NULL, NULL),
+    (NULL, 'plabrue', 'newpassword123', 'PROPERTY_MANAGER', '3163504020', DEFAULT, NULL, DEFAULT, NULL, NULL, NULL, NULL),
+    (NULL, 'areyna', 'newpassword123', 'PROPERTY_MANAGER', '3163504020', DEFAULT, NULL, DEFAULT, NULL, NULL, NULL, NULL),
+    (NULL, 'mark_donna', 'tenantpass123', 'TENANT', NULL, DEFAULT, NULL, DEFAULT, NULL, NULL, NULL, NULL),
+    (NULL, 'steve', 'tenantpass123', 'TENANT', NULL, DEFAULT, NULL, DEFAULT, NULL, NULL, NULL, NULL),
+    (NULL, 'mrB', 'tenantpass123', 'TENANT', NULL, DEFAULT, NULL, DEFAULT, NULL, NULL, NULL, NULL),
+    (NULL, 'davidG', 'tenantpass123', 'TENANT', NULL, DEFAULT, NULL, DEFAULT, NULL, NULL, NULL, NULL),
+    (NULL, 'Junior', 'tenantpass123', 'TENANT', NULL, DEFAULT, NULL, DEFAULT, NULL, NULL, NULL, NULL),
+    (NULL, 'Siren', 'tenantpass123', 'TENANT', NULL, DEFAULT, NULL, DEFAULT, NULL, NULL, NULL, NULL),
+    (NULL, 'Vicky', 'tenantpass123', 'TENANT', NULL, DEFAULT, NULL, DEFAULT, NULL, NULL, NULL, NULL),
+    (NULL, 'MrsJ', 'tenantpass123', 'TENANT', NULL, DEFAULT, NULL, DEFAULT, NULL, NULL, NULL, NULL),
+    (NULL, 'DaMansaws', 'tenantpass123', 'TENANT', NULL, DEFAULT, NULL, DEFAULT, NULL, NULL, NULL, NULL),
+    (NULL, 'DaviSr', 'tenantpass123', 'TENANT', NULL, DEFAULT, NULL, DEFAULT, NULL, NULL, NULL, NULL),
+    (NULL, 'Patrick', 'tenantpass123', 'TENANT', NULL, DEFAULT, NULL, DEFAULT, NULL, NULL, NULL, NULL),
+    (NULL, 'Elijah', 'tenantpass123', 'TENANT', NULL, DEFAULT, NULL, DEFAULT, NULL, NULL, NULL, NULL);
+
+-- ============================================
+-- PROPERTIES
+-- ============================================
+-- Note: createdAt and updatedAt have defaults, but we specify dates to match original data
+INSERT INTO "Property" (id, name, address, city, state, "zipCode", country, latitude, longitude, "propertyType", description, bedrooms, bathrooms, "minRent", "maxRent", tags, "yearBuilt", "createdAt", "updatedAt")
+VALUES
+    (NULL, 'The Sharon', '370 S. Hydraulic', 'Wichita', 'Kansas', '67211', 'US', 37.697948, -97.314835, 'Apartment', NULL, NULL, NULL, NULL, NULL, ARRAY[]::TEXT[], NULL, '2025-11-28 02:43:59.205', '2025-11-28 02:43:59.205'),
+    (NULL, 'Ida', '1026 S. Ida', 'Wichita', 'Kansas', '67211', 'US', 37.673945699060496, -97.32475543333885, 'Single Family', NULL, NULL, NULL, NULL, NULL, ARRAY[]::TEXT[], NULL, '2025-11-28 02:43:59.205', '2025-11-28 02:43:59.205'),
+    (NULL, 'N. Market', '2053 N. Market', 'Wichita', 'Kansas', '67214', 'US', 37.72023205858973, -97.33709661799546, 'Apartment', NULL, NULL, NULL, NULL, NULL, ARRAY[]::TEXT[], NULL, '2025-11-28 02:43:59.205', '2025-11-28 02:43:59.205'),
+    (NULL, 'Lincoln', '525 E Lincoln', 'Wichita', 'Kansas', '67211', 'US', 37.67166869956, -97.3324820621742, 'Duplex', NULL, NULL, NULL, NULL, NULL, ARRAY[]::TEXT[], NULL, '2025-11-28 02:43:59.205', '2025-11-28 02:43:59.205'),
+    (NULL, 'Emporia', '1204 S. Emporia', 'Wichita', 'Kansas', '67211', 'US', 37.671517228232446, -97.33264062915629, 'Duplex', NULL, NULL, NULL, NULL, NULL, ARRAY[]::TEXT[], NULL, '2025-11-28 02:43:59.205', '2025-11-28 02:43:59.205'),
+    (NULL, '1952 Jackson', '1952 S. Jackson', 'Wichita', 'Kansas', '67203', 'US', 37.71885420132305, -97.3430751640177, 'Duplex', NULL, NULL, NULL, NULL, NULL, ARRAY[]::TEXT[], NULL, '2025-11-28 02:43:59.205', '2025-11-28 02:43:59.205'),
+    (NULL, '1954 Jackson', '1954 S. Jackson', 'Wichita', 'Kansas', '67203', 'US', 37.71885420132305, -97.3430751640177, 'Duplex', NULL, NULL, NULL, NULL, NULL, ARRAY[]::TEXT[], NULL, '2025-11-28 02:43:59.205', '2025-11-28 02:43:59.205'),
+    (NULL, 'Maple', '1807 W. Maple', 'Wichita', 'Kansas', '67213', 'US', 37.68057372537867, -97.36181534294771, 'Duplex', NULL, NULL, NULL, NULL, NULL, ARRAY[]::TEXT[], NULL, '2025-11-28 02:43:59.205', '2025-11-28 02:43:59.205'),
+    (NULL, '2042 Topeka', '2042 S Topeka', 'Wichita', 'Kansas', '67211', 'US', 37.655656359982984, -97.33383694498818, 'Duplex', NULL, NULL, NULL, NULL, NULL, ARRAY[]::TEXT[], NULL, '2025-11-28 02:43:59.205', '2025-11-28 02:43:59.205'),
+    (NULL, '2044 Topeka', '2044 S. Topeka', 'Wichita', 'Kansas', '67211', 'US', 37.655656359982984, -97.33383694498818, 'Duplex', NULL, NULL, NULL, NULL, NULL, ARRAY[]::TEXT[], NULL, '2025-11-28 02:43:59.205', '2025-11-28 02:43:59.205'),
+    (NULL, '2946 Bunkerhill', '2946 S. Bunkerhill', 'Wichita', 'Kansas', '67210', 'US', 37.63923440179619, -97.2771379198464, 'Duplex', NULL, NULL, NULL, NULL, NULL, ARRAY[]::TEXT[], NULL, '2025-11-28 02:43:59.205', '2025-11-28 02:43:59.205'),
+    (NULL, '2948 Bunkerhill', '2948 S. Bunkerhill', 'Wichita', 'Kansas', '67210', 'US', 37.63923440179619, -97.2771379198464, 'Duplex', NULL, NULL, NULL, NULL, NULL, ARRAY[]::TEXT[], NULL, '2025-11-28 02:43:59.205', '2025-11-28 02:43:59.205'),
+    (NULL, 'Volusia', '725 S. Volusia', 'Wichita', 'Kansas', '67211', 'US', 37.674711375548064, -97.3039915026574, 'Single Family', NULL, NULL, NULL, NULL, NULL, ARRAY[]::TEXT[], NULL, '2025-11-28 02:43:59.205', '2025-11-28 02:43:59.205'),
+    (NULL, 'S. Market', '1419 S. Market', 'Wichita', 'Kansas', '67211', 'US', 37.667611424504656, -97.33708061121672, 'Duplex', NULL, NULL, NULL, NULL, NULL, ARRAY[]::TEXT[], NULL, '2025-11-28 02:43:59.205', '2025-11-28 02:43:59.205'),
+    (NULL, 'Augusta', '231 12th Ave', 'Wichita', 'Kansas', '67010', 'US', 37.68643191076886, -96.97487112080682, 'Single Family', NULL, NULL, NULL, NULL, NULL, ARRAY[]::TEXT[], NULL, '2025-11-28 02:43:59.205', '2025-11-28 02:43:59.205');
+
+-- ============================================
+-- UNITS
+-- ============================================
+INSERT INTO "Unit" (id, name, "propertyId", "unitNumber", bedrooms, bathrooms, "squareFeet", "hasParking", "hasLaundry", "hasBalcony", "hasAC", "isFurnished", "petsAllowed")
+VALUES
+    (NULL, 'unit1', 1, '1', 1, 1, 425, true, false, false, true, false, true),
+    (NULL, 'unit2', 1, '2', 1, 1, 425, true, false, false, true, false, true),
+    (NULL, 'unit3', 1, '3', 1, 1, 425, true, DEFAULT, DEFAULT, true, false, true),
+    (NULL, 'unit4', 1, '4', 1, 1, 425, true, DEFAULT, DEFAULT, true, DEFAULT, true),
+    (NULL, 'unit5', 1, '5', 1, 1, 425, true, DEFAULT, DEFAULT, true, DEFAULT, true),
+    (NULL, 'unit6', 1, '6', 1, 1, 425, true, DEFAULT, DEFAULT, true, DEFAULT, true),
+    (NULL, 'unit7', 1, '7', 1, NULL, 425, true, DEFAULT, DEFAULT, true, DEFAULT, true),
+    (NULL, 'unit8', 1, '8', 1, 1, 425, true, DEFAULT, DEFAULT, true, DEFAULT, true),
+    (NULL, 'IDA', 2, '1', 2, 1, 889, true, true, DEFAULT, true, false, true),
+    (NULL, 'N-Market 1', 3, '1', 2, 1, 600, true, DEFAULT, DEFAULT, true, DEFAULT, true),
+    (NULL, 'N-Market 2', 3, '2', 1, 1, 324, true, DEFAULT, DEFAULT, true, DEFAULT, DEFAULT),
+    (NULL, 'N-Market 3', 3, '3', 1, 1, 600, true, DEFAULT, DEFAULT, DEFAULT, DEFAULT, DEFAULT),
+    (NULL, 'Lincoln', 4, '1', 2, 1, 494, true, true, DEFAULT, true, DEFAULT, true),
+    (NULL, 'Emporia', 5, '2', 1, 1, 494, true, true, DEFAULT, DEFAULT, DEFAULT, true),
+    (NULL, '1952 Jackson', 6, '1952', 1, 1, 765, DEFAULT, true, DEFAULT, true, DEFAULT, DEFAULT),
+    (NULL, '1954 Jackson', 7, '1954', 1, 1, 765, DEFAULT, true, DEFAULT, true, DEFAULT, DEFAULT),
+    (NULL, 'Maple', 8, '1', 2, 1, 1288, true, true, DEFAULT, true, DEFAULT, DEFAULT),
+    (NULL, '1/2 Maple', 8, '1/2', 1, 1, 200, DEFAULT, DEFAULT, DEFAULT, true, DEFAULT, DEFAULT),
+    (NULL, '2042 Topeka', 9, '2042', 2, 1, 720, true, true, DEFAULT, true, DEFAULT, true),
+    (NULL, '2044 Topeka', 10, '2044', 2, 1, 720, true, true, DEFAULT, DEFAULT, DEFAULT, true),
+    (NULL, '2946 Bunkerhill', 11, '2946', 2, 1, 923, true, true, DEFAULT, true, DEFAULT, true),
+    (NULL, '2948 Bunkerhill', 12, '2948', 2, 1, 9223, true, true, DEFAULT, true, DEFAULT, true),
+    (NULL, 'Volusia', 13, '1', 2, 1.5, 1368, true, true, DEFAULT, true, DEFAULT, true),
+    (NULL, 'S-Market 1', 14, '1', 1, 1, 415, true, DEFAULT, DEFAULT, DEFAULT, DEFAULT, true),
+    (NULL, 'S-Market 2', 14, '2', 1, 1, 415, true, DEFAULT, DEFAULT, DEFAULT, DEFAULT, DEFAULT),
+    (NULL, 'Augusta', 15, '1', 2, 1.5, 1146, true, true, DEFAULT, true, DEFAULT, true);
+
+-- ============================================
+-- LEASES
+-- ============================================
+INSERT INTO "Lease" (id, "startDate", "endDate", "rentAmount", status, "noticePeriodDays", "moveInAt", "moveOutAt", "autoRenew", "autoRenewLeadDays", "depositAmount", "depositHeldAt", "depositReturnedAt", "renewalOfferedAt", "renewalDueAt", "renewalAcceptedAt", "terminationReason", "terminationEffectiveAt", "rentEscalationPercent", "rentEscalationEffectiveAt", "billingAlignment", "currentBalance", "tenantId", "unitId", "createdAt", "updatedAt")
+VALUES
+    (NULL, '2025-01-01', '2025-12-31', 725.00, 'ACTIVE', 30, '2025-01-01', NULL, true, NULL, 725.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'FULL_CYCLE', 0.00, 5, 17, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    (NULL, '2025-01-01', '2025-12-31', 700.00, 'ACTIVE', 30, '2025-01-01', NULL, true, NULL, 700.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'FULL_CYCLE', 0.00, 6, 9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    (NULL, '2025-01-01', '2025-12-31', 600.00, 'ACTIVE', 30, '2025-01-01', NULL, true, NULL, 600.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'FULL_CYCLE', 0.00, 7, 3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    (NULL, '2025-01-01', '2025-12-31', 525.00, 'ACTIVE', 30, '2025-01-01', NULL, true, NULL, 525.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'FULL_CYCLE', 300.00, 8, 6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    (NULL, '2025-01-01', '2025-12-31', 600.00, 'ACTIVE', 30, '2025-01-01', NULL, true, NULL, 600.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'FULL_CYCLE', 0.00, 9, 8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+-- ============================================
+-- ADDITIONAL DATA (Generated)
+-- ============================================
+
+-- Additional Leases for remaining tenants
+INSERT INTO "Lease" (id, "startDate", "endDate", "rentAmount", status, "noticePeriodDays", "moveInAt", "moveOutAt", "autoRenew", "autoRenewLeadDays", "depositAmount", "depositHeldAt", "depositReturnedAt", "renewalOfferedAt", "renewalDueAt", "renewalAcceptedAt", "terminationReason", "terminationEffectiveAt", "rentEscalationPercent", "rentEscalationEffectiveAt", "billingAlignment", "currentBalance", "tenantId", "unitId", "createdAt", "updatedAt")
+VALUES
+    (NULL, '2025-01-01', '2025-12-31', 600.00, 'ACTIVE', 30, '2025-01-01', NULL, true, NULL, 600.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'FULL_CYCLE', 0.00, 10, 10, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    (NULL, '2025-01-01', '2025-12-31', 650.00, 'ACTIVE', 30, '2025-01-01', NULL, true, NULL, 650.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'FULL_CYCLE', 0.00, 11, 12, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    (NULL, '2025-01-01', '2025-12-31', 550.00, 'ACTIVE', 30, '2025-01-01', NULL, true, NULL, 550.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'FULL_CYCLE', 0.00, 12, 13, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    (NULL, '2025-01-01', '2025-12-31', 575.00, 'ACTIVE', 30, '2025-01-01', NULL, true, NULL, 575.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'FULL_CYCLE', 0.00, 13, 14, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    (NULL, '2025-01-01', '2025-12-31', 625.00, 'ACTIVE', 30, '2025-01-01', NULL, true, NULL, 625.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'FULL_CYCLE', 0.00, 14, 15, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    (NULL, '2025-01-01', '2025-12-31', 675.00, 'ACTIVE', 30, '2025-01-01', NULL, true, NULL, 675.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'FULL_CYCLE', 0.00, 15, 16, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    (NULL, '2025-01-01', '2025-12-31', 750.00, 'ACTIVE', 30, '2025-01-01', NULL, true, NULL, 750.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'FULL_CYCLE', 0.00, 16, 18, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    (NULL, '2025-01-01', '2025-12-31', 650.00, 'ACTIVE', 30, '2025-01-01', NULL, true, NULL, 650.00, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'FULL_CYCLE', 0.00, 17, 19, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+-- Maintenance Requests (Sample data)
+INSERT INTO "MaintenanceRequest" (id, title, description, status, priority, "authorId", "propertyId", "unitId", "leaseId", "createdAt", "updatedAt")
+VALUES
+    (NULL, 'Leaky faucet in kitchen', 'Kitchen faucet is dripping constantly, needs repair', 'PENDING', 'MEDIUM', 5, 8, 17, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    (NULL, 'AC not cooling', 'Air conditioning unit not working properly, room is too warm', 'IN_PROGRESS', 'HIGH', 6, 2, 9, 2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    (NULL, 'Broken door lock', 'Front door lock mechanism is broken, cannot secure the unit', 'COMPLETED', 'HIGH', 7, 1, 3, 3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+-- Invoices (Sample data for active leases)
+INSERT INTO "Invoice" (id, description, amount, "dueDate", status, "leaseId", "issuedAt")
+VALUES
+    (NULL, 'January 2025 Rent', 725.00, '2025-02-01', 'UNPAID', 1, CURRENT_TIMESTAMP),
+    (NULL, 'January 2025 Rent', 700.00, '2025-02-01', 'UNPAID', 2, CURRENT_TIMESTAMP),
+    (NULL, 'January 2025 Rent', 600.00, '2025-02-01', 'UNPAID', 3, CURRENT_TIMESTAMP),
+    (NULL, 'January 2025 Rent', 525.00, '2025-02-01', 'UNPAID', 4, CURRENT_TIMESTAMP),
+    (NULL, 'January 2025 Rent', 600.00, '2025-02-01', 'UNPAID', 5, CURRENT_TIMESTAMP);
+
+-- Payments (Sample data)
+INSERT INTO "Payment" (id, amount, "paymentDate", status, "invoiceId", "userId", "leaseId", "createdAt", "updatedAt")
+VALUES
+    (NULL, 725.00, '2025-01-15', 'COMPLETED', 1, 5, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    (NULL, 700.00, '2025-01-15', 'COMPLETED', 2, 6, 2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+-- Recurring Invoice Schedules (for active leases)
+INSERT INTO "RecurringInvoiceSchedule" (id, "leaseId", amount, description, frequency, "dayOfMonth", "nextRun", active, "createdAt", "updatedAt")
+VALUES
+    (NULL, 1, 725.00, 'Monthly Rent', 'MONTHLY', 1, '2025-02-01', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    (NULL, 2, 700.00, 'Monthly Rent', 'MONTHLY', 1, '2025-02-01', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    (NULL, 3, 600.00, 'Monthly Rent', 'MONTHLY', 1, '2025-02-01', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    (NULL, 4, 525.00, 'Monthly Rent', 'MONTHLY', 1, '2025-02-01', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    (NULL, 5, 600.00, 'Monthly Rent', 'MONTHLY', 1, '2025-02-01', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+-- Expenses (Sample property expenses)
+INSERT INTO "Expense" (id, "propertyId", "unitId", description, amount, date, category, "recordedById", "createdAt", "updatedAt")
+VALUES
+    (NULL, 1, NULL, 'Monthly landscaping service', 150.00, '2025-01-15', 'MAINTENANCE', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    (NULL, 2, NULL, 'Property insurance payment', 250.00, '2025-01-10', 'INSURANCE', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    (NULL, 8, 17, 'Repair leaky faucet', 125.00, '2025-01-20', 'REPAIRS', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);

@@ -1,9 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { LeaseStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { LeaseService } from './lease.service';
 import { AILeaseRenewalService } from './ai-lease-renewal.service';
+import { AILeaseRenewalMetricsService } from './ai-lease-renewal-metrics.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '@prisma/client';
 
@@ -16,6 +17,7 @@ export class LeaseTasksService {
     private readonly leaseService: LeaseService,
     private readonly aiLeaseRenewalService: AILeaseRenewalService,
     private readonly notificationsService: NotificationsService,
+    @Optional() private readonly aiMetrics?: AILeaseRenewalMetricsService,
   ) {}
 
   /**

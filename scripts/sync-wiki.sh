@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Script to manually sync wiki files from tenant_portal_app/docs/wiki to GitHub Wiki
+# Script to manually sync wiki files from docs/guides/wiki to GitHub Wiki
 # This script can be used for local testing or manual wiki updates
 
 set -e  # Exit on error
 
-WIKI_SOURCE_DIR="tenant_portal_app/docs/wiki"
+WIKI_SOURCE_DIR="docs/guides/wiki"
 WIKI_REPO_URL="https://github.com/jholt1988/pms.wiki.git"
 WIKI_CLONE_DIR="wiki-repo-temp"
 
@@ -73,7 +73,7 @@ echo "  Changes to be committed:"
 git status --short
 
 # Commit changes
-git commit -m "Manual wiki sync from tenant_portal_app/docs/wiki"
+git commit -m "Manual wiki sync from docs/guides/wiki"
 echo "  ✓ Changes committed"
 echo ""
 

@@ -41,6 +41,12 @@ export class AuthController {
   }
 
   @UseGuards(AuthGuard('jwt'))
+  @Get('me')
+  getMe(@Req() req: Request) {
+    return req.user;
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Post('mfa/prepare')
   @HttpCode(201)
   async prepareMfa(@Req() req: Request) {

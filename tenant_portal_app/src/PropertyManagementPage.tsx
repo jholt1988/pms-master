@@ -20,6 +20,7 @@ import { useViewportCategory } from './hooks/useViewportCategory';
 import { apiFetch } from './services/apiClient';
 import { PropertyForm } from './components/properties/PropertyForm';
 import { BulkUnitCreator } from './components/properties/BulkUnitCreator';
+import { UnitEditor } from './components/properties/UnitEditor';
 
 type AvailabilityStatus = 'AVAILABLE' | 'LIMITED' | 'WAITLISTED' | 'COMING_SOON' | 'UNAVAILABLE';
 
@@ -229,6 +230,8 @@ const PropertyManagementPage: React.FC = () => {
   const [propertySaving, setPropertySaving] = useState(false);
   const [propertyModalError, setPropertyModalError] = useState<string | null>(null);
   const [isBulkUnitModalOpen, setIsBulkUnitModalOpen] = useState(false);
+  const [isUnitEditorOpen, setIsUnitEditorOpen] = useState(false);
+  const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
   const [unitSaving, setUnitSaving] = useState(false);
   const [unitModalError, setUnitModalError] = useState<string | null>(null);
   const [detailTab, setDetailTab] = useState('overview');
@@ -246,7 +249,6 @@ const PropertyManagementPage: React.FC = () => {
     setErrorMessage(null);
     try {
       const data = await apiFetch('/properties', { token });
-      console.log('Properties data received:', data);
       // Handle both array and object formats
       const properties = Array.isArray(data) ? data : (data?.data ?? data ?? []);
       setProperties(properties);
@@ -463,31 +465,12 @@ const PropertyManagementPage: React.FC = () => {
       
       // Create units one by one (or batch if backend supports it)
       for (const unitData of unitsData) {
-        const unitPayload: {
-          name: string;
-          bedrooms?: number;
-          bathrooms?: number;
-          squareFeet?: number;
-          hasParking?: boolean;
-          hasLaundry?: boolean;
-          hasBalcony?: boolean;
-          hasAC?: boolean;
-          isFurnished?: boolean;
-          petsAllowed?: boolean;
-        } = {
+        // Backend currently only accepts 'name' field in CreateUnitDto
+        // Additional fields (bedrooms, bathrooms, features, etc.) would need backend DTO update
+        const unitPayload = {
           name: unitData.name.trim(),
-          bedrooms: unitData.bedrooms ? parseFloat(unitData.bedrooms) : undefined,
-          bathrooms: unitData.bathrooms ? parseFloat(unitData.bathrooms) : undefined,
-          squareFeet: unitData.squareFeet ? parseInt(unitData.squareFeet) : undefined,
-          hasParking: unitData.features.includes('Parking'),
-          hasLaundry: unitData.features.includes('Laundry'),
-          hasBalcony: unitData.features.includes('Balcony'),
-          hasAC: unitData.features.includes('AC'),
-          isFurnished: unitData.features.includes('Furnished'),
-          petsAllowed: unitData.features.includes('Pet Friendly'),
         };
 
-        // Note: Backend may need to be updated to accept these fields
         const createdUnit: Unit = await apiFetch(`/properties/${selectedProperty.id}/units`, {
           token,
           method: 'POST',
@@ -504,6 +487,68 @@ const PropertyManagementPage: React.FC = () => {
     } catch (error) {
       console.error('handleBulkCreateUnits', error);
       setUnitModalError('Unable to create units. Please try again.');
+    } finally {
+      setUnitSaving(false);
+    }
+  };
+
+  const handleEditUnit = (unit: Unit) => {
+    setEditingUnit(unit);
+    setIsUnitEditorOpen(true);
+    setUnitModalError(null);
+  };
+
+  const handleUpdateUnit = async (unitData: {
+    name: string;
+    bedrooms: string;
+    bathrooms: string;
+    squareFeet: string;
+    rent: string;
+    features: string[];
+    amenities: string[];
+  }) => {
+    if (!token || !selectedProperty || !editingUnit) {
+      return;
+    }
+    setUnitSaving(true);
+    setUnitModalError(null);
+    try {
+      // Map features array to boolean fields
+      const hasParking = unitData.features.includes('Parking');
+      const hasLaundry = unitData.features.includes('Laundry');
+      const hasBalcony = unitData.features.includes('Balcony');
+      const hasAC = unitData.features.includes('AC');
+      const isFurnished = unitData.features.includes('Furnished');
+      const petsAllowed = unitData.features.includes('Pet Friendly');
+
+      const unitPayload = {
+        name: unitData.name.trim(),
+        bedrooms: unitData.bedrooms ? parseFloat(unitData.bedrooms) : undefined,
+        bathrooms: unitData.bathrooms ? parseFloat(unitData.bathrooms) : undefined,
+        squareFeet: unitData.squareFeet ? parseInt(unitData.squareFeet) : undefined,
+        hasParking,
+        hasLaundry,
+        hasBalcony,
+        hasAC,
+        isFurnished,
+        petsAllowed,
+      };
+
+      const updatedUnit: Unit = await apiFetch(`/properties/${selectedProperty.id}/units/${editingUnit.id}`, {
+        token,
+        method: 'PATCH',
+        body: unitPayload,
+      });
+
+      const updatedUnits = units.map((u) => (u.id === editingUnit.id ? updatedUnit : u));
+      setUnits(updatedUnits);
+      selectProperty({ ...selectedProperty, units: updatedUnits });
+      await fetchProperties();
+      setIsUnitEditorOpen(false);
+      setEditingUnit(null);
+    } catch (error) {
+      console.error('handleUpdateUnit', error);
+      setUnitModalError('Unable to update unit. Please try again.');
     } finally {
       setUnitSaving(false);
     }
@@ -674,10 +719,7 @@ const PropertyManagementPage: React.FC = () => {
       {errorMessage && (
         <p className="text-sm text-danger-600">{errorMessage}</p>
       )}
-      <div className="mb-2 text-sm text-gray-300">
-        Debug: {properties.length} properties loaded, loading: {loading ? 'true' : 'false'}
-      </div>
-      <Card className="flex-1 overflow-hidden">
+      <Card className="flex-1 overflow-hidden bg-white/5 border-white/10">
         <CardBody className="space-y-4 overflow-y-auto max-h-[calc(100vh-220px)]">
           {properties.length === 0 && (
             <div className="text-sm text-gray-300">
@@ -690,17 +732,17 @@ const PropertyManagementPage: React.FC = () => {
               <Card
                 key={property.id}
                 isPressable
-                className={`border ${isSelected ? 'border-primary' : 'border-transparent'} transition`}
+                className={`bg-white/5 border-white/10 border ${isSelected ? 'border-primary' : 'border-white/10'} transition`}
                 onClick={() => selectProperty(property)}
               >
-                <CardBody className="space-y-2">
+                <CardBody className="space-y-3 p-4">
                   <div className="flex justify-between items-start gap-3">
                     <div className="flex items-start gap-3">
-                      <Building2 size={20} className="text-gray-300" />
-                      <div>
-                        <p className="text-base font-semibold text-white">{property.name}</p>
-                        <p className="text-xs text-gray-300">
-                          <MapPin size={12} className="inline mr-1" />
+                      <Building2 size={24} className="text-gray-300 flex-shrink-0 mt-0.5" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-base font-bold text-white mb-1">{property.name}</p>
+                        <p className="text-sm text-gray-300">
+                          <MapPin size={14} className="inline mr-1" />
                           {formatAddress(property) || 'Address not set'}
                         </p>
                       </div>
@@ -709,17 +751,18 @@ const PropertyManagementPage: React.FC = () => {
                       color={property.marketingProfile?.availabilityStatus === 'UNAVAILABLE' ? 'danger' : 'success'}
                       size="sm"
                       variant="flat"
+                      className="flex-shrink-0"
                     >
                       {property.marketingProfile?.availabilityStatus ?? 'Unknown status'}
                     </Chip>
                   </div>
-                  <div className="flex items-center justify-between text-sm text-gray-300">
-                    <span>
+                  <div className="flex items-center justify-between text-base text-gray-300">
+                    <span className="font-medium">
                       {property.units?.length ?? property.unitCount ?? 0} units
                     </span>
                     <span>{property.propertyType ?? 'Property'}</span>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 pt-1">
                     {property.tags?.slice(0, 3).map((tag) => (
                       <Chip key={`${property.id}-${tag}`} size="sm" variant="flat">
                         {tag}
@@ -763,11 +806,11 @@ const PropertyManagementPage: React.FC = () => {
             className="w-full"
           >
             <Tab key="overview" title="Overview">
-              <Card>
+              <Card className="bg-white/5 border-white/10">
             <CardHeader className="flex justify-between items-start gap-4">
               <div>
                 <p className="text-xs uppercase tracking-wide text-gray-400">Property overview</p>
-                <h2 className="text-2xl font-semibold text-white">{selectedProperty.name}</h2>
+                <h2 className="text-xl font-semibold text-white">{selectedProperty.name}</h2>
                 <p className="text-sm text-gray-300">
                   {formatAddress(selectedProperty) || 'Address not provided yet'}
                 </p>
@@ -806,7 +849,7 @@ const PropertyManagementPage: React.FC = () => {
 
             <Tab key="financial" title="Financial">
               <div className="space-y-4">
-                <Card>
+                <Card className="bg-white/5 border-white/10">
                   <CardHeader>
                     <div className="flex items-center gap-2">
                       <DollarSign size={18} className="text-gray-300" />
@@ -862,7 +905,7 @@ const PropertyManagementPage: React.FC = () => {
             </Tab>
 
             <Tab key="photos" title="Photos">
-              <Card>
+              <Card className="bg-white/5 border-white/10">
                 <CardHeader>
                   <div className="flex items-center justify-between w-full">
                     <div className="flex items-center gap-2">
@@ -906,7 +949,7 @@ const PropertyManagementPage: React.FC = () => {
             </Tab>
 
             <Tab key="amenities" title="Amenities">
-              <Card>
+              <Card className="bg-white/5 border-white/10">
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <Home size={18} className="text-gray-300" />
@@ -954,7 +997,7 @@ const PropertyManagementPage: React.FC = () => {
           </Tabs>
 
           <div className="grid gap-4 lg:grid-cols-3">
-            <Card className="lg:col-span-2">
+            <Card className="lg:col-span-2 bg-white/5 border-white/10">
               <CardHeader className="flex items-center justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-wide text-gray-400">Units</p>
@@ -975,22 +1018,35 @@ const PropertyManagementPage: React.FC = () => {
                 )}
                 {units.map((unit) => (
                   <div key={unit.id} className="flex items-center justify-between gap-3 border-b border-dashed border-foreground/20 py-2 last:border-none">
-                    <div>
+                    <div className="flex-1">
                       <p className="font-semibold text-white">{unit.name}</p>
                       <p className="text-xs text-gray-300">
                         {unit.status ?? 'Status pending'}
+                        {unit.bedrooms && ` • ${unit.bedrooms} bed`}
+                        {unit.bathrooms && ` • ${unit.bathrooms} bath`}
+                        {unit.squareFeet && ` • ${unit.squareFeet} sq ft`}
                       </p>
                     </div>
-                    <p className="text-sm font-medium text-white">
-                      {unit.rent ? formatCurrency(unit.rent) : 'Rent TBD'}
-                    </p>
+                    <div className="flex items-center gap-3">
+                      <p className="text-sm font-medium text-white">
+                        {unit.rent ? formatCurrency(unit.rent) : 'Rent TBD'}
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="flat"
+                        onClick={() => handleEditUnit(unit)}
+                        startContent={<Edit size={14} />}
+                      >
+                        Edit
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </CardBody>
             </Card>
 
             <div className="space-y-4">
-              <Card>
+              <Card className="bg-white/5 border-white/10">
                 <CardHeader className="flex justify-between items-center">
                   <div>
                     <p className="text-xs uppercase tracking-wide text-gray-400">Marketing</p>
@@ -1079,7 +1135,7 @@ const PropertyManagementPage: React.FC = () => {
                 </CardBody>
               </Card>
 
-              <Card>
+              <Card className="bg-white/5 border-white/10">
                 <CardHeader className="flex items-center justify-between">
                   <div>
                     <p className="text-xs uppercase tracking-wide text-gray-400">Listing syndication</p>
@@ -1130,7 +1186,7 @@ const PropertyManagementPage: React.FC = () => {
             </div>
           </div>
 
-          <Card>
+          <Card className="bg-white/5 border-white/10">
             <CardHeader>
               <div>
                 <p className="text-xs uppercase tracking-wide text-gray-400">Channel credentials</p>
@@ -1241,6 +1297,31 @@ const PropertyManagementPage: React.FC = () => {
           setUnitModalError(null);
         }}
         onSubmit={handleBulkCreateUnits}
+        isLoading={unitSaving}
+        error={unitModalError}
+      />
+
+      <UnitEditor
+        isOpen={isUnitEditorOpen}
+        onClose={() => {
+          setIsUnitEditorOpen(false);
+          setEditingUnit(null);
+          setUnitModalError(null);
+        }}
+        onSubmit={handleUpdateUnit}
+        initialData={editingUnit ? {
+          name: editingUnit.name,
+          bedrooms: editingUnit.bedrooms,
+          bathrooms: editingUnit.bathrooms,
+          squareFeet: editingUnit.squareFeet,
+          rent: editingUnit.rent,
+          hasParking: editingUnit.hasParking,
+          hasLaundry: editingUnit.hasLaundry,
+          hasBalcony: editingUnit.hasBalcony,
+          hasAC: editingUnit.hasAC,
+          isFurnished: editingUnit.isFurnished,
+          petsAllowed: editingUnit.petsAllowed,
+        } : undefined}
         isLoading={unitSaving}
         error={unitModalError}
       />

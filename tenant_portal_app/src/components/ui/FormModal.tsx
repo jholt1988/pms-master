@@ -38,17 +38,18 @@ export const FormModal: React.FC<FormModalProps> = ({
 
   return (
     <Modal isOpen={isOpen} onOpenChange={onOpenChange} size={size}>
-      <ModalContent>
+      <ModalContent className="bg-deep-900">
         {(onClose) => (
           <>
-            <ModalHeader>{title}</ModalHeader>
+            <ModalHeader className="text-xl font-bold text-white">{title}</ModalHeader>
             <ModalBody>{children}</ModalBody>
             <ModalFooter>
-              <Button variant="flat" onPress={handleCancel}>
+              <Button variant="flat" size="md" onPress={handleCancel}>
                 {cancelLabel}
               </Button>
               <Button
                 color="primary"
+                size="md"
                 onPress={onSubmit}
                 isLoading={isLoading}
                 isDisabled={isDisabled}

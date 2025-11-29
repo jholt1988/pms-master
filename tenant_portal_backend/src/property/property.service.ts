@@ -3,6 +3,8 @@ import { Prisma, PropertyAvailabilityStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreatePropertyDto,
+  UpdatePropertyDto,
+  UpdateUnitDto,
   UpdatePropertyMarketingDto,
   PropertyAmenityDto,
   PropertyPhotoDto,
@@ -94,6 +96,108 @@ export class PropertyService {
     } catch (error) {
       console.error('Error creating unit:', error);
       throw new BadRequestException('Failed to create unit. Please check your input.');
+    }
+  }
+
+  async updateProperty(id: number, dto: UpdatePropertyDto) {
+    // Verify property exists
+    const property = await this.prisma.property.findUnique({
+      where: { id },
+    });
+
+    if (!property) {
+      throw new NotFoundException(`Property with ID ${id} not found`);
+    }
+
+    try {
+      const updateData: Prisma.PropertyUpdateInput = {};
+
+      if (dto.name !== undefined) updateData.name = dto.name;
+      if (dto.address !== undefined) updateData.address = dto.address;
+      if (dto.city !== undefined) updateData.city = dto.city;
+      if (dto.state !== undefined) updateData.state = dto.state;
+      if (dto.zipCode !== undefined) updateData.zipCode = dto.zipCode;
+      if (dto.country !== undefined) updateData.country = dto.country;
+      if (dto.propertyType !== undefined) updateData.propertyType = dto.propertyType;
+      if (dto.description !== undefined) updateData.description = dto.description;
+      if (dto.latitude !== undefined) updateData.latitude = dto.latitude;
+      if (dto.longitude !== undefined) updateData.longitude = dto.longitude;
+      if (dto.bedrooms !== undefined) updateData.bedrooms = dto.bedrooms;
+      if (dto.bathrooms !== undefined) updateData.bathrooms = dto.bathrooms;
+      if (dto.minRent !== undefined) updateData.minRent = dto.minRent;
+      if (dto.maxRent !== undefined) updateData.maxRent = dto.maxRent;
+      if (dto.yearBuilt !== undefined) updateData.yearBuilt = dto.yearBuilt;
+      if (dto.tags !== undefined) {
+        updateData.tags = dto.tags.map((tag) => tag.trim().toLowerCase()).filter((tag) => tag.length > 0);
+      }
+
+      return await this.prisma.property.update({
+        where: { id },
+        data: updateData,
+        include: {
+          units: true,
+          marketingProfile: true,
+          photos: {
+            orderBy: { displayOrder: 'asc' },
+          },
+          amenities: {
+            include: { amenity: true },
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Error updating property:', error);
+      throw new BadRequestException('Failed to update property. Please check your input.');
+    }
+  }
+
+  async updateUnit(propertyId: number, unitId: number, dto: UpdateUnitDto) {
+    // Verify property exists
+    const property = await this.prisma.property.findUnique({
+      where: { id: propertyId },
+    });
+
+    if (!property) {
+      throw new NotFoundException(`Property with ID ${propertyId} not found`);
+    }
+
+    // Verify unit exists and belongs to property
+    const unit = await this.prisma.unit.findFirst({
+      where: {
+        id: unitId,
+        propertyId: propertyId,
+      },
+    });
+
+    if (!unit) {
+      throw new NotFoundException(`Unit with ID ${unitId} not found in property ${propertyId}`);
+    }
+
+    try {
+      const updateData: Prisma.UnitUpdateInput = {};
+
+      if (dto.name !== undefined) updateData.name = dto.name;
+      if (dto.unitNumber !== undefined) updateData.unitNumber = dto.unitNumber;
+      if (dto.bedrooms !== undefined) updateData.bedrooms = dto.bedrooms;
+      if (dto.bathrooms !== undefined) updateData.bathrooms = dto.bathrooms;
+      if (dto.squareFeet !== undefined) updateData.squareFeet = dto.squareFeet;
+      if (dto.hasParking !== undefined) updateData.hasParking = dto.hasParking;
+      if (dto.hasLaundry !== undefined) updateData.hasLaundry = dto.hasLaundry;
+      if (dto.hasBalcony !== undefined) updateData.hasBalcony = dto.hasBalcony;
+      if (dto.hasAC !== undefined) updateData.hasAC = dto.hasAC;
+      if (dto.isFurnished !== undefined) updateData.isFurnished = dto.isFurnished;
+      if (dto.petsAllowed !== undefined) updateData.petsAllowed = dto.petsAllowed;
+
+      return await this.prisma.unit.update({
+        where: { id: unitId },
+        data: updateData,
+        include: {
+          property: true,
+        },
+      });
+    } catch (error) {
+      console.error('Error updating unit:', error);
+      throw new BadRequestException('Failed to update unit. Please check your input.');
     }
   }
 

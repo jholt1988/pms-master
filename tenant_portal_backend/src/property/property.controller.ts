@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   UseGuards,
   Request,
@@ -22,6 +23,8 @@ import { RolesGuard } from '../auth/roles.guard';
 import {
   CreatePropertyDto,
   CreateUnitDto,
+  UpdatePropertyDto,
+  UpdateUnitDto,
   UpdatePropertyMarketingDto,
   PropertySearchQueryDto,
   SavePropertyFilterDto,
@@ -127,5 +130,26 @@ export class PropertyController {
     @Body() dto: UpdatePropertyMarketingDto,
   ) {
     return this.propertyService.updateMarketingProfile(id, dto);
+  }
+
+  @Patch(':id')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(Role.PROPERTY_MANAGER)
+  updateProperty(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdatePropertyDto,
+  ) {
+    return this.propertyService.updateProperty(id, dto);
+  }
+
+  @Patch(':id/units/:unitId')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(Role.PROPERTY_MANAGER)
+  updateUnit(
+    @Param('id', ParseIntPipe) propertyId: number,
+    @Param('unitId', ParseIntPipe) unitId: number,
+    @Body() dto: UpdateUnitDto,
+  ) {
+    return this.propertyService.updateUnit(propertyId, unitId, dto);
   }
 }

@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { AILeaseRenewalMetricsService } from './ai-lease-renewal-metrics.service';
 import OpenAI from 'openai';
 import { Lease, LeaseRenewalOffer } from '@prisma/client';
 
@@ -41,14 +42,24 @@ export class AILeaseRenewalService {
   private openai: OpenAI | null = null;
   private readonly aiEnabled: boolean;
   private readonly mlServiceUrl: string;
+  private readonly mlServiceTimeout: number;
+  private readonly mlServiceMaxRetries: number;
+  private readonly mlServiceRetryDelay: number;
+  // Cache for rent recommendations (key: leaseId, value: { recommendation, timestamp })
+  private rentRecommendationCache: Map<number, { recommendation: RentAdjustmentRecommendation; timestamp: number }> = new Map();
+  private readonly cacheTTL: number = 24 * 60 * 60 * 1000; // 24 hours
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    @Optional() private readonly aiMetrics?: AILeaseRenewalMetricsService,
   ) {
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
     const aiEnabled = this.configService.get<string>('AI_ENABLED', 'false') === 'true';
     this.mlServiceUrl = this.configService.get<string>('ML_SERVICE_URL', 'http://localhost:8000');
+    this.mlServiceTimeout = parseInt(this.configService.get<string>('ML_SERVICE_TIMEOUT', '5000'), 10);
+    this.mlServiceMaxRetries = parseInt(this.configService.get<string>('ML_SERVICE_MAX_RETRIES', '3'), 10);
+    this.mlServiceRetryDelay = parseInt(this.configService.get<string>('ML_SERVICE_RETRY_DELAY', '1000'), 10);
 
     this.aiEnabled = aiEnabled;
 
@@ -66,7 +77,13 @@ export class AILeaseRenewalService {
    * Predict likelihood of tenant renewal
    */
   async predictRenewalLikelihood(leaseId: number): Promise<RenewalPrediction> {
-    const lease = await this.prisma.lease.findUnique({
+    const startTime = Date.now();
+    let success = false;
+    let renewalProbability = 0;
+    let error: string | undefined;
+
+    try {
+      const lease = await this.prisma.lease.findUnique({
       where: { id: leaseId },
       include: {
         tenant: {
@@ -197,12 +214,42 @@ export class AILeaseRenewalService {
       recommendedActions.push('Send renewal reminder 60 days before expiration');
     }
 
-    return {
-      renewalProbability,
-      confidence,
-      factors,
-      recommendedActions,
-    };
+      const result = {
+        renewalProbability,
+        confidence,
+        factors,
+        recommendedActions,
+      };
+
+      success = true;
+      const responseTime = Date.now() - startTime;
+
+      // Record metric
+      this.aiMetrics?.recordMetric({
+        operation: 'predictRenewalLikelihood',
+        success: true,
+        responseTime,
+        leaseId,
+        renewalProbability,
+      });
+
+      return result;
+    } catch (err) {
+      success = false;
+      error = err instanceof Error ? err.message : String(err);
+      const responseTime = Date.now() - startTime;
+
+      // Record metric
+      this.aiMetrics?.recordMetric({
+        operation: 'predictRenewalLikelihood',
+        success: false,
+        responseTime,
+        leaseId,
+        error,
+      });
+
+      throw err;
+    }
   }
 
   /**
@@ -211,107 +258,212 @@ export class AILeaseRenewalService {
   async getRentAdjustmentRecommendation(
     leaseId: number,
   ): Promise<RentAdjustmentRecommendation> {
-    const lease = await this.prisma.lease.findUnique({
-      where: { id: leaseId },
-      include: {
-        unit: {
-          include: {
-            property: true,
+    const startTime = Date.now();
+    let success = false;
+    let cacheHit = false;
+    let mlServiceUsed = false;
+    let rentAdjustmentPercentage = 0;
+    let retryAttempts = 0;
+    let error: string | undefined;
+
+    try {
+      // Check cache first
+      const cached = this.rentRecommendationCache.get(leaseId);
+      if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
+        this.logger.debug(`Using cached rent recommendation for lease ${leaseId}`);
+        cacheHit = true;
+        const responseTime = Date.now() - startTime;
+
+        // Record metric
+        this.aiMetrics?.recordMetric({
+          operation: 'getRentAdjustment',
+          success: true,
+          responseTime,
+          leaseId,
+          rentAdjustmentPercentage: cached.recommendation.adjustmentPercentage,
+          cacheHit: true,
+          mlServiceUsed: false,
+        });
+
+        return cached.recommendation;
+      }
+
+      const lease = await this.prisma.lease.findUnique({
+        where: { id: leaseId },
+        include: {
+          unit: {
+            include: {
+              property: true,
+            },
           },
-        },
-        tenant: {
-          include: {
-            payments: {
-              orderBy: { paymentDate: 'desc' },
-              take: 12,
+          tenant: {
+            include: {
+              payments: {
+                orderBy: { paymentDate: 'desc' },
+                take: 12,
+              },
             },
           },
         },
-      },
-    });
-
-    if (!lease) {
-      throw new Error(`Lease ${leaseId} not found`);
-    }
-
-    const currentRent = Number(lease.rentAmount);
-
-    // Try to get recommendation from ML service
-    let recommendedRent = currentRent;
-    let mlReasoning = '';
-    const factors: Array<{ name: string; impact: number; description: string }> = [];
-
-    try {
-      // Call rent optimization ML service
-      const response = await fetch(`${this.mlServiceUrl}/predict`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          unit_id: `unit-${lease.unitId}`,
-          property_type: lease.unit.property?.propertyType || 'APARTMENT',
-          bedrooms: lease.unit.bedrooms || 1,
-          bathrooms: lease.unit.bathrooms || 1,
-          square_feet: lease.unit.squareFeet || 800,
-          address: lease.unit.property?.address || '',
-          city: lease.unit.property?.city || '',
-          state: lease.unit.property?.state || '',
-          zip_code: lease.unit.property?.zipCode || '',
-          current_rent: currentRent,
-          year_built: lease.unit.property?.yearBuilt || 2000,
-        }),
       });
 
-      if (response.ok) {
-        const data = await response.json() as {
-          recommended_rent?: number;
-          reasoning?: string;
-          factors?: Array<{
-            name: string;
-            impact_percentage?: number;
-            description: string;
-          }>;
-        };
-        recommendedRent = data.recommended_rent || currentRent;
-        mlReasoning = data.reasoning || ''; 
-        
-        if (data.factors) {
-          factors.push(...data.factors.map((f) => ({
-            name: f.name,
-            impact: f.impact_percentage || 0,
-            description: f.description,
-          })));
+      if (!lease) {
+        throw new Error(`Lease ${leaseId} not found`);
+      }
+
+      const currentRent = Number(lease.rentAmount);
+
+      // Try to get recommendation from ML service with retry logic
+      let recommendedRent = currentRent;
+      let mlReasoning = '';
+      const factors: Array<{ name: string; impact: number; description: string }> = [];
+      let lastError: Error | null = null;
+
+      for (let attempt = 1; attempt <= this.mlServiceMaxRetries; attempt++) {
+        retryAttempts = attempt;
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), this.mlServiceTimeout);
+
+          const response = await fetch(`${this.mlServiceUrl}/predict`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              unit_id: `unit-${lease.unitId}`,
+              property_type: lease.unit.property?.propertyType || 'APARTMENT',
+              bedrooms: lease.unit.bedrooms || 1,
+              bathrooms: lease.unit.bathrooms || 1,
+              square_feet: lease.unit.squareFeet || 800,
+              address: lease.unit.property?.address || '',
+              city: lease.unit.property?.city || '',
+              state: lease.unit.property?.state || '',
+              zip_code: lease.unit.property?.zipCode || '',
+              current_rent: currentRent,
+              year_built: lease.unit.property?.yearBuilt || 2000,
+            }),
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+
+          if (response.ok) {
+            const data = await response.json() as {
+              recommended_rent?: number;
+              reasoning?: string;
+              factors?: Array<{
+                name: string;
+                impact_percentage?: number;
+                description: string;
+              }>;
+            };
+            recommendedRent = data.recommended_rent || currentRent;
+            mlReasoning = data.reasoning || ''; 
+            
+            if (data.factors) {
+              factors.push(...data.factors.map((f) => ({
+                name: f.name,
+                impact: f.impact_percentage || 0,
+                description: f.description,
+              })));
+            }
+
+            // Success - break out of retry loop
+            mlServiceUsed = true;
+            break;
+          } else {
+            throw new Error(`ML service returned status ${response.status}`);
+          }
+        } catch (error) {
+          lastError = error instanceof Error ? error : new Error(String(error));
+          
+          if (attempt < this.mlServiceMaxRetries) {
+            const delay = this.mlServiceRetryDelay * Math.pow(2, attempt - 1); // Exponential backoff
+            this.logger.warn(
+              `ML service call failed (attempt ${attempt}/${this.mlServiceMaxRetries}), retrying in ${delay}ms:`,
+              lastError.message,
+            );
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          } else {
+            this.logger.warn(
+              `ML service call failed after ${this.mlServiceMaxRetries} attempts, using fallback:`,
+              lastError.message,
+            );
+          }
         }
       }
-    } catch (error) {
-      this.logger.warn('Failed to get ML service recommendation, using fallback', error);
-    }
 
-    // Fallback: Simple market-based adjustment
-    if (recommendedRent === currentRent) {
-      // Assume 3% annual increase
-      recommendedRent = currentRent * 1.03;
-      factors.push({
-        name: 'Annual Adjustment',
-        impact: 3,
-        description: 'Standard annual rent increase',
+      // Fallback: Simple market-based adjustment
+      if (recommendedRent === currentRent) {
+        // Assume 3% annual increase
+        recommendedRent = currentRent * 1.03;
+        factors.push({
+          name: 'Annual Adjustment',
+          impact: 3,
+          description: 'Standard annual rent increase (fallback - ML service unavailable)',
+        });
+      }
+
+      const recommendation: RentAdjustmentRecommendation = {
+        currentRent,
+        recommendedRent,
+        adjustmentPercentage: ((recommendedRent - currentRent) / currentRent) * 100,
+        reasoning: mlReasoning || `Standard annual adjustment applied (ML service ${lastError ? 'unavailable' : 'used fallback'})`,
+        factors,
+      };
+
+      rentAdjustmentPercentage = recommendation.adjustmentPercentage;
+
+      // Cache the recommendation
+      this.rentRecommendationCache.set(leaseId, {
+        recommendation,
+        timestamp: Date.now(),
       });
+
+      // Clean up old cache entries (keep cache size reasonable)
+      if (this.rentRecommendationCache.size > 1000) {
+        const now = Date.now();
+        for (const [key, value] of this.rentRecommendationCache.entries()) {
+          if (now - value.timestamp > this.cacheTTL) {
+            this.rentRecommendationCache.delete(key);
+          }
+        }
+      }
+
+      success = true;
+      const responseTime = Date.now() - startTime;
+
+      // Record metric
+      this.aiMetrics?.recordMetric({
+        operation: 'getRentAdjustment',
+        success: true,
+        responseTime,
+        leaseId,
+        rentAdjustmentPercentage,
+        mlServiceUsed,
+        cacheHit: false,
+        retryAttempts: mlServiceUsed ? retryAttempts : 0,
+      });
+
+      return recommendation;
+    } catch (err) {
+      success = false;
+      error = err instanceof Error ? err.message : String(err);
+      const responseTime = Date.now() - startTime;
+
+      // Record metric
+      this.aiMetrics?.recordMetric({
+        operation: 'getRentAdjustment',
+        success: false,
+        responseTime,
+        leaseId,
+        mlServiceUsed,
+        cacheHit,
+        retryAttempts,
+        error,
+      });
+
+      throw err;
     }
-
-    const adjustmentPercentage = ((recommendedRent - currentRent) / currentRent) * 100;
-
-    // Generate reasoning
-    let reasoning = mlReasoning;
-    if (!reasoning) {
-      reasoning = `Based on market analysis, we recommend adjusting rent from $${currentRent.toFixed(2)} to $${recommendedRent.toFixed(2)} (${adjustmentPercentage > 0 ? '+' : ''}${adjustmentPercentage.toFixed(1)}%).`;
-    }
-
-    return {
-      currentRent,
-      recommendedRent,
-      adjustmentPercentage,
-      reasoning,
-      factors,
-    };
   }
 
   /**
@@ -320,7 +472,12 @@ export class AILeaseRenewalService {
   async generatePersonalizedRenewalOffer(
     leaseId: number,
   ): Promise<PersonalizedRenewalOffer> {
-    const lease = await this.prisma.lease.findUnique({
+    const startTime = Date.now();
+    let success = false;
+    let error: string | undefined;
+
+    try {
+      const lease = await this.prisma.lease.findUnique({
       where: { id: leaseId },
       include: {
         tenant: {
@@ -409,13 +566,42 @@ export class AILeaseRenewalService {
     const expirationDate = new Date();
     expirationDate.setDate(expirationDate.getDate() + 30);
 
-    return {
-      baseRent,
-      incentives,
-      totalValue,
-      message,
-      expirationDate,
-    };
+      const result = {
+        baseRent,
+        incentives,
+        totalValue,
+        message,
+        expirationDate,
+      };
+
+      success = true;
+      const responseTime = Date.now() - startTime;
+
+      // Record metric
+      this.aiMetrics?.recordMetric({
+        operation: 'generatePersonalizedOffer',
+        success: true,
+        responseTime,
+        leaseId,
+      });
+
+      return result;
+    } catch (err) {
+      success = false;
+      error = err instanceof Error ? err.message : String(err);
+      const responseTime = Date.now() - startTime;
+
+      // Record metric
+      this.aiMetrics?.recordMetric({
+        operation: 'generatePersonalizedOffer',
+        success: false,
+        responseTime,
+        leaseId,
+        error,
+      });
+
+      throw err;
+    }
   }
 
   /**

@@ -68,11 +68,11 @@ async def predict(payload: PredictionRequest) -> PredictionResponse:
 
 @app.post("/predict/batch", response_model=BatchPredictionResponse)
 async def predict_batch(payload: BatchPredictionRequest) -> BatchPredictionResponse:
-    if not payload.__root__:
+    if not payload.root:
         raise HTTPException(status_code=400, detail="No payloads provided")
 
     tasks: List[asyncio.Task[PredictionResponse]] = [
-        asyncio.create_task(prediction_service.predict(item)) for item in payload
+        asyncio.create_task(prediction_service.predict(item)) for item in payload.root
     ]
     results = await asyncio.gather(*tasks)
     return BatchPredictionResponse(results=results)

@@ -16,6 +16,11 @@ export class AIAnomalyDetectorService {
   private readonly logger = new Logger(AIAnomalyDetectorService.name);
   private readonly anomalyDetectionEnabled: boolean;
   private readonly detectionHistory: Map<string, number[]> = new Map();
+  
+  // Configurable Z-score thresholds
+  private readonly paymentZScoreThreshold: number;
+  private readonly maintenanceZScoreThreshold: number;
+  private readonly performanceZScoreThreshold: number;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -23,6 +28,17 @@ export class AIAnomalyDetectorService {
   ) {
     this.anomalyDetectionEnabled =
       this.configService.get<string>('ANOMALY_DETECTION_ENABLED', 'true') === 'true';
+    
+    // Load configurable thresholds
+    this.paymentZScoreThreshold = parseFloat(
+      this.configService.get<string>('ANOMALY_PAYMENT_Z_SCORE_THRESHOLD', '3.0'),
+    );
+    this.maintenanceZScoreThreshold = parseFloat(
+      this.configService.get<string>('ANOMALY_MAINTENANCE_Z_SCORE_THRESHOLD', '2.5'),
+    );
+    this.performanceZScoreThreshold = parseFloat(
+      this.configService.get<string>('ANOMALY_PERFORMANCE_Z_SCORE_THRESHOLD', '3.0'),
+    );
   }
 
   /**
@@ -54,12 +70,12 @@ export class AIAnomalyDetectorService {
       const avgAmount = paymentAmounts.reduce((a, b) => a + b, 0) / paymentAmounts.length;
       const stdDev = this.calculateStandardDeviation(paymentAmounts);
 
-      // Detect unusually large payments (Z-score > 3)
+      // Detect unusually large payments (using configurable threshold)
       for (const payment of recentPayments) {
         const amount = Number(payment.amount);
         const zScore = (amount - avgAmount) / stdDev;
 
-        if (zScore > 3) {
+        if (zScore > this.paymentZScoreThreshold) {
           anomalies.push({
             type: 'PAYMENT',
             severity: 'MEDIUM',
@@ -154,7 +170,7 @@ export class AIAnomalyDetectorService {
       // Detect spike (Z-score > 2.5)
       const zScore = (todayRequests - avgDailyCount) / stdDev;
 
-      if (zScore > 2.5 && todayRequests > 5) {
+      if (zScore > this.maintenanceZScoreThreshold && todayRequests > 5) {
         anomalies.push({
           type: 'MAINTENANCE',
           severity: zScore > 4 ? 'HIGH' : 'MEDIUM',

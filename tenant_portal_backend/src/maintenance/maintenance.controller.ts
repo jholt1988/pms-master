@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query, Request, UseGuards, Put } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { MaintenanceService } from './maintenance.service';
+import { AIMaintenanceMetricsService } from './ai-maintenance-metrics.service';
 import { MaintenancePriority, Role, Status } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -22,7 +23,10 @@ type ManagerFilters = Parameters<MaintenanceService['findAll']>[0];
 @Controller('maintenance')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class MaintenanceController {
-  constructor(private readonly maintenanceService: MaintenanceService) {}
+  constructor(
+    private readonly maintenanceService: MaintenanceService,
+    private readonly aiMetrics: AIMaintenanceMetricsService,
+  ) {}
 
   @Get()
   findAll(
@@ -34,6 +38,21 @@ export class MaintenanceController {
       return this.maintenanceService.findAll(filters);
     }
     return this.maintenanceService.findAllForUser(req.user.userId);
+  }
+
+  @Get(':id')
+  async findOne(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const request = await this.maintenanceService.findById(Number(id));
+    
+    // Verify access: tenants can only see their own requests
+    if (req.user.role === Role.TENANT && request.authorId !== req.user.userId) {
+      throw new BadRequestException('You do not have access to this maintenance request');
+    }
+    
+    return request;
   }
 
   @Post()
@@ -123,6 +142,12 @@ export class MaintenanceController {
   getSlaPolicies(@Query('propertyId') propertyId?: string) {
     const parsedPropertyId = this.parseOptionalNumber(propertyId, 'propertyId', { min: 1 });
     return this.maintenanceService.getSlaPolicies(parsedPropertyId);
+  }
+
+  @Get('ai-metrics')
+  @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
+  async getAIMetrics() {
+    return this.aiMetrics.getMetrics();
   }
 
   private parseManagerFilters(query: Record<string, string | undefined>): ManagerFilters {

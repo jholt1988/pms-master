@@ -230,8 +230,8 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
       scrollBehavior="inside"
       className="max-h-[90vh]"
     >
-      <ModalContent>
-        <ModalHeader>
+      <ModalContent className="bg-deep-900">
+        <ModalHeader className="text-xl font-bold text-white">
           {initialData?.name ? 'Edit Property' : 'Create New Property'}
         </ModalHeader>
         <ModalBody>
@@ -249,52 +249,87 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
             <Tab key="basic" title="Basic Info">
               <div className="space-y-4 pt-4">
                 <Input
+                  size="md"
                   label="Property Name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   isRequired
                   placeholder="e.g., Maple Street Apartments"
+                  classNames={{
+                    label: "text-gray-300",
+                    input: "text-white",
+                  }}
                 />
                 <Input
+                  size="md"
                   label="Address"
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   isRequired
                   placeholder="123 Main Street"
+                  classNames={{
+                    label: "text-gray-300",
+                    input: "text-white",
+                  }}
                 />
                 <div className="grid grid-cols-2 gap-4">
                   <Input
+                    size="md"
                     label="City"
                     value={formData.city}
                     onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                     placeholder="Springfield"
+                    classNames={{
+                      label: "text-gray-300",
+                      input: "text-white",
+                    }}
                   />
                   <Input
+                    size="md"
                     label="State"
                     value={formData.state}
                     onChange={(e) => setFormData({ ...formData, state: e.target.value })}
                     placeholder="CA"
+                    classNames={{
+                      label: "text-gray-300",
+                      input: "text-white",
+                    }}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <Input
+                    size="md"
                     label="ZIP Code"
                     value={formData.zipCode}
                     onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
                     placeholder="12345"
+                    classNames={{
+                      label: "text-gray-300",
+                      input: "text-white",
+                    }}
                   />
                   <Input
+                    size="md"
                     label="Country"
                     value={formData.country}
                     onChange={(e) => setFormData({ ...formData, country: e.target.value })}
                     placeholder="USA"
+                    classNames={{
+                      label: "text-gray-300",
+                      input: "text-white",
+                    }}
                   />
                 </div>
                 <Select
+                  size="md"
                   label="Property Type"
                   value={formData.propertyType}
                   onChange={(e) => setFormData({ ...formData, propertyType: e.target.value })}
                   placeholder="Select property type"
+                  classNames={{
+                    label: "text-gray-300",
+                    trigger: "text-white",
+                  }}
                 >
                   {PROPERTY_TYPES.map((type) => (
                     <SelectItem key={type} value={type}>
@@ -304,72 +339,112 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
                 </Select>
                 <div className="grid grid-cols-2 gap-4">
                   <Input
+                    size="md"
                     label="Year Built"
                     type="number"
                     value={formData.yearBuilt}
                     onChange={(e) => setFormData({ ...formData, yearBuilt: e.target.value })}
                     placeholder="2020"
+                    classNames={{
+                      label: "text-gray-300",
+                      input: "text-white",
+                    }}
                   />
                 </div>
                 <Textarea
+                  size="md"
                   label="Description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Property description..."
                   minRows={3}
+                  classNames={{
+                    label: "text-gray-300",
+                    input: "text-white",
+                  }}
                 />
               </div>
             </Tab>
 
             <Tab key="financial" title="Financial">
               <div className="space-y-4 pt-4">
-                <div className="space-y-2">
-                  <h3 className="text-sm font-semibold text-white">Tax Information</h3>
+                <div className="space-y-3">
+                  <h3 className="text-base font-semibold text-white">Tax Information</h3>
                   <Input
+                    size="md"
                     label="Tax ID / Parcel Number"
                     value={formData.taxId}
                     onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
                     placeholder="123-456-789"
+                    classNames={{
+                      label: "text-gray-300",
+                      input: "text-white",
+                    }}
                   />
                   <Input
+                    size="md"
                     label="Annual Tax Amount"
                     type="number"
                     value={formData.annualTaxAmount}
                     onChange={(e) => setFormData({ ...formData, annualTaxAmount: e.target.value })}
                     placeholder="0.00"
-                    startContent={<span className="text-gray-400">$</span>}
+                    startContent={<span className="text-gray-300">$</span>}
+                    classNames={{
+                      label: "text-gray-300",
+                      input: "text-white",
+                    }}
                   />
                 </div>
-                <div className="space-y-2">
-                  <h3 className="text-sm font-semibold text-white">Mortgage Information</h3>
+                <div className="space-y-3">
+                  <h3 className="text-base font-semibold text-white">Mortgage Information</h3>
                   <Input
+                    size="md"
                     label="Lender Name"
                     value={formData.mortgageLender}
                     onChange={(e) => setFormData({ ...formData, mortgageLender: e.target.value })}
                     placeholder="Bank Name"
+                    classNames={{
+                      label: "text-gray-300",
+                      input: "text-white",
+                    }}
                   />
                   <Input
+                    size="md"
                     label="Account Number"
                     value={formData.mortgageAccountNumber}
                     onChange={(e) => setFormData({ ...formData, mortgageAccountNumber: e.target.value })}
                     placeholder="Account #"
+                    classNames={{
+                      label: "text-gray-300",
+                      input: "text-white",
+                    }}
                   />
                   <div className="grid grid-cols-2 gap-4">
                     <Input
+                      size="md"
                       label="Monthly Payment"
                       type="number"
                       value={formData.monthlyMortgagePayment}
                       onChange={(e) => setFormData({ ...formData, monthlyMortgagePayment: e.target.value })}
                       placeholder="0.00"
-                      startContent={<span className="text-gray-400">$</span>}
+                      startContent={<span className="text-gray-300">$</span>}
+                      classNames={{
+                        label: "text-gray-300",
+                        input: "text-white",
+                      }}
                     />
                     <Input
+                      size="md"
                       label="Interest Rate"
                       type="number"
                       value={formData.mortgageInterestRate}
                       onChange={(e) => setFormData({ ...formData, mortgageInterestRate: e.target.value })}
                       placeholder="0.00"
-                      endContent={<span className="text-gray-400">%</span>}
+                      endContent={<span className="text-gray-300">%</span>}
+                      classNames={{
+                        label: "text-gray-300",
+                        input: "text-white",
+                      }}
                     />
                   </div>
                 </div>
@@ -379,11 +454,12 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
             <Tab key="features" title="Features & Amenities">
               <div className="space-y-6 pt-4">
                 <div>
-                  <h3 className="text-sm font-semibold text-white mb-3">Property Features</h3>
+                  <h3 className="text-base font-semibold text-white mb-4">Property Features</h3>
                   <div className="flex flex-wrap gap-2">
                     {COMMON_FEATURES.map((feature) => (
                       <Chip
                         key={feature}
+                        size="md"
                         onClick={() => toggleFeature(feature)}
                         variant={formData.features.includes(feature) ? 'solid' : 'bordered'}
                         color={formData.features.includes(feature) ? 'primary' : 'default'}
@@ -396,14 +472,15 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-semibold text-white mb-3">Amenities</h3>
-                  <div className="space-y-3">
+                  <h3 className="text-base font-semibold text-white mb-4">Amenities</h3>
+                  <div className="space-y-4">
                     <div className="flex flex-wrap gap-2 mb-4">
                       {COMMON_AMENITIES.map((amenity) => {
                         const isSelected = formData.amenities.some((a) => a.key === amenity.key);
                         return (
                           <Chip
                             key={amenity.key}
+                            size="md"
                             onClick={() => toggleAmenity(amenity.key, amenity.label)}
                             variant={isSelected ? 'solid' : 'bordered'}
                             color={isSelected ? 'primary' : 'default'}
@@ -416,23 +493,25 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
                     </div>
 
                     {formData.amenities.length > 0 && (
-                      <Card className="bg-white/5">
-                        <CardBody className="space-y-3">
-                          <p className="text-xs text-gray-400 mb-2">Selected Amenities</p>
+                      <Card className="bg-white/10 border-white/20">
+                        <CardBody className="space-y-3 p-4">
+                          <p className="text-sm font-medium text-gray-300 mb-3">Selected Amenities</p>
                           {formData.amenities.map((amenity) => (
                             <div key={amenity.key} className="flex items-center gap-3">
                               <div className="flex-1">
-                                <p className="text-sm text-white">{amenity.label}</p>
+                                <p className="text-sm font-medium text-white mb-1">{amenity.label}</p>
                                 <Input
-                                  size="sm"
+                                  size="md"
                                   placeholder="Value (optional)"
                                   value={amenity.value || ''}
                                   onChange={(e) => updateAmenityValue(amenity.key, e.target.value)}
-                                  className="mt-1"
+                                  classNames={{
+                                    input: "text-white",
+                                  }}
                                 />
                               </div>
                               <Chip
-                                size="sm"
+                                size="md"
                                 variant={amenity.isFeatured ? 'solid' : 'bordered'}
                                 color={amenity.isFeatured ? 'primary' : 'default'}
                                 onClick={() => toggleAmenityFeatured(amenity.key)}
@@ -452,20 +531,28 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
 
             <Tab key="photos" title="Photos">
               <div className="space-y-4 pt-4">
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                   <Input
+                    size="md"
                     placeholder="Photo URL"
                     value={newPhotoUrl}
                     onChange={(e) => setNewPhotoUrl(e.target.value)}
                     className="flex-1"
+                    classNames={{
+                      input: "text-white",
+                    }}
                   />
                   <Input
+                    size="md"
                     placeholder="Caption (optional)"
                     value={newPhotoCaption}
                     onChange={(e) => setNewPhotoCaption(e.target.value)}
                     className="flex-1"
+                    classNames={{
+                      input: "text-white",
+                    }}
                   />
-                  <Button onClick={addPhoto} startContent={<Plus size={16} />}>
+                  <Button size="md" onClick={addPhoto} startContent={<Plus size={18} />}>
                     Add
                   </Button>
                 </div>
@@ -473,31 +560,31 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
                 {formData.photos.length > 0 && (
                   <div className="grid grid-cols-2 gap-4">
                     {formData.photos.map((photo, index) => (
-                      <Card key={index} className="bg-white/5">
-                        <CardBody>
+                      <Card key={index} className="bg-white/10 border-white/20">
+                        <CardBody className="p-4">
                           <div className="relative">
                             <img
                               src={photo.url}
                               alt={photo.caption || `Photo ${index + 1}`}
-                              className="w-full h-32 object-cover rounded-lg"
+                              className="w-full h-40 object-cover rounded-lg"
                               onError={(e) => {
                                 (e.target as HTMLImageElement).src = 'https://via.placeholder.com/300x200?text=Invalid+URL';
                               }}
                             />
                             {photo.isPrimary && (
-                              <Chip size="sm" color="primary" className="absolute top-2 left-2">
+                              <Chip size="md" color="primary" className="absolute top-2 left-2">
                                 Primary
                               </Chip>
                             )}
                           </div>
-                          <div className="mt-2 space-y-2">
+                          <div className="mt-3 space-y-2">
                             {photo.caption && (
-                              <p className="text-xs text-gray-300">{photo.caption}</p>
+                              <p className="text-sm text-gray-300">{photo.caption}</p>
                             )}
                             <div className="flex gap-2">
                               {!photo.isPrimary && (
                                 <Button
-                                  size="sm"
+                                  size="md"
                                   variant="flat"
                                   onClick={() => setPrimaryPhoto(index)}
                                 >
@@ -505,11 +592,11 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
                                 </Button>
                               )}
                               <Button
-                                size="sm"
+                                size="md"
                                 variant="flat"
                                 color="danger"
                                 onClick={() => removePhoto(index)}
-                                startContent={<X size={14} />}
+                                startContent={<X size={16} />}
                               >
                                 Remove
                               </Button>
@@ -525,8 +612,9 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
 
             <Tab key="tags" title="Tags">
               <div className="space-y-4 pt-4">
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                   <Input
+                    size="md"
                     placeholder="Add tag"
                     value={newTag}
                     onChange={(e) => setNewTag(e.target.value)}
@@ -537,8 +625,11 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
                       }
                     }}
                     className="flex-1"
+                    classNames={{
+                      input: "text-white",
+                    }}
                   />
-                  <Button onClick={addTag} startContent={<Plus size={16} />}>
+                  <Button size="md" onClick={addTag} startContent={<Plus size={18} />}>
                     Add Tag
                   </Button>
                 </div>
@@ -547,6 +638,7 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
                     {formData.tags.map((tag) => (
                       <Chip
                         key={tag}
+                        size="md"
                         onClose={() => removeTag(tag)}
                         variant="flat"
                         color="primary"
@@ -561,11 +653,12 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
           </Tabs>
         </ModalBody>
         <ModalFooter>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" size="md" onClick={onClose}>
             Cancel
           </Button>
           <Button
             color="primary"
+            size="md"
             onClick={handleSubmit}
             isLoading={isLoading}
             isDisabled={!formData.name.trim() || !formData.address.trim()}

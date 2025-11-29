@@ -1,22 +1,81 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import List
+from tkinter import N
+from typing import List, Any
 
-from pydantic import AnyHttpUrl
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Central configuration for the ML microservice."""
 
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file="../.env",
+        case_sensitive=False,
+        extra="ignore",
+        protected_namespaces=('settings_', 'model_')  # Fix warning about model_ namespace conflicts
+    )
 
     # API
     api_port: int = 8000
     api_host: str = "0.0.0.0"
     environment: str = "development"
     debug: bool = True
-    cors_origins: List[AnyHttpUrl | str] = ["http://localhost:3000", "http://localhost:3001"]
+    cors_origins: List[str] = ["http://localhost:3000", "http://localhost:3001"]
+
+    @model_validator(mode='before')
+    @classmethod
+    def parse_cors_origins_before(cls, data: Any) -> Any:
+        """Parse CORS origins before field validation to prevent JSON parsing errors."""
+        import os
+        import json
+        
+        # Handle dict input (from env vars or config)
+        if isinstance(data, dict):
+            cors_value = data.get('cors_origins')
+            
+            # If not set or empty, use default
+            if not cors_value:
+                data['cors_origins'] = ["http://localhost:3000", "http://localhost:3001"]
+                return data
+            
+            # Already a list, return as-is
+            if isinstance(cors_value, list):
+                return data
+            
+            # Handle string values
+            if isinstance(cors_value, str):
+                # Empty string -> use default
+                if not cors_value.strip():
+                    data['cors_origins'] = ["http://localhost:3000", "http://localhost:3001"]
+                    return data
+                
+                # Try to parse as JSON first
+                try:
+                    parsed = json.loads(cors_value)
+                    if isinstance(parsed, list):
+                        data['cors_origins'] = parsed
+                        return data
+                except (json.JSONDecodeError, ValueError, TypeError):
+                    pass
+                
+                # Try comma-separated values
+                if ',' in cors_value:
+                    origins = [origin.strip() for origin in cors_value.split(',') if origin.strip()]
+                    if origins:
+                        data['cors_origins'] = origins
+                        return data
+                
+                # Single value
+                if cors_value.strip():
+                    data['cors_origins'] = [cors_value.strip()]
+                    return data
+                
+                # Default fallback
+                data['cors_origins'] = ["http://localhost:3000", "http://localhost:3001"]
+        
+        return data
 
     # Model
     model_version: str = "1.0.0"
@@ -37,17 +96,42 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: str = "json"
 
-    # External APIs (placeholders for future integration)
-    zillow_api_key: str | None = None
-    rentometer_api_key: str | None = None
-    realtor_api_key: str | None = None
 
-    # MLflow
-    mlflow_tracking_uri: str | None = None
-    mlflow_experiment_name: str = "rent_optimization"
+    # External APIs (placeholders for future integration)
+    # These keys enable fetching real market data for rent predictions
+    # When set, the MarketDataService will use real APIs instead of mock data
+    
+    zillow_api_key: str | None = "your_zillow_api_key_here"
+    rentometer_api_key: str | None = "r-kUFkJ8iznPSeZBKPnX2g"
+    realtor_api_key: str | None = "6f78ee32071c4da88773647bbe9e10de"
+
+    # MLflow - Model tracking and experiment management
+    # Set mlflow_tracking_uri to enable model versioning and experiment tracking
+    # Example: "http://localhost:5000" or "https://your-mlflow-server.com"
+    mlflow_tracking_uri: str | None = "http://localhost:5000"
+    mlflow_experiment_name: str = "rent_optimization"  # Experiment name for MLflow runs
 
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """Return cached settings instance so the service stays fast."""
-    return Settings()
+    try:
+        return Settings()
+    except Exception as e:
+        # If there's an error parsing settings (e.g., cors_origins), 
+        # try to fix it by temporarily unsetting the problematic env var
+        import os
+        if 'CORS_ORIGINS' in os.environ:
+            cors_origins_backup = os.environ.get('CORS_ORIGINS')
+            # Try without CORS_ORIGINS to use defaults
+            try:
+                del os.environ['CORS_ORIGINS']
+                settings = Settings()
+             
+                return settings
+            except:
+                # Restore and raise original error
+                if cors_origins_backup:
+                    os.environ['CORS_ORIGINS'] = cors_origins_backup
+                raise e
+        raise e

@@ -128,6 +128,132 @@ export class CreateUnitDto {
   name: string;
 }
 
+export class UpdateUnitDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  unitNumber?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  bedrooms?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  bathrooms?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  squareFeet?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  hasParking?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  hasLaundry?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  hasBalcony?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  hasAC?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isFurnished?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  petsAllowed?: boolean;
+}
+
+export class UpdatePropertyDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(5)
+  address?: string;
+
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @IsOptional()
+  @IsString()
+  zipCode?: string;
+
+  @IsOptional()
+  @IsString()
+  country?: string;
+
+  @IsOptional()
+  @IsString()
+  propertyType?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  latitude?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  longitude?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  bedrooms?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  bathrooms?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  minRent?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  maxRent?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  yearBuilt?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
+}
+
 export class PropertyPhotoDto {
   @IsUrl()
   url: string;

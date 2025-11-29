@@ -273,26 +273,233 @@ export class PaymentsService {
       amountPerInstallment: number;
       totalAmount: number;
     },
-  ): Promise<void> {
+  ): Promise<{ id: number; status: string }> {
     const invoice = await this.prisma.invoice.findUnique({
       where: { id: invoiceId },
+      include: {
+        paymentPlan: true,
+        lease: {
+          include: {
+            tenant: true,
+          },
+        },
+      },
     });
 
     if (!invoice) {
       throw new NotFoundException('Invoice not found');
     }
 
-    // Store payment plan in invoice metadata or create a separate payment plan record
-    // For now, we'll add a note to the invoice
-    // In a full implementation, you'd create a PaymentPlan table
+    // Check if payment plan already exists
+    if (invoice.paymentPlan) {
+      throw new BadRequestException('Payment plan already exists for this invoice');
+    }
+
+    if (!invoice.lease.tenantId) {
+      throw new BadRequestException('Lease does not have a tenant assigned');
+    }
+
+    // Calculate installment due dates (starting from invoice due date)
+    const installmentDueDates: Date[] = [];
+    for (let i = 0; i < plan.installments; i++) {
+      const dueDate = new Date(invoice.dueDate);
+      dueDate.setMonth(dueDate.getMonth() + i);
+      installmentDueDates.push(dueDate);
+    }
+
+    // Create payment plan
+    const paymentPlan = await this.prisma.paymentPlan.create({
+      data: {
+        invoice: { connect: { id: invoiceId } },
+        installments: plan.installments,
+        amountPerInstallment: plan.amountPerInstallment,
+        totalAmount: plan.totalAmount,
+        status: 'PENDING',
+        paymentPlanPayments: {
+          create: installmentDueDates.map((dueDate, index) => ({
+            installmentNumber: index + 1,
+            dueDate,
+            payment: {
+              create: {
+                amount: plan.amountPerInstallment,
+                paymentDate: dueDate,
+                status: 'PENDING',
+                user: { connect: { id: invoice.lease.tenantId } },
+                lease: { connect: { id: invoice.leaseId } },
+              },
+            },
+          })),
+        },
+      },
+    });
+
     this.logger.log(
       `Payment plan created for invoice ${invoiceId}: ` +
-      `${plan.installments} installments of $${plan.amountPerInstallment.toFixed(2)}`,
+      `${plan.installments} installments of $${plan.amountPerInstallment.toFixed(2)} (ID: ${paymentPlan.id})`,
     );
 
-    // Update invoice with payment plan information
-    // Note: This assumes you have a metadata field or paymentPlanId field
-    // If not, you may need to create a PaymentPlan model in Prisma
+    return {
+      id: paymentPlan.id,
+      status: paymentPlan.status,
+    };
+  }
+
+  async getPaymentById(paymentId: number, userId: number, role: Role): Promise<Payment> {
+    const payment = await this.prisma.payment.findUnique({
+      where: { id: paymentId },
+      include: {
+        invoice: {
+          include: {
+            lease: {
+              include: {
+                tenant: true,
+                unit: { include: { property: true } },
+              },
+            },
+          },
+        },
+        user: true,
+        lease: true,
+      },
+    });
+
+    if (!payment) {
+      throw new NotFoundException(`Payment with ID ${paymentId} not found`);
+    }
+
+    // Verify access: tenants can only see their own payments
+    if (role === Role.TENANT && payment.userId !== userId) {
+      throw new ForbiddenException('You do not have access to this payment');
+    }
+
+    return payment;
+  }
+
+  async getInvoiceById(invoiceId: number, userId: number, role: Role): Promise<Invoice> {
+    const invoice = await this.prisma.invoice.findUnique({
+      where: { id: invoiceId },
+      include: {
+        lease: {
+          include: {
+            tenant: true,
+            unit: { include: { property: true } },
+          },
+        },
+        payments: true,
+        lateFees: true,
+        schedule: true,
+        paymentPlan: {
+          include: {
+            paymentPlanPayments: {
+              include: {
+                payment: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!invoice) {
+      throw new NotFoundException(`Invoice with ID ${invoiceId} not found`);
+    }
+
+    // Verify access: tenants can only see their own invoices
+    if (role === Role.TENANT && invoice.lease.tenantId !== userId) {
+      throw new ForbiddenException('You do not have access to this invoice');
+    }
+
+    return invoice;
+  }
+
+  async getPaymentPlans(userId: number, role: Role, invoiceId?: number) {
+    if (role === Role.PROPERTY_MANAGER) {
+      return this.prisma.paymentPlan.findMany({
+        where: invoiceId ? { invoiceId } : undefined,
+        include: {
+          invoice: {
+            include: {
+              lease: {
+                include: {
+                  tenant: true,
+                  unit: { include: { property: true } },
+                },
+              },
+            },
+          },
+          paymentPlanPayments: {
+            include: {
+              payment: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
+
+    // Tenants can only see payment plans for their own invoices
+    return this.prisma.paymentPlan.findMany({
+      where: {
+        invoice: {
+          lease: {
+            tenantId: userId,
+            ...(invoiceId ? { id: invoiceId } : {}),
+          },
+        },
+      },
+      include: {
+        invoice: {
+          include: {
+            lease: {
+              include: {
+                tenant: true,
+                unit: { include: { property: true } },
+              },
+            },
+          },
+        },
+        paymentPlanPayments: {
+          include: {
+            payment: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getPaymentPlanById(paymentPlanId: number, userId: number, role: Role) {
+    const paymentPlan = await this.prisma.paymentPlan.findUnique({
+      where: { id: paymentPlanId },
+      include: {
+        invoice: {
+          include: {
+            lease: {
+              include: {
+                tenant: true,
+                unit: { include: { property: true } },
+              },
+            },
+          },
+        },
+        paymentPlanPayments: {
+          include: {
+            payment: true,
+          },
+        },
+      },
+    });
+
+    if (!paymentPlan) {
+      throw new NotFoundException(`Payment plan with ID ${paymentPlanId} not found`);
+    }
+
+    // Verify access: tenants can only see their own payment plans
+    if (role === Role.TENANT && paymentPlan.invoice.lease.tenantId !== userId) {
+      throw new ForbiddenException('You do not have access to this payment plan');
+    }
+
+    return paymentPlan;
   }
 
   /**

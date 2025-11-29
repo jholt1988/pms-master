@@ -6,7 +6,7 @@ This directory contains utility scripts for the Property Management Suite projec
 
 ### sync-wiki.sh
 
-Manually synchronizes wiki files from `tenant_portal_app/docs/wiki` to the GitHub Wiki repository.
+Manually synchronizes wiki files from `docs/guides/wiki` to the GitHub Wiki repository.
 
 **Usage:**
 ```bash
@@ -20,7 +20,7 @@ Manually synchronizes wiki files from `tenant_portal_app/docs/wiki` to the GitHu
 
 **What it does:**
 1. Clones the GitHub Wiki repository to a temporary directory
-2. Copies all markdown files from `tenant_portal_app/docs/wiki/`
+2. Copies all markdown files from `docs/guides/wiki/`
 3. Commits changes with a descriptive message
 4. Pushes the changes to the wiki
 5. Cleans up the temporary directory

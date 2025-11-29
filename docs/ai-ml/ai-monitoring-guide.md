@@ -303,6 +303,6 @@ If daily cost > $50:
 
 ## Related Documentation
 
-- [AI Configuration Guide](./AI_CONFIGURATION.md)
-- [AI Services Integration Plan](./AI-SERVICES-INTEGRATION-PLAN.md)
+- [AI Configuration Guide](./ai-configuration.md)
+- [AI Services Integration Plan](./ai-services-integration-plan.md)
 

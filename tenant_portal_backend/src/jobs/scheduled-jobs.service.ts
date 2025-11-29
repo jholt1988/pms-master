@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsService } from '../payments/payments.service';
 import { AIPaymentService } from '../payments/ai-payment.service';
+import { AIPaymentMetricsService } from '../payments/ai-payment-metrics.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '@prisma/client';
 import { subDays } from 'date-fns';
@@ -15,6 +16,7 @@ export class ScheduledJobsService {
     private readonly prisma: PrismaService,
     private readonly paymentsService: PaymentsService,
     private readonly aiPaymentService: AIPaymentService,
+    private readonly aiMetrics: AIPaymentMetricsService,
     private readonly notificationsService: NotificationsService,
   ) {}
 
@@ -46,17 +48,41 @@ export class ScheduledJobsService {
 
           // Assess payment risk using AI
           const startTime = Date.now();
-          const riskAssessment = await this.aiPaymentService.assessPaymentRisk(
-            invoice.leaseId,
-            invoice.id,
-          );
-          const responseTime = Date.now() - startTime;
+          let riskAssessment;
+          try {
+            riskAssessment = await this.aiPaymentService.assessPaymentRisk(
+              invoice.leaseId,
+              invoice.id,
+            );
+            const responseTime = Date.now() - startTime;
 
-          this.logger.log(
-            `Risk assessment for invoice ${invoice.id}: ` +
-            `${riskAssessment.riskLevel} (${riskAssessment.riskScore.toFixed(1)}%) ` +
-            `(${responseTime}ms)`,
-          );
+            // Record metric
+            this.aiMetrics.recordMetric({
+              operation: 'assessPaymentRisk',
+              success: true,
+              responseTime,
+              tenantId: invoice.leaseId,
+              invoiceId: invoice.id,
+            });
+
+            this.logger.log(
+              `Risk assessment for invoice ${invoice.id}: ` +
+              `${riskAssessment.riskLevel} (${riskAssessment.riskScore.toFixed(1)}%) ` +
+              `(${responseTime}ms)`,
+            );
+          } catch (error) {
+            const responseTime = Date.now() - startTime;
+            // Record failed metric
+            this.aiMetrics.recordMetric({
+              operation: 'assessPaymentRisk',
+              success: false,
+              responseTime,
+              tenantId: invoice.leaseId,
+              invoiceId: invoice.id,
+              error: error instanceof Error ? error.message : String(error),
+            });
+            throw error;
+          }
 
           // Handle based on risk level
           if (riskAssessment.riskLevel === 'HIGH' || riskAssessment.riskLevel === 'CRITICAL') {
