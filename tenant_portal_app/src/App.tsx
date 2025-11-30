@@ -6,7 +6,7 @@ import { Card, CardBody } from '@nextui-org/card';
 import { Button } from '@nextui-org/button';
 import { useAuth } from './AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { PageErrorBoundary } from './components/PageErrorBoundary';
+import { PageErrorBoundaryWithNav } from './components/PageErrorBoundary';
 import "./index.css";
 
 // Lazy load pages for code splitting
@@ -179,9 +179,9 @@ export default function App({className}: {className: string}): React.ReactElemen
               <Route path="dashboard" element={<DashboardRouter />} />
               
               <Route path="maintenance" element={
-                <PageErrorBoundary pageName="Maintenance">
+                <PageErrorBoundaryWithNav pageName="Maintenance">
                   <TenantMaintenancePage />
-                </PageErrorBoundary>
+                </PageErrorBoundaryWithNav>
               } />
               
               {/* Legacy routes with redirect */}
@@ -192,14 +192,14 @@ export default function App({className}: {className: string}): React.ReactElemen
               <Route path="expense-tracker-old" element={<Navigate to="/expense-tracker" replace />} />
               
               <Route path="payments" element={
-                <PageErrorBoundary pageName="Payments">
+                <PageErrorBoundaryWithNav pageName="Payments">
                   <PaymentsPage />
-                </PageErrorBoundary>
+                </PageErrorBoundaryWithNav>
               } />
               <Route path="messaging" element={
-                <PageErrorBoundary pageName="Messaging">
+                <PageErrorBoundaryWithNav pageName="Messaging">
                   <MessagingPage />
-                </PageErrorBoundary>
+                </PageErrorBoundaryWithNav>
               } />
 
               <Route element={<RequireRole allowedRoles={['PROPERTY_MANAGER']} />}>
@@ -222,14 +222,14 @@ export default function App({className}: {className: string}): React.ReactElemen
 
               <Route element={<RequireRole allowedRoles={['TENANT']} />}>
                 <Route path="my-lease" element={
-                  <PageErrorBoundary pageName="My Lease">
+                  <PageErrorBoundaryWithNav pageName="My Lease">
                     <MyLeasePage />
-                  </PageErrorBoundary>
+                  </PageErrorBoundaryWithNav>
                 } />
                 <Route path="inspections" element={
-                  <PageErrorBoundary pageName="Inspections">
+                  <PageErrorBoundaryWithNav pageName="Inspections">
                     <TenantInspectionPage />
-                  </PageErrorBoundary>
+                  </PageErrorBoundaryWithNav>
                 } />
               </Route>
 

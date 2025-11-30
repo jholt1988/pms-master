@@ -3,4 +3,4 @@
  * Entry point for maintenance request functionality
  */
 
-export { MaintenancePage } from './MaintenancePage';
+export { default as MaintenancePage } from './MaintenancePage';

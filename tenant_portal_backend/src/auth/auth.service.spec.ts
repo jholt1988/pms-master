@@ -141,7 +141,7 @@ describe('AuthService', () => {
 
       const result = await service.login(loginDto, context);
 
-      expect(result).toEqual({ access_token: 'jwt-token' });
+      expect(result).toEqual({ access_token: 'jwt-token', accessToken: 'jwt-token' });
       expect(mockUsersService.findOne).toHaveBeenCalledWith(loginDto.username);
       expect(bcryptMock.compare).toHaveBeenCalledWith(loginDto.password, mockUser.password);
       expect(mockJwtService.sign).toHaveBeenCalledWith({
@@ -319,7 +319,7 @@ describe('AuthService', () => {
 
       const result = await service.login(loginDtoWithMfa, context);
 
-      expect(result).toEqual({ access_token: 'jwt-token' });
+      expect(result).toEqual({ access_token: 'jwt-token', accessToken: 'jwt-token' });
       expect(authenticator.verify).toHaveBeenCalledWith({
         token: '123456',
         secret: 'secret',
@@ -370,6 +370,7 @@ describe('AuthService', () => {
         password: 'hashedPassword',
       };
 
+      mockUsersService.findOne.mockResolvedValue(null); // User doesn't exist yet
       mockPasswordPolicy.validate.mockReturnValue([]);
       mockUsersService.create.mockResolvedValue(mockUser);
       mockSecurityEvents.logEvent.mockResolvedValue(undefined);
@@ -439,6 +440,7 @@ describe('AuthService', () => {
       expect(result).toEqual({
         secret: 'newsecret',
         otpauthUrl: 'otpauth://totp/...',
+        qrCodeUrl: 'otpauth://totp/...',
       });
       expect(mockUsersService.update).toHaveBeenCalledWith(userId, {
         mfaTempSecret: 'newsecret',
@@ -724,7 +726,7 @@ describe('AuthService', () => {
       mockPrismaService.PasswordResetToken.findUnique.mockResolvedValue(mockResetToken);
 
       await expect(service.resetPassword(token, newPassword, context)).rejects.toThrow(
-        'Invalid or expired reset token'
+        'Reset token has expired'
       );
     });
 
@@ -748,7 +750,7 @@ describe('AuthService', () => {
       mockPrismaService.PasswordResetToken.findUnique.mockResolvedValue(mockResetToken);
 
       await expect(service.resetPassword(token, newPassword, context)).rejects.toThrow(
-        'Invalid or expired reset token'
+        'Reset token has already been used'
       );
     });
 

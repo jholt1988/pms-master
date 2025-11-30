@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ROUTES } from '../../../../constants/routes';
+import { ROUTES } from '../../../constants/routes';
 import { 
   Card, 
   CardBody, 

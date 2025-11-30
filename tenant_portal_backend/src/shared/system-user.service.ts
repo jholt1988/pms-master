@@ -46,7 +46,7 @@ export class SystemUserService implements OnModuleInit {
       let systemUser = await this.prisma.user.findFirst({
         where: {
           username: 'system',
-          role: Role.ADMIN, // System user has admin role for permissions
+          role: Role.PROPERTY_MANAGER, // System user uses property manager role for permissions
         },
       });
 
@@ -62,7 +62,7 @@ export class SystemUserService implements OnModuleInit {
           data: {
             username: 'system',
             password: randomPassword, // Secure random password, not used for login
-            role: Role.ADMIN,
+            role: Role.PROPERTY_MANAGER,
             // Mark as system user in metadata if needed
           },
         });
@@ -77,7 +77,7 @@ export class SystemUserService implements OnModuleInit {
       this.logger.error('Failed to ensure system user exists:', error);
       // Fallback: try to find any admin user as last resort
       const fallbackAdmin = await this.prisma.user.findFirst({
-        where: { role: Role.ADMIN },
+        where: { role: Role.PROPERTY_MANAGER },
       });
       if (fallbackAdmin) {
         this.logger.warn(

@@ -249,7 +249,13 @@ describe('LeasingService', () => {
 
       const result = await service.getLeads();
 
-      expect(result).toEqual({ leads: mockLeads, total: 2 });
+      expect(result).toEqual({ 
+        leads: mockLeads, 
+        total: 2,
+        page: 1,
+        limit: 50,
+        totalPages: 1
+      });
       expect(mockPrismaService.lead.findMany).toHaveBeenCalledWith({
         where: {},
         include: {

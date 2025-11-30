@@ -1075,13 +1075,14 @@ const PropertyManagementPage: React.FC = () => {
                   </div>
                   <Select
                     label="Availability"
-                    value={marketingForm.availabilityStatus}
-                    onChange={(event) =>
+                    selectedKeys={marketingForm.availabilityStatus ? [marketingForm.availabilityStatus] : []}
+                    onSelectionChange={(keys) => {
+                      const selected = Array.from(keys)[0] as AvailabilityStatus | undefined;
                       setMarketingForm((prev) => ({
                         ...prev,
-                        availabilityStatus: event.target.value as AvailabilityStatus,
-                      }))
-                    }
+                        availabilityStatus: selected || ('' as AvailabilityStatus),
+                      }));
+                    }}
                   >
                     {availabilityOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>

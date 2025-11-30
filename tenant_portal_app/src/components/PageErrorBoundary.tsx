@@ -1,11 +1,13 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import { Card, CardBody, Button } from '@nextui-org/react';
+import { useNavigate } from 'react-router-dom';
 
 interface Props {
   children: ReactNode;
   pageName?: string;
   onReset?: () => void;
+  onNavigateHome?: () => void;
 }
 
 interface State {
@@ -66,6 +68,15 @@ export class PageErrorBoundary extends Component<Props, State> {
     }
   };
 
+  handleGoHome = () => {
+    if (this.props.onNavigateHome) {
+      this.props.onNavigateHome();
+    } else {
+      // Fallback: use window.location if navigate function not provided
+      window.location.href = '/dashboard';
+    }
+  };
+
   render() {
     if (this.state.hasError) {
       return (
@@ -110,15 +121,25 @@ export class PageErrorBoundary extends Component<Props, State> {
                 </details>
               )}
 
-              {/* Action Button */}
-              <Button
-                color="primary"
-                variant="flat"
-                onPress={this.handleReset}
-                startContent={<RefreshCw size={16} />}
-              >
-                Try Again
-              </Button>
+              {/* Action Buttons */}
+              <div className="flex gap-3 justify-center">
+                <Button
+                  color="primary"
+                  variant="flat"
+                  onPress={this.handleReset}
+                  startContent={<RefreshCw size={16} />}
+                >
+                  Try Again
+                </Button>
+                <Button
+                  color="default"
+                  variant="bordered"
+                  onPress={this.handleGoHome}
+                  startContent={<Home size={16} />}
+                >
+                  Go Home
+                </Button>
+              </div>
             </CardBody>
           </Card>
         </div>
@@ -128,4 +149,23 @@ export class PageErrorBoundary extends Component<Props, State> {
     return this.props.children;
   }
 }
+
+/**
+ * Wrapper component that provides navigation functionality to PageErrorBoundary
+ * Since PageErrorBoundary is a class component, it can't use hooks directly
+ */
+export const PageErrorBoundaryWithNav: React.FC<Omit<Props, 'onNavigateHome'>> = (props) => {
+  const navigate = useNavigate();
+  
+  const handleNavigateHome = () => {
+    navigate('/dashboard', { replace: true });
+  };
+  
+  return (
+    <PageErrorBoundary
+      {...props}
+      onNavigateHome={handleNavigateHome}
+    />
+  );
+};
 

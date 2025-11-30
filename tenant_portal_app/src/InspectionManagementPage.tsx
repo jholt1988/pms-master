@@ -448,10 +448,9 @@ export default function InspectionManagementPage(): React.ReactElement {
                 rows={3}
                 placeholder="Completion Notes"
                 aria-label="Completion Notes"
-                  value={completionNotes}
-                  onChange={(event) => setCompletionNotes(event.target.value)}
-                />
-              </label>
+                value={completionNotes}
+                onChange={(event) => setCompletionNotes(event.target.value)}
+              />
             </form>
           </ModalBody>
           <ModalFooter>

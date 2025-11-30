@@ -99,6 +99,33 @@ export class EmailService {
     }
   }
 
+  async sendRentDueReminder(email: string, amount: number, dueDate: Date): Promise<void> {
+    const subject = 'Rent Due Reminder';
+    const message = `
+      <p>Hi ${email},</p>
+      <p>Your rent is due on ${dueDate.toDateString()}. Please pay your rent to avoid late fees.</p>
+    `;
+    await this.sendNotificationEmail(email, subject, message);
+  }
+
+  async sendLateRentNotification(email: string, amount: number, dueDate: Date): Promise<void> {
+    const subject = 'Late Rent Notification';
+    const message = `
+      <p>Hi ${email},</p>
+      <p>Your rent is due on ${dueDate.toDateString()}. Please pay your rent to avoid late fees.</p>
+    `;
+    await this.sendNotificationEmail(email, subject, message);
+  }
+
+  async sendRentPaymentConfirmation(email: string, amount: number, dueDate: Date): Promise<void> {
+    const subject = 'Rent Payment Confirmation';
+    const message = `
+      <p>Hi ${email},</p>
+      <p>Your rent payment of ${amount} has been received on ${dueDate.toDateString()}.</p>
+    `;
+    await this.sendNotificationEmail(email, subject, message);
+  }
+
   async sendLeadWelcomeEmail(lead: { name?: string; email?: string }): Promise<void> {
     if (!lead.email) {
       return;

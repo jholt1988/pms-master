@@ -41,7 +41,7 @@ describe('SystemUserService', () => {
       const existingSystemUser = {
         id: 1,
         username: 'system',
-        role: Role.ADMIN,
+        role: Role.PROPERTY_MANAGER,
         password: 'hashed',
       };
 
@@ -53,7 +53,7 @@ describe('SystemUserService', () => {
       expect(mockPrismaService.user.findFirst).toHaveBeenCalledWith({
         where: {
           username: 'system',
-          role: Role.ADMIN,
+          role: Role.PROPERTY_MANAGER,
         },
       });
       expect(mockPrismaService.user.create).not.toHaveBeenCalled();
@@ -63,7 +63,7 @@ describe('SystemUserService', () => {
       const newSystemUser = {
         id: 2,
         username: 'system',
-        role: Role.ADMIN,
+        role: Role.PROPERTY_MANAGER,
         password: 'hashed-password',
       };
 
@@ -78,7 +78,7 @@ describe('SystemUserService', () => {
         data: {
           username: 'system',
           password: 'hashed-password',
-          role: Role.ADMIN,
+          role: Role.PROPERTY_MANAGER,
         },
       });
       expect(mockedBcrypt.hash).toHaveBeenCalled();
@@ -88,7 +88,7 @@ describe('SystemUserService', () => {
       const existingSystemUser = {
         id: 3,
         username: 'system',
-        role: Role.ADMIN,
+        role: Role.PROPERTY_MANAGER,
         password: 'hashed',
       };
 
@@ -107,7 +107,7 @@ describe('SystemUserService', () => {
       const fallbackAdmin = {
         id: 5,
         username: 'admin',
-        role: Role.ADMIN,
+        role: Role.PROPERTY_MANAGER,
         password: 'hashed',
       };
 
@@ -121,7 +121,7 @@ describe('SystemUserService', () => {
       expect(userId).toBe(5);
       expect(mockPrismaService.user.findFirst).toHaveBeenCalledTimes(2);
       expect(mockPrismaService.user.findFirst).toHaveBeenNthCalledWith(2, {
-        where: { role: Role.ADMIN },
+        where: { role: Role.PROPERTY_MANAGER },
       });
     });
   });
@@ -131,7 +131,7 @@ describe('SystemUserService', () => {
       const systemUser = {
         id: 10,
         username: 'system',
-        role: Role.ADMIN,
+        role: Role.PROPERTY_MANAGER,
         password: 'hashed',
       };
 
@@ -146,7 +146,7 @@ describe('SystemUserService', () => {
       const systemUser = {
         id: 10,
         username: 'system',
-        role: Role.ADMIN,
+        role: Role.PROPERTY_MANAGER,
         password: 'hashed',
       };
 
@@ -163,7 +163,7 @@ describe('SystemUserService', () => {
       const systemUser = {
         id: 7,
         username: 'system',
-        role: Role.ADMIN,
+        role: Role.PROPERTY_MANAGER,
         password: 'hashed',
       };
 

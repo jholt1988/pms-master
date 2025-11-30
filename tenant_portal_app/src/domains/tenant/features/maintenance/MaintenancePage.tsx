@@ -119,7 +119,7 @@ const priorityOptions = [
   { value: 'emergency', label: 'Emergency - Immediate attention' }
 ];
 
-export const MaintenancePage: React.FC = () => {
+const MaintenancePage: React.FC = () => {
   const [requests, setRequests] = useState<MaintenanceRequest[]>(mockRequests);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTab, setSelectedTab] = useState('all');
@@ -447,7 +447,10 @@ export const MaintenancePage: React.FC = () => {
                 label="Category"
                 placeholder="Select category"
                 selectedKeys={newRequest.category ? [newRequest.category] : []}
-                onChange={(e) => setNewRequest({ ...newRequest, category: e.target.value })}
+                onSelectionChange={(keys) => {
+                  const selected = Array.from(keys)[0] as string | undefined;
+                  setNewRequest({ ...newRequest, category: selected || '' });
+                }}
                 isRequired
               >
                 {categories.map((cat) => (
@@ -461,7 +464,10 @@ export const MaintenancePage: React.FC = () => {
                 label="Priority"
                 placeholder="Select priority level"
                 selectedKeys={[newRequest.priority]}
-                onChange={(e) => setNewRequest({ ...newRequest, priority: e.target.value as MaintenanceRequest['priority'] })}
+                onSelectionChange={(keys) => {
+                  const selected = Array.from(keys)[0] as string | undefined;
+                  setNewRequest({ ...newRequest, priority: (selected || 'medium') as MaintenanceRequest['priority'] });
+                }}
                 isRequired
               >
                 {priorityOptions.map((option) => (
@@ -520,3 +526,5 @@ export const MaintenancePage: React.FC = () => {
     </div>
   );
 };
+
+export default MaintenancePage;

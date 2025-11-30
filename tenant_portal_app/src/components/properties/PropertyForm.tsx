@@ -323,8 +323,11 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
                 <Select
                   size="md"
                   label="Property Type"
-                  value={formData.propertyType}
-                  onChange={(e) => setFormData({ ...formData, propertyType: e.target.value })}
+                  selectedKeys={formData.propertyType ? [formData.propertyType] : []}
+                  onSelectionChange={(keys) => {
+                    const selected = Array.from(keys)[0] as string | undefined;
+                    setFormData({ ...formData, propertyType: selected || '' });
+                  }}
                   placeholder="Select property type"
                   classNames={{
                     label: "text-gray-300",

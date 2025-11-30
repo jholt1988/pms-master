@@ -36,7 +36,7 @@ export class EsignatureService {
     private readonly notificationsService: NotificationsService,
   ) {
     this.httpClient = axios.create({
-      baseURL: this.configService.get<string>('ESIGN_PROVIDER_BASE_URL', 'https://mock-esign.local'),
+      baseURL: this.configService.get<string>('ESIGN_PROVIDER_BASE_URL',process.env.ESIGN_PROVIDER_BASE_URL ),
     });
   }
 

@@ -7,6 +7,7 @@
      body?: any;
      headers?: Record<string, string>;
      noJson?: boolean; // for file upload endpoints
+     signal?: AbortSignal; // for request cancellation
    };
 
    export async function apiFetch(path: string, options: ApiOptions = {}) {
@@ -18,20 +19,30 @@
      };
      if (options.token) headers.Authorization = `Bearer ${options.token}`;
 
-     const response = await fetch(url, {
-       method: options.method ?? 'GET',
-       headers,
-       body: options.body && !options.noJson ? JSON.stringify(options.body) : options.body,
-     });
+     try {
+       const response = await fetch(url, {
+         method: options.method ?? 'GET',
+         headers,
+         body: options.body && !options.noJson ? JSON.stringify(options.body) : options.body,
+         signal: options.signal,
+       });
 
-     if (!response.ok) {
-       const text = await response.text();
-       // Optionally handle 401/403 for re-auth flow
-       throw new Error(`${response.status} - ${text}`);
+       if (!response.ok) {
+         const text = await response.text();
+         // Optionally handle 401/403 for re-auth flow
+         throw new Error(`${response.status} - ${text}`);
+       }
+
+       if (response.status === 204) return null;
+       const contentType = response.headers.get('content-type') || '';
+       if (options.noJson || !contentType.includes('application/json')) return response;
+       return response.json();
+     } catch (error: any) {
+       // Ignore AbortError (request cancelled) - this is normal during navigation
+       if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+         // Silently handle cancelled requests - they're expected during navigation
+         throw new Error('Request cancelled');
+       }
+       throw error;
      }
-
-     if (response.status === 204) return null;
-     const contentType = response.headers.get('content-type') || '';
-     if (options.noJson || !contentType.includes('application/json')) return response;
-     return response.json();
    }

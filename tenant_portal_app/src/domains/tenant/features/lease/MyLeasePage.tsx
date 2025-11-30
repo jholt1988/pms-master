@@ -239,11 +239,28 @@ const MyLeasePage: React.FC = () => {
       return;
     }
     setSigningStatus({ loading: true, message: null, error: null });
+    
+    // Open window immediately to avoid popup blocker
+    // We'll update its location once we have the URL
+    const newWindow = window.open('about:blank', '_blank', 'noopener,noreferrer');
+    
+    if (!newWindow) {
+      setSigningStatus({
+        loading: false,
+        message: null,
+        error: 'Popup blocked. Please allow popups for this site and try again.',
+      });
+      return;
+    }
+    
     try {
       const url = await createRecipientView(token, envelopeId, window.location.href);
-      window.open(url, '_blank');
+      // Update the window location with the actual URL
+      newWindow.location.href = url;
       setSigningStatus({ loading: false, message: 'Signing session opened in a new tab.', error: null });
     } catch (err) {
+      // Close the window if we failed to get the URL
+      newWindow.close();
       setSigningStatus({
         loading: false,
         message: null,

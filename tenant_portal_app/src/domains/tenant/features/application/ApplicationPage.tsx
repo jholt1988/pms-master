@@ -435,7 +435,10 @@ const RentalApplicationPage: React.FC = () => {
                 <Select
                   placeholder="Choose a property"
                   selectedKeys={selectedProperty ? [selectedProperty] : []}
-                  onChange={(e) => setSelectedProperty(e.target.value)}
+                  onSelectionChange={(keys) => {
+                    const selected = Array.from(keys)[0] as string | undefined;
+                    setSelectedProperty(selected || '');
+                  }}
                   isRequired
                   variant="bordered"
                   size="lg"
@@ -450,7 +453,10 @@ const RentalApplicationPage: React.FC = () => {
                 <Select
                   placeholder="Choose a unit"
                   selectedKeys={selectedUnit ? [selectedUnit] : []}
-                  onChange={(e) => setSelectedUnit(e.target.value)}
+                  onSelectionChange={(keys) => {
+                    const selected = Array.from(keys)[0] as string | undefined;
+                    setSelectedUnit(selected || '');
+                  }}
                   isRequired
                   isDisabled={!selectedProperty}
                   variant="bordered"
