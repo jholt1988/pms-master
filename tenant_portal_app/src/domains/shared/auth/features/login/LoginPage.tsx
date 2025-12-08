@@ -123,7 +123,7 @@ export const LoginPage: React.FC = () => {
           <form className="space-y-4" onSubmit={handleLogin}>
             {/* Username Input */}
             <Input
-              label=""
+              label="Username"
               placeholder="Enter your username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -131,17 +131,19 @@ export const LoginPage: React.FC = () => {
               isRequired
               variant="bordered"
               size="lg"
+              aria-label="Username"
+              aria-required="true"
               classNames={{
                 base: "mb-4",
                 input: "text-white",
                 inputWrapper: "bg-black/20 border-white/10 hover:border-neon-blue/30 focus-within:border-neon-blue/50",
-                label: "text-gray-300",
+                label: "sr-only", // Visually hidden but accessible
               }}
             />
 
             {/* Password Input with Toggle */}
             <Input
-              label=""
+              label="Password"
               placeholder="Enter your password"
               type={showPassword ? 'text' : 'password'}
               value={password}
@@ -150,11 +152,13 @@ export const LoginPage: React.FC = () => {
               isRequired
               variant="bordered"
               size="lg"
+              aria-label="Password"
+              aria-required="true"
               classNames={{
                 base: "mb-4",
                 input: "text-white",
                 inputWrapper: "bg-black/20 border-white/10 hover:border-neon-blue/30 focus-within:border-neon-blue/50",
-                label: "text-gray-300",
+                label: "sr-only", // Visually hidden but accessible
               }}
               endContent={
                 <button
@@ -162,11 +166,12 @@ export const LoginPage: React.FC = () => {
                   onClick={() => setShowPassword(!showPassword)}
                   className="focus:outline-none text-gray-400 hover:text-neon-blue transition-colors"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
                 >
                   {showPassword ? (
-                    <EyeOff size={20} />
+                    <EyeOff size={20} aria-hidden="true" />
                   ) : (
-                    <Eye size={20} />
+                    <Eye size={20} aria-hidden="true" />
                   )}
                 </button>
               }
@@ -191,7 +196,7 @@ export const LoginPage: React.FC = () => {
                     base: "mb-4",
                     input: "text-white",
                     inputWrapper: "bg-black/20 border-white/10 hover:border-neon-blue/30 focus-within:border-neon-blue/50",
-                    label: "text-gray-300",
+                    label: "sr-only", // Visually hidden but accessible
                     description: "text-gray-400",
                   }}
                 />

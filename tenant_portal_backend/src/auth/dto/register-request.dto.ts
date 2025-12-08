@@ -12,4 +12,8 @@ export class RegisterRequestDto {
   @IsEnum(Role)
   @IsOptional()
   role?: Role;
+
+  @IsString()
+  @IsOptional()
+  email?: string;
 }

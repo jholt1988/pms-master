@@ -166,7 +166,13 @@ export const UnitEditor: React.FC<UnitEditorProps> = ({
         wrapper: "bg-black/80",
       }}
     >
-      <ModalContent className="bg-[#0a0a0a] border border-white/20">
+      <ModalContent 
+        className="bg-[#0a0a0a] border border-white/20"
+        classNames={{
+          base: "bg-[#0a0a0a] border border-white/20",
+          backdrop: "bg-black/80 backdrop-blur-sm",
+        }}
+      >
         <ModalHeader className="text-xl font-bold text-white bg-[#0a0a0a] border-b border-white/10">
           {initialData ? 'Edit Unit' : 'Create Unit'}
         </ModalHeader>

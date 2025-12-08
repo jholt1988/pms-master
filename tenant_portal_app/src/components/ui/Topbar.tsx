@@ -68,7 +68,7 @@ export const Topbar: React.FC<TopbarProps> = ({
       <div className="flex items-center gap-8">
         <div className="flex items-center gap-2 text-white">
           <div className="p-1.5 bg-neon-blue/20 rounded-lg border border-neon-blue/50">
-            <Building2 className="w-5 h-5 text-neon-blue" />
+            <Building2 className="w-5 h-5 text-neon-blue" aria-hidden="true" />
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-bold tracking-wide leading-none">PMS.OS</span>
@@ -78,7 +78,7 @@ export const Topbar: React.FC<TopbarProps> = ({
 
         {/* Quick Search HUD */}
         <div className="hidden md:flex items-center relative group">
-            <Search className="absolute left-3 text-gray-600 w-4 h-4 group-focus-within:text-neon-blue transition-colors" />
+            <Search className="absolute left-3 text-gray-600 w-4 h-4 group-focus-within:text-neon-blue transition-colors" aria-hidden="true" />
             <input 
                 type="text" 
                 placeholder="Search protocols..." 
@@ -102,7 +102,7 @@ export const Topbar: React.FC<TopbarProps> = ({
           aria-label="View notifications"
           aria-describedby="notification-count"
         >
-            <Bell size={18} />
+            <Bell size={18} aria-hidden="true" />
             <span 
               id="notification-count"
               className="absolute top-1.5 right-2 w-2 h-2 bg-neon-pink rounded-full animate-pulse"
@@ -116,13 +116,15 @@ export const Topbar: React.FC<TopbarProps> = ({
           className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-all"
           aria-label="Open settings"
         >
-          <Settings size={18} />
+          <Settings size={18} aria-hidden="true" />
         </button>
 
         {/* User Profile Pill */}
         <button
           onClick={() => setIsProfileMenuOpen(true)}
           className="flex items-center gap-3 pl-4 border-l border-white/10 hover:bg-white/5 rounded-lg transition-all"
+          aria-label={`Open profile menu for ${displayName}`}
+          aria-expanded={isProfileMenuOpen}
         >
           <div className="text-right hidden sm:block">
             <div className="text-xs text-white font-medium">{displayName}</div>
@@ -130,7 +132,7 @@ export const Topbar: React.FC<TopbarProps> = ({
           </div>
           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-neon-blue to-purple-500 p-[1px]">
             <div className="w-full h-full rounded-full bg-black flex items-center justify-center">
-              <User size={14} className="text-white" />
+              <User size={14} className="text-white" aria-hidden="true" />
             </div>
           </div>
         </button>

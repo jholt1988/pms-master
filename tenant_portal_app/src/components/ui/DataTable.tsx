@@ -82,7 +82,9 @@ export const DataTable: React.FC<DataTableProps> = ({
 
   const tableContent = (
     <Table 
-      aria-label={title || 'Data table'} 
+      aria-label={title || 'Data table'}
+      role="table"
+      aria-rowcount={data.length}
       removeWrapper
       classNames={{
         th: 'bg-content2 text-foreground-600 font-medium text-tiny uppercase tracking-wide',
@@ -95,6 +97,7 @@ export const DataTable: React.FC<DataTableProps> = ({
             key={column.key}
             align={column.align || 'start'}
             allowsSorting={column.sortable}
+            aria-label={column.sortable ? `${column.label}, sortable` : column.label}
           >
             {column.label}
           </TableColumn>
@@ -106,9 +109,15 @@ export const DataTable: React.FC<DataTableProps> = ({
         loadingContent={<Spinner />}
       >
         {data.map((item, index) => (
-          <TableRow key={item.id || index}>
+          <TableRow 
+            key={item.id || index}
+            aria-rowindex={index + 1}
+          >
             {visibleColumns.map((column) => (
-              <TableCell key={column.key}>
+              <TableCell 
+                key={column.key}
+                aria-label={`${column.label}: ${cellRenderer(item, column.key)}`}
+              >
                 {cellRenderer(item, column.key)}
               </TableCell>
             ))}

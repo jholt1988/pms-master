@@ -1,37 +1,8 @@
-# Dependencies
-node_modules/
-
-# Build outputs
-dist/
-<<<<<<< HEAD
-.env
-.env.*
-=======
-build/
-
-# Environment files (but keep .env.example as template)
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-.env.development
-.env.test
-.env.production
-# Note: .env.example should be tracked
-
-# Logs
-*.log
-logs/
-
-# Coverage
+# Coverage reports
 coverage/
+coverage-e2e/
+*.lcov
 
-# IDE
-.idea/
-.vscode/
-*.iml
-
-# OS Files
-.DS_Store
->>>>>>> 8594ed8 (Update .gitignore files for improved artifact management)
+# Test results
+test-results/
+*.test-results

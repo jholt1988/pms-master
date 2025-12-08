@@ -25,7 +25,7 @@ export default function UserManagementPage(): React.ReactElement {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState<'TENANT' | 'PROPERTY_MANAGER' | ''>('');
+  const [roleFilter, setRoleFilter] = useState<'TENANT' | 'PROPERTY_MANAGER' | 'ADMIN' | ''>('');
   const [skip, setSkip] = useState(0);
   const [total, setTotal] = useState(0);
   const take = 10;

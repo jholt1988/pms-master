@@ -1,0 +1,9 @@
+DocuSign Connection Test
+======================
+Testing User Info endpoint to verify token and accounts...
+Calling https://account-d.docusign.com/oauth/userinfo...
+❌ User Info (Demo) failed!
+Error: Request failed with status code 401
+Status: 401
+Body: {"error":"internal_server_error","reference_id":"2e2fd262-f45a-4a3e-b988-b61ba1ab0e80"}
+⚠️  Token is invalid or expired.

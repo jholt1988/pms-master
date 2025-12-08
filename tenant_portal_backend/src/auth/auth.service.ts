@@ -23,7 +23,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
-  ) {}
+  ) { }
 
   private readonly logger = new Logger(AuthService.name);
 
@@ -66,7 +66,7 @@ export class AuthService {
       throw new HttpException('Account is locked. Please try again later.', HttpStatus.LOCKED);
     }
 
-const isMatch = await bcrypt.compare(dto.password, user.password);
+    const isMatch = await bcrypt.compare(dto.password, user.password);
     if (!isMatch) {
       const failedAttempts = (user.failedLoginAttempts ?? 0) + 1;
       const update: any = { failedLoginAttempts: failedAttempts };
@@ -163,18 +163,18 @@ const isMatch = await bcrypt.compare(dto.password, user.password);
     if (policyErrors.length) {
       throw new BadRequestException({ message: 'Password policy violation', errors: policyErrors });
     }
-    
+
     const existingUser = await this.usersService.findOne(dto.username);
     if (existingUser) {
       throw new BadRequestException('Username already exists');
     }
-    
+
     // Security: Prevent self-registration as PROPERTY_MANAGER
     // Only TENANT role is allowed during public registration
     if (dto.role && dto.role !== 'TENANT') {
       throw new BadRequestException('Self-registration is only allowed for tenant accounts. Contact an administrator to create a property manager account.');
     }
-    
+
     // Password hashing is now handled by UsersService
     let user;
     try {
@@ -183,6 +183,7 @@ const isMatch = await bcrypt.compare(dto.password, user.password);
         password: dto.password,
         passwordUpdatedAt: new Date(),
         role: 'TENANT', // Force TENANT role for all public registrations
+        email: dto.email,
       });
     } catch (error: unknown) {
       const prismaError = error as { code?: string };
@@ -391,7 +392,7 @@ const isMatch = await bcrypt.compare(dto.password, user.password);
     // Update password
 
     // Mark token as used
-    
+
     await this.prisma.passwordResetToken.update({
       where: { id: resetToken.id },
       data: { used: true },

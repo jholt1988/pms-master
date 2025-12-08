@@ -291,22 +291,16 @@ export class AnomalyMonitoringService {
       const paymentId = anomaly.metrics?.paymentId as number | undefined;
       
       if (paymentId) {
-        // Mark payment for review (add a flag or status)
-        await this.prisma.payment.update({
-          where: { id: paymentId },
-          data: {
-            // Add metadata flag for review
-            metadata: {
-              ...((anomaly.metrics as any)?.paymentMetadata || {}),
-              flaggedForReview: true,
-              flaggedAt: new Date().toISOString(),
-              flaggedReason: 'Anomaly detection',
-              anomalyLogId,
-            },
-          },
-        });
+        // Note: Payment model doesn't have metadata field
+        // Log the anomaly association instead
+        this.logger.warn(
+          `Payment ${paymentId} flagged for review due to anomaly ${anomalyLogId}. ` +
+          `Anomaly details: ${anomaly.description}. ` +
+          `Recommended actions: ${anomaly.recommendedActions.join(', ')}`
+        );
         
-        this.logger.log(`Payment ${paymentId} flagged for review due to anomaly ${anomalyLogId}`);
+        // Could add a note or comment to the payment record if such a field exists
+        // For now, we'll just log it and rely on the anomaly log for tracking
       }
 
       // In a production system, you might also:
@@ -321,7 +315,7 @@ export class AnomalyMonitoringService {
   /**
    * Handle maintenance-related critical anomalies
    */
-  private async handleMaintenanceAnomaly(anomaly: AnomalyDetectionResult): Promise<void> {
+  private async handleMaintenanceAnomaly(anomaly: AnomalyDetectionResult, anomalyLogId: number): Promise<void> {
     // For maintenance spikes, we might want to:
     // - Auto-assign additional technicians
     // - Escalate to property managers

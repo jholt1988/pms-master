@@ -206,8 +206,9 @@ const MaintenancePage: React.FC = () => {
         actions={
           <Button
             color="primary"
-            startContent={<Plus className="w-4 h-4" />}
+            startContent={<Plus className="w-4 h-4" aria-hidden="true" />}
             onPress={onOpen}
+            aria-label="Submit new maintenance request"
           >
             Submit Request
           </Button>
@@ -223,7 +224,7 @@ const MaintenancePage: React.FC = () => {
                 <p className="text-sm text-foreground-500">Total Requests</p>
                 <p className="text-2xl font-bold">{stats.total}</p>
               </div>
-              <Wrench className="w-8 h-8 text-primary" />
+              <Wrench className="w-8 h-8 text-primary" aria-hidden="true" />
             </div>
           </CardBody>
         </Card>
@@ -235,7 +236,7 @@ const MaintenancePage: React.FC = () => {
                 <p className="text-sm text-foreground-500">Pending</p>
                 <p className="text-2xl font-bold text-warning">{stats.pending}</p>
               </div>
-              <Clock className="w-8 h-8 text-warning" />
+              <Clock className="w-8 h-8 text-warning" aria-hidden="true" />
             </div>
           </CardBody>
         </Card>
@@ -247,7 +248,7 @@ const MaintenancePage: React.FC = () => {
                 <p className="text-sm text-foreground-500">In Progress</p>
                 <p className="text-2xl font-bold text-primary">{stats.in_progress}</p>
               </div>
-              <Wrench className="w-8 h-8 text-primary" />
+              <Wrench className="w-8 h-8 text-primary" aria-hidden="true" />
             </div>
           </CardBody>
         </Card>
@@ -259,7 +260,7 @@ const MaintenancePage: React.FC = () => {
                 <p className="text-sm text-foreground-500">Completed</p>
                 <p className="text-2xl font-bold text-success">{stats.completed}</p>
               </div>
-              <CheckCircle2 className="w-8 h-8 text-success" />
+              <CheckCircle2 className="w-8 h-8 text-success" aria-hidden="true" />
             </div>
           </CardBody>
       </Card>
@@ -294,7 +295,7 @@ const MaintenancePage: React.FC = () => {
         {filteredRequests.length === 0 ? (
           <Card className="shadow-medium">
             <CardBody className="p-8 text-center">
-              <Wrench className="w-12 h-12 mx-auto mb-4 text-foreground-300" />
+              <Wrench className="w-12 h-12 mx-auto mb-4 text-foreground-300" aria-hidden="true" />
               <p className="text-foreground-500">No maintenance requests found</p>
               <Button
                 color="primary"
@@ -428,12 +429,19 @@ const MaintenancePage: React.FC = () => {
         onClose={onClose}
         size="2xl"
         scrollBehavior="inside"
+        aria-labelledby="submit-maintenance-request-title"
+        aria-describedby="submit-maintenance-request-description"
       >
-        <ModalContent>
+        <ModalContent
+          classNames={{
+            base: "bg-deep-900 border border-white/10",
+            backdrop: "bg-black/80 backdrop-blur-sm",
+          }}
+        >
           <ModalHeader>
-            <h2 className="text-xl font-semibold">Submit Maintenance Request</h2>
+            <h2 id="submit-maintenance-request-title" className="text-xl font-semibold">Submit Maintenance Request</h2>
           </ModalHeader>
-          <ModalBody>
+          <ModalBody id="submit-maintenance-request-description">
             <div className="space-y-4">
               <Input
                 label="Request Title"
@@ -441,6 +449,10 @@ const MaintenancePage: React.FC = () => {
                 value={newRequest.title}
                 onChange={(e) => setNewRequest({ ...newRequest, title: e.target.value })}
                 isRequired
+                aria-label="Maintenance request title"
+                classNames={{
+                  label: "sr-only", // Visually hidden but accessible
+                }}
               />
 
               <Select
@@ -452,6 +464,9 @@ const MaintenancePage: React.FC = () => {
                   setNewRequest({ ...newRequest, category: selected || '' });
                 }}
                 isRequired
+                classNames={{
+                  label: "sr-only", // Visually hidden but accessible
+                }}
               >
                 {categories.map((cat) => (
                   <SelectItem key={cat} value={cat}>
@@ -469,6 +484,9 @@ const MaintenancePage: React.FC = () => {
                   setNewRequest({ ...newRequest, priority: (selected || 'medium') as MaintenanceRequest['priority'] });
                 }}
                 isRequired
+                classNames={{
+                  label: "sr-only", // Visually hidden but accessible
+                }}
               >
                 {priorityOptions.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
@@ -484,6 +502,9 @@ const MaintenancePage: React.FC = () => {
                 onChange={(e) => setNewRequest({ ...newRequest, description: e.target.value })}
                 minRows={4}
                 isRequired
+                classNames={{
+                  label: "sr-only", // Visually hidden but accessible
+                }}
               />
 
               <div className="grid md:grid-cols-2 gap-4">
@@ -492,12 +513,18 @@ const MaintenancePage: React.FC = () => {
                   label="Preferred Date (Optional)"
                   value={newRequest.preferredDate}
                   onChange={(e) => setNewRequest({ ...newRequest, preferredDate: e.target.value })}
+                  classNames={{
+                    label: "sr-only", // Visually hidden but accessible
+                  }}
                 />
                 <Input
                   type="time"
                   label="Preferred Time (Optional)"
                   value={newRequest.preferredTime}
                   onChange={(e) => setNewRequest({ ...newRequest, preferredTime: e.target.value })}
+                  classNames={{
+                    label: "sr-only", // Visually hidden but accessible
+                  }}
                 />
               </div>
 
@@ -510,13 +537,18 @@ const MaintenancePage: React.FC = () => {
             </div>
           </ModalBody>
           <ModalFooter>
-            <Button variant="flat" onPress={onClose}>
+            <Button 
+              variant="flat" 
+              onPress={onClose}
+              aria-label="Cancel maintenance request submission"
+            >
               Cancel
             </Button>
             <Button 
               color="primary" 
               onPress={handleSubmitRequest}
               isDisabled={!newRequest.title || !newRequest.description || !newRequest.category}
+              aria-label="Submit maintenance request"
             >
               Submit Request
             </Button>

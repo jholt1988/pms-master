@@ -1,0 +1,28 @@
+[dotenv@17.2.3] injecting env (37) from .env -- tip: ≡ƒöÉ prevent building .env in docker: https://dotenvx.com/prebuild
+≡ƒöÉ DocuSign JWT Authentication Test
+==================================
+
+Client ID: fce15bac-1fc9-4728-9e30-9879d696783d
+User ID: 5e2504c5-0bcf-44d0-93e9-a902831f99d7
+Base URL: https://demo.docusign.net/restapi/v2.1
+
+--- Private Key Debug ---
+Length: 1675
+First line: -----BEGIN RSA PRIVATE KEY-----
+Last line: 
+Contains newlines: true
+-------------------------
+
+OAuth Base Path: account-d.docusign.com
+Attempting to request JWT User Token...
+
+Γ£à JWT Authentication Successful!
+Access Token: eyJ0eXAiOi...
+Expires In: 3600 seconds
+
+Verifying token with UserInfo endpoint...
+Γ£à User Info Retrieved: Jordan Holt (jordanh316@gmail.com)
+Available Accounts:
+ - Jordan Holt (ID: 75833c3a-c3d7-45b5-a518-7c9568d5966c) [Default: true]
+ - Jordan Holt (ID: 9450ddff-f7c5-48b1-a6cd-9f8d89872990) [Default: false]
+ - Jordan Holt (ID: 3e7c581d-e1d3-4c48-90fa-f9a0946ad605) [Default: false]

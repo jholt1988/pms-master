@@ -84,7 +84,9 @@ export const createEnvelope = async (
     },
     body: JSON.stringify(payload),
   });
-
+  console.log('Create Envelope response status:', response.status);
+  console.log('Create Envelope response headers:', response.headers);
+  console.log('Create Envelope response body:', await response.clone().text());
   if (!response.ok) {
     throw new Error(await readErrorResponse(response));
   }
@@ -104,7 +106,6 @@ export const createRecipientView = async (
   const response = await fetch(url, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ returnUrl }),
@@ -124,6 +125,16 @@ export const createRecipientView = async (
   // Validate the URL before returning
   if (!data.url || typeof data.url !== 'string') {
     throw new Error('Invalid response from server: missing or invalid signing URL');
+  }
+  
+  // Check if this is a fallback URL (points back to our frontend, not a signing provider)
+  // Fallback URLs typically have query params like ?envelope=...&recipient=...
+  const isFallbackUrl = data.url.includes(window.location.origin) && 
+                        (data.url.includes('?envelope=') || data.url.includes('&envelope='));
+  
+  if (isFallbackUrl) {
+    console.warn('Received fallback URL instead of signing URL. E-signature provider may not be configured:', data.url);
+    throw new Error('E-signature provider is not properly configured. Please contact your property manager.');
   }
   
   return data.url;

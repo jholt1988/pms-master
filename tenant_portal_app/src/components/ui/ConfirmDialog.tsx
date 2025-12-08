@@ -35,22 +35,38 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   };
 
   return (
-    <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="sm">
-      <ModalContent>
+    <Modal 
+      isOpen={isOpen} 
+      onOpenChange={onOpenChange} 
+      size="sm"
+      aria-labelledby="confirm-dialog-title"
+      aria-describedby="confirm-dialog-message"
+    >
+      <ModalContent
+        classNames={{
+          base: "bg-deep-900 border border-white/10",
+          backdrop: "bg-black/80 backdrop-blur-sm",
+        }}
+      >
         {(onClose) => (
           <>
-            <ModalHeader>{title}</ModalHeader>
+            <ModalHeader id="confirm-dialog-title">{title}</ModalHeader>
             <ModalBody>
-              <p className="text-foreground-600">{message}</p>
+              <p id="confirm-dialog-message" className="text-foreground-600">{message}</p>
             </ModalBody>
             <ModalFooter>
-              <Button variant="flat" onPress={handleCancel}>
+              <Button 
+                variant="flat" 
+                onPress={handleCancel}
+                aria-label={cancelLabel}
+              >
                 {cancelLabel}
               </Button>
               <Button
                 color={confirmColor}
                 onPress={onConfirm}
                 isLoading={isLoading}
+                aria-label={confirmLabel}
               >
                 {confirmLabel}
               </Button>

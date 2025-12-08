@@ -255,7 +255,7 @@ const MyLeasePage: React.FC = () => {
     fetchLease();
   }, [token]);
 
-  const launchSigningSession = async (envelopeId: number) => {
+  const launchSigningSession = async (envelopeId: number, event: React.MouseEvent) => {
     if (!token) {
       setSigningStatus({
         loading: false,
@@ -264,7 +264,8 @@ const MyLeasePage: React.FC = () => {
       });
       return;
     }
-    setSigningStatus({ loading: true, message: null, error: null });
+    
+    setSigningStatus({ loading: true, message: 'Preparing signing session...', error: null });
     
     try {
       // Get the return URL - use the current page URL
@@ -273,28 +274,36 @@ const MyLeasePage: React.FC = () => {
       
       // Validate URL before opening
       if (!url || url === 'about:blank' || !url.startsWith('http')) {
-        throw new Error('Invalid signing URL received from server');
+        console.error('Invalid signing URL received:', url);
+        throw new Error('Invalid signing URL received from server. Please contact support.');
       }
       
-      // Open the signing URL directly - this avoids popup blocker issues
+      // Additional validation: ensure it's not pointing back to our own domain (fallback URL)
+      if (url.includes(window.location.origin) && (url.includes('?envelope=') || url.includes('&envelope='))) {
+        console.error('Received fallback URL instead of signing URL:', url);
+        throw new Error('E-signature provider is not properly configured. Please contact your property manager.');
+      }
+      
+      // Try to open in new window first
       const newWindow = window.open(url, '_blank', 'noopener,noreferrer');
       
-      if (!newWindow) {
-        // If popup is blocked, try redirecting in the same window
-        if (confirm('Popup was blocked. Would you like to open the signing page in this window instead?')) {
-          window.location.href = url;
-          return;
-        }
-        setSigningStatus({
-          loading: false,
-          message: null,
-          error: 'Popup blocked. Please allow popups for this site and try again.',
+      if (newWindow) {
+        // Window opened - assume success (can't check location due to cross-origin)
+        setSigningStatus({ loading: false, message: 'Signing session opened in a new tab.', error: null });
+      } else {
+        // Popup was blocked - redirect in same window
+        setSigningStatus({ 
+          loading: false, 
+          message: 'Redirecting to signing page...', 
+          error: null 
         });
-        return;
+        // Small delay to show message
+        setTimeout(() => {
+          window.location.href = url;
+        }, 300);
       }
-      
-      setSigningStatus({ loading: false, message: 'Signing session opened in a new tab.', error: null });
     } catch (err) {
+      console.error('Error launching signing session:', err);
       setSigningStatus({
         loading: false,
         message: null,
@@ -533,8 +542,9 @@ const MyLeasePage: React.FC = () => {
                         <button
                           type="button"
                           className="rounded bg-indigo-600 px-3 py-1 text-xs font-semibold text-white disabled:bg-indigo-300 hover:bg-indigo-700"
-                          onClick={() => launchSigningSession(envelope.id)}
+                          onClick={(e) => launchSigningSession(envelope.id, e)}
                           disabled={signingStatus.loading}
+                          aria-label={`Launch signing session for envelope ${envelope.id}`}
                         >
                           {signingStatus.loading ? 'Launching…' : 'Launch Signing Session'}
                         </button>
@@ -552,6 +562,7 @@ const MyLeasePage: React.FC = () => {
                                 alert('Failed to download document. Please try again.');
                               }
                             }}
+                            aria-label={`Download signed PDF for envelope ${envelope.id}`}
                           >
                             Download Signed PDF
                           </button>
@@ -567,6 +578,7 @@ const MyLeasePage: React.FC = () => {
                                   alert('Failed to download certificate. Please try again.');
                                 }
                               }}
+                              aria-label={`Download certificate for envelope ${envelope.id}`}
                             >
                               Download Certificate
                             </button>
@@ -625,6 +637,7 @@ const MyLeasePage: React.FC = () => {
                     className="rounded bg-emerald-600 px-3 py-1 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300"
                     onClick={() => handleRenewalDecision(offer, 'ACCEPTED')}
                     disabled={responseSubmitting === offer.id}
+                    aria-label={`Accept renewal offer for ${formatCurrency(offer.proposedRent)} per month`}
                   >
                     {responseSubmitting === offer.id ? 'Submitting…' : 'Accept offer'}
                   </button>
@@ -633,6 +646,7 @@ const MyLeasePage: React.FC = () => {
                     className="rounded border border-amber-500 px-3 py-1 text-sm font-semibold text-amber-700 hover:bg-amber-100 disabled:cursor-not-allowed disabled:border-amber-200 disabled:text-amber-300"
                     onClick={() => handleRenewalDecision(offer, 'DECLINED')}
                     disabled={responseSubmitting === offer.id}
+                    aria-label={`Decline renewal offer for ${formatCurrency(offer.proposedRent)} per month`}
                   >
                     Decline
                   </button>
@@ -676,6 +690,7 @@ const MyLeasePage: React.FC = () => {
               className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
               value={noticeForm.type}
               onChange={(event) => handleNoticeChange('type', event.target.value as LeaseNoticeType)}
+              aria-label="Notice type"
             >
               <option value="MOVE_OUT">Move-out</option>
               <option value="RENT_INCREASE">Rent concern</option>
@@ -704,6 +719,7 @@ const MyLeasePage: React.FC = () => {
             className="rounded bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400"
             onClick={handleSubmitNotice}
             disabled={noticeSubmitting}
+            aria-label="Send move-out notice"
           >
             {noticeSubmitting ? 'Sending…' : 'Send notice'}
           </button>

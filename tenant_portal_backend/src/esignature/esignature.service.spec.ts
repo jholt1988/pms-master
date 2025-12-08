@@ -1,14 +1,18 @@
 import axios from 'axios';
 import { ConfigService } from '@nestjs/config';
-import { EsignEnvelopeStatus, EsignParticipantStatus, EsignProvider } from '@prisma/client';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { EsignEnvelopeStatus, EsignParticipantStatus, EsignProvider, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { DocumentsService } from '../documents/documents.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EsignatureService } from './esignature.service';
 import { CreateEnvelopeDto } from './dto/create-envelope.dto';
 import { ProviderWebhookDto } from './dto/provider-webhook.dto';
+import { RecipientViewDto } from './dto/recipient-view.dto';
+import * as docusign from 'docusign-esign';
 
 jest.mock('axios');
+jest.mock('docusign-esign');
 
 const mockAxiosInstance = {
   request: jest.fn(),
@@ -129,6 +133,110 @@ describe('EsignatureService', () => {
       expect(notifications.sendSignatureAlert).toHaveBeenCalledWith(
         expect.objectContaining({ event: 'COMPLETED' }),
       );
+    });
+
+    it('handles webhook with missing envelopeId gracefully', async () => {
+      const dto: ProviderWebhookDto = {
+        envelopeId: '',
+        status: 'SENT',
+      } as any;
+
+      const result = await service.handleProviderWebhook(dto);
+      expect(result.ignored).toBe(true);
+      expect(prisma.esignEnvelope.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('handles webhook errors gracefully', async () => {
+      const envelopeRecord = {
+        id: 5,
+        leaseId: 12,
+        providerEnvelopeId: 'env-123',
+        participants: [],
+      };
+
+      (prisma.esignEnvelope.findFirst as jest.Mock).mockResolvedValue(envelopeRecord as any);
+      (prisma.esignEnvelope.update as jest.Mock).mockRejectedValue(new Error('Database error'));
+
+      const dto: ProviderWebhookDto = {
+        envelopeId: 'env-123',
+        status: 'SENT',
+      };
+
+      const result = await service.handleProviderWebhook(dto);
+      expect(result.success).toBe(false);
+      expect(result.error).toBeDefined();
+    });
+  });
+
+  describe('createRecipientView', () => {
+    it('throws NotFoundException when envelope does not exist', async () => {
+      (prisma.esignEnvelope.findUnique as jest.Mock).mockResolvedValue(null);
+
+      const dto: RecipientViewDto = {
+        returnUrl: 'http://localhost:3000/my-lease',
+      };
+
+      await expect(
+        service.createRecipientView(1, { userId: 1, role: Role.TENANT }, dto),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws ForbiddenException when user is not authorized', async () => {
+      const envelope = {
+        id: 1,
+        lease: { tenantId: 999 }, // Different tenant
+        participants: [],
+      };
+
+      (prisma.esignEnvelope.findUnique as jest.Mock).mockResolvedValue(envelope as any);
+
+      const dto: RecipientViewDto = {
+        returnUrl: 'http://localhost:3000/my-lease',
+      };
+
+      await expect(
+        service.createRecipientView(1, { userId: 1, role: Role.TENANT }, dto),
+      ).rejects.toThrow('not assigned to this envelope');
+    });
+  });
+
+  describe('error handling', () => {
+    it('handles DocuSign API errors with proper error codes', async () => {
+      const mockError = {
+        response: {
+          body: {
+            errorCode: 'INVALID_RECIPIENT',
+            message: 'Recipient not found',
+          },
+        },
+      };
+
+      // Access private method through type assertion for testing
+      const serviceAny = service as any;
+      const parsed = serviceAny.parseDocuSignError(mockError);
+
+      expect(parsed.code).toBe('INVALID_RECIPIENT');
+      expect(parsed.message).toContain('Invalid recipient ID');
+    });
+
+    it('handles network errors', async () => {
+      const mockError = new Error('ECONNREFUSED');
+
+      const serviceAny = service as any;
+      const parsed = serviceAny.parseDocuSignError(mockError);
+
+      expect(parsed.code).toBe('CONNECTION_ERROR');
+      expect(parsed.message).toContain('Unable to connect');
+    });
+
+    it('handles 401 unauthorized errors', async () => {
+      const mockError = new Error('401 Unauthorized');
+
+      const serviceAny = service as any;
+      const parsed = serviceAny.parseDocuSignError(mockError);
+
+      expect(parsed.code).toBe('UNAUTHORIZED');
+      expect(parsed.message).toContain('Authentication failed');
     });
   });
 });

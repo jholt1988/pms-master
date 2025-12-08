@@ -1,0 +1,14 @@
+[dotenv@17.2.3] injecting env (37) from .env -- tip: ≡ƒôí add observability to secrets: https://dotenvx.com/ops
+Γ£ë∩╕Å  DocuSign Envelope Creation Debug (Axios)
+=========================================
+
+Using Hardcoded Account ID: "75833c3a-c3d7-45b5-a518-7c9568d5966c"
+Using Hardcoded Base URL: "https://demo.docusign.net/restapi/v2.1"
+1. Authenticating...
+Γ£à Authenticated
+2. Sending Envelope (via Axios)...
+Target URL: https://demo.docusign.net/restapi/v2.1/accounts/75833c3a-c3d7-45b5-a518-7c9568d5966c/envelopes
+
+Γ£à Envelope Created Successfully!
+Envelope ID: 996715b9-db93-8452-81f4-c687dbcb03f0
+Status: sent

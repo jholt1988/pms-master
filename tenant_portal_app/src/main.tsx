@@ -25,6 +25,7 @@ import { AuthProvider } from './AuthContext';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
+import { initWebVitals } from './services/performance-monitor';
 
 // Initialize MSW in development
 async function enableMocking() {
@@ -75,6 +76,10 @@ async function enableMocking() {
 enableMocking()
   .then(() => {
     console.log('[MSW] MSW initialization complete, rendering app...');
+    
+    // Initialize performance monitoring (P0-005)
+    initWebVitals();
+    
     ReactDOM.createRoot(document.getElementById('root')!).render(
       <React.StrictMode>
         <AuthProvider >
@@ -86,6 +91,9 @@ enableMocking()
   .catch((error) => {
     console.error('[MSW] ❌ MSW initialization failed, but continuing to render app:', error);
     // Still render the app even if MSW fails
+    // Initialize performance monitoring (P0-005)
+    initWebVitals();
+    
     ReactDOM.createRoot(document.getElementById('root')!).render(
       <React.StrictMode>
         <AuthProvider >

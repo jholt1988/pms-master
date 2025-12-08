@@ -5,8 +5,9 @@ import { apiFetch } from './services/apiClient';
 
 const SignupPage: React.FC = () => {
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'TENANT' | 'PROPERTY_MANAGER'>('TENANT');
+  const [role, setRole] = useState<'TENANT' | 'PROPERTY_MANAGER' | 'ADMIN'>('TENANT');
   const [policy, setPolicy] = useState<{
     minLength: number;
     requireUppercase: boolean;
@@ -38,7 +39,7 @@ const SignupPage: React.FC = () => {
     try {
       await apiFetch('/auth/register', {
         method: 'POST',
-        body: { username, password, role },
+        body: { username, email, password, role },
       });
       navigate('/login');
     } catch (err: any) {
@@ -83,6 +84,19 @@ const SignupPage: React.FC = () => {
                 onChange={(event) => setUsername(event.target.value)}
                 placeholder="Username"
                 aria-label="Username"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="Email Address"
+                aria-label="Email Address"
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>

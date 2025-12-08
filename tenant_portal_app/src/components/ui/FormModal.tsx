@@ -36,15 +36,39 @@ export const FormModal: React.FC<FormModalProps> = ({
     }
   };
 
+  const modalId = `form-modal-${title.replace(/\s+/g, '-').toLowerCase()}`;
+  const titleId = `${modalId}-title`;
+
   return (
-    <Modal isOpen={isOpen} onOpenChange={onOpenChange} size={size}>
-      <ModalContent className="bg-deep-900">
+    <Modal 
+      isOpen={isOpen} 
+      onOpenChange={onOpenChange} 
+      size={size}
+      aria-labelledby={titleId}
+      aria-describedby={`${modalId}-description`}
+    >
+      <ModalContent 
+        className="bg-deep-900"
+        classNames={{
+          base: "bg-deep-900 border border-white/10",
+          backdrop: "bg-black/80 backdrop-blur-sm",
+        }}
+      >
         {(onClose) => (
           <>
-            <ModalHeader className="text-xl font-bold text-white">{title}</ModalHeader>
-            <ModalBody>{children}</ModalBody>
+            <ModalHeader id={titleId} className="text-xl font-bold text-white">
+              {title}
+            </ModalHeader>
+            <ModalBody id={`${modalId}-description`}>
+              {children}
+            </ModalBody>
             <ModalFooter>
-              <Button variant="flat" size="md" onPress={handleCancel}>
+              <Button 
+                variant="flat" 
+                size="md" 
+                onPress={handleCancel}
+                aria-label={cancelLabel}
+              >
                 {cancelLabel}
               </Button>
               <Button
@@ -53,6 +77,8 @@ export const FormModal: React.FC<FormModalProps> = ({
                 onPress={onSubmit}
                 isLoading={isLoading}
                 isDisabled={isDisabled}
+                aria-label={submitLabel}
+                aria-busy={isLoading}
               >
                 {submitLabel}
               </Button>

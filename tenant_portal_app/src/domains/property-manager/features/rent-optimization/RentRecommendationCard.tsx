@@ -107,7 +107,7 @@ export const RentRecommendationCard: React.FC<RentRecommendationCardProps> = ({
                   color={factor.impact > 0 ? 'success' : factor.impact < 0 ? 'danger' : 'default'}
                   variant="flat"
                 >
-                  {factor.impact > 0 ? '+' : ''}{factor.impact > 0 ? factor.impact?.toFixed(1) : factor.impact.toFixed(1)}%
+                  {factor.impact > 0 ? '+' : ''}{factor.impact > 0 ? factor.impact?.toFixed(1) : factor?.impact?.toFixed(1)}%
                 </Chip>
               </div>
             ))}

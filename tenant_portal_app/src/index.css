@@ -19,3 +19,101 @@ body {
   background: #030712;
   color: #ffffff;
 }
+
+/* Accessibility: Focus Indicators (WCAG 2.4.7) */
+*:focus-visible {
+  outline: 2px solid #3B82F6;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Ensure all interactive elements have visible focus */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid #3B82F6;
+  outline-offset: 2px;
+}
+
+/* Skip link for keyboard navigation (WCAG 2.4.1) */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: #3B82F6;
+  color: #ffffff;
+  padding: 8px 16px;
+  text-decoration: none;
+  z-index: 1000;
+  border-radius: 4px;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* Modal and Form Overlay Opacity - Prevent see-through forms */
+/* NextUI Modal backdrop - make it opaque */
+[data-slot="base"],
+.nextui-modal-backdrop {
+  background: rgba(0, 0, 0, 0.85) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+/* Modal wrapper */
+[data-slot="wrapper"],
+.nextui-modal-wrapper {
+  background: rgba(0, 0, 0, 0.85) !important;
+}
+
+/* Modal Content - Solid opaque background for forms */
+[data-slot="content"],
+.nextui-modal-content {
+  background: #030712 !important; /* deep-900 */
+  opacity: 1 !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Ensure modal body and header are also opaque */
+[data-slot="body"],
+[data-slot="header"],
+[data-slot="footer"] {
+  background: transparent !important;
+  opacity: 1 !important;
+}
+
+/* Any modal with glass or transparent backgrounds */
+.modal-content,
+.form-modal,
+.dialog-content {
+  background: #030712 !important;
+  opacity: 1 !important;
+}
+
+/* Accessibility: Visually hidden but accessible to screen readers (WCAG 2.1) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Ensure sr-only elements are accessible when focused */
+.sr-only:focus {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: inherit;
+  margin: inherit;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}

@@ -36,17 +36,19 @@ export const StatsCard: React.FC<StatsCardProps> = ({
   };
 
   return (
-    <Card className={`shadow-medium ${className}`}>
+    <Card className={`shadow-medium ${className}`} role="region" aria-labelledby={`stats-${title.replace(/\s+/g, '-').toLowerCase()}-title`}>
       <CardBody className="p-6">
         <div className="flex items-center justify-between mb-2">
-          <p className="text-small font-medium text-foreground-500">{title}</p>
-          {icon && <div className="text-foreground-400">{icon}</div>}
+          <p id={`stats-${title.replace(/\s+/g, '-').toLowerCase()}-title`} className="text-small font-medium text-foreground-500">{title}</p>
+          {icon && <div className="text-foreground-400" aria-hidden="true">{icon}</div>}
         </div>
-        <p className={`text-2xl font-bold mb-1 ${getValueColorClass()}`}>
+        <p className={`text-2xl font-bold mb-1 ${getValueColorClass()}`} aria-label={`${title}: ${value}`}>
           {value}
         </p>
         {subtitle && (
-          <p className="text-tiny text-foreground-400">{subtitle}</p>
+          <p className="text-tiny text-foreground-400" aria-label={`${title} subtitle: ${subtitle}`}>
+            {subtitle}
+          </p>
         )}
       </CardBody>
     </Card>

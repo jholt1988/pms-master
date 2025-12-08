@@ -23,17 +23,23 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             {breadcrumbs.map((breadcrumb, index) => (
               <li key={index} className="flex items-center">
                 {index > 0 && (
-                  <span className="mx-2 text-foreground-300">/</span>
+                  <span className="mx-2 text-foreground-300" aria-hidden="true">/</span>
                 )}
                 {breadcrumb.href ? (
                   <a 
                     href={breadcrumb.href} 
                     className="hover:text-foreground-700 transition-colors"
+                    aria-label={index === breadcrumbs.length - 1 ? `${breadcrumb.label} (current page)` : `Navigate to ${breadcrumb.label}`}
                   >
                     {breadcrumb.label}
                   </a>
                 ) : (
-                  <span className="text-foreground-700">{breadcrumb.label}</span>
+                  <span 
+                    className="text-foreground-700"
+                    aria-current="page"
+                  >
+                    {breadcrumb.label}
+                  </span>
                 )}
               </li>
             ))}

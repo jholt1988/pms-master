@@ -1,0 +1,13 @@
+[dotenv@17.2.3] injecting env (37) from .env -- tip: ΓÜÖ∩╕Å  suppress all logs with { quiet: true }
+Γ£ë∩╕Å  DocuSign Envelope Creation Debug
+==================================
+
+1. Authenticating...
+Γ£à Authenticated
+2. Creating Envelope Definition...
+3. Sending Envelope...
+
+Γ¥î Envelope Creation Failed!
+Error: Request failed with status code 404
+Status: 404
+Data: ""

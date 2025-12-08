@@ -22,37 +22,55 @@ interface FilterBarProps {
 }
 
 export const FilterBar: React.FC<FilterBarProps> = ({ title, description, filters }) => {
+  const filterBarId = `filter-bar-${title.replace(/\s+/g, '-').toLowerCase()}`;
+  
   return (
-    <Card className="shadow-medium">
+    <Card className="shadow-medium" role="region" aria-labelledby={`${filterBarId}-title`}>
       <CardBody className="p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <h2 className="text-base font-semibold text-foreground">{title}</h2>
-            <p className="mt-1 text-sm text-foreground-500">{description}</p>
+            <h2 id={`${filterBarId}-title`} className="text-base font-semibold text-foreground">
+              {title}
+            </h2>
+            <p id={`${filterBarId}-description`} className="mt-1 text-sm text-foreground-500">
+              {description}
+            </p>
           </div>
-          <div className="flex flex-wrap gap-4">
-            {filters.map((filter) => (
-              <div key={filter.name} className="flex flex-col text-xs font-medium text-foreground-700">
-                <label className="mb-1">{filter.label}</label>
-                <Select
-                  size="sm"
-                  selectedKeys={filter.value ? [filter.value] : []}
-                  onChange={(e) => filter.onChange({ target: { name: filter.name, value: e.target.value } } as React.ChangeEvent<HTMLSelectElement>)}
-                  isDisabled={filter.disabled}
-                  className="w-40"
-                  aria-label={`Filter by ${filter.label.toLowerCase()}`}
-                >
-                  {[
-                    { value: '', label: filter.label === 'Status' || filter.label === 'Priority' ? 'All' : 'Any' },
-                    ...filter.options
-                  ].map((option) => (
-                    <SelectItem key={option.value || 'empty'} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </Select>
-              </div>
-            ))}
+          <div className="flex flex-wrap gap-4" role="group" aria-label="Filter options">
+            {filters.map((filter) => {
+              const filterId = `${filterBarId}-${filter.name}`;
+              return (
+                <div key={filter.name} className="flex flex-col text-xs font-medium text-foreground-700">
+                  <label htmlFor={filterId} className="mb-1">
+                    {filter.label}
+                  </label>
+                  <Select
+                    id={filterId}
+                    size="sm"
+                    selectedKeys={filter.value ? [filter.value] : []}
+                    onChange={(e) => filter.onChange({ target: { name: filter.name, value: e.target.value } } as React.ChangeEvent<HTMLSelectElement>)}
+                    isDisabled={filter.disabled}
+                    className="w-40"
+                    aria-label={`Filter by ${filter.label.toLowerCase()}`}
+                    aria-describedby={filter.disabled ? `${filterId}-disabled` : undefined}
+                  >
+                    {filter.disabled && (
+                      <span id={`${filterId}-disabled`} className="sr-only">
+                        This filter is currently disabled
+                      </span>
+                    )}
+                    {[
+                      { value: '', label: filter.label === 'Status' || filter.label === 'Priority' ? 'All' : 'Any' },
+                      ...filter.options
+                    ].map((option) => (
+                      <SelectItem key={option.value || 'empty'} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                </div>
+              );
+            })}
           </div>
         </div>
       </CardBody>

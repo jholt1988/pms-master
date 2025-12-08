@@ -64,7 +64,7 @@ export const MessagingCard: React.FC = () => {
     subtitle="Tenant <> manager command channel"
     actionSlot={
       <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] uppercase tracking-[0.24em] text-slate-200">
-        <MessageCircle className="h-4 w-4 text-neon-blue" />
+        <MessageCircle className="h-4 w-4 text-neon-blue" aria-hidden="true" />
         Live
       </div>
     }
@@ -86,7 +86,7 @@ export const MessagingCard: React.FC = () => {
         aria-label="Send quick reply message"
       >
         Quick reply
-        <Sparkles className="h-4 w-4" />
+        <Sparkles className="h-4 w-4" aria-hidden="true" />
       </button>
     </div>
   </GlassCard>

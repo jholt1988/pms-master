@@ -58,35 +58,62 @@ export class SystemUserService implements OnModuleInit {
           10,
         );
 
-        systemUser = await this.prisma.user.create({
-          data: {
-            username: 'system',
-            password: randomPassword, // Secure random password, not used for login
-            role: Role.PROPERTY_MANAGER,
-            // Mark as system user in metadata if needed
-          },
-        });
+        try {
+          systemUser = await this.prisma.user.create({
+            data: {
+              username: 'system',
+              password: randomPassword, // Secure random password, not used for login
+              role: Role.PROPERTY_MANAGER,
+              // Mark as system user in metadata if needed
+            },
+          });
 
-        this.logger.log(`Created system user with ID: ${systemUser.id}`);
+          this.logger.log(`Created system user with ID: ${systemUser.id}`);
+        } catch (createError: any) {
+          // Handle case where user was created between findFirst and create (race condition)
+          if (createError?.code === 'P2002' && createError?.meta?.target?.includes('username')) {
+            // User already exists, fetch it
+            systemUser = await this.prisma.user.findFirst({
+              where: {
+                username: 'system',
+                role: Role.PROPERTY_MANAGER,
+              },
+            });
+            if (systemUser) {
+              this.logger.debug(`System user already exists with ID: ${systemUser.id}`);
+            }
+          } else {
+            throw createError;
+          }
+        }
       } else {
         this.logger.debug(`System user found with ID: ${systemUser.id}`);
       }
 
-      this.systemUserId = systemUser.id;
+      if (systemUser) {
+        this.systemUserId = systemUser.id;
+      } else {
+        throw new Error('Unable to find or create system user');
+      }
     } catch (error) {
       this.logger.error('Failed to ensure system user exists:', error);
-      // Fallback: try to find any admin user as last resort
-      const fallbackAdmin = await this.prisma.user.findFirst({
-        where: { role: Role.PROPERTY_MANAGER },
+      // Fallback: try to find any admin or property manager user as last resort
+      const fallbackUser = await this.prisma.user.findFirst({
+        where: {
+          OR: [
+            { role: Role.ADMIN },
+            { role: Role.PROPERTY_MANAGER },
+          ],
+        },
       });
-      if (fallbackAdmin) {
+      if (fallbackUser) {
         this.logger.warn(
-          `Using fallback admin user (ID: ${fallbackAdmin.id}) as system user`,
+          `Using fallback user (ID: ${fallbackUser.id}, role: ${fallbackUser.role}) as system user`,
         );
-        this.systemUserId = fallbackAdmin.id;
+        this.systemUserId = fallbackUser.id;
       } else {
         this.logger.error(
-          'No system user or admin user found. System operations may fail.',
+          'No system user, admin, or property manager user found. System operations may fail.',
         );
       }
     }

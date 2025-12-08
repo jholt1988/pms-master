@@ -60,6 +60,7 @@ jobs:
         working-directory: ./tenant_portal_backend
         run: npm ci
 
+      
       - name: Generate Prisma Client
         working-directory: ./tenant_portal_backend
         env:
@@ -96,11 +97,22 @@ jobs:
           NODE_ENV: test
         run: npm run test:e2e
 
+      - name: Run E2E test coverage
+        working-directory: ./tenant_portal_backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/property_management_test
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          JWT_SECRET: test-secret-key-for-ci
+          NODE_ENV: test
+        run: npm run test:e2e:coverage
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
-          files: ./tenant_portal_backend/coverage/lcov.info
-          flags: backend
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./tenant_portal_backend/coverage/lcov.info,./tenant_portal_backend/coverage/e2e/lcov.info
+          flags: backend,backend-e2e
           name: backend-coverage
           fail_ci_if_error: false
 

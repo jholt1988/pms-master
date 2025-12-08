@@ -23,30 +23,50 @@ export const NavTop: React.FC<NavTopProps> = ({
   return (
     <div className={`${className}`}>
       <div className="left">
-        <div className="search" onClick={onSearchClick}>
-          <Search className="" />
+        <button 
+          className="search" 
+          onClick={onSearchClick}
+          aria-label={searchPlaceholder}
+          type="button"
+        >
+          <Search className="" aria-hidden="true" />
           <span>{searchPlaceholder}</span>
-        </div>
+        </button>
       </div>
       
       <div className="row">
-        <div className="btn" onClick={onNotificationsClick}>
-          <Bell className="w-[16px] h-[16px] mr-1" />
+        <button 
+          className="btn" 
+          onClick={onNotificationsClick}
+          aria-label="View notifications"
+          type="button"
+        >
+          <Bell className="w-[16px] h-[16px] mr-1" aria-hidden="true" />
           Alerts
-        </div>
+        </button>
         
-        <div className="btn" onClick={onInboxClick}>
-          <Inbox className="w-[16px] h-[16px] mr-1" />
+        <button 
+          className="btn" 
+          onClick={onInboxClick}
+          aria-label="View inbox"
+          type="button"
+        >
+          <Inbox className="w-[16px] h-[16px] mr-1" aria-hidden="true" />
           Inbox
-        </div>
+        </button>
         
-        <div className="avatar" onClick={onAvatarClick}>
+        <button 
+          className="avatar" 
+          onClick={onAvatarClick}
+          aria-label="User profile menu"
+          type="button"
+        >
           <img 
             src={userAvatar} 
             alt="User avatar" 
             style={{ width: '28px', height: '28px', objectFit: 'cover' }}
           />
-        </div>
+        </button>
       </div>
     </div>
   );

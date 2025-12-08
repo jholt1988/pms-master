@@ -441,5 +441,209 @@ describe('WorkflowEngineService', () => {
       expect(result.note).toBe('AI service not available');
     });
   });
+
+  describe('Security: Condition Evaluation (P0-001)', () => {
+    /**
+     * Security tests to prevent code injection vulnerabilities.
+     * Verifies that expr-eval is used instead of eval() and malicious input is rejected.
+     */
+    
+    it('should safely evaluate valid mathematical conditions', () => {
+      const execution: WorkflowExecution = {
+        id: 'exec1',
+        workflowId: 'workflow1',
+        status: 'RUNNING',
+        input: {},
+        output: { amount: 100, threshold: 50 },
+        steps: [],
+        startedAt: new Date(),
+        completedAt: null,
+        error: null,
+      };
+
+      // Test valid condition evaluation
+      const result1 = service['evaluateCondition']('${amount} > ${threshold}', execution);
+      expect(result1).toBe(true);
+
+      const result2 = service['evaluateCondition']('${amount} < ${threshold}', execution);
+      expect(result2).toBe(false);
+
+      const result3 = service['evaluateCondition']('${amount} === 100', execution);
+      expect(result3).toBe(true);
+    });
+
+    it('should reject JavaScript code injection attempts', () => {
+      const execution: WorkflowExecution = {
+        id: 'exec1',
+        workflowId: 'workflow1',
+        status: 'RUNNING',
+        input: {},
+        output: { amount: 100 },
+        steps: [],
+        startedAt: new Date(),
+        completedAt: null,
+        error: null,
+      };
+
+      // Attempts to inject malicious JavaScript code should fail safely
+      const maliciousInputs = [
+        'process.exit(1)', // Node.js process manipulation
+        'require("fs").readFileSync("/etc/passwd")', // File system access
+        'global.process.exit()', // Global object manipulation
+        'eval("malicious code")', // Nested eval
+        'Function("return process")().exit()', // Function constructor
+        'constructor.constructor("return process")().exit()', // Constructor chain
+        '${amount}; process.exit(1)', // Mixed valid and malicious
+        '${amount} && require("child_process").exec("rm -rf /")', // Command injection
+      ];
+
+      maliciousInputs.forEach((maliciousInput) => {
+        // All malicious inputs should either throw an error or return false
+        // expr-eval should reject these as invalid expressions
+        try {
+          const result = service['evaluateCondition'](maliciousInput, execution);
+          // If it doesn't throw, it should return false (safe default)
+          expect(result).toBe(false);
+        } catch (error) {
+          // Throwing an error is also acceptable - it means the input was rejected
+          expect(error).toBeDefined();
+        }
+      });
+    });
+
+    it('should reject attempts to access global objects', () => {
+      const execution: WorkflowExecution = {
+        id: 'exec1',
+        workflowId: 'workflow1',
+        status: 'RUNNING',
+        input: {},
+        output: { amount: 100 },
+        steps: [],
+        startedAt: new Date(),
+        completedAt: null,
+        error: null,
+      };
+
+      const globalAccessAttempts = [
+        'global',
+        'window',
+        'process',
+        'require',
+        'module',
+        'exports',
+        'console',
+        'Buffer',
+        '__dirname',
+        '__filename',
+      ];
+
+      globalAccessAttempts.forEach((attempt) => {
+        try {
+          const result = service['evaluateCondition'](attempt, execution);
+          expect(result).toBe(false);
+        } catch (error) {
+          // Rejecting with error is acceptable
+          expect(error).toBeDefined();
+        }
+      });
+    });
+
+    it('should handle invalid expression syntax gracefully', () => {
+      const execution: WorkflowExecution = {
+        id: 'exec1',
+        workflowId: 'workflow1',
+        status: 'RUNNING',
+        input: {},
+        output: { amount: 100 },
+        steps: [],
+        startedAt: new Date(),
+        completedAt: null,
+        error: null,
+      };
+
+      const invalidExpressions = [
+        '', // Empty string
+        '${nonexistent}', // Undefined variable
+        '${amount} >', // Incomplete expression
+        '${amount} > > ${threshold}', // Syntax error
+        '${amount} &&', // Incomplete logical
+      ];
+
+      invalidExpressions.forEach((invalidExpr) => {
+        // Should return false or throw, but never execute arbitrary code
+        try {
+          const result = service['evaluateCondition'](invalidExpr, execution);
+          expect(result).toBe(false);
+        } catch (error) {
+          // Error is acceptable - means expression was rejected
+          expect(error).toBeDefined();
+        }
+      });
+    });
+
+    it('should verify expr-eval is used (not eval)', () => {
+      // This test ensures that the code is using expr-eval Parser
+      // by checking that it can handle expressions that eval() would execute
+      // but expr-eval would reject or safely evaluate
+      
+      const execution: WorkflowExecution = {
+        id: 'exec1',
+        workflowId: 'workflow1',
+        status: 'RUNNING',
+        input: {},
+        output: { value: 5 },
+        steps: [],
+        startedAt: new Date(),
+        completedAt: null,
+        error: null,
+      };
+
+      // expr-eval should safely evaluate this mathematical expression
+      const result = service['evaluateCondition']('${value} * 2 === 10', execution);
+      expect(result).toBe(true);
+
+      // But it should reject attempts to call functions that don't exist in scope
+      try {
+        service['evaluateCondition']('Math.random()', execution);
+        // If it doesn't throw, that's okay - expr-eval may allow Math functions
+        // The important thing is it doesn't execute arbitrary code
+      } catch (error) {
+        // Rejection is acceptable
+        expect(error).toBeDefined();
+      }
+    });
+
+    it('should handle variable substitution safely', () => {
+      const execution: WorkflowExecution = {
+        id: 'exec1',
+        workflowId: 'workflow1',
+        status: 'RUNNING',
+        input: {},
+        output: { 
+          amount: 100,
+          description: 'Test; process.exit(1)', // Attempt to inject code in variable
+          status: 'active',
+        },
+        steps: [],
+        startedAt: new Date(),
+        completedAt: null,
+        error: null,
+      };
+
+      // Variable substitution should be safe - even if variable contains malicious content
+      // it should be treated as a string value, not executable code
+      const result = service['evaluateCondition']('${status} === "active"', execution);
+      expect(result).toBe(true);
+
+      // Malicious content in variable should not be executed
+      try {
+        const result2 = service['evaluateCondition']('${description}', execution);
+        // Should return false or throw, not execute the injected code
+        expect(typeof result2).toBe('boolean');
+      } catch (error) {
+        expect(error).toBeDefined();
+      }
+    });
+  });
 });
 

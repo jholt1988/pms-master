@@ -62,7 +62,7 @@ export const SearchInput: React.FC<SearchInputProps> = ({
             className="text-foreground-400 hover:text-foreground-600"
             aria-label="Clear search"
           >
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4" aria-hidden="true" />
           </button>
         ) : null
       }

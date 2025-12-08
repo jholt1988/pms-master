@@ -1,0 +1,23 @@
+[dotenv@17.2.3] injecting env (37) from .env -- tip: ΓÜÖ∩╕Å  load multiple .env files with { path: ['.env.local', '.env'] }
+≡ƒöÉ DocuSign JWT Authentication Test
+==================================
+
+Client ID: fce15bac-1fc9-4728-9e30-9879d696783d
+User ID: 5e2504c5-0bcf-44d0-93e9-a902831f99d7
+Base URL: https://demo.docusign.net/restapi/v2.1
+
+--- Private Key Debug ---
+Length: 1675
+First line: -----BEGIN RSA PRIVATE KEY-----
+Last line: 
+Contains newlines: true
+-------------------------
+
+OAuth Base Path: account-d.docusign.com
+Attempting to request JWT User Token...
+
+Γ¥î JWT Authentication Failed!
+Error: Request failed with status code 400
+Status: 400
+Data: {"error":"consent_required"}
+Body: undefined

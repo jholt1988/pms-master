@@ -14,8 +14,15 @@ model User {
   id                        Int                         @id @default(autoincrement())
   username                  String                      @unique
   password                  String
+  firstName                 String?
+  lastName                  String?
+  socialSecurityNumber      String?
+  socialSecurityImage       String? // URL/Path to image
+  driverLicenseNumber       String?
+  driverLicenseImage        String? // URL/Path to image
   role                      Role                        @default(TENANT)
   phoneNumber               String?
+  email                     String?                     @unique
   failedLoginAttempts       Int                         @default(0)
   lockoutUntil              DateTime?
   mfaEnabled                Boolean                     @default(false)
@@ -1095,6 +1102,7 @@ enum TechnicianRole {
 enum Role {
   TENANT
   PROPERTY_MANAGER
+  ADMIN
 }
 
 enum ApplicationStatus {

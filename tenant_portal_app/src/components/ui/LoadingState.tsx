@@ -15,8 +15,13 @@ export const LoadingState: React.FC<LoadingStateProps> = ({
   variant = 'card',
 }) => {
   const content = (
-    <div className="flex flex-col items-center justify-center gap-3">
-      <Spinner size={size} />
+    <div 
+      className="flex flex-col items-center justify-center gap-3"
+      role="status"
+      aria-live="polite"
+      aria-label={message}
+    >
+      <Spinner size={size} aria-hidden="true" />
       <p className="text-sm text-foreground-500">{message}</p>
     </div>
   );

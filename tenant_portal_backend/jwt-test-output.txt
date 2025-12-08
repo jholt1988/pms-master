@@ -1,0 +1,7 @@
+[dotenv@17.2.3] injecting env (35) from .env -- tip: Γ£à audit secrets and track compliance: https://dotenvx.com/ops
+≡ƒöÉ DocuSign JWT Authentication Test
+==================================
+
+Γ¥î Missing JWT Configuration:
+   - ESIGN_PROVIDER_USER_ID
+   - ESIGN_PROVIDER_PRIVATE_KEY

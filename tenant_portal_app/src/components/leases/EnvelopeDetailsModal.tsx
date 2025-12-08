@@ -146,7 +146,12 @@ export const EnvelopeDetailsModal: React.FC<EnvelopeDetailsModalProps> = ({
   return (
     <>
       <Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside">
-        <ModalContent>
+        <ModalContent
+          classNames={{
+            base: "bg-deep-900 border border-white/10",
+            backdrop: "bg-black/80 backdrop-blur-sm",
+          }}
+        >
           {(onClose) => (
             <>
               <ModalHeader className="flex flex-col gap-1">

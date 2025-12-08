@@ -1,0 +1,13 @@
+# Coverage ignore patterns
+node_modules/
+dist/
+test/
+*.spec.ts
+*.e2e.spec.ts
+*.d.ts
+*.interface.ts
+*.module.ts
+main.ts
+index.ts
+prisma/
+

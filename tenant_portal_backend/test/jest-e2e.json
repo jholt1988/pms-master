@@ -9,5 +9,37 @@
   "testEnvironment": "node",
   "moduleNameMapper": {
     "^@/(.*)$": "<rootDir>/src/$1"
-  }
+  },
+  "collectCoverage": false,
+  "coverageDirectory": "<rootDir>/coverage/e2e",
+  "coveragePathIgnorePatterns": [
+    "/node_modules/",
+    "/test/",
+    "/dist/",
+    "\\.spec\\.ts$",
+    "\\.e2e\\.spec\\.ts$"
+  ],
+  "coverageReporters": [
+    "text",
+    "text-summary",
+    "html",
+    "lcov",
+    "json"
+  ],
+  "coverageThreshold": {
+    "global": {
+      "branches": 0,
+      "functions": 0,
+      "lines": 0,
+      "statements": 0
+    }
+  },
+  "collectCoverageFrom": [
+    "src/**/*.{ts,tsx}",
+    "!src/**/*.d.ts",
+    "!src/**/*.interface.ts",
+    "!src/**/*.module.ts",
+    "!src/main.ts",
+    "!src/index.ts"
+  ]
 }

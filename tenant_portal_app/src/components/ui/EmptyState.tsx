@@ -23,9 +23,14 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   variant = 'card',
 }) => {
   const content = (
-    <div className="flex flex-col items-center justify-center gap-4 text-center">
+    <div 
+      className="flex flex-col items-center justify-center gap-4 text-center"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    >
       {icon && (
-        <div className="text-foreground-300">
+        <div className="text-foreground-300" aria-hidden="true">
           {icon}
         </div>
       )}
@@ -38,6 +43,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
           color={action.color || 'primary'}
           variant="flat"
           onClick={action.onClick}
+          aria-label={action.label}
         >
           {action.label}
         </Button>

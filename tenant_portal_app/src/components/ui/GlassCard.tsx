@@ -25,33 +25,45 @@ export const GlassCard: React.FC<GlassCardProps> = ({
   };
 
   return (
-    <div className={`
-      relative overflow-hidden rounded-2xl 
-      bg-glass-surface backdrop-blur-xl 
-      border border-t-glass-highlight border-b-0 border-r-glass-border border-l-glass-border
-      transition-all duration-300 hover:bg-white/10 hover:scale-[1.01]
-      ${glowStyles[glowColor]}
-      ${className}
-    `}>
+    <article 
+      className={`
+        relative overflow-hidden rounded-2xl 
+        bg-glass-surface backdrop-blur-xl 
+        border border-t-glass-highlight border-b-0 border-r-glass-border border-l-glass-border
+        transition-all duration-300 hover:bg-white/10 hover:scale-[1.01]
+        ${glowStyles[glowColor]}
+        ${className}
+      `}
+      aria-labelledby={title ? `glasscard-title-${title.replace(/\s+/g, '-').toLowerCase()}` : undefined}
+    >
       {/* Scanline effect overlay (optional) */}
-      <div className="pointer-events-none absolute inset-0 bg-grid-pattern opacity-[0.03]" />
+      <div className="pointer-events-none absolute inset-0 bg-grid-pattern opacity-[0.03]" aria-hidden="true" />
       
       <div className="relative z-10 p-6">
         {(title || subtitle || actionSlot) && (
-          <div className="flex items-start justify-between mb-4 pb-4 border-b border-white/10">
+          <header className="flex items-start justify-between mb-4 pb-4 border-b border-white/10">
             <div>
               {title && (
-                <h3 className="text-white font-sans font-light text-lg mb-1">{title}</h3>
+                <h3 
+                  id={`glasscard-title-${title.replace(/\s+/g, '-').toLowerCase()}`}
+                  className="text-white font-sans font-light text-lg mb-1"
+                >
+                  {title}
+                </h3>
               )}
               {subtitle && (
                 <p className="text-[10px] text-gray-400 uppercase tracking-wider font-mono">{subtitle}</p>
               )}
             </div>
-            {actionSlot && <div>{actionSlot}</div>}
-          </div>
+            {actionSlot && (
+              <div role="group" aria-label="Card actions">
+                {actionSlot}
+              </div>
+            )}
+          </header>
         )}
         {children}
       </div>
-    </div>
+    </article>
   );
 };

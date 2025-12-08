@@ -164,7 +164,13 @@ export const BulkUnitCreator: React.FC<BulkUnitCreatorProps> = ({
         wrapper: "bg-black/80",
       }}
     >
-      <ModalContent className="bg-[#0a0a0a] border border-white/20">
+      <ModalContent 
+        className="bg-[#0a0a0a] border border-white/20"
+        classNames={{
+          base: "bg-[#0a0a0a] border border-white/20",
+          backdrop: "bg-black/80 backdrop-blur-sm",
+        }}
+      >
         <ModalHeader className="text-xl font-bold text-white bg-[#0a0a0a] border-b border-white/10">Bulk Create Units</ModalHeader>
         <ModalBody className="bg-[#0a0a0a]">
           {error && (

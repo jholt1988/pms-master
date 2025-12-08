@@ -19,5 +19,7 @@ export { Sidebar } from './Sidebar';
 export { Topbar } from './Topbar';
 export { Content } from './Content';
 export { TenantShell } from './TenantShell';
+export { FormErrorAnnouncer, useFormErrors } from './FormErrorAnnouncer';
+export { FormField } from './FormField';
 
 export type { DataTableColumn, DataTableProps } from './DataTable';

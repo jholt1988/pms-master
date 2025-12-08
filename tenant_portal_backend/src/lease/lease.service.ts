@@ -617,14 +617,7 @@ export class LeaseService {
     this.logger.log(`Preparing for vacancy: Lease ${leaseId} ending, unit ${lease.unitId} will be available`);
 
     // 1. Mark unit as potentially available (set availableOn to lease end date)
-    await this.prisma.unit.update({
-      where: { id: lease.unitId },
-      data: {
-        availableOn: lease.endDate,
-      },
-    });
-
-    // 2. Ensure marketing profile exists or create one
+    // 2. Ensure marketing profile exists or create one, and set availableOn
     const property = lease.unit.property;
     if (property) {
       const existingProfile = await this.prisma.propertyMarketingProfile.findUnique({
@@ -635,17 +628,21 @@ export class LeaseService {
         await this.prisma.propertyMarketingProfile.create({
           data: {
             propertyId: property.id,
-            isActive: true,
+            availableOn: lease.endDate,
             isSyndicationEnabled: true,
           },
         });
         this.logger.log(`Created marketing profile for property ${property.id}`);
-      } else if (!existingProfile.isActive) {
+      } else {
+        // Update availableOn when lease ends
         await this.prisma.propertyMarketingProfile.update({
           where: { propertyId: property.id },
-          data: { isActive: true },
+          data: { 
+            availableOn: lease.endDate,
+            availabilityStatus: 'AVAILABLE',
+          },
         });
-        this.logger.log(`Activated marketing profile for property ${property.id}`);
+        this.logger.log(`Updated marketing profile for property ${property.id}`);
       }
     }
 
@@ -653,18 +650,38 @@ export class LeaseService {
     const inspectionDate = new Date(lease.endDate);
     inspectionDate.setDate(inspectionDate.getDate() - 7);
 
-    await this.prisma.unitInspection.create({
-      data: {
-        unitId: lease.unitId,
-        propertyId: property?.id || 0,
-        leaseId: leaseId,
-        type: 'MOVE_OUT',
-        status: 'SCHEDULED',
-        scheduledDate: inspectionDate,
-        notes: 'Automatically scheduled due to low renewal likelihood',
-      },
-    });
-    this.logger.log(`Scheduled move-out inspection for lease ${leaseId} on ${inspectionDate.toISOString()}`);
+    if (property) {
+      // Get system user or first admin for createdBy
+      const systemUser = await this.prisma.user.findFirst({
+        where: { role: 'ADMIN' },
+      });
+
+      if (systemUser) {
+        await this.prisma.unitInspection.create({
+          data: {
+            unit: {
+              connect: { id: lease.unitId },
+            },
+            property: {
+              connect: { id: property.id },
+            },
+            lease: {
+              connect: { id: leaseId },
+            },
+            createdBy: {
+              connect: { id: systemUser.id },
+            },
+            type: 'MOVE_OUT',
+            status: 'SCHEDULED',
+            scheduledDate: inspectionDate,
+            notes: 'Automatically scheduled due to low renewal likelihood',
+          },
+        });
+        this.logger.log(`Scheduled move-out inspection for lease ${leaseId} on ${inspectionDate.toISOString()}`);
+      } else {
+        this.logger.warn(`Could not schedule inspection: No admin user found`);
+      }
+    }
 
     // 4. Log the action
     await this.logHistory(leaseId, 0, {

@@ -38,6 +38,7 @@ import { WorkflowsModule } from './workflows/workflows.module';
 import { ChatbotModule } from './chatbot/chatbot.module';
 import { LeasingModule } from './leasing/leasing.module';
 import { LegacyPathMiddleware } from './middleware/legacy-path.middleware';
+import { PerformanceMiddleware } from './monitoring/performance.middleware';
 
 const rateLimitEnabled =
   process.env.NODE_ENV !== 'test' && process.env.RATE_LIMIT_ENABLED !== 'false';
@@ -127,6 +128,15 @@ const rateLimitProviders = rateLimitEnabled
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(LegacyPathMiddleware).forRoutes('*');
+    consumer
+      .apply(LegacyPathMiddleware)
+      .forRoutes('*');
+    
+    // Performance monitoring middleware (P0-005)
+    // Note: PerformanceMiddleware must be instantiated here for middleware
+    const performanceMiddleware = new PerformanceMiddleware();
+    consumer
+      .apply(performanceMiddleware.use.bind(performanceMiddleware))
+      .forRoutes('*');
   }
 }

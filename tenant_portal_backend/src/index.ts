@@ -1,7 +1,8 @@
-import 'reflect-metadata';
+
 // Initialize Sentry FIRST, before any other imports
 import { initializeSentry } from './sentry.config';
 initializeSentry();
+import 'reflect-metadata';
 
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
@@ -39,6 +40,9 @@ async function bootstrap() {
       'esignature/(.*)',
       'api/esignature',
       'api/esignature/(.*)',
+      // Webhooks are excluded to match external service expectations
+      'webhooks/esignature',
+      'webhooks/stripe',
     ],
   });
   
@@ -54,6 +58,10 @@ async function bootstrap() {
   
   // Global exception filter with Sentry integration
   app.useGlobalFilters(new GlobalExceptionFilter());
+  
+  // Performance monitoring middleware (P0-005)
+  // Note: PerformanceMiddleware is registered in MonitoringModule
+  // and can be accessed via dependency injection in controllers
   
   // Swagger API Documentation
   if (process.env.NODE_ENV !== 'production') {
@@ -102,6 +110,7 @@ async function bootstrap() {
   console.log(`🔒 Security: Helmet headers enabled`);
   console.log(`🌐 CORS: Configured for origins: ${process.env.ALLOWED_ORIGINS || 'http://localhost:3000'}`);
   console.log(`📊 Monitoring: Sentry error tracking initialized`);
+  console.log(`⚡ Performance: Performance monitoring middleware active`);
   console.log(`⏰ Jobs: Scheduled background jobs active`);
   console.log(`🚀 Application is running on: http://localhost:3001`);
 }

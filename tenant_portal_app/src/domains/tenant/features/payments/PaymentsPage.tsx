@@ -372,6 +372,7 @@ export default function PaymentsPage(): React.ReactElement {
                 color="primary"
                 size="sm"
                 onPress={onOpen}
+                aria-label="Add new payment method"
               >
                 Add method
               </Button>
@@ -398,6 +399,7 @@ export default function PaymentsPage(): React.ReactElement {
                             variant="light"
                             size="sm"
                             className="text-tiny"
+                            aria-label={`Remove payment method ending in ${method.last4}`}
                           >
                             Remove
                           </Button>
@@ -413,18 +415,33 @@ export default function PaymentsPage(): React.ReactElement {
       </div>
 
       {/* Add Payment Method Modal */}
-      <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
-        <ModalContent>
+      <Modal 
+        isOpen={isOpen} 
+        onOpenChange={onOpenChange}
+        aria-labelledby="add-payment-method-title"
+        aria-describedby="add-payment-method-description"
+      >
+        <ModalContent
+          classNames={{
+            base: "bg-deep-900 border border-white/10",
+            backdrop: "bg-black/80 backdrop-blur-sm",
+          }}
+        >
           {(onClose) => (
             <>
-              <ModalHeader>Add Payment Method</ModalHeader>
-              <ModalBody>
+              <ModalHeader id="add-payment-method-title">Add Payment Method</ModalHeader>
+              <ModalBody id="add-payment-method-description">
                 <div className="space-y-4">
                   <Input
                     label="Card Number"
                     placeholder="1234 5678 9012 3456"
                     value={methodForm.last4}
                     onChange={(e) => setMethodForm({ ...methodForm, last4: e.target.value.slice(-4) })}
+                    aria-label="Card number"
+                    autoComplete="cc-number"
+                    classNames={{
+                      label: "sr-only", // Visually hidden but accessible
+                    }}
                   />
                   <div className="grid grid-cols-2 gap-4">
                     <Input
@@ -432,18 +449,31 @@ export default function PaymentsPage(): React.ReactElement {
                       placeholder="MM"
                       value={methodForm.expMonth}
                       onChange={(e) => setMethodForm({ ...methodForm, expMonth: e.target.value })}
+                      aria-label="Expiry month"
+                      autoComplete="cc-exp-month"
+                      classNames={{
+                        label: "sr-only", // Visually hidden but accessible
+                      }}
                     />
                     <Input
                       label="Expiry Year" 
                       placeholder="YYYY"
                       value={methodForm.expYear}
                       onChange={(e) => setMethodForm({ ...methodForm, expYear: e.target.value })}
+                      aria-label="Expiry year"
+                      autoComplete="cc-exp-year"
+                      classNames={{
+                        label: "sr-only", // Visually hidden but accessible
+                      }}
                     />
                   </div>
                   <Select
                     label="Card Brand"
                     selectedKeys={methodForm.brand ? [methodForm.brand] : []}
                     onChange={(e) => setMethodForm({ ...methodForm, brand: e.target.value })}
+                    classNames={{
+                      label: "sr-only", // Visually hidden but accessible
+                    }}
                   >
                     <SelectItem key="visa" value="visa">Visa</SelectItem>
                     <SelectItem key="mastercard" value="mastercard">Mastercard</SelectItem>
@@ -452,13 +482,18 @@ export default function PaymentsPage(): React.ReactElement {
                 </div>
               </ModalBody>
               <ModalFooter>
-                <Button variant="light" onPress={onClose}>
+                <Button 
+                  variant="light" 
+                  onPress={onClose}
+                  aria-label="Cancel adding payment method"
+                >
                   Cancel
                 </Button>
                 <Button 
                   color="primary" 
                   onPress={handleAddPaymentMethod}
                   isLoading={actionLoading}
+                  aria-label="Add payment method"
                 >
                   Add Method
                 </Button>

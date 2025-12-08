@@ -62,6 +62,8 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
       variant={variant}
       size={size}
       className={className}
+      aria-label={`Status: ${label}`}
+      role="status"
     >
       {label}
     </Chip>

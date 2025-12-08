@@ -1,0 +1,15 @@
+[dotenv@17.2.3] injecting env (37) from .env -- tip: ≡ƒ¢á∩╕Å  run anywhere with `dotenvx run -- yourcommand`
+Γ£ë∩╕Å  DocuSign Envelope Creation Debug (Hardcoded)
+=============================================
+
+Using Hardcoded Account ID: "75833c3a-c3d7-45b5-a518-7c9568d5966c"
+Using Hardcoded Base URL: "https://demo.docusign.net/restapi/v2.1"
+1. Authenticating...
+Γ£à Authenticated
+2. Creating Envelope Definition...
+3. Sending Envelope...
+
+Γ¥î Envelope Creation Failed!
+Error: Request failed with status code 404
+Status: 404
+Data: ""

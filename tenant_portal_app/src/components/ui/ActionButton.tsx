@@ -46,7 +46,10 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
       color={color}
       isDisabled={isDisabled}
       className={className}
-      endContent={<ChevronDownIcon className="w-4 h-4" />}
+      endContent={<ChevronDownIcon className="w-4 h-4" aria-hidden="true" />}
+      aria-label="Actions menu"
+      aria-haspopup="true"
+      aria-expanded="false"
     >
       Actions
     </Button>
@@ -58,7 +61,7 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
         {trigger || defaultTrigger}
       </DropdownTrigger>
       <DropdownMenu 
-        aria-label="Actions"
+        aria-label="Actions menu"
         onAction={(key) => handleAction(String(key))}
       >
         {actions.map((action) => (
@@ -67,6 +70,7 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
             color={action.color}
             startContent={action.startContent}
             isDisabled={action.isDisabled}
+            aria-label={action.label}
           >
             {action.label}
           </DropdownItem>

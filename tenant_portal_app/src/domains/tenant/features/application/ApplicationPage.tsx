@@ -487,16 +487,22 @@ const RentalApplicationPage: React.FC = () => {
               <Divider />
               <CardBody style={{ padding: spacing[4] }} className="space-y-4">
                 <Input
+                  label="Full Legal Name"
                   placeholder="Enter your full legal name"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   isRequired
                   variant="bordered"
                   size="lg"
+                  aria-label="Full legal name"
+                  classNames={{
+                    label: "sr-only", // Visually hidden but accessible
+                  }}
                 />
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Input
+                    label="Email Address"
                     type="email"
                     placeholder="your.email@example.com"
                     value={email}
@@ -504,9 +510,14 @@ const RentalApplicationPage: React.FC = () => {
                     isRequired
                     variant="bordered"
                     size="lg"
+                    aria-label="Email address"
+                    classNames={{
+                      label: "sr-only", // Visually hidden but accessible
+                    }}
                   />
 
                   <Input
+                    label="Phone Number"
                     type="tel"
                     placeholder="(555) 123-4567"
                     value={phoneNumber}
@@ -514,16 +525,25 @@ const RentalApplicationPage: React.FC = () => {
                     isRequired
                     variant="bordered"
                     size="lg"
+                    aria-label="Phone number"
+                    classNames={{
+                      label: "sr-only", // Visually hidden but accessible
+                    }}
                   />
                 </div>
 
                 <Textarea
+                  label="Previous Address"
                   placeholder="Enter your current or most recent address"
                   value={previousAddress}
                   onChange={(e) => setPreviousAddress(e.target.value)}
                   isRequired
                   variant="bordered"
                   minRows={3}
+                  aria-label="Previous address"
+                  classNames={{
+                    label: "sr-only", // Visually hidden but accessible
+                  }}
                 />
               </CardBody>
             </Card>
@@ -571,62 +591,77 @@ const RentalApplicationPage: React.FC = () => {
                       </div>
                       <div className="grid gap-4 sm:grid-cols-2">
                         <Input
+                          label="Full Name"
                           placeholder="Full Name"
                           value={ref.name}
                           onChange={(e) => updateReference(ref.id, 'name', e.target.value)}
                           variant="bordered"
                           size="md"
+                          aria-label="Reference full name"
                           classNames={{
                             input: "text-white",
-                            inputWrapper: "bg-white/5 border-white/10"
+                            inputWrapper: "bg-white/5 border-white/10",
+                            label: "sr-only", // Visually hidden but accessible
                           }}
                         />
                         <Input
+                          label="Relationship"
                           placeholder="Relationship (e.g., Friend, Colleague, Family)"
                           value={ref.relationship}
                           onChange={(e) => updateReference(ref.id, 'relationship', e.target.value)}
                           variant="bordered"
                           size="md"
+                          aria-label="Reference relationship"
                           classNames={{
                             input: "text-white",
-                            inputWrapper: "bg-white/5 border-white/10"
+                            inputWrapper: "bg-white/5 border-white/10",
+                            label: "sr-only", // Visually hidden but accessible
                           }}
                         />
                       </div>
                       <div className="grid gap-4 sm:grid-cols-2">
                         <Input
+                          label="Phone Number"
                           placeholder="Phone Number"
                           value={ref.phone}
                           onChange={(e) => updateReference(ref.id, 'phone', e.target.value)}
                           variant="bordered"
                           size="md"
+                          aria-label="Reference phone number"
                           classNames={{
                             input: "text-white",
-                            inputWrapper: "bg-white/5 border-white/10"
+                            inputWrapper: "bg-white/5 border-white/10",
+                            label: "sr-only", // Visually hidden but accessible
                           }}
                         />
                         <Input
+                          label="Email Address"
                           type="email"
                           placeholder="Email Address"
                           value={ref.email}
                           onChange={(e) => updateReference(ref.id, 'email', e.target.value)}
                           variant="bordered"
                           size="md"
+                          aria-label="Reference email address"
                           classNames={{
                             input: "text-white",
-                            inputWrapper: "bg-white/5 border-white/10"
+                            inputWrapper: "bg-white/5 border-white/10",
+                            label: "sr-only", // Visually hidden but accessible
                           }}
                         />
                       </div>
                       <Input
+                        label="Years Known"
                         placeholder="Years Known"
                         value={ref.yearsKnown}
                         onChange={(e) => updateReference(ref.id, 'yearsKnown', e.target.value)}
                         variant="bordered"
                         size="md"
+                        aria-label="Years known"
                         classNames={{
                           input: "text-white",
-                          inputWrapper: "bg-white/5 border-white/10"
+                          inputWrapper: "bg-white/5 border-white/10",
+                          label: "sr-only", // Visually hidden but accessible
                         }}
                       />
                     </CardBody>

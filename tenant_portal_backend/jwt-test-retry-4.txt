@@ -1,0 +1,23 @@
+[dotenv@17.2.3] injecting env (37) from .env -- tip: ≡ƒöÉ encrypt with Dotenvx: https://dotenvx.com
+≡ƒöÉ DocuSign JWT Authentication Test
+==================================
+
+Client ID: fce15bac-1fc9-4728-9e30-9879d696783d
+User ID: 5e2504c5-0bcf-44d0-93e9-a902831f99d7
+Base URL: https://demo.docusign.net/restapi/v2.1
+
+--- Private Key Debug ---
+Length: 1703
+First line: -----BEGIN PRIVATE KEY-----
+Last line: -----END PRIVATE KEY-----
+Contains newlines: true
+-------------------------
+
+OAuth Base Path: account-d.docusign.com
+Attempting to request JWT User Token...
+
+Γ¥î JWT Authentication Failed!
+Error: Request failed with status code 400
+Status: 400
+Data: {"error":"invalid_grant","error_description":"no_valid_keys_or_signatures"}
+Body: undefined

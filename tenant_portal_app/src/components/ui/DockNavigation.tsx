@@ -44,9 +44,8 @@ const DockItem: React.FC<DockItemProps> = ({ icon: Icon, label, path, isActive }
         transform: isHovered ? 'translateY(-10px) scale(1.2)' : 'scale(1)',
         margin: '0 8px', // Spacing between icons
       }}
-      aria-label={label}
-      role="button"
-      tabIndex={0}
+      aria-label={`Navigate to ${label}`}
+      aria-current={isActive ? 'page' : undefined}
     >
       {/* Label Tooltip (Digital Twin Style) */}
       <div className={`

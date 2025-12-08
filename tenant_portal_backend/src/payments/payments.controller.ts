@@ -72,15 +72,6 @@ export class PaymentsController {
     return this.aiMetrics.getMetrics();
   }
 
-  @Get(':id')
-  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
-  async getPaymentById(
-    @Param('id') id: string,
-    @Request() req: AuthenticatedRequest,
-  ): Promise<Payment> {
-    return this.paymentsService.getPaymentById(Number(id), req.user.userId, req.user.role);
-  }
-
   @Get('invoices/:id')
   @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
   async getInvoiceById(
@@ -119,5 +110,14 @@ export class PaymentsController {
     @Request() req: AuthenticatedRequest,
   ) {
     return this.paymentsService.getPaymentPlanById(Number(id), req.user.userId, req.user.role);
+  }
+
+  @Get(':id')
+  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  async getPaymentById(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ): Promise<Payment> {
+    return this.paymentsService.getPaymentById(Number(id), req.user.userId, req.user.role);
   }
 }

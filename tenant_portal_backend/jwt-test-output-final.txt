@@ -1,0 +1,14 @@
+[dotenv@17.2.3] injecting env (37) from .env -- tip: ≡ƒùé∩╕Å backup and recover secrets: https://dotenvx.com/ops
+≡ƒöÉ DocuSign JWT Authentication Test
+==================================
+
+Client ID: 75833c3a-c3d7-45b5-a518-7c9568d5966c
+User ID: 5e2504c5-0bcf-44d0-93e9-a902831f99d7
+Base URL: https://demo.docusign.net/restapi/v2.1
+Private Key: Present (masked)
+
+OAuth Base Path: account-d.docusign.com
+Attempting to request JWT User Token...
+
+Γ¥î JWT Authentication Failed!
+Error: secretOrPrivateKey must be an asymmetric key when using RS256

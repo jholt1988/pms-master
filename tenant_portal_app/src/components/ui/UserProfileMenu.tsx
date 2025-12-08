@@ -89,16 +89,20 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
     <>
       {/* Backdrop */}
       <div 
-        className="fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm"
+        className="fixed inset-0 z-[90] bg-black/80 backdrop-blur-md"
         onClick={onClose}
+        aria-hidden="true"
       />
       
       {/* Menu */}
       <div 
         ref={menuRef}
-        className="fixed top-20 right-6 z-[100] w-96 animate-in fade-in slide-in-from-top-2 duration-200"
+        className="fixed top-20 right-6 z-[100] w-96 bg-deep-900 border border-white/10 rounded-lg shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200"
+        role="dialog"
+        aria-modal="true"
+        aria-label="User profile menu"
       >
-        <div className="relative overflow-hidden rounded-2xl bg-glass-surface backdrop-blur-xl border border-glass-highlight shadow-[0_0_50px_-10px_rgba(0,240,255,0.3)] border-neon-blue/30">
+        <div className="relative overflow-hidden rounded-2xl bg-deep-900 border border-white/15 shadow-2xl">
           {/* Grid pattern overlay */}
           <div className="pointer-events-none absolute inset-0 bg-grid-pattern opacity-[0.03]" />
           
@@ -115,7 +119,7 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
                         className="w-full h-full rounded-full object-cover"
                       />
                     ) : (
-                      <User size={24} className="text-white" />
+                      <User size={24} className="text-white" aria-hidden="true" />
                     )}
                   </div>
                 </div>
@@ -131,9 +135,10 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
               <button
                 onClick={onClose}
                 className="p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
-                aria-label="Close menu"
+                aria-label="Close user profile menu"
+                aria-expanded="true"
               >
-                <X size={16} />
+                <X size={16} aria-hidden="true" />
               </button>
             </div>
 
@@ -205,13 +210,13 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
                   <div className="space-y-3 pb-4 border-b border-white/10">
                     {user?.email && (
                       <div className="flex items-center gap-3 text-sm">
-                        <Mail size={16} className="text-gray-400" />
+                        <Mail size={16} className="text-gray-400" aria-hidden="true" />
                         <span className="text-gray-300">{user.email}</span>
                       </div>
                     )}
                     {user?.phone && (
                       <div className="flex items-center gap-3 text-sm">
-                        <Phone size={16} className="text-gray-400" />
+                        <Phone size={16} className="text-gray-400" aria-hidden="true" />
                         <span className="text-gray-300">{user.phone}</span>
                       </div>
                     )}
@@ -221,8 +226,9 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
                   <button
                     onClick={() => setIsEditing(true)}
                     className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5 text-left transition-colors group"
+                    aria-label="Edit profile"
                   >
-                    <Edit3 size={18} className="text-gray-400 group-hover:text-neon-blue transition-colors" />
+                    <Edit3 size={18} className="text-gray-400 group-hover:text-neon-blue transition-colors" aria-hidden="true" />
                     <span className="text-sm text-gray-300 group-hover:text-white">Edit Profile</span>
                   </button>
 
@@ -232,8 +238,9 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
                       navigate('/settings');
                     }}
                     className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5 text-left transition-colors group"
+                    aria-label="Open settings"
                   >
-                    <Settings size={18} className="text-gray-400 group-hover:text-neon-blue transition-colors" />
+                    <Settings size={18} className="text-gray-400 group-hover:text-neon-blue transition-colors" aria-hidden="true" />
                     <span className="text-sm text-gray-300 group-hover:text-white">Settings</span>
                   </button>
 
@@ -243,8 +250,9 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
                       navigate('/billing');
                     }}
                     className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5 text-left transition-colors group"
+                    aria-label="Open billing and subscription"
                   >
-                    <CreditCard size={18} className="text-gray-400 group-hover:text-neon-blue transition-colors" />
+                    <CreditCard size={18} className="text-gray-400 group-hover:text-neon-blue transition-colors" aria-hidden="true" />
                     <span className="text-sm text-gray-300 group-hover:text-white">Billing & Subscription</span>
                   </button>
 
@@ -254,8 +262,9 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
                       navigate('/security');
                     }}
                     className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5 text-left transition-colors group"
+                    aria-label="Open security and privacy settings"
                   >
-                    <Shield size={18} className="text-gray-400 group-hover:text-neon-blue transition-colors" />
+                    <Shield size={18} className="text-gray-400 group-hover:text-neon-blue transition-colors" aria-hidden="true" />
                     <span className="text-sm text-gray-300 group-hover:text-white">Security & Privacy</span>
                   </button>
 
@@ -263,8 +272,9 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
                     <button
                       onClick={handleLogout}
                       className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-red-500/10 text-left transition-colors group"
+                      aria-label="Log out"
                     >
-                      <LogOut size={18} className="text-red-400 group-hover:text-red-300 transition-colors" />
+                      <LogOut size={18} className="text-red-400 group-hover:text-red-300 transition-colors" aria-hidden="true" />
                       <span className="text-sm text-red-400 group-hover:text-red-300">Logout</span>
                     </button>
                   </div>

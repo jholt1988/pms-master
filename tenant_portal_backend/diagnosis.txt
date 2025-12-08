@@ -1,0 +1,25 @@
+Diagnostic Report
+================
+
+🔍 E-Signature Configuration Diagnostic
+
+
+📋 Raw Environment Variable:
+   process.env.ESIGN_PROVIDER_BASE_URL: "https://demo.docusign.net/restapi/v2.1"
+
+🔧 After Normalization:
+   Normalized value: "https://demo.docusign.net/restapi/v2.1"
+
+✅ Validation:
+   Is valid URL: true
+
+💡 Recommendations:
+   ✅ Configuration looks correct!
+   → Using: https://demo.docusign.net/restapi/v2.1
+
+📋 Other Variables:
+   ESIGN_PROVIDER: DOCUSIGN
+   ESIGN_PROVIDER_API_KEY: SET (masked)
+   ESIGN_PROVIDER_ACCOUNT_ID: SET
+   ESIGN_PROVIDER_CLIENT_ID: SET
+   ESIGN_PROVIDER_CLIENT_SECRET: SET (masked)
