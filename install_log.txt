@@ -1,0 +1,78 @@
+Collecting fastapi==0.104.1 (from -r rent_optimization_ml\requirements.txt (line 2))
+  Using cached fastapi-0.104.1-py3-none-any.whl.metadata (24 kB)
+Collecting uvicorn==0.24.0 (from uvicorn[standard]==0.24.0->-r rent_optimization_ml\requirements.txt (line 3))
+  Using cached uvicorn-0.24.0-py3-none-any.whl.metadata (6.4 kB)
+Collecting pydantic==2.5.0 (from -r rent_optimization_ml\requirements.txt (line 4))
+  Using cached pydantic-2.5.0-py3-none-any.whl.metadata (174 kB)
+Collecting pydantic-settings==2.1.0 (from -r rent_optimization_ml\requirements.txt (line 5))
+  Using cached pydantic_settings-2.1.0-py3-none-any.whl.metadata (2.9 kB)
+Collecting scikit-learn==1.3.2 (from -r rent_optimization_ml\requirements.txt (line 8))
+  Using cached scikit-learn-1.3.2.tar.gz (7.5 MB)
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'error'
+  error: subprocess-exited-with-error
+  
+  Preparing metadata (pyproject.toml) did not run successfully.
+  exit code: 1
+  
+  [45 lines of output]
+  Partial import of sklearn during the build process.
+  Traceback (most recent call last):
+    File "C:\Users\plabr\OneDrive\Documents\Dev\pms-master\rent_optimization_ml\venv\Lib\site-packages\pip\_vendor\pyproject_hooks\_in_process\_in_process.py", line 389, in <module>
+      main()
+      ~~~~^^
+    File "C:\Users\plabr\OneDrive\Documents\Dev\pms-master\rent_optimization_ml\venv\Lib\site-packages\pip\_vendor\pyproject_hooks\_in_process\_in_process.py", line 373, in main
+      json_out["return_val"] = hook(**hook_input["kwargs"])
+                               ~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\plabr\OneDrive\Documents\Dev\pms-master\rent_optimization_ml\venv\Lib\site-packages\pip\_vendor\pyproject_hooks\_in_process\_in_process.py", line 175, in prepare_metadata_for_build_wheel
+      return hook(metadata_directory, config_settings)
+    File "C:\Users\plabr\AppData\Local\Temp\pip-build-env-2yvmnrfi\overlay\Lib\site-packages\setuptools\build_meta.py", line 374, in prepare_metadata_for_build_wheel
+      self.run_setup()
+      ~~~~~~~~~~~~~~^^
+    File "C:\Users\plabr\AppData\Local\Temp\pip-build-env-2yvmnrfi\overlay\Lib\site-packages\setuptools\build_meta.py", line 512, in run_setup
+      super().run_setup(setup_script=setup_script)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\plabr\AppData\Local\Temp\pip-build-env-2yvmnrfi\overlay\Lib\site-packages\setuptools\build_meta.py", line 317, in run_setup
+      exec(code, locals())
+      ~~~~^^^^^^^^^^^^^^^^
+    File "<string>", line 633, in <module>
+    File "<string>", line 627, in setup_package
+    File "<string>", line 554, in configure_extension_modules
+    File "C:\Users\plabr\AppData\Local\Temp\pip-install-drcexj_a\scikit-learn_d4cec02190cc44c985086385dc10e416\sklearn\_build_utils\__init__.py", line 46, in cythonize_extensions
+      basic_check_build()
+      ~~~~~~~~~~~~~~~~~^^
+    File "C:\Users\plabr\AppData\Local\Temp\pip-install-drcexj_a\scikit-learn_d4cec02190cc44c985086385dc10e416\sklearn\_build_utils\pre_build_helpers.py", line 73, in basic_check_build
+      compile_test_program(code)
+      ~~~~~~~~~~~~~~~~~~~~^^^^^^
+    File "C:\Users\plabr\AppData\Local\Temp\pip-install-drcexj_a\scikit-learn_d4cec02190cc44c985086385dc10e416\sklearn\_build_utils\pre_build_helpers.py", line 31, in compile_test_program
+      ccompiler.compile(
+      ~~~~~~~~~~~~~~~~~^
+          ["test_program.c"], output_dir="objects", extra_postargs=extra_postargs
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      )
+      ^
+    File "C:\Users\plabr\AppData\Local\Temp\pip-build-env-2yvmnrfi\overlay\Lib\site-packages\setuptools\_distutils\compilers\C\msvc.py", line 384, in compile
+      self.initialize()
+      ~~~~~~~~~~~~~~~^^
+    File "C:\Users\plabr\AppData\Local\Temp\pip-build-env-2yvmnrfi\overlay\Lib\site-packages\setuptools\_distutils\compilers\C\msvc.py", line 294, in initialize
+      vc_env = _get_vc_env(plat_spec)
+    File "C:\Users\plabr\AppData\Local\Temp\pip-build-env-2yvmnrfi\overlay\Lib\site-packages\setuptools\_distutils\compilers\C\msvc.py", line 155, in _get_vc_env
+      raise DistutilsPlatformError(
+      ...<3 lines>...
+      )
+  distutils.errors.DistutilsPlatformError: Microsoft Visual C++ 14.0 or greater is required. Get it with "Microsoft C++ Build Tools": https://visualstudio.microsoft.com/visual-cpp-build-tools/
+  [end of output]
+  
+  note: This error originates from a subprocess, and is likely not a problem with pip.
+error: metadata-generation-failed
+
+Encountered error while generating package metadata.
+
+scikit-learn
+
+note: This is an issue with the package mentioned above, not pip.
+hint: See above for details.
