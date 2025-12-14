@@ -82,7 +82,7 @@ interface RecurringInvoiceSchedule {
 
 interface Lease {
   id: number;
-  tenant: { id: number; username: string };
+  tenant: { id: number; username: string; email: string };
   unit: { name: string; property?: { name: string } | null };
   startDate: string;
   endDate: string;

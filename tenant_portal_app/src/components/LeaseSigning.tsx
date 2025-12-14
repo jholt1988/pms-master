@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Button, Card, CardBody, CardHeader, Spinner } from '@nextui-org/react';
+import { createRecipientView } from '../services/EsignatureApi';
+import { useAuth } from '../AuthContext';
 
 interface LeaseSigningProps {
     leaseId: number;
@@ -8,48 +10,40 @@ interface LeaseSigningProps {
 }
 
 export const LeaseSigning: React.FC<LeaseSigningProps> = ({ leaseId, envelopeId, onSigningComplete }) => {
+    const { token } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const handleSignLease = async () => {
+        if (!token) {
+            setError('You must be logged in to sign documents.');
+            return;
+        }
+
         setIsLoading(true);
         setError(null);
 
         try {
-            const token = localStorage.getItem('token'); // Assuming token is stored here
-            if (!token) {
-                throw new Error('Authentication token not found');
-            }
-
             // 1. Request the signing URL (Recipient View)
             const returnUrl = `${window.location.origin}/leases/${leaseId}?signed=true`;
 
-            const response = await fetch(`/api/esignature/envelopes/${envelopeId}/recipient-view`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify({ returnUrl }),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Failed to initialize signing session');
-            }
-
-            const data = await response.json();
+            // Use the centralized API function which includes robust error handling
+            const signingUrl = await createRecipientView(token, envelopeId, returnUrl);
 
             // 2. Redirect to DocuSign
-            if (data.url) {
-                window.location.href = data.url;
-            } else {
-                throw new Error('No signing URL returned from server');
-            }
+            window.location.href = signingUrl;
 
         } catch (err: any) {
             console.error('Signing error:', err);
-            setError(err.message || 'An unexpected error occurred');
+
+            // Extract a user-friendly message
+            let message = err.message || 'An unexpected error occurred';
+
+            // Check for specific error params if present in a URL-like message (unlikely from API call throw, but good safety)
+            if (message.includes('token_expired')) message = 'Your session expired. Please refresh the page.';
+            if (message.includes('invalid_recipient')) message = 'You are not listed as a valid signer for this document.';
+
+            setError(message);
             setIsLoading(false);
         }
     };
@@ -64,7 +58,7 @@ export const LeaseSigning: React.FC<LeaseSigningProps> = ({ leaseId, envelopeId,
             </CardHeader>
             <CardBody>
                 {error && (
-                    <div className="bg-danger-50 text-danger p-3 rounded-medium mb-4 text-sm">
+                    <div className="bg-danger-50 text-danger-700 p-3 rounded-medium mb-4 text-sm font-medium border border-danger-100">
                         {error}
                     </div>
                 )}

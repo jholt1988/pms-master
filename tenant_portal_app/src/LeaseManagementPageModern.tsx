@@ -20,6 +20,7 @@ interface Lease {
   tenant?: {
     id?: number;
     username: string;
+    email: string;
   };
   unit: {
     name: string;
@@ -180,7 +181,8 @@ const LeaseManagementPageModern = () => {
                     <LeaseEsignPanel
                       token={token}
                       leaseId={selectedLease.id}
-                      tenantEmail={selectedLease.tenant?.username}
+                      tenantEmail={selectedLease.tenant?.email
+                      }
                       tenantName={selectedLease.tenant?.username}
                       tenantId={selectedLease.tenant?.id}
                       envelopes={selectedLease.esignEnvelopes ?? []}

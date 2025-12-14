@@ -40,13 +40,38 @@ export class MaintenanceService {
     private readonly aiMaintenanceService: AIMaintenanceService,
     private readonly systemUserService: SystemUserService,
     private readonly aiMetrics?: AIMaintenanceMetricsService,
-  ) {}
+  ) { }
 
   async create(userId: number, dto: CreateMaintenanceRequestDto): Promise<MaintenanceRequest> {
+    // Resolve Property and Unit from User's Lease if not provided
+    let propertyId = dto.propertyId;
+    let unitId = dto.unitId;
+
+    if (!propertyId || !unitId) {
+      const userWithLease = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          lease: {
+            include: { unit: true },
+          },
+        },
+      });
+
+      if (userWithLease?.lease) {
+        if (!unitId) {
+          unitId = userWithLease.lease.unitId;
+        }
+        if (!propertyId) {
+          // Lease doesn't have direct propertyId, get it from unit
+          propertyId = userWithLease.lease.unit.propertyId;
+        }
+      }
+    }
+
     // Use AI to assign priority if not provided
     let priority = dto.priority;
     let aiPriorityUsed = false;
-    
+
     if (!priority) {
       try {
         const startTime = Date.now();
@@ -55,7 +80,7 @@ export class MaintenanceService {
           dto.description,
         );
         const responseTime = Date.now() - startTime;
-        
+
         this.logger.log(
           `AI assigned priority: ${priority} for request: "${dto.title}" (${responseTime}ms)`,
         );
@@ -88,10 +113,10 @@ export class MaintenanceService {
         });
       }
     }
-    
+
     priority = priority ?? MaintenancePriority.MEDIUM;
     const { resolutionDueAt, responseDueAt, policyId } = await this.computeSlaTargets(
-      dto.propertyId ?? null,
+      propertyId ?? null,
       priority,
     );
 
@@ -104,8 +129,8 @@ export class MaintenanceService {
         responseDueAt,
         slaPolicy: policyId ? { connect: { id: policyId } } : undefined,
         author: { connect: { id: userId } },
-        property: dto.propertyId ? { connect: { id: dto.propertyId } } : undefined,
-        unit: dto.unitId ? { connect: { id: dto.unitId } } : undefined,
+        property: propertyId ? { connect: { id: propertyId } } : undefined,
+        unit: unitId ? { connect: { id: unitId } } : undefined,
         asset: dto.assetId ? { connect: { id: dto.assetId } } : undefined,
       },
       include: this.defaultRequestInclude,
@@ -251,7 +276,7 @@ export class MaintenanceService {
         },
       },
     });
-    
+
     if (!existing) {
       throw new NotFoundException('Maintenance request not found');
     }
@@ -274,7 +299,7 @@ export class MaintenanceService {
             reasons: aiMatch.reasons,
           };
           aiAssignmentUsed = true;
-          
+
           this.logger.log(
             `AI assigned technician: ${aiMatch.technician.name} (ID: ${technicianId}) ` +
             `for request: ${id} with score: ${aiMatch.score.toFixed(1)} (${responseTime}ms)`,
@@ -298,11 +323,11 @@ export class MaintenanceService {
           `AI technician assignment failed for request: ${id}`,
           error instanceof Error ? error.message : String(error),
         );
-        
+
         if (error instanceof BadRequestException) {
           throw error;
         }
-        
+
         // If AI fails and no technician provided, throw error
         throw new BadRequestException(
           'Technician assignment required. AI assignment failed. Please provide a technician ID.',
@@ -327,7 +352,7 @@ export class MaintenanceService {
 
     const note = aiAssignmentUsed
       ? `Technician assigned via AI (score: ${assignmentDetails.score?.toFixed(1)}). ` +
-        `Reasons: ${assignmentDetails.reasons?.join('; ')}`
+      `Reasons: ${assignmentDetails.reasons?.join('; ')}`
       : 'Technician assigned';
 
     await this.recordHistory(id, {
@@ -630,7 +655,7 @@ export class MaintenanceService {
    */
   private fallbackPriorityAssignment(title: string, description: string): MaintenancePriority {
     const text = `${title} ${description}`.toLowerCase();
-    
+
     // High priority keywords
     const highPriorityKeywords = [
       'leak', 'flood', 'flooding', 'water', 'fire', 'smoke', 'gas', 'electrical',
@@ -638,24 +663,24 @@ export class MaintenanceService {
       'no heat', 'no hot water', 'sewage', 'backup', 'overflow', 'spark',
       'smell gas', 'carbon monoxide', 'co2', 'toxic', 'dangerous',
     ];
-    
+
     // Low priority keywords
     const lowPriorityKeywords = [
       'paint', 'cosmetic', 'touch-up', 'touchup', 'routine', 'maintenance',
       'cleaning', 'aesthetic', 'decorative', 'minor', 'small', 'cosmetic issue',
       'nail hole', 'scratch', 'stain', 'dirty', 'dust',
     ];
-    
+
     // Check for high priority keywords
     if (highPriorityKeywords.some((keyword) => text.includes(keyword))) {
       return MaintenancePriority.HIGH;
     }
-    
+
     // Check for low priority keywords
     if (lowPriorityKeywords.some((keyword) => text.includes(keyword))) {
       return MaintenancePriority.LOW;
     }
-    
+
     // Default to medium
     return MaintenancePriority.MEDIUM;
   }

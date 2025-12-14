@@ -7,6 +7,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { ConfigModule } from '@nestjs/config';
 import { PaymentMethodsController } from './payment-methods.controller';
 import { PaymentMethodsService } from './payment-methods.service';
+import { StripeService } from './stripe.service';
 
 @Module({
   imports: [PrismaModule, ConfigModule],
@@ -16,6 +17,7 @@ import { PaymentMethodsService } from './payment-methods.service';
     PaymentMethodsService,
     AIPaymentService,
     AIPaymentMetricsService,
+    StripeService,
   ],
   exports: [
     PaymentsService,
@@ -24,4 +26,4 @@ import { PaymentMethodsService } from './payment-methods.service';
     AIPaymentMetricsService,
   ],
 })
-export class PaymentsModule {}
+export class PaymentsModule { }

@@ -1,6 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
-from tkinter import N
+
 from typing import List, Any
 
 from pydantic import model_validator
@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     """Central configuration for the ML microservice."""
 
     model_config = SettingsConfigDict(
-        env_file="../.env",
+
         case_sensitive=False,
         extra="ignore",
         protected_namespaces=('settings_', 'model_')  # Fix warning about model_ namespace conflicts

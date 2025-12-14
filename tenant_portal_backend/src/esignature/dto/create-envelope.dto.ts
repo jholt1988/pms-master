@@ -1,12 +1,12 @@
 import { EsignProvider } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsArray, IsEnum, IsInt, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { IsArray, IsEnum, IsInt, IsOptional, IsString, ValidateNested, IsEmail } from 'class-validator';
 
 export class EnvelopeRecipientDto {
   @IsString()
   name!: string;
 
-  @IsString()
+  @IsEmail()
   email!: string;
 
   @IsOptional()

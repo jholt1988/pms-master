@@ -30,7 +30,7 @@ export interface EsignEnvelope {
     id: number;
     tenant?: {
       id: number;
-      username: string;
+      email: string;
     } | null;
   };
   createdBy?: {
@@ -102,7 +102,7 @@ export const createRecipientView = async (
   // Use apiClient to ensure correct base URL
   const base = import.meta.env.VITE_API_URL ?? '/api';
   const url = `${base.replace(/\/$/, '')}/esignature/envelopes/${envelopeId}/recipient-view`;
-  
+
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -113,6 +113,12 @@ export const createRecipientView = async (
 
   if (!response.ok) {
     const errorText = await readErrorResponse(response);
+
+    // Check if error is related to envelope status (e.g., voided, completed)
+    if (errorText.toLowerCase().includes('envelope') && errorText.toLowerCase().includes('status')) {
+      throw new Error(`The document cannot be accessed at this time: ${errorText}`);
+    }
+
     // Handle 401/403 specifically
     if (response.status === 401 || response.status === 403) {
       throw new Error('You are not authorized to sign this document. Please contact support if you believe this is an error.');
@@ -121,22 +127,38 @@ export const createRecipientView = async (
   }
 
   const data = (await response.json()) as { url: string };
-  
+
   // Validate the URL before returning
   if (!data.url || typeof data.url !== 'string') {
     throw new Error('Invalid response from server: missing or invalid signing URL');
   }
-  
+
+  // CRITICAL: DocuSign sometimes returns a URL that redirects back to our own callback 
+  // if the envelope is not in a signable state (e.g., "completed", "voided", or "sent" but not "sent" to THIS recipient).
+  // We must ensure the URL is actually pointing to a signing provider domain (docusign.com, etc.) OR
+  // at least does NOT loop back immediately to our own domain with an error param.
+
   // Check if this is a fallback URL (points back to our frontend, not a signing provider)
-  // Fallback URLs typically have query params like ?envelope=...&recipient=...
-  const isFallbackUrl = data.url.includes(window.location.origin) && 
-                        (data.url.includes('?envelope=') || data.url.includes('&envelope='));
-  
+  const isFallbackUrl = data.url.includes(window.location.origin) &&
+    (data.url.includes('?envelope=') || data.url.includes('&envelope=') || data.url.includes('event='));
+
   if (isFallbackUrl) {
-    console.warn('Received fallback URL instead of signing URL. E-signature provider may not be configured:', data.url);
-    throw new Error('E-signature provider is not properly configured. Please contact your property manager.');
+    console.warn('Received fallback URL instead of signing URL:', data.url);
+    // Try to extract event from URL to give better error
+    const urlObj = new URL(data.url);
+    const event = urlObj.searchParams.get('event');
+
+    if (event === 'signing_complete') {
+      throw new Error('You have already signed this document.');
+    } else if (event === 'decline') {
+      throw new Error('You have declined to sign this document.');
+    } else if (event === 'ttl_expired') {
+      throw new Error('The signing session has expired. Please refresh the page to try again.');
+    }
+
+    throw new Error('E-signature provider returned a non-actionable URL. Please contact support.');
   }
-  
+
   return data.url;
 };
 

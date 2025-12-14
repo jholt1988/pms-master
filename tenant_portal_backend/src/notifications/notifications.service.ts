@@ -18,7 +18,7 @@ export class NotificationsService {
     private readonly pushService: PushService,
     private readonly aiNotificationService: AINotificationService,
     private readonly preferencesService: NotificationPreferencesService,
-  ) {}
+  ) { }
 
   async create(data: {
     userId: number;
@@ -95,13 +95,13 @@ export class NotificationsService {
 
     // Check user preferences
     const preferences = await this.preferencesService.getPreferences(data.userId);
-    
+
     // Override channel based on preferences if available
     if (preferences) {
       if (preferences.preferredChannel && preferences.preferredChannel !== 'AUTO') {
         channel = preferences.preferredChannel as 'EMAIL' | 'SMS' | 'PUSH';
       }
-      
+
       // Check if notification type is disabled
       if (preferences.notificationTypes) {
         const typeEnabled = (preferences.notificationTypes as Record<string, boolean>)[data.type];
@@ -163,8 +163,12 @@ export class NotificationsService {
       // Send via selected channel
       if (channel === 'EMAIL' || sendEmail) {
         if (!preferences || preferences.emailEnabled !== false) {
-          await this.emailService.sendNotificationEmail(user.username, notification.title, notification.message);
-          this.logger.log(`Sent email notification ${notification.id} to user ${user.username}`);
+          if (user.email) {
+            await this.emailService.sendNotificationEmail(user.email, notification.title, notification.message);
+            this.logger.log(`Sent email notification ${notification.id} to user ${user.username}`);
+          } else {
+            this.logger.warn(`User ${user.username} has no email address, skipping email notification ${notification.id}`);
+          }
         } else {
           this.logger.debug(`Email disabled for user ${user.username}, skipping email notification ${notification.id}`);
         }
@@ -177,16 +181,22 @@ export class NotificationsService {
             } else {
               this.logger.warn(`SMS failed for notification ${notification.id}: ${result.error}`);
               // Fallback to email
-              await this.emailService.sendNotificationEmail(user.username, notification.title, notification.message);
+              if (user.email) {
+                await this.emailService.sendNotificationEmail(user.email, notification.title, notification.message);
+              }
             }
           } else {
             this.logger.debug(`SMS disabled for user ${user.username}, falling back to email`);
-            await this.emailService.sendNotificationEmail(user.username, notification.title, notification.message);
+            if (user.email) {
+              await this.emailService.sendNotificationEmail(user.email, notification.title, notification.message);
+            }
           }
         } else {
           this.logger.warn(`SMS requested for notification ${notification.id} but user ${user.username} has no phone number`);
           // Fallback to email
-          await this.emailService.sendNotificationEmail(user.username, notification.title, notification.message);
+          if (user.email) {
+            await this.emailService.sendNotificationEmail(user.email, notification.title, notification.message);
+          }
         }
       } else if (channel === 'PUSH') {
         if (!preferences || preferences.pushEnabled !== false) {
@@ -201,11 +211,15 @@ export class NotificationsService {
           } else {
             this.logger.warn(`Push failed for notification ${notification.id}: ${result.error}`);
             // Fallback to email
-            await this.emailService.sendNotificationEmail(user.username, notification.title, notification.message);
+            if (user.email) {
+              await this.emailService.sendNotificationEmail(user.email, notification.title, notification.message);
+            }
           }
         } else {
           this.logger.debug(`Push disabled for user ${user.username}, falling back to email`);
-          await this.emailService.sendNotificationEmail(user.username, notification.title, notification.message);
+          if (user.email) {
+            await this.emailService.sendNotificationEmail(user.email, notification.title, notification.message);
+          }
         }
       }
     } catch (error) {
@@ -315,9 +329,7 @@ export class NotificationsService {
         urgency = 'LOW';
         break;
       case 'VOIDED':
-        // Note: ESIGNATURE_VOIDED notification type needs to be added to the database enum
-        // For now, use SYSTEM_ANNOUNCEMENT as fallback
-        type = NotificationType.SYSTEM_ANNOUNCEMENT;
+        type = NotificationType.ESIGNATURE_VOIDED as any;
         title = `Signature request for lease #${data.leaseId} cancelled`;
         message = `${data.participantName}, the signature request has been cancelled. You no longer need to sign this document.`;
         urgency = 'LOW';
@@ -384,7 +396,7 @@ export class NotificationsService {
         // Only process if scheduled time has passed (with 1 minute buffer)
         const scheduledTime = new Date(notification.scheduledFor);
         const oneMinuteAgo = new Date(now.getTime() - 60 * 1000);
-        
+
         if (scheduledTime <= oneMinuteAgo) {
           const metadata = notification.metadata as any;
           const channel = (metadata?.channel as 'EMAIL' | 'SMS' | 'PUSH') || 'EMAIL';

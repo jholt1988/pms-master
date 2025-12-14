@@ -1,320 +1,476 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { 
-  Card, 
-  CardBody, 
+import React, { useState, useEffect } from 'react';
+import {
+  Card,
+  CardBody,
   CardHeader,
   Button,
   Input,
-  Select,
-  SelectItem,
   Modal,
   ModalContent,
   ModalHeader,
   ModalBody,
   ModalFooter,
   useDisclosure,
+  Chip,
+  Tabs,
+  Tab,
   Switch,
   Divider,
+  Select,
+  SelectItem
 } from '@nextui-org/react';
-import { useAuth } from '../../../../AuthContext';
+import {
+  CreditCard,
+  Plus,
+  DollarSign,
+  Calendar,
+  Download,
+  Trash2,
+  AlertCircle
+} from 'lucide-react';
+import { format } from 'date-fns';
+import { PageHeader } from '../../../../components/ui/PageHeader';
 import { apiFetch } from '../../../../services/apiClient';
-import { StatsCard, DataTable, PageHeader, DataTableColumn } from '../../../../components/ui';
-import type { 
-  Invoice, 
-  Payment, 
-  PaymentMethod, 
-  AutopayStatus,
-  PaymentMethodForm
-} from './types';
+import { useAuth } from '../../../../AuthContext';
+import { loadStripe } from '@stripe/stripe-js';
+import {
+  Elements,
+  CardElement,
+  useStripe,
+  useElements
+} from '@stripe/react-stripe-js';
 
-const defaultMethodForm: PaymentMethodForm = {
-  type: 'CARD',
-  provider: 'STRIPE',
-  last4: '',
-  brand: '',
-  expMonth: '',
-  expYear: '',
-  providerCustomerId: '',
-  providerPaymentMethodId: '',
-};
+// Initialize Stripe
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_TYooMQauvdEDq54NiTphI7jx');
 
-const currencyFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-});
+interface PaymentMethod {
+  id: number;
+  type: string;
+  last4: string;
+  brand: string;
+  expMonth: number;
+  expYear: number;
+  provider: string;
+}
 
-const formatCurrency = (value?: number | null): string => {
-  if (value === null || value === undefined) {
-    return '—';
-  }
-  return currencyFormatter.format(value);
-};
+interface Invoice {
+  id: number;
+  amount: number;
+  description: string;
+  dueDate: string;
+  status: 'PAID' | 'UNPAID' | 'OVERDUE' | 'PENDING';
+  issuedAt: string;
+  pdfUrl?: string;
+}
 
-const formatDate = (value?: string | null): string => {
-  if (!value) {
-    return '—';
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return '—';
-  }
-  return date.toLocaleDateString();
-};
+interface Payment {
+  id: number;
+  amount: number;
+  paymentDate: string;
+  status: string;
+  method?: {
+    brand: string;
+    last4: string;
+  };
+}
 
+interface AutopayEnrollment {
+  active: boolean;
+  paymentMethodId?: number;
+  maxAmount?: number;
+}
 
+interface AutopayStatus {
+  enrolled: boolean;
+  enrollment?: AutopayEnrollment;
+}
 
-export default function PaymentsPage(): React.ReactElement {
+// Separate component for the form to use Stripe Hooks
+const PaymentMethodForm = ({ onSuccess, onCancel }: { onSuccess: () => void, onCancel: () => void }) => {
+  const stripe = useStripe();
+  const elements = useElements();
   const { token } = useAuth();
-  const { isOpen, onOpen, onOpenChange } = useDisclosure();
-  
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
-  const [methodForm, setMethodForm] = useState(defaultMethodForm);
-  const [autopay, setAutopay] = useState<AutopayStatus | null>(null);
-
-  const [autopayMaxAmount, setAutopayMaxAmount] = useState<string>('');
-  const [selectedMethodId, setSelectedMethodId] = useState<string>('');
-  const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
 
-  // Calculate derived values
-  const openInvoices = invoices.filter((inv) => ['PENDING', 'DUE', 'OVERDUE'].includes(inv.status.toUpperCase()));
-  const totalDue = openInvoices.reduce((sum, inv) => sum + inv.amount, 0);
-  const nextInvoice = openInvoices
-    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
-  const lastPayment = payments
-    .filter((p) => ['COMPLETED', 'SETTLED'].includes(p.status.toUpperCase()))
-    .sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime())[0];
+    if (!stripe || !elements || !token) {
+      return;
+    }
 
-  // Table column definitions
-  const invoiceColumns: DataTableColumn[] = [
-    { key: 'invoiceId', label: 'INVOICE' },
-    { key: 'dueDate', label: 'DUE DATE' },
-    { key: 'amount', label: 'AMOUNT' },
-    { key: 'status', label: 'STATUS' },
-  ];
-
-  const paymentColumns: DataTableColumn[] = [
-    { key: 'paymentId', label: 'PAYMENT' },
-    { key: 'paymentDate', label: 'DATE' },
-    { key: 'amount', label: 'AMOUNT' },
-    { key: 'status', label: 'STATUS' },
-  ];
-
-  useEffect(() => {
-    const loadInvoicesAndPayments = async () => {
-      if (!token) {
-        return;
-      }
-
-      const [invoicesData, paymentsData] = await Promise.all([
-        apiFetch('/payments/invoices', { token }),
-        apiFetch('/payments', { token }),
-      ]);
-
-      setInvoices(invoicesData);
-      setPayments(paymentsData);
-    };
-
-    const loadBillingExtras = async () => {
-      if (!token) {
-        return;
-      }
-
-      try {
-        const methodsData = await apiFetch('/payment-methods', { token });
-        setPaymentMethods(methodsData);
-      } catch (err) {
-        console.error('Failed to fetch payment methods:', err);
-      }
-
-      try {
-        const autopayData = await apiFetch('/billing/autopay', { token });
-        setAutopay(autopayData as AutopayStatus);
-        if (autopayData.enrollment?.paymentMethodId) {
-          setSelectedMethodId(String(autopayData.enrollment.paymentMethodId));
-        }
-        if (typeof autopayData.enrollment?.maxAmount === 'number') {
-          setAutopayMaxAmount(String(autopayData.enrollment.maxAmount));
-        }
-      } catch (err: any) {
-        if (err.message?.includes('404')) {
-          setAutopay(null);
-        } else {
-          console.error('Failed to fetch autopay status:', err);
-        }
-      }
-    };
-
-    const fetchAll = async () => {
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        setError(null);
-        await Promise.all([loadInvoicesAndPayments(), loadBillingExtras()]);
-      } catch (err) {
-        console.error('Error loading payment data:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load payment information');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAll();
-  }, [token]);
-
-  const handleAddPaymentMethod = async () => {
-    if (!token || actionLoading) return;
+    setIsProcessing(true);
+    setError(null);
 
     try {
-      setActionLoading(true);
-      setError(null);
+      // 1. Tokenize card with Stripe
+      const cardElement = elements.getElement(CardElement);
+      if (!cardElement) throw new Error("Card element not found");
 
+      const { error: stripeError, paymentMethod } = await stripe.createPaymentMethod({
+        type: 'card',
+        card: cardElement,
+      });
+
+      if (stripeError) {
+        throw new Error(stripeError.message);
+      }
+
+      // 2. Send token to backend
       await apiFetch('/payment-methods', {
         token,
         method: 'POST',
-        body: methodForm,
+        body: {
+          type: 'CARD',
+          provider: 'STRIPE',
+          providerPaymentMethodId: paymentMethod.id,
+        }
       });
 
-      // Reload payment methods and autopay status
-      try {
-        const methodsData = await apiFetch('/payment-methods', { token });
-        setPaymentMethods(methodsData);
-      } catch (err) {
-        console.error('Failed to fetch payment methods:', err);
-      }
-
-      try {
-        const autopayData = await apiFetch('/billing/autopay', { token });
-        setAutopay(autopayData as AutopayStatus);
-        if (autopayData.enrollment?.paymentMethodId) {
-          setSelectedMethodId(String(autopayData.enrollment.paymentMethodId));
-        }
-        if (typeof autopayData.enrollment?.maxAmount === 'number') {
-          setAutopayMaxAmount(String(autopayData.enrollment.maxAmount));
-        }
-      } catch (err: any) {
-        if (err.message?.includes('404')) {
-          setAutopay(null);
-        } else {
-          console.error('Failed to fetch autopay status:', err);
-        }
-      }
-      setMethodForm(defaultMethodForm);
-      setNotice('Payment method added successfully!');
-      onOpenChange();
-    } catch (err) {
-      console.error('Error adding payment method:', err);
-      setError(err instanceof Error ? err.message : 'Failed to add payment method');
+      onSuccess();
+    } catch (err: any) {
+      console.error('Payment method creation failed', err);
+      setError(err.message || 'Failed to add payment method');
     } finally {
-      setActionLoading(false);
+      setIsProcessing(false);
     }
   };
 
-  if (loading) {
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {error && (
+        <div className="bg-danger-50 text-danger-700 p-3 rounded-md text-sm flex items-start gap-2">
+          <AlertCircle className="w-5 h-5 shrink-0" />
+          <p>{error}</p>
+        </div>
+      )}
+
+      <div className="border border-default-200 rounded-lg p-4 bg-white">
+        <label className="block text-sm font-medium text-foreground-700 mb-2">
+          Card Information
+        </label>
+        <div className="p-3 border rounded-md">
+          <CardElement
+            options={{
+              style: {
+                base: {
+                  fontSize: '16px',
+                  color: '#424770',
+                  '::placeholder': {
+                    color: '#aab7c4',
+                  },
+                },
+                invalid: {
+                  color: '#9e2146',
+                },
+              },
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-2">
+        <Button variant="light" onPress={onCancel} disabled={isProcessing}>
+          Cancel
+        </Button>
+        <Button
+          color="primary"
+          type="submit"
+          isLoading={isProcessing}
+          isDisabled={!stripe}
+        >
+          Add Card
+        </Button>
+      </div>
+    </form>
+  );
+};
+
+const PaymentsPage: React.FC = () => {
+  const { token } = useAuth();
+  const [activeTab, setActiveTab] = useState('invoices');
+  const { isOpen, onOpen, onClose } = useDisclosure();
+
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [paymentHistory, setPaymentHistory] = useState<Payment[]>([]);
+  const [autopay, setAutopay] = useState<AutopayStatus | null>(null);
+
+  // Autopay local state
+  const [autopayMaxAmount, setAutopayMaxAmount] = useState<string>('');
+  const [selectedMethodId, setSelectedMethodId] = useState<string>('');
+
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchData = async () => {
+    if (!token) return;
+    try {
+      setIsLoading(true);
+      const [invoicesData, methodsData, historyData] = await Promise.all([
+        apiFetch('/payments/invoices', { token }).catch(() => []),
+        apiFetch('/payment-methods', { token }).catch(() => []),
+        apiFetch('/payments/history', { token }).catch(() => [])
+      ]);
+
+      setInvoices(invoicesData);
+      setPaymentMethods(methodsData);
+      setPaymentHistory(historyData);
+
+      // Fetch Autopay separately as it might 404
+      try {
+        const autopayData = await apiFetch('/billing/autopay', { token });
+        setAutopay(autopayData);
+        if (autopayData.enrollment) {
+          if (autopayData.enrollment.paymentMethodId) {
+            setSelectedMethodId(String(autopayData.enrollment.paymentMethodId));
+          }
+          if (autopayData.enrollment.maxAmount) {
+            setAutopayMaxAmount(String(autopayData.enrollment.maxAmount));
+          }
+        }
+      } catch (e: any) {
+        // If 404, it just means no autopay configured
+        if (!e.message?.includes('404')) {
+          console.error(e);
+        }
+        setAutopay(null);
+      }
+
+    } catch (err) {
+      console.error('Failed to fetch payment data', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [token]);
+
+  const handleMethodAdded = async () => {
+    await fetchData();
+    onClose();
+  };
+
+  const handleDeleteMethod = async (id: number) => {
+    if (!token) return;
+    if (!window.confirm('Are you sure you want to remove this payment method?')) return;
+
+    try {
+      await apiFetch(`/payment-methods/${id}`, { token, method: 'DELETE' });
+      setPaymentMethods(prev => prev.filter(m => m.id !== id));
+    } catch (err) {
+      console.error('Failed to delete payment method', err);
+      alert('Failed to remove payment method');
+    }
+  };
+
+  const handleAutopayToggle = async (value: boolean) => {
+    if (!token) return;
+    try {
+      if (!value) {
+        // Disable autopay (assuming delete or update active=false)
+        // Implementation depends on backend, assuming DELETE or PUT
+        // For now, let's assume we can just calculate what needs to change
+        // But usually toggling off means deleting the enrollment or setting active=false
+        alert("To disable autopay, please contact support or clear settings (Not implemented fully in backend demo)");
+        return;
+      }
+      // Logic to enable would typically require settings first
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAutopayUpdate = async () => {
+    if (!token || !selectedMethodId || !autopayMaxAmount) return;
+    try {
+      await apiFetch('/billing/autopay', {
+        token,
+        method: 'PUT',
+        body: {
+          paymentMethodId: parseInt(selectedMethodId),
+          maxAmount: parseFloat(autopayMaxAmount),
+          active: true
+        }
+      });
+      alert('Autopay settings saved');
+      fetchData();
+    } catch (err) {
+      console.error('Failed to update autopay', err);
+      alert('Failed to update autopay settings');
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'PAID': return 'success';
+      case 'OVERDUE': return 'danger';
+      case 'PENDING': return 'warning';
+      default: return 'default';
+    }
+  };
+
+  // Derived state
+  const openInvoices = invoices.filter(i => i.status !== 'PAID');
+  const nextInvoice = openInvoices.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
+  const lastPayment = paymentHistory[0];
+  const balanceDue = openInvoices.reduce((sum, inv) => sum + inv.amount, 0);
+
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Card className="w-96">
-          <CardBody className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-medium text-foreground-600">Loading payment information...</p>
-          </CardBody>
-        </Card>
+      <div className="section flex justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-8">
-      {/* Header Section */}
+    <div className="section space-y-6">
       <PageHeader
-        title="Payments & billing"
-        subtitle="Review open invoices, payment history, and manage autopay preferences for your lease."
+        title="Payments & Billing"
+        subtitle="Manage your invoices, payment methods, and billing history"
       />
 
-      {/* Error/Notice Messages */}
-      {error && (
-        <Card className="border-danger-200 bg-danger-50">
-          <CardBody>
-            <p className="text-small text-danger-700">{error}</p>
-          </CardBody>
-        </Card>
-      )}
-
-      {notice && (
-        <Card className="border-success-200 bg-success-50">
-          <CardBody>
-            <p className="text-small text-success-700">{notice}</p>
-          </CardBody>
-        </Card>
-      )}
-
       {/* Summary Cards */}
-      <div className="grid gap-6 md:grid-cols-3">
-        <StatsCard
-          title="Balance due"
-          value={formatCurrency(totalDue)}
-          subtitle={`${openInvoices.length} open invoice${openInvoices.length === 1 ? '' : 's'}`}
-        />
-        
-        <StatsCard
-          title="Next due date"
-          value={nextInvoice ? formatDate(nextInvoice.dueDate) : '—'}
-          subtitle={nextInvoice ? `Amount ${formatCurrency(nextInvoice.amount)}` : 'No upcoming invoices'}
-          valueColor="warning"
-        />
-        
-        <StatsCard
-          title="Last payment"
-          value={lastPayment ? formatCurrency(lastPayment.amount) : '—'}
-          subtitle={lastPayment ? `Paid ${formatDate(lastPayment.paymentDate)}` : 'No payment history yet'}
-          valueColor="success"
-        />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="bg-primary-50 border-primary-100">
+          <CardBody>
+            <p className="text-sm text-primary-600 font-medium">Balance Due</p>
+            <h3 className="text-2xl font-bold text-primary-700 mt-1">${balanceDue.toFixed(2)}</h3>
+            <p className="text-sm text-primary-600 mt-2 flex items-center gap-1">
+              <Calendar className="w-4 h-4" /> {openInvoices.length} open invoice{openInvoices.length === 1 ? '' : 's'}
+            </p>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardBody>
+            <p className="text-sm text-foreground-500 font-medium">Next Due Date</p>
+            <h3 className="text-2xl font-bold text-foreground-700 mt-1">
+              {nextInvoice ? format(new Date(nextInvoice.dueDate), 'MMM d, yyyy') : 'N/A'}
+            </h3>
+            <p className="text-sm text-foreground-500 mt-2">
+              {nextInvoice ? `Amount $${nextInvoice.amount.toFixed(2)}` : 'No upcoming invoices'}
+            </p>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardBody>
+            <p className="text-sm text-foreground-500 font-medium">Last Payment</p>
+            <h3 className="text-2xl font-bold text-foreground-700 mt-1">
+              {lastPayment ? `$${lastPayment.amount.toFixed(2)}` : 'N/A'}
+            </h3>
+            <p className="text-sm text-foreground-500 mt-2">
+              {lastPayment ? `Paid ${format(new Date(lastPayment.paymentDate), 'MMM d, yyyy')}` : 'No payment history'}
+            </p>
+          </CardBody>
+        </Card>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-[2fr_1fr]">
-        {/* Main Content */}
-        <div className="space-y-6">
-          {/* Invoices Table */}
-          <DataTable
-            title="Invoices"
-            subtitle="Statements generated for your lease."
-            columns={invoiceColumns}
-            data={invoices.map(invoice => ({
-              ...invoice,
-              invoiceId: `#${invoice.id}`,
-              dueDate: formatDate(invoice.dueDate),
-              amount: formatCurrency(invoice.amount),
-            }))}
-            emptyContent="No invoices have been generated yet."
-          />
+      <Tabs
+        aria-label="Payment Options"
+        selectedKey={activeTab}
+        onSelectionChange={(key) => setActiveTab(key as string)}
+        color="primary"
+        variant="underlined"
+      >
+        <Tab key="invoices" title="Invoices">
+          <div className="space-y-4 pt-4">
+            {invoices.length === 0 ? (
+              <p className="text-foreground-500 text-center py-8">No invoices found.</p>
+            ) : (
+              invoices.map(invoice => (
+                <Card key={invoice.id} className="shadow-small">
+                  <CardBody className="flex flex-row items-center justify-between p-4">
+                    <div className="flex gap-4 items-center">
+                      <div className="p-2 bg-default-100 rounded-lg">
+                        <DollarSign className="w-6 h-6 text-foreground-500" />
+                      </div>
+                      <div>
+                        <p className="font-semibold">{invoice.description}</p>
+                        <p className="text-sm text-foreground-500">
+                          Due {format(new Date(invoice.dueDate), 'MMM d, yyyy')}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="font-bold">${invoice.amount.toFixed(2)}</p>
+                        <Chip size="sm" color={getStatusColor(invoice.status)} variant="flat">
+                          {invoice.status}
+                        </Chip>
+                      </div>
+                      {invoice.pdfUrl && (
+                        <Button isIconOnly variant="light" aria-label="Download Invoice" as="a" href={invoice.pdfUrl} target="_blank">
+                          <Download className="w-4 h-4 text-foreground-500" />
+                        </Button>
+                      )}
+                      {invoice.status !== 'PAID' && (
+                        <Button color="primary" size="sm">Pay Now</Button>
+                      )}
+                    </div>
+                  </CardBody>
+                </Card>
+              ))
+            )}
+          </div>
+        </Tab>
 
-          {/* Payments Table */}
-          <DataTable
-            title="Payment history"
-            subtitle="Your recent payment transactions."
-            columns={paymentColumns}
-            data={payments.map(payment => ({
-              ...payment,
-              paymentId: `#${payment.id}`,
-              paymentDate: formatDate(payment.paymentDate),
-              amount: formatCurrency(payment.amount),
-            }))}
-            emptyContent="No payment history yet."
-          />
-        </div>
+        <Tab key="methods" title="Payment Methods">
+          <div className="space-y-4 pt-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Saved Cards</h3>
+              <Button
+                onPress={onOpen}
+                startContent={<Plus className="w-4 h-4" />}
+                color="primary"
+                variant="flat"
+              >
+                Add Payment Method
+              </Button>
+            </div>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Autopay Settings */}
-          <Card className="shadow-medium">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {paymentMethods.length === 0 ? (
+                <p className="text-foreground-500 text-center py-8 col-span-full">No payment methods saved yet.</p>
+              ) : (
+                paymentMethods.map(method => (
+                  <Card key={method.id} className="border border-default-200">
+                    <CardBody className="flex flex-row items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary-50 text-primary rounded-md">
+                          <CreditCard className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <p className="font-medium capitalize">
+                            {method.brand} •••• {method.last4}
+                          </p>
+                          <p className="text-xs text-foreground-500">
+                            Expires {method.expMonth}/{method.expYear}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        isIconOnly
+                        color="danger"
+                        variant="light"
+                        onPress={() => handleDeleteMethod(method.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </CardBody>
+                  </Card>
+                ))
+              )}
+            </div>
+          </div>
+        </Tab>
+
+        <Tab key="autopay" title="Autopay Settings">
+          <Card className="shadow-medium mt-4">
             <CardHeader className="pb-4">
               <div>
                 <h3 className="text-lg font-semibold text-foreground">Autopay settings</h3>
@@ -327,9 +483,10 @@ export default function PaymentsPage(): React.ReactElement {
                 <Switch
                   isSelected={autopay?.enrollment?.active || false}
                   size="sm"
+                  onValueChange={handleAutopayToggle}
                 />
               </div>
-              
+
               {autopay?.enrollment?.active && (
                 <>
                   <Divider />
@@ -341,167 +498,80 @@ export default function PaymentsPage(): React.ReactElement {
                       onChange={(e) => setAutopayMaxAmount(e.target.value)}
                       startContent="$"
                       size="sm"
+                      type="number"
                     />
-                    
+
                     <Select
                       label="Payment method"
                       placeholder="Select payment method"
                       selectedKeys={selectedMethodId ? [selectedMethodId] : []}
+                      onSelectionChange={(keys) => setSelectedMethodId(Array.from(keys).join(','))}
                       size="sm"
                     >
                       {paymentMethods.map((method) => (
-                        <SelectItem key={method.id} value={method.id.toString()}>
-                          {method.brand} •••• {method.last4}
+                        <SelectItem key={method.id.toString()} textValue={`${method.brand} •••• ${method.last4}`}>
+                          <div className="flex gap-2 items-center">
+                            <CreditCard className="w-4 h-4" />
+                            <span>{method.brand} •••• {method.last4}</span>
+                          </div>
                         </SelectItem>
                       ))}
                     </Select>
+                    <Button color="primary" size="sm" onPress={handleAutopayUpdate}>
+                      Save Autopay Settings
+                    </Button>
                   </div>
                 </>
               )}
             </CardBody>
           </Card>
+        </Tab>
 
-          {/* Payment Methods */}
-          <Card className="shadow-medium">
-            <CardHeader className="pb-4 flex-row items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-foreground">Payment methods</h3>
-                <p className="text-small text-foreground-500">Manage your saved cards.</p>
+        <Tab key="history" title="History">
+          <div className="pt-4">
+            {paymentHistory.length === 0 ? (
+              <p className="text-foreground-500 text-center py-8">No payment history found.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {paymentHistory.map(payment => (
+                  <Card key={payment.id} className="shadow-small">
+                    <CardBody className="flex flex-row justify-between items-center p-3">
+                      <div>
+                        <p className="font-medium">Payment</p>
+                        <p className="text-xs text-foreground-500">
+                          {format(new Date(payment.paymentDate), 'MMM d, yyyy h:mm a')}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-success">-${payment.amount.toFixed(2)}</p>
+                        <p className="text-xs text-foreground-500 capitalize">{payment.status}</p>
+                      </div>
+                    </CardBody>
+                  </Card>
+                ))}
               </div>
-              <Button
-                color="primary"
-                size="sm"
-                onPress={onOpen}
-                aria-label="Add new payment method"
-              >
-                Add method
-              </Button>
-            </CardHeader>
-            <CardBody className="pt-0">
-              {paymentMethods.length === 0 ? (
-                <p className="text-small text-foreground-400 text-center py-4">
-                  No payment methods saved yet.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {paymentMethods.map((method) => (
-                    <Card key={method.id} className="border border-divider">
-                      <CardBody className="p-3">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-small font-medium">{method.brand} •••• {method.last4}</p>
-                            <p className="text-tiny text-foreground-400">
-                              Expires {method.expMonth}/{method.expYear}
-                            </p>
-                          </div>
-                          <Button
-                            color="danger"
-                            variant="light"
-                            size="sm"
-                            className="text-tiny"
-                            aria-label={`Remove payment method ending in ${method.last4}`}
-                          >
-                            Remove
-                          </Button>
-                        </div>
-                      </CardBody>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </CardBody>
-          </Card>
-        </div>
-      </div>
+            )}
+          </div>
+        </Tab>
+      </Tabs>
 
       {/* Add Payment Method Modal */}
-      <Modal 
-        isOpen={isOpen} 
-        onOpenChange={onOpenChange}
-        aria-labelledby="add-payment-method-title"
-        aria-describedby="add-payment-method-description"
-      >
-        <ModalContent
-          classNames={{
-            base: "bg-deep-900 border border-white/10",
-            backdrop: "bg-black/80 backdrop-blur-sm",
-          }}
-        >
+      <Modal isOpen={isOpen} onClose={onClose}>
+        <ModalContent>
           {(onClose) => (
             <>
-              <ModalHeader id="add-payment-method-title">Add Payment Method</ModalHeader>
-              <ModalBody id="add-payment-method-description">
-                <div className="space-y-4">
-                  <Input
-                    label="Card Number"
-                    placeholder="1234 5678 9012 3456"
-                    value={methodForm.last4}
-                    onChange={(e) => setMethodForm({ ...methodForm, last4: e.target.value.slice(-4) })}
-                    aria-label="Card number"
-                    autoComplete="cc-number"
-                    classNames={{
-                      label: "sr-only", // Visually hidden but accessible
-                    }}
-                  />
-                  <div className="grid grid-cols-2 gap-4">
-                    <Input
-                      label="Expiry Month"
-                      placeholder="MM"
-                      value={methodForm.expMonth}
-                      onChange={(e) => setMethodForm({ ...methodForm, expMonth: e.target.value })}
-                      aria-label="Expiry month"
-                      autoComplete="cc-exp-month"
-                      classNames={{
-                        label: "sr-only", // Visually hidden but accessible
-                      }}
-                    />
-                    <Input
-                      label="Expiry Year" 
-                      placeholder="YYYY"
-                      value={methodForm.expYear}
-                      onChange={(e) => setMethodForm({ ...methodForm, expYear: e.target.value })}
-                      aria-label="Expiry year"
-                      autoComplete="cc-exp-year"
-                      classNames={{
-                        label: "sr-only", // Visually hidden but accessible
-                      }}
-                    />
-                  </div>
-                  <Select
-                    label="Card Brand"
-                    selectedKeys={methodForm.brand ? [methodForm.brand] : []}
-                    onChange={(e) => setMethodForm({ ...methodForm, brand: e.target.value })}
-                    classNames={{
-                      label: "sr-only", // Visually hidden but accessible
-                    }}
-                  >
-                    <SelectItem key="visa" value="visa">Visa</SelectItem>
-                    <SelectItem key="mastercard" value="mastercard">Mastercard</SelectItem>
-                    <SelectItem key="amex" value="amex">American Express</SelectItem>
-                  </Select>
-                </div>
+              <ModalHeader>Add Payment Method</ModalHeader>
+              <ModalBody>
+                <Elements stripe={stripePromise}>
+                  <PaymentMethodForm onSuccess={handleMethodAdded} onCancel={onClose} />
+                </Elements>
               </ModalBody>
-              <ModalFooter>
-                <Button 
-                  variant="light" 
-                  onPress={onClose}
-                  aria-label="Cancel adding payment method"
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  color="primary" 
-                  onPress={handleAddPaymentMethod}
-                  isLoading={actionLoading}
-                  aria-label="Add payment method"
-                >
-                  Add Method
-                </Button>
-              </ModalFooter>
             </>
           )}
         </ModalContent>
       </Modal>
     </div>
   );
-}
+};
+
+export default PaymentsPage;

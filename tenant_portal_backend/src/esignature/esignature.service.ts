@@ -110,6 +110,7 @@ export class EsignatureService {
    * Validates DocuSign configuration and ensures all required environment variables are set
    */
   private validateDocuSignConfig(): void {
+    const isStrict = this.configService.get<string>('ESIGN_STRICT_MODE') === 'true';
     const basePath = this.providerBaseURL || this.configService.get<string>('ESIGN_PROVIDER_BASE_URL');
     const accessToken = this.configService.get<string>('ESIGN_PROVIDER_API_KEY');
     const accountId = this.configService.get<string>('ESIGN_PROVIDER_ACCOUNT_ID');
@@ -122,8 +123,8 @@ export class EsignatureService {
       issues.push(`ESIGN_PROVIDER_BASE_URL must include /restapi/v2.1. Current: ${basePath}`);
     }
 
-    if (!accessToken) {
-      issues.push('ESIGN_PROVIDER_API_KEY (OAuth access token) is not set');
+    if (!accessToken && !this.privateKey) {
+      issues.push('Neither ESIGN_PROVIDER_API_KEY nor ESIGN_PROVIDER_PRIVATE_KEY is set');
     }
 
     if (!accountId) {
@@ -133,6 +134,10 @@ export class EsignatureService {
     if (issues.length > 0) {
       this.logger.warn('⚠️  DocuSign configuration issues detected:');
       issues.forEach(issue => this.logger.warn(`   - ${issue}`));
+
+      if (isStrict) {
+        throw new Error(`DocuSign configuration Invalid (Strict Mode Enabled): ${issues.join(', ')}`);
+      }
       this.logger.warn('   DocuSign features will not work until these are configured.');
     } else {
       this.logger.log('✅ DocuSign configuration validated successfully');
@@ -354,6 +359,12 @@ export class EsignatureService {
       throw new NotFoundException('Lease not found.');
     }
 
+    // Validate that the tenant (if exists) has an email address
+    if (lease.tenant && !lease.tenant.email) {
+      this.logger.error(`Cannot create envelope: Tenant ${lease.tenant.username} (ID: ${lease.tenant.id}) has no email address`);
+      throw new BadRequestException(`Tenant ${lease.tenant.username} does not have an email address configured. Please update the tenant's profile with a valid email address before creating a lease envelope.`);
+    }
+
     const provider = dto.provider ?? (this.configService.get('ESIGN_PROVIDER') as EsignProvider) ?? EsignProvider.DOCUSIGN;
     const providerResponse = await this.dispatchProviderEnvelope(provider, dto, lease);
 
@@ -370,8 +381,6 @@ export class EsignatureService {
           create: dto.recipients.map((recipient) => {
             // If the recipient is the tenant, use the email from the database to ensure it's valid
             // This prevents issues where the frontend sends stale/invalid data
-            // If the recipient is the tenant, use the email from the database to ensure it's valid
-            // This prevents issues where the frontend sends stale/invalid data
             let email = recipient.email;
 
             if ((recipient.role === 'TENANT' || recipient.role === 'SIGNER') && lease.tenant) {
@@ -382,13 +391,33 @@ export class EsignatureService {
               }
             }
 
+            // Determine clientUserId for embedded signing logic
+            // If the recipient is a TENANT, we MUST enforce clientUserId to ensure embedded signing
+            let clientUserId = recipient.userId ? String(recipient.userId) : undefined;
+            // Also ensure the DB record has the correct userId if it's the tenant
+            let dbUserId = recipient.userId;
+
+            if ((recipient.role === 'TENANT' || recipient.role === 'SIGNER') && lease.tenant) {
+              // If existing userId is not set or doesn't match, force it to the tenant's ID
+              // This ensures they are treated as an embedded signer
+              if (!clientUserId || clientUserId !== String(lease.tenant.id)) {
+                clientUserId = String(lease.tenant.id);
+                this.logger.log(`Forcing embedded signing for tenant: clientUserId=${clientUserId}`);
+              }
+              // KEY FIX: Ensure the DB record also has this userId, so subsequent lookups (like creating recipient view) work!
+              if (!dbUserId || dbUserId !== Number(lease.tenant.id)) {
+                dbUserId = Number(lease.tenant.id);
+              }
+            }
+
             return {
               name: recipient.name,
-              email: email,
+              email: recipient.email,
               phone: recipient.phone,
               role: recipient.role,
-              userId: recipient.userId,
+              userId: dbUserId, // Use the enforced userId
               status: EsignParticipantStatus.SENT,
+              // We don't store clientUserId in the DB directly, but we use it when creating the envelope
               recipientId: providerResponse.recipients.find((entry) => entry.email === email)?.recipientId,
             };
           }),
@@ -806,11 +835,33 @@ export class EsignatureService {
     if (user.role === Role.TENANT) {
       const isLeaseTenant = envelope.lease.tenantId === user.userId;
       const isParticipant = envelope.participants.some(
-        (p) => p.userId === user.userId || (userEmail && p.email === userEmail),
+        (p) => p.userId === user.userId || (userEmail && p.email && p.email.toLowerCase() === userEmail.toLowerCase()),
       );
 
       if (!isLeaseTenant && !isParticipant) {
-        throw new ForbiddenException('You are not assigned to this envelope. Please contact support if you believe this is an error.');
+        const debugInfo = {
+          time: new Date().toISOString(),
+          envelopeId,
+          userId: user.userId,
+          userRole: user.role,
+          userEmail,
+          leaseTenantId: envelope.lease.tenantId,
+          participants: envelope.participants.map(p => ({
+            id: p.id,
+            userId: p.userId,
+            email: p.email
+          }))
+        };
+
+        // Log to file for AI agent retrieval
+        try {
+          const fs = require('fs');
+          fs.appendFileSync('debug-auth.log', JSON.stringify(debugInfo, null, 2) + '\n---\n');
+        } catch (e) { console.error('Failed to write debug log', e); }
+
+        this.logger.warn(`Authorization failed for envelope ${envelopeId}. User: ${JSON.stringify(user)}, LeaseTenant: ${envelope.lease.tenantId}, UserEmail: ${userEmail}`);
+        this.logger.warn(`Participants: ${JSON.stringify(envelope.participants.map(p => ({ id: p.id, userId: p.userId, email: p.email })))}`);
+        throw new ForbiddenException('You are not authorized to sign this document. Please contact support if you believe this is an error.');
       }
     }
 
@@ -1016,7 +1067,12 @@ export class EsignatureService {
     const accessToken = await this.ensureValidToken();
     const accountId = this.configService.get<string>('ESIGN_PROVIDER_ACCOUNT_ID');
 
+    const isStrict = this.configService.get<string>('ESIGN_STRICT_MODE') === 'true';
+
     // if (!basePath || !accessToken || !accountId) {
+    //   if (isStrict) {
+    //      throw new Error("DocuSign configuration incomplete and strict mode is enabled.");
+    //   }
     //   this.logger.warn('DocuSign configuration incomplete, using mock envelope');
     //   return this.createMockEnvelopeResponse(dto);
     // }
@@ -1132,6 +1188,10 @@ export class EsignatureService {
       }
 
       // Fallback to mock envelope
+      if (this.configService.get<string>('ESIGN_STRICT_MODE') === 'true') {
+        this.logger.error(`Strict mode enabled. Aborting envelope creation due to DocuSign error: ${parsedError.message}`);
+        throw new Error(`E-signature provider error: ${parsedError.message}`);
+      }
       this.logger.warn(`Using mock envelope due to error: ${parsedError.message}`);
       return this.createMockEnvelopeResponse(dto);
     }
@@ -1241,7 +1301,21 @@ export class EsignatureService {
         signer.name = recipient.name;
         signer.recipientId = recipientId;
         signer.routingOrder = routingOrder;
-        signer.clientUserId = recipient.userId ? String(recipient.userId) : undefined;
+        signer.recipientId = recipientId;
+        signer.routingOrder = routingOrder;
+
+        // Use the enforced clientUserId logic we discussed
+        // If it's a tenant, we want them embedded.
+        if (recipient.role === 'TENANT') {
+          // For tenants, we default to their User ID if available, or a deterministic fallback
+          signer.clientUserId = recipient.userId ? String(recipient.userId) : (lease.tenantId ? String(lease.tenantId) : undefined);
+          if (!signer.clientUserId) {
+            // Warning: Embedded signing requires clientUserId. If missing, they will get an email.
+            this.logger.warn(`Tenant recipient ${recipient.email} missing userId, defaulting to email flow.`);
+          }
+        } else {
+          signer.clientUserId = recipient.userId ? String(recipient.userId) : undefined;
+        }
 
         // Add signature tabs
         const signHere = new (docusign as any).SignHere();
@@ -1465,6 +1539,9 @@ export class EsignatureService {
   /**
    * Requests a recipient view URL from DocuSign using the SDK
    */
+  /**
+   * Requests a recipient view URL from DocuSign using the SDK
+   */
   private async requestDocuSignRecipientView(
     envelope: EsignEnvelope,
     recipientId: string,
@@ -1475,7 +1552,7 @@ export class EsignatureService {
 
     if (!basePath || !accountId) {
       this.logger.warn('DocuSign configuration incomplete, using fallback URL');
-      return `${returnUrl}?envelope=${envelope.providerEnvelopeId}&recipient=${recipientId}`;
+      return `${returnUrl}?envelope=${envelope.providerEnvelopeId}&recipient=${recipientId}&error=config_error`;
     }
 
     // Get participant from database to get email and name
@@ -1488,12 +1565,14 @@ export class EsignatureService {
 
     if (!participant) {
       this.logger.error(`Participant not found for envelope ${envelope.id} with recipientId ${recipientId}`);
-      throw new NotFoundException(`Recipient not found for this envelope`);
+      // Return a safe fallback that will show "Invalid Recipient" on frontend
+      return `${returnUrl}?envelope=${envelope.providerEnvelopeId}&recipient=${recipientId}&error=invalid_recipient`;
     }
 
     if (!participant.email) {
       this.logger.error(`Participant ${participant.id} has no email address`);
-      throw new BadRequestException('Recipient email is required for signing');
+      // Return a safe fallback
+      return `${returnUrl}?envelope=${envelope.providerEnvelopeId}&recipient=${recipientId}&error=missing_email`;
     }
 
     try {
@@ -1508,7 +1587,6 @@ export class EsignatureService {
       const dsApiClient = new docusign.ApiClient();
       dsApiClient.setBasePath(basePath);
       dsApiClient.addDefaultHeader('Authorization', `Bearer ${accessToken}`);
-      const envelopesApi = new docusign.EnvelopesApi(dsApiClient);
 
       // Create recipient view request with required fields
       // We construct the payload manually to use with axios
@@ -1523,7 +1601,7 @@ export class EsignatureService {
 
       // Request the recipient view using direct HTTP call
       const fullUrl = `${basePath}/accounts/${accountId}/envelopes/${envelope.providerEnvelopeId}/views/recipient`;
-      this.logger.log(`Requesting recipient view at: ${fullUrl}`);
+      this.logger.log(`Requesting recipient view at: ${fullUrl} for user ${participant.email} (ClientUserID: ${viewRequest.clientUserId})`);
 
       const response = await axios.post(
         fullUrl,
@@ -1557,6 +1635,13 @@ export class EsignatureService {
         errorParam = 'invalid_recipient';
       } else if (parsedError.code === 'TOKEN_EXPIRED' || parsedError.message.includes('token')) {
         errorParam = 'token_expired';
+      } else if (parsedError.code === 'UNKNOWN_ENVELOPE_RECIPIENT') {
+        // This often happens if clientUserId doesn't match what was sent during envelope creation
+        errorParam = 'recipient_mismatch';
+        this.logger.warn('Possible clientUserId mismatch. Ensure the user ID matches what was used to create the envelope.');
+      } else if (parsedError.code === 'ENVELOPE_INVALID_STATUS') {
+        // Envelope might be voided or completed
+        errorParam = 'envelope_status_invalid';
       }
 
       // Fallback to a URL that will show an error message

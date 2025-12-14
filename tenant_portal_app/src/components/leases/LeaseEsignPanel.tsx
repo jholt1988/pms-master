@@ -10,6 +10,7 @@ import {
   downloadSignedDocument,
   downloadCertificate,
   getEnvelope,
+  createRecipientView,
 } from '../../services/EsignatureApi';
 import { EnvelopeDetailsModal } from './EnvelopeDetailsModal';
 import { Button } from '@nextui-org/react';
@@ -112,7 +113,25 @@ export const LeaseEsignPanel: React.FC<LeaseEsignPanelProps> = ({
     try {
       const envelope = await createEnvelope(token, leaseId, payload);
       onEnvelopeCreated?.(envelope);
-      setFeedback('Signature packet sent successfully.');
+      setFeedback('Signature packet created successfully.');
+
+      // Attempt immediate embedded signing if the tenant is a signer
+      const tenantRecipient = envelope.participants.find(p => p.role === 'TENANT' || p.role === 'SIGNER');
+      if (tenantRecipient && tenantId && (tenantRecipient.userId === tenantId || tenantRecipient.email === tenantEmail)) {
+        setFeedback('Redirecting to signing session...');
+        const currentUrl = window.location.href;
+        const returnUrl = currentUrl.includes('?') ? `${currentUrl}&signed=true` : `${currentUrl}?signed=true`;
+
+        try {
+          const signingUrl = await createRecipientView(token, envelope.id, returnUrl);
+          window.location.href = signingUrl;
+          return; // Stop here, page will redirect
+        } catch (signError) {
+          console.error('Failed to get embedded signing URL:', signError);
+          setFeedback('Envelope created, but failed to start signing session. Please check your email.');
+        }
+      }
+
       setTemplateId('');
       setMessage('');
       setAdditionalRecipients([]);
