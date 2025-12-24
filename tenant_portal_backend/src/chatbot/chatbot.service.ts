@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import OpenAI from 'openai';
+import axios from 'axios';
 import { randomUUID } from 'crypto';
 import {
   routePropertyOpsOrchestrator,
@@ -32,11 +33,25 @@ export interface ChatbotSession {
   updatedAt: Date;
 }
 
+interface RagServiceResponse {
+  session_id: string;
+  intent: string;
+  workflow?: string | null;
+  response: Record<string, any>;
+  documents: string[];
+  history_length?: number;
+}
+
 export interface ChatbotResponse {
   message: string;
   sessionId: string;
   intent?: string;
   confidence?: number;
+  rag_session_id?: string;
+  rag_intent?: string;
+  rag_workflow?: string | null;
+  rag_documents?: string[];
+  rag_response?: Record<string, any>;
   suggestedActions?: Array<{
     label: string;
     action: string;
@@ -52,6 +67,9 @@ export class ChatbotService {
   private openai: OpenAI | null = null;
   private readonly aiEnabled: boolean;
   private readonly propertyOpsOrchestratorEnabled: boolean;
+  private readonly ragEnabled: boolean;
+  private readonly ragServiceUrl: string;
+  private readonly ragTimeoutMs: number;
   private readonly sessions: Map<string, ChatbotSession> = new Map();
 
   constructor(
@@ -65,9 +83,15 @@ export class ChatbotService {
       'AI_PROPERTY_OPS_ORCHESTRATOR_ENABLED',
       'true',
     ) === 'true';
+    const ragEnabled = this.configService.get<string>('AI_RAG_ENABLED', 'false') === 'true';
+    const ragServiceUrl = this.configService.get<string>('AI_RAG_SERVICE_URL', 'http://localhost:9000');
+    const ragTimeoutMs = Number(this.configService.get<string>('AI_RAG_TIMEOUT_MS', '2500'));
 
     this.aiEnabled = aiEnabled && chatbotEnabled;
     this.propertyOpsOrchestratorEnabled = orchestratorEnabled;
+    this.ragEnabled = ragEnabled;
+    this.ragServiceUrl = ragServiceUrl;
+    this.ragTimeoutMs = Number.isFinite(ragTimeoutMs) ? ragTimeoutMs : 2500;
 
     if (this.aiEnabled && apiKey) {
       this.openai = new OpenAI({ apiKey });
@@ -75,6 +99,12 @@ export class ChatbotService {
     } else {
       this.logger.warn(
         'Chatbot Service initialized in mock mode (no OpenAI API key or AI disabled)',
+      );
+    }
+
+    if (this.ragEnabled) {
+      this.logger.log(
+        `RAG service integration enabled. URL: ${this.ragServiceUrl}, timeout: ${this.ragTimeoutMs}ms`,
       );
     }
   }
@@ -89,6 +119,7 @@ export class ChatbotService {
   ): Promise<ChatbotResponse> {
     const startTime = Date.now();
     let user: any;
+    let ragPayload: RagServiceResponse | null = null;
 
     try {
       // Pull user context early for routing + prompts.
@@ -117,6 +148,10 @@ export class ChatbotService {
         timestamp: new Date(),
       });
 
+      if (this.ragEnabled) {
+        ragPayload = await this.fetchRagResponse(userId, message);
+      }
+
       // Generate AI response
       let aiResponse: string;
       let intent: string | undefined;
@@ -126,14 +161,23 @@ export class ChatbotService {
       const traceId = this.generateTraceId();
 
       if (this.openai && this.aiEnabled) {
-        const response = await this.generateAIResponse(session, message, user);
+        const response = await this.generateAIResponse(
+          session,
+          message,
+          user,
+          ragPayload ? this.buildRagContext(ragPayload) : undefined,
+        );
         aiResponse = response.content;
         intent = response.intent;
         confidence = response.confidence;
       } else {
         // Fallback to simple responses
-        aiResponse = this.generateFallbackResponse(message);
+        aiResponse = ragPayload?.response?.content || this.generateFallbackResponse(message);
         confidence = 0.5;
+      }
+
+      if (!intent && ragPayload?.intent) {
+        intent = ragPayload.intent;
       }
 
       orchestrator = routePropertyOpsOrchestrator({
@@ -202,13 +246,21 @@ export class ChatbotService {
       });
 
       // Generate suggested actions based on intent
-      const suggestedActions = this.generateSuggestedActions(intent, message);
+      const suggestedActions = this.mergeSuggestedActions([
+        ...(ragPayload?.workflow ? this.generateWorkflowActions(ragPayload.workflow) : []),
+        ...this.generateSuggestedActions(intent, message),
+      ]);
 
       return {
         message: aiResponse,
         sessionId: session.id,
         intent,
         confidence,
+        rag_session_id: ragPayload?.session_id,
+        rag_intent: ragPayload?.intent,
+        rag_workflow: ragPayload?.workflow,
+        rag_documents: ragPayload?.documents,
+        rag_response: ragPayload?.response,
         suggestedActions,
         orchestrator,
         orchestrator_run: orchestratorRun,
@@ -241,6 +293,7 @@ export class ChatbotService {
     session: ChatbotSession,
     userMessage: string,
     userContext?: any,
+    ragContext?: string,
   ): Promise<{ content: string; intent?: string; confidence?: number }> {
     if (!this.openai) {
       throw new Error('OpenAI client not initialized');
@@ -281,6 +334,10 @@ Be friendly, professional, and concise. Provide actionable information when poss
 - Property: ${user.lease.unit?.property?.name || 'N/A'}
 - Unit: ${user.lease.unit?.unitNumber || 'N/A'}
 - Rent: $${user.lease.rentAmount || 0}/month`;
+    }
+
+    if (ragContext) {
+      systemPrompt += `\n\nKnowledge base context:\n${ragContext}`;
     }
 
     // Build conversation history (last 10 messages for context)
@@ -326,6 +383,21 @@ Be friendly, professional, and concise. Provide actionable information when poss
       intent,
       confidence: 0.9, // High confidence for AI responses
     };
+  }
+
+  private buildRagContext(ragPayload: RagServiceResponse): string {
+    const sections: string[] = [];
+    if (ragPayload.documents?.length) {
+      sections.push(`Relevant documents: ${ragPayload.documents.join(', ')}`);
+    }
+    const ragContent = ragPayload.response?.content;
+    if (ragContent) {
+      sections.push(`Draft response: ${ragContent}`);
+    }
+    if (ragPayload.workflow) {
+      sections.push(`Suggested workflow: ${ragPayload.workflow}`);
+    }
+    return sections.join('\n');
   }
 
   /**
@@ -400,6 +472,39 @@ Be friendly, professional, and concise. Provide actionable information when poss
     return actions;
   }
 
+  private generateWorkflowActions(
+    workflow: string,
+  ): Array<{ label: string; action: string; params?: Record<string, any> }> {
+    switch (workflow) {
+      case 'maintenance_request':
+        return [
+          { label: 'Submit Maintenance Request', action: 'navigate', params: { path: '/maintenance/new' } },
+        ];
+      case 'rent_reminder':
+        return [{ label: 'View Payments', action: 'navigate', params: { path: '/payments' } }];
+      case 'renewal_offer':
+        return [{ label: 'View Lease', action: 'navigate', params: { path: '/lease' } }];
+      default:
+        return [];
+    }
+  }
+
+  private mergeSuggestedActions(
+    actions: Array<{ label: string; action: string; params?: Record<string, any> }>,
+  ): Array<{ label: string; action: string; params?: Record<string, any> }> {
+    const seen = new Set<string>();
+    const merged: Array<{ label: string; action: string; params?: Record<string, any> }> = [];
+    for (const action of actions) {
+      const key = JSON.stringify({ action: action.action, params: action.params });
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      merged.push(action);
+    }
+    return merged;
+  }
+
   /**
    * Generate fallback response when AI is not available
    */
@@ -419,6 +524,22 @@ Be friendly, professional, and concise. Provide actionable information when poss
     }
 
     return 'I\'m here to help! I can assist you with maintenance requests, payments, lease questions, and more. What would you like to know?';
+  }
+
+  private async fetchRagResponse(userId: string, message: string): Promise<RagServiceResponse | null> {
+    try {
+      const response = await axios.post<RagServiceResponse>(
+        `${this.ragServiceUrl}/message`,
+        { user_id: userId, message },
+        { timeout: this.ragTimeoutMs },
+      );
+      return response.data;
+    } catch (error: any) {
+      this.logger.warn('RAG service request failed; continuing without RAG context', {
+        error: error?.message ?? String(error),
+      });
+      return null;
+    }
   }
 
   /**
