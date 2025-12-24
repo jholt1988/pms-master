@@ -11,6 +11,14 @@ describe('SmsService', () => {
   };
 
   beforeEach(async () => {
+    mockConfigService.get.mockImplementation((key: string, defaultValue?: string) => {
+      const config: Record<string, string> = {
+        SMS_ENABLED: 'true',
+        SMS_PROVIDER: 'MOCK',
+      };
+      return config[key] ?? defaultValue;
+    });
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SmsService,
@@ -27,16 +35,6 @@ describe('SmsService', () => {
   });
 
   describe('sendSms', () => {
-    beforeEach(() => {
-      mockConfigService.get.mockImplementation((key: string, defaultValue?: string) => {
-        const config: Record<string, string> = {
-          SMS_ENABLED: 'true',
-          SMS_PROVIDER: 'MOCK',
-        };
-        return config[key] || defaultValue;
-      });
-    });
-
     it('should return error if phone number is empty', async () => {
       const result = await service.sendSms('', 'Test message');
 

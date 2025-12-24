@@ -13,8 +13,10 @@ import {
   HttpException,
   HttpStatus,
   Patch,
+  BadRequestException,
 } from '@nestjs/common';
 import { ToursService } from './tours.service';
+import { isUUID } from 'class-validator';
 
 @Controller('api/tours')
 export class ToursController {
@@ -43,10 +45,17 @@ export class ToursController {
         );
       }
 
+      if (!isUUID(propertyId)) {
+        throw new HttpException('Invalid propertyId', HttpStatus.BAD_REQUEST);
+      }
+      if (unitId && !isUUID(unitId)) {
+        throw new HttpException('Invalid unitId', HttpStatus.BAD_REQUEST);
+      }
+
       const tour = await this.toursService.scheduleTour({
         leadId,
-        propertyId: parseInt(propertyId, 10),
-        unitId: unitId ? parseInt(unitId, 10) : undefined,
+        propertyId,
+        unitId: unitId || undefined,
         scheduledDate: new Date(preferredDate),
         scheduledTime: preferredTime,
         notes,
@@ -128,7 +137,12 @@ export class ToursController {
     try {
       const filters: any = {};
 
-      if (propertyId) filters.propertyId = parseInt(propertyId, 10);
+      if (propertyId) {
+        if (!isUUID(propertyId)) {
+          throw new BadRequestException('Invalid propertyId');
+        }
+        filters.propertyId = propertyId;
+      }
       if (status) filters.status = status;
       if (dateFrom) filters.dateFrom = new Date(dateFrom);
       if (dateTo) filters.dateTo = new Date(dateTo);
@@ -186,13 +200,16 @@ export class ToursController {
   @Patch(':id/assign')
   async assignTour(
     @Param('id') id: string,
-    @Body() body: { userId: number },
+    @Body() body: { userId: string },
   ) {
     try {
       const { userId } = body;
 
       if (!userId) {
         throw new HttpException('User ID is required', HttpStatus.BAD_REQUEST);
+      }
+      if (!isUUID(userId)) {
+        throw new HttpException('Invalid userId', HttpStatus.BAD_REQUEST);
       }
 
       const tour = await this.toursService.assignTour(id, userId);

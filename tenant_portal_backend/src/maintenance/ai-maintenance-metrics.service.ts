@@ -169,4 +169,3 @@ export class AIMaintenanceMetricsService {
     return this.metrics.slice(-count);
   }
 }
-

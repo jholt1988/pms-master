@@ -151,12 +151,18 @@ describe('AuthController', () => {
         username: testData.email(),
         password: 'SecurePass@123',
         role: Role.TENANT,
+        email: testData.email(),
+        firstName: 'Testy',
+        lastName: 'McTest',
       };
 
       const mockRegisterResponse = {
         id: 5,
         username: registerDto.username,
         role: registerDto.role,
+        email: registerDto.email,
+        firstName: registerDto.firstName,
+        lastName: registerDto.lastName,
       };
 
       mockAuthService.register.mockResolvedValue(mockRegisterResponse);

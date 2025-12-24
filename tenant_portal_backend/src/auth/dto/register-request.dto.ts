@@ -3,6 +3,14 @@ import { Role } from '@prisma/client';
 
 export class RegisterRequestDto {
   @IsString()
+  @MinLength(1)
+  firstName!: string;
+
+  @IsString()
+  @MinLength(1)
+  lastName!: string;
+
+  @IsString()
   username!: string;
 
   @IsString()

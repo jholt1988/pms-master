@@ -24,8 +24,9 @@ export class BulkMessagingService {
     });
   }
 
-  async previewBulkMessage(dto: CreateBulkMessageDto, creatorId: number) {
-    const recipients = await this.resolveRecipients(dto.filters, dto.recipientIds, creatorId);
+  async previewBulkMessage(dto: CreateBulkMessageDto, creatorId: string | number) {
+    const creatorIdStr = String(creatorId);
+    const recipients = await this.resolveRecipients(dto.filters, dto.recipientIds, creatorIdStr);
     if (!recipients.length) {
       throw new BadRequestException('No recipients match the selected filters');
     }
@@ -41,8 +42,9 @@ export class BulkMessagingService {
     };
   }
 
-  async queueBulkMessage(dto: CreateBulkMessageDto, creatorId: number) {
-    const recipients = await this.resolveRecipients(dto.filters, dto.recipientIds, creatorId);
+  async queueBulkMessage(dto: CreateBulkMessageDto, creatorId: string | number) {
+    const creatorIdStr = String(creatorId);
+    const recipients = await this.resolveRecipients(dto.filters, dto.recipientIds, creatorIdStr);
     if (!recipients.length) {
       throw new BadRequestException('No recipients match the selected filters');
     }
@@ -68,7 +70,7 @@ export class BulkMessagingService {
         filters: dto.filters ? (dto.filters as Prisma.JsonObject) : undefined,
         metadata: dto.mergeFields ? (dto.mergeFields as Prisma.JsonObject) : undefined,
         templateId: dto.templateId,
-        creatorId,
+        creatorId: creatorIdStr,
       },
     });
 
@@ -348,10 +350,10 @@ export class BulkMessagingService {
 
   private async resolveRecipients(
     filters: RecipientFilterDto | undefined,
-    recipientIds: number[] | undefined,
-    creatorId: number,
+    recipientIds: string[] | undefined,
+    creatorId: string,
   ) {
-    const ids = new Set<number>(recipientIds ?? []);
+    const ids = new Set<string>(recipientIds ?? []);
     const where: Prisma.UserWhereInput = {};
 
     if (filters?.roles?.length) {
@@ -366,10 +368,12 @@ export class BulkMessagingService {
       });
     }
 
-    if (filters?.propertyIds?.length || filters?.leaseStatuses?.length) {
+    const normalizedPropertyIds =
+      filters?.propertyIds?.map((id) => Number(id)).filter(Number.isFinite) ?? [];
+    if (normalizedPropertyIds.length || filters?.leaseStatuses?.length) {
       const leaseFilter: Prisma.LeaseWhereInput = {};
-      if (filters.propertyIds?.length) {
-        leaseFilter.unit = { propertyId: { in: filters.propertyIds } };
+      if (normalizedPropertyIds.length) {
+        leaseFilter.unit = { propertyId: { in: normalizedPropertyIds } };
       }
       if (filters.leaseStatuses?.length) {
         leaseFilter.status = { in: filters.leaseStatuses };
@@ -403,10 +407,11 @@ export class BulkMessagingService {
         })
       : [];
 
-    const combined = new Map<number, any>();
+    const combined = new Map<string, any>();
     for (const user of [...filterResults, ...directRecipients]) {
-      if (user.id === creatorId) continue;
-      combined.set(user.id, user);
+      const userId = String(user.id);
+      if (userId === creatorId) continue;
+      combined.set(userId, user);
     }
 
     return Array.from(combined.values()).map((user) => ({ user }));

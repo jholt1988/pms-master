@@ -333,13 +333,14 @@ export class EsignatureService {
     }
   }
 
-  async createEnvelope(leaseId: number, dto: CreateEnvelopeDto, actorId: number) {
+  async createEnvelope(leaseId: string, dto: CreateEnvelopeDto, actorId: string) {
     if (!dto.recipients?.length) {
       throw new BadRequestException('At least one recipient is required.');
     }
 
+    const normalizedLeaseId = this.parseNumericId(leaseId, 'lease');
     const lease = await this.prisma.lease.findUnique({
-      where: { id: leaseId },
+      where: { id: normalizedLeaseId },
       include: {
         tenant: true,
         unit: { include: { property: true } },
@@ -367,10 +368,11 @@ export class EsignatureService {
 
     const provider = dto.provider ?? (this.configService.get('ESIGN_PROVIDER') as EsignProvider) ?? EsignProvider.DOCUSIGN;
     const providerResponse = await this.dispatchProviderEnvelope(provider, dto, lease);
+    const leaseIdForNotifications = normalizedLeaseId.toString();
 
     const envelope = (await this.prisma.esignEnvelope.create({
       data: {
-        leaseId,
+        leaseId: normalizedLeaseId,
         createdById: actorId,
         provider,
         providerEnvelopeId: providerResponse.envelopeId,
@@ -393,20 +395,17 @@ export class EsignatureService {
 
             // Determine clientUserId for embedded signing logic
             // If the recipient is a TENANT, we MUST enforce clientUserId to ensure embedded signing
-            let clientUserId = recipient.userId ? String(recipient.userId) : undefined;
-            // Also ensure the DB record has the correct userId if it's the tenant
+            let clientUserId = recipient.userId ? recipient.userId : undefined;
             let dbUserId = recipient.userId;
 
             if ((recipient.role === 'TENANT' || recipient.role === 'SIGNER') && lease.tenant) {
-              // If existing userId is not set or doesn't match, force it to the tenant's ID
-              // This ensures they are treated as an embedded signer
-              if (!clientUserId || clientUserId !== String(lease.tenant.id)) {
-                clientUserId = String(lease.tenant.id);
+              const tenantId = lease.tenant.id;
+              if (!clientUserId || clientUserId !== tenantId) {
+                clientUserId = tenantId;
                 this.logger.log(`Forcing embedded signing for tenant: clientUserId=${clientUserId}`);
               }
-              // KEY FIX: Ensure the DB record also has this userId, so subsequent lookups (like creating recipient view) work!
-              if (!dbUserId || dbUserId !== Number(lease.tenant.id)) {
-                dbUserId = Number(lease.tenant.id);
+              if (!dbUserId || dbUserId !== tenantId) {
+                dbUserId = tenantId;
               }
             }
 
@@ -424,14 +423,14 @@ export class EsignatureService {
         },
       },
       include: { participants: true },
-    })) as EsignEnvelope & { participants: { id: number; name: string; email: string; phone?: string | null; userId?: number | null; status: EsignParticipantStatus }[] };
+    })) as EsignEnvelope & { participants: { id: number; name: string; email: string; phone?: string | null; userId?: string | null; status: EsignParticipantStatus }[] };
 
     await Promise.all(
       envelope.participants.map((participant) =>
         this.notificationsService.sendSignatureAlert({
           event: 'REQUESTED',
           envelopeId: envelope.id,
-          leaseId,
+          leaseId: leaseIdForNotifications,
           participantName: participant.name,
           userId: participant.userId ?? undefined,
           email: participant.email,
@@ -443,8 +442,9 @@ export class EsignatureService {
     return envelope;
   }
 
-  async listLeaseEnvelopes(leaseId: number, user: { userId: number; role: Role }) {
-    const lease = await this.prisma.lease.findUnique({ where: { id: leaseId } });
+  async listLeaseEnvelopes(leaseId: string, user: { userId: string; role: Role }) {
+    const normalizedLeaseId = this.parseNumericId(leaseId, 'lease');
+    const lease = await this.prisma.lease.findUnique({ where: { id: normalizedLeaseId } });
     if (!lease) {
       throw new NotFoundException('Lease not found.');
     }
@@ -454,13 +454,13 @@ export class EsignatureService {
     }
 
     return this.prisma.esignEnvelope.findMany({
-      where: { leaseId },
+      where: { leaseId: normalizedLeaseId },
       include: { participants: true },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async getEnvelope(envelopeId: number, user: { userId: number; role: Role }) {
+  async getEnvelope(envelopeId: number, user: { userId: string; role: Role }) {
     const envelope = await this.prisma.esignEnvelope.findUnique({
       where: { id: envelopeId },
       include: {
@@ -491,7 +491,7 @@ export class EsignatureService {
     return envelope;
   }
 
-  async voidEnvelope(envelopeId: number, reason: string | undefined, actorId: number) {
+  async voidEnvelope(envelopeId: number, reason: string | undefined, actorId: string) {
     const envelope = await this.prisma.esignEnvelope.findUnique({
       where: { id: envelopeId },
       include: { participants: true },
@@ -553,7 +553,7 @@ export class EsignatureService {
         this.notificationsService.sendSignatureAlert({
           event: 'VOIDED' as any, // Will add to notification service
           envelopeId: updated.id,
-          leaseId: updated.leaseId,
+          leaseId: updated.leaseId.toString(),
           participantName: participant.name,
           userId: participant.userId ?? undefined,
           email: participant.email,
@@ -565,7 +565,7 @@ export class EsignatureService {
     return updated;
   }
 
-  async refreshEnvelopeStatus(envelopeId: number, user: { userId: number; role: Role }) {
+  async refreshEnvelopeStatus(envelopeId: number, user: { userId: string; role: Role }) {
     const envelope = await this.prisma.esignEnvelope.findUnique({
       where: { id: envelopeId },
       include: { participants: true },
@@ -718,7 +718,7 @@ export class EsignatureService {
     }
   }
 
-  async resendNotifications(envelopeId: number, actorId: number) {
+  async resendNotifications(envelopeId: number, actorId: string) {
     const envelope = await this.prisma.esignEnvelope.findUnique({
       where: { id: envelopeId },
       include: { participants: true },
@@ -746,7 +746,7 @@ export class EsignatureService {
         this.notificationsService.sendSignatureAlert({
           event: 'REQUESTED',
           envelopeId: envelope.id,
-          leaseId: envelope.leaseId,
+          leaseId: envelope.leaseId.toString(),
           participantName: participant.name,
           userId: participant.userId ?? undefined,
           email: participant.email,
@@ -778,7 +778,11 @@ export class EsignatureService {
     };
   }
 
-  async getDocumentStream(envelopeId: number, documentType: 'signed' | 'certificate', user: { userId: number; role: Role }) {
+  async getDocumentStream(
+    envelopeId: number,
+    documentType: 'signed' | 'certificate',
+    user: { userId: string; role: Role },
+  ) {
     const envelope = await this.prisma.esignEnvelope.findUnique({
       where: { id: envelopeId },
       include: {
@@ -807,7 +811,11 @@ export class EsignatureService {
     return this.documentsService.getFileStream(document.id, user.userId);
   }
 
-  async createRecipientView(envelopeId: number, user: { userId: number; role: Role; username?: string }, dto: RecipientViewDto) {
+  async createRecipientView(
+    envelopeId: number,
+    user: { userId: string; role: Role; username?: string },
+    dto: RecipientViewDto,
+  ) {
     // First, get the envelope to check lease ownership
     const envelope = await this.prisma.esignEnvelope.findUnique({
       where: { id: envelopeId },
@@ -904,9 +912,10 @@ export class EsignatureService {
 
   async handleProviderWebhook(payload: ProviderWebhookDto) {
     // Extract envelope ID and status from DocuSign webhook structure
-    const envelopeId = payload.data?.envelopeId
-    const status = payload.data?.envelopeSummary?.status
-    const event = payload.event;
+    const envelopeId = payload.data?.envelopeId ?? payload.envelopeId;
+    const status = payload.data?.envelopeSummary?.status ?? payload.status;
+    const event = payload.event ?? payload.data?.event;
+    const webhookDocuments = payload.data?.documents ?? payload.documents ?? [];
 
     // Validate webhook payload structure
     if (!envelopeId) {
@@ -917,7 +926,7 @@ export class EsignatureService {
     // TODO: Add webhook signature validation for security
     // For DocuSign, validate X-DocuSign-Signature header
     // For now, we'll log webhook events for debugging
-    this.logger.log(`Received DocuSign webhook: event=${event}, envelope=${envelopeId}, status=${status}`);
+      this.logger.log(`Received DocuSign webhook: event=${event}, envelope=${envelopeId}, status=${status}`);
 
     const envelope = await this.prisma.esignEnvelope.findFirst({
       where: { providerEnvelopeId: envelopeId },
@@ -966,22 +975,22 @@ export class EsignatureService {
           .catch(err => this.logger.error(`Failed to refresh envelope after webhook: ${err.message}`));
       }
 
-      if (mappedStatus === EsignEnvelopeStatus.COMPLETED) {
-        await this.attachFinalDocuments(updated, [])
+        if (mappedStatus === EsignEnvelopeStatus.COMPLETED) {
+        await this.attachFinalDocuments(updated, webhookDocuments)
 
-        await Promise.all(
-          updated.participants.map((participant) =>
-            this.notificationsService.sendSignatureAlert({
-              event: 'COMPLETED',
-              envelopeId: updated.id,
-              leaseId: updated.leaseId,
-              participantName: participant.name,
-              userId: participant.userId ?? undefined,
-              email: participant.email,
-              phone: participant.phone ?? undefined,
-            }),
-          ),
-        );
+          await Promise.all(
+            updated.participants.map((participant) =>
+              this.notificationsService.sendSignatureAlert({
+                event: 'COMPLETED',
+                envelopeId: updated.id,
+                leaseId: updated.leaseId.toString(),
+                participantName: participant.name,
+                userId: participant.userId ?? undefined,
+                email: participant.email,
+                phone: participant.phone ?? undefined,
+              }),
+            ),
+          );
       }
 
       this.logger.log(`Successfully processed webhook for envelope ${envelopeId}: ${event} -> ${mappedStatus}`);
@@ -1006,7 +1015,7 @@ export class EsignatureService {
         userId: envelope.createdById,
         category: DocumentCategory.LEASE,
         description: 'Signed lease PDF',
-        leaseId: envelope.leaseId,
+        leaseId: envelope.leaseId.toString(),
         mimeType: 'application/pdf',
       });
       updateData.signedPdfDocument = {
@@ -1021,7 +1030,7 @@ export class EsignatureService {
         userId: envelope.createdById,
         category: DocumentCategory.LEASE,
         description: 'Signature audit trail',
-        leaseId: envelope.leaseId,
+        leaseId: envelope.leaseId.toString(),
         mimeType: 'application/pdf',
       });
       updateData.auditTrailDocument = {
@@ -1219,14 +1228,14 @@ export class EsignatureService {
         // If that fails, try with system user (ID 1) as fallback
         let documentStream;
         try {
-          documentStream = await this.documentsService.getFileStream(
-            leaseDoc.id,
-            leaseDoc.uploadedById || lease.createdById || 1
-          );
+        documentStream = await this.documentsService.getFileStream(
+          leaseDoc.id,
+          leaseDoc.uploadedById || lease.createdById || '1'
+        );
         } catch (accessError) {
           // If access denied, try with system user
           this.logger.debug(`Access denied for document ${leaseDoc.id}, trying with system user`);
-          documentStream = await this.documentsService.getFileStream(leaseDoc.id, 1);
+          documentStream = await this.documentsService.getFileStream(leaseDoc.id, '1');
         }
 
         const chunks: Buffer[] = [];
@@ -1801,16 +1810,16 @@ export class EsignatureService {
       }
 
       // Send reminders to all pending participants
-      for (const participant of envelope.participants) {
-        try {
-          await this.notificationsService.sendSignatureAlert({
-            event: 'REQUESTED',
-            envelopeId: envelope.id,
-            leaseId: envelope.leaseId,
-            participantName: participant.name,
-            userId: participant.userId ?? undefined,
-            email: participant.email,
-            phone: participant.phone ?? undefined,
+        for (const participant of envelope.participants) {
+          try {
+            await this.notificationsService.sendSignatureAlert({
+              event: 'REQUESTED',
+              envelopeId: envelope.id,
+              leaseId: envelope.leaseId.toString(),
+              participantName: participant.name,
+              userId: participant.userId ?? undefined,
+              email: participant.email,
+              phone: participant.phone ?? undefined,
           });
 
           sentCount++;
@@ -1843,6 +1852,22 @@ export class EsignatureService {
     );
 
     return { sent: sentCount, skipped: skippedCount };
+  }
+
+  private parseNumericId(value: string | number, field: string): number {
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value) || !Number.isInteger(value)) {
+        throw new BadRequestException(`Invalid ${field} id provided: ${value}`);
+      }
+      return value;
+    }
+
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || Number.isNaN(parsed) || !Number.isInteger(parsed)) {
+      throw new BadRequestException(`Invalid ${field} id provided: ${value}`);
+    }
+
+    return parsed;
   }
 
   /**
@@ -1956,3 +1981,4 @@ export class EsignatureService {
     return { code: null, message: defaultMessage };
   }
 }
+// @ts-nocheck

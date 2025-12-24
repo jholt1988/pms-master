@@ -89,12 +89,12 @@ describe('Concurrent Operations (e2e)', () => {
 
       // Simulate concurrent updates
       const update1 = request(app.getHttpServer())
-        .patch(`/api/lease/${lease.id}`)
+        .patch(`/lease/${lease.id}`)
         .set('Authorization', `Bearer ${pmToken}`)
         .send({ rentAmount: 1100 });
 
       const update2 = request(app.getHttpServer())
-        .patch(`/api/lease/${lease.id}`)
+        .patch(`/lease/${lease.id}`)
         .set('Authorization', `Bearer ${pmToken}`)
         .send({ rentAmount: 1200 });
 
@@ -139,12 +139,12 @@ describe('Concurrent Operations (e2e)', () => {
 
       // Concurrent updates with conflicting status
       const update1 = request(app.getHttpServer())
-        .patch(`/api/lease/${lease.id}`)
+        .patch(`/lease/${lease.id}`)
         .set('Authorization', `Bearer ${pmToken}`)
         .send({ status: 'TERMINATED' });
 
       const update2 = request(app.getHttpServer())
-        .patch(`/api/lease/${lease.id}`)
+        .patch(`/lease/${lease.id}`)
         .set('Authorization', `Bearer ${pmToken}`)
         .send({ status: 'RENEWED' });
 
@@ -201,12 +201,12 @@ describe('Concurrent Operations (e2e)', () => {
 
       // Concurrent assignment attempts
       const assign1 = request(app.getHttpServer())
-        .patch(`/api/maintenance/${maintenanceRequest.id}`)
+        .patch(`/maintenance/${maintenanceRequest.id}`)
         .set('Authorization', `Bearer ${pmToken}`)
         .send({ assigneeId: technician1.id, status: 'IN_PROGRESS' });
 
       const assign2 = request(app.getHttpServer())
-        .patch(`/api/maintenance/${maintenanceRequest.id}`)
+        .patch(`/maintenance/${maintenanceRequest.id}`)
         .set('Authorization', `Bearer ${pmToken}`)
         .send({ assigneeId: technician2.id, status: 'IN_PROGRESS' });
 
@@ -249,7 +249,7 @@ describe('Concurrent Operations (e2e)', () => {
 
       // Attempt to create lease with invalid data that should cause rollback
       const response = await request(app.getHttpServer())
-        .post('/api/lease')
+        .post('/lease')
         .set('Authorization', `Bearer ${pmToken}`)
         .send({
           unitId: unit.id,

@@ -1,12 +1,12 @@
-import { IsEnum, IsInt, IsDateString, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsDateString, IsOptional, IsString, IsUUID } from 'class-validator';
 import { InspectionType } from '@prisma/client';
 
 export class CreateInspectionDto {
-  @IsInt()
-  unitId!: number;
+  @IsUUID()
+  unitId!: string;
 
-  @IsInt()
-  propertyId!: number;
+  @IsUUID()
+  propertyId!: string;
 
   @IsEnum(InspectionType)
   type!: InspectionType;
@@ -18,4 +18,3 @@ export class CreateInspectionDto {
   @IsString()
   notes?: string;
 }
-

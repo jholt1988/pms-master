@@ -3,6 +3,20 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import OpenAI from 'openai';
+import { randomUUID } from 'crypto';
+import {
+  routePropertyOpsOrchestrator,
+  PropertyOpsOrchestratorResult,
+} from './property-ops-orchestrator';
+import { runPropertyOpsOrchestrator, type OrchestratorTerminal } from './agents/propertyopsorchestrator';
+import {
+  makeToolContext,
+  type EnvName,
+  type Logger as ToolLogger,
+  systemClock,
+  type ToolContext,
+  type ToolRole,
+} from './tools/tool-context';
 
 export interface ChatbotMessage {
   role: 'user' | 'assistant' | 'system';
@@ -12,7 +26,7 @@ export interface ChatbotMessage {
 
 export interface ChatbotSession {
   id: string;
-  userId: number;
+  userId: string;
   messages: ChatbotMessage[];
   createdAt: Date;
   updatedAt: Date;
@@ -28,6 +42,8 @@ export interface ChatbotResponse {
     action: string;
     params?: Record<string, any>;
   }>;
+  orchestrator?: PropertyOpsOrchestratorResult;
+  orchestrator_run?: OrchestratorTerminal;
 }
 
 @Injectable()
@@ -35,6 +51,7 @@ export class ChatbotService {
   private readonly logger = new Logger(ChatbotService.name);
   private openai: OpenAI | null = null;
   private readonly aiEnabled: boolean;
+  private readonly propertyOpsOrchestratorEnabled: boolean;
   private readonly sessions: Map<string, ChatbotSession> = new Map();
 
   constructor(
@@ -44,8 +61,13 @@ export class ChatbotService {
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
     const aiEnabled = this.configService.get<string>('AI_ENABLED', 'false') === 'true';
     const chatbotEnabled = this.configService.get<string>('AI_CHATBOT_ENABLED', 'true') === 'true';
+    const orchestratorEnabled = this.configService.get<string>(
+      'AI_PROPERTY_OPS_ORCHESTRATOR_ENABLED',
+      'true',
+    ) === 'true';
 
     this.aiEnabled = aiEnabled && chatbotEnabled;
+    this.propertyOpsOrchestratorEnabled = orchestratorEnabled;
 
     if (this.aiEnabled && apiKey) {
       this.openai = new OpenAI({ apiKey });
@@ -61,13 +83,30 @@ export class ChatbotService {
    * Send a message to the chatbot and get an AI-powered response
    */
   async sendMessage(
-    userId: number,
+    userId: string,
     message: string,
     sessionId?: string,
   ): Promise<ChatbotResponse> {
     const startTime = Date.now();
+    let user: any;
 
     try {
+      // Pull user context early for routing + prompts.
+      user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          lease: {
+            include: {
+              unit: {
+                include: {
+                  property: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
       // Get or create session
       let session = sessionId ? this.getSession(sessionId) : this.createSession(userId);
 
@@ -82,9 +121,12 @@ export class ChatbotService {
       let aiResponse: string;
       let intent: string | undefined;
       let confidence: number | undefined;
+      let orchestrator: PropertyOpsOrchestratorResult | undefined;
+      let orchestratorRun: OrchestratorTerminal | undefined;
+      const traceId = this.generateTraceId();
 
       if (this.openai && this.aiEnabled) {
-        const response = await this.generateAIResponse(session, message);
+        const response = await this.generateAIResponse(session, message, user);
         aiResponse = response.content;
         intent = response.intent;
         confidence = response.confidence;
@@ -92,6 +134,44 @@ export class ChatbotService {
         // Fallback to simple responses
         aiResponse = this.generateFallbackResponse(message);
         confidence = 0.5;
+      }
+
+      orchestrator = routePropertyOpsOrchestrator({
+        userMessage: message,
+        propertyId: user?.lease?.unit?.propertyId
+          ? String(user.lease.unit.propertyId)
+          : undefined,
+        tenantId: user?.lease?.tenantId ? String(user.lease.tenantId) : undefined,
+        workOrderId: undefined,
+        channel: 'ui',
+      });
+
+      const canRunFullOrchestrator =
+        this.propertyOpsOrchestratorEnabled &&
+        orchestrator.route_to !== 'HumanEscalation' &&
+        user?.lease?.tenantId &&
+        user?.lease?.unit?.propertyId &&
+        user?.lease?.unit?.id;
+
+      if (canRunFullOrchestrator) {
+        try {
+          const ctx = this.buildToolContext(user, traceId);
+          orchestratorRun = await runPropertyOpsOrchestrator(
+            {
+              tenant_id: String(user.lease.tenantId),
+              property_id: String(user.lease.unit.propertyId),
+              unit_id: String(user.lease.unit.id),
+              issue_text: message,
+              attachments: [],
+            },
+            ctx,
+          );
+        } catch (err: any) {
+          this.logger.error('PropertyOpsOrchestrator failed', {
+            traceId,
+            error: err?.message ?? String(err),
+          });
+        }
       }
 
       // Add assistant response to session
@@ -118,6 +198,7 @@ export class ChatbotService {
         confidence,
         messageLength: message.length,
         responseLength: aiResponse.length,
+        route_to: orchestrator?.route_to,
       });
 
       // Generate suggested actions based on intent
@@ -129,6 +210,8 @@ export class ChatbotService {
         intent,
         confidence,
         suggestedActions,
+        orchestrator,
+        orchestrator_run: orchestratorRun,
       };
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -157,26 +240,29 @@ export class ChatbotService {
   private async generateAIResponse(
     session: ChatbotSession,
     userMessage: string,
+    userContext?: any,
   ): Promise<{ content: string; intent?: string; confidence?: number }> {
     if (!this.openai) {
       throw new Error('OpenAI client not initialized');
     }
 
-    // Get user context from database
-    const user = await this.prisma.user.findUnique({
-      where: { id: session.userId },
-      include: {
-        lease: {
-          include: {
-            unit: {
-              include: {
-                property: true,
+    // Get user context from database (reuse if provided).
+    const user =
+      userContext ||
+      (await this.prisma.user.findUnique({
+        where: { id: session.userId },
+        include: {
+          lease: {
+            include: {
+              unit: {
+                include: {
+                  property: true,
+                },
               },
             },
           },
         },
-      },
-    });
+      }));
 
     // Build system prompt with user context
     let systemPrompt = `You are a helpful property management assistant. Your role is to help tenants with questions about:
@@ -338,7 +424,7 @@ Be friendly, professional, and concise. Provide actionable information when poss
   /**
    * Create a new chat session
    */
-  private createSession(userId: number): ChatbotSession {
+  private createSession(userId: string): ChatbotSession {
     const session: ChatbotSession = {
       id: `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       userId,
@@ -370,7 +456,7 @@ Be friendly, professional, and concise. Provide actionable information when poss
   /**
    * Get session history
    */
-  async getSessionHistory(sessionId: string, userId: number): Promise<ChatbotMessage[]> {
+  async getSessionHistory(sessionId: string, userId: string): Promise<ChatbotMessage[]> {
     const session = this.getSession(sessionId);
     if (session.userId !== userId) {
       throw new Error('Unauthorized access to session');
@@ -406,5 +492,54 @@ Be friendly, professional, and concise. Provide actionable information when poss
   cleanupOldSessionsJob() {
     this.clearOldSessions(60 * 24); // Keep sessions for 24 hours
   }
-}
 
+  private generateTraceId(): string {
+    return `trace_${randomUUID()}`;
+  }
+
+  private buildToolContext(user: any, traceId: string): ToolContext {
+    const roles: ToolRole[] = [];
+    if (user?.role === 'ADMIN') roles.push('owner');
+    else if (user?.role === 'PROPERTY_MANAGER') roles.push('manager');
+    else roles.push('viewer');
+
+    const envRaw = this.configService.get<string>('NODE_ENV', 'dev');
+    const env: EnvName = envRaw?.startsWith('prod')
+      ? 'prod'
+      : envRaw?.startsWith('test')
+        ? 'test'
+        : 'dev';
+
+    const toolLogger: ToolLogger = {
+      level: 'info',
+      debug: (msg, meta) => this.logger.debug({ traceId, msg, meta }),
+      info: (msg, meta) => this.logger.log({ traceId, msg, meta }),
+      warn: (msg, meta) => this.logger.warn({ traceId, msg, meta }),
+      error: (msg, meta) => this.logger.error({ traceId, msg, meta }),
+    };
+
+    return makeToolContext({
+      trace_id: traceId,
+      agent: 'PropertyOpsOrchestrator',
+      db: this.prisma,
+      env,
+      timezone: this.configService.get<string>('TIMEZONE', 'America/Chicago'),
+      user: user
+        ? {
+            user_id: String(user.id),
+            display_name: `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.username,
+            email: user.email ?? undefined,
+            roles,
+          }
+        : undefined,
+      auth: undefined,
+      request: undefined,
+      logger: toolLogger,
+      clock: systemClock,
+      flags: {
+        ai_enabled: this.aiEnabled,
+        orchestrator_enabled: this.propertyOpsOrchestratorEnabled,
+      },
+    });
+  }
+}

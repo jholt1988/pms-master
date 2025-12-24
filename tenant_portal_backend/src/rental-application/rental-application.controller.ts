@@ -11,7 +11,7 @@ import { OptionalJwtAuthGuard } from '../auth/optional-jwt.guard';
 
 interface AuthenticatedRequest extends Request {
   user: {
-    userId: number;
+    userId: string;
     username: string;
     role: Role;
   };

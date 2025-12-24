@@ -12,7 +12,7 @@ export class PaymentMethodsService {
     private readonly stripeService: StripeService,
   ) { }
 
-  async create(userId: number, dto: CreatePaymentMethodDto) {
+  async create(userId: string, dto: CreatePaymentMethodDto) {
     // 1. Get or Create Stripe Customer
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     let stripeCustomerId = user.stripeCustomerId;
@@ -73,14 +73,14 @@ export class PaymentMethodsService {
     });
   }
 
-  async listForUser(userId: number) {
+  async listForUser(userId: string) {
     return this.prisma.paymentMethod.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async remove(userId: number, id: number) {
+  async remove(userId: string, id: number) {
     const method = await this.prisma.paymentMethod.findUnique({ where: { id } });
     if (!method || method.userId !== userId) {
       throw new NotFoundException('Payment method not found');

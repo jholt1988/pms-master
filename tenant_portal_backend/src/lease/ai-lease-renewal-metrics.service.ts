@@ -5,7 +5,7 @@ export interface AILeaseRenewalMetric {
   success: boolean;
   responseTime: number; // milliseconds
   timestamp: Date;
-  leaseId?: number;
+  leaseId?: string;
   renewalProbability?: number;
   rentAdjustmentPercentage?: number;
   mlServiceUsed?: boolean;
@@ -93,21 +93,22 @@ export class AILeaseRenewalMetricsService {
     const averageResponseTime = totalCalls > 0 ? totalResponseTime / totalCalls : 0;
 
     // ML service availability
-    const mlServiceCalls = this.metrics.filter((m) => m.mlServiceUsed !== undefined);
-    const mlServiceSuccessful = mlServiceCalls.filter((m) => m.mlServiceUsed === true).length;
+    // Only count calls where ML service was actually used (mlServiceUsed === true)
+    const mlServiceCalls = this.metrics.filter((m) => m.mlServiceUsed === true);
+    const mlServiceSuccessful = mlServiceCalls.length;
     const mlServiceAvailabilityRate =
       mlServiceCalls.length > 0 ? mlServiceSuccessful / mlServiceCalls.length : 0;
 
     // Cache hit rate
-    const cacheableCalls = this.metrics.filter((m) => m.cacheHit !== undefined);
-    const cacheHits = cacheableCalls.filter((m) => m.cacheHit === true).length;
-    const cacheHitRate = cacheableCalls.length > 0 ? cacheHits / cacheableCalls.length : 0;
-
     // Operation-specific metrics
     const predictionMetrics = this.metrics.filter(
       (m) => m.operation === 'predictRenewalLikelihood',
     );
     const rentAdjustmentMetrics = this.metrics.filter((m) => m.operation === 'getRentAdjustment');
+    // Treat rent adjustment operations as cacheable; count hits where cacheHit is true
+    const cacheableCalls = rentAdjustmentMetrics;
+    const cacheHits = rentAdjustmentMetrics.filter((m) => m.cacheHit === true).length;
+    const cacheHitRate = cacheableCalls.length > 0 ? cacheHits / cacheableCalls.length : 0;
     const offerMetrics = this.metrics.filter((m) => m.operation === 'generatePersonalizedOffer');
 
     // Prediction metrics

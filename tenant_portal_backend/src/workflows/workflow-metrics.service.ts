@@ -31,10 +31,10 @@ export class WorkflowMetricsService {
   /**
    * Record a workflow execution metric
    */
-  recordMetric(metric: Omit<WorkflowMetric, 'timestamp'>): void {
+  recordMetric(metric: Omit<WorkflowMetric, 'timestamp'> & { timestamp?: Date }): void {
     const fullMetric: WorkflowMetric = {
       ...metric,
-      timestamp: new Date(),
+      timestamp: metric.timestamp ?? new Date(),
     };
 
     this.metrics.push(fullMetric);

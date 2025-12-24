@@ -22,7 +22,7 @@ export class NotificationPreferencesService {
    * Get notification preferences for a user
    * Creates default preferences if they don't exist
    */
-  async getPreferences(userId: number) {
+  async getPreferences(userId: string) {
     let preferences = await this.prisma.notificationPreference.findUnique({
       where: { userId },
     });
@@ -47,7 +47,7 @@ export class NotificationPreferencesService {
   /**
    * Update notification preferences for a user
    */
-  async updatePreferences(userId: number, dto: NotificationPreferencesDto) {
+  async updatePreferences(userId: string, dto: NotificationPreferencesDto) {
     const existing = await this.prisma.notificationPreference.findUnique({
       where: { userId },
     });
@@ -86,7 +86,7 @@ export class NotificationPreferencesService {
   /**
    * Check if a notification type is enabled for a user
    */
-  async isNotificationTypeEnabled(userId: number, type: NotificationType): Promise<boolean> {
+  async isNotificationTypeEnabled(userId: string, type: NotificationType): Promise<boolean> {
     const preferences = await this.getPreferences(userId);
     
     if (!preferences.notificationTypes) {
@@ -100,7 +100,7 @@ export class NotificationPreferencesService {
   /**
    * Check if it's quiet hours for a user
    */
-  async isQuietHours(userId: number): Promise<boolean> {
+  async isQuietHours(userId: string): Promise<boolean> {
     const preferences = await this.getPreferences(userId);
     
     if (!preferences.quietHoursStart || !preferences.quietHoursEnd) {
@@ -124,7 +124,7 @@ export class NotificationPreferencesService {
   /**
    * Get preferred channel for a user
    */
-  async getPreferredChannel(userId: number): Promise<'EMAIL' | 'SMS' | 'PUSH'> {
+  async getPreferredChannel(userId: string): Promise<'EMAIL' | 'SMS' | 'PUSH'> {
     const preferences = await this.getPreferences(userId);
     
     if (preferences.preferredChannel === 'AUTO') {

@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 export interface CreateStripeCustomerDto {
   email: string;
   name: string;
-  userId: number;
+  userId: string;
 }
 
 export interface ProcessPaymentDto {
@@ -25,66 +25,82 @@ export interface SetupPaymentMethodDto {
 @Injectable()
 export class StripeService {
   private readonly logger = new Logger(StripeService.name);
-  private readonly stripe: Stripe;
+  private readonly stripe?: Stripe;
+  private readonly isStripeDisabled =
+    process.env.DISABLE_STRIPE === 'true' || process.env.NODE_ENV === 'test';
 
   constructor(private readonly prisma: PrismaService) {
-    if (!process.env.STRIPE_SECRET_KEY) {
+    if (!this.isStripeDisabled && !process.env.STRIPE_SECRET_KEY) {
       throw new Error('STRIPE_SECRET_KEY environment variable is required');
     }
 
-    this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: '2025-10-29.clover',
-      typescript: true,
-    });
-
-    this.logger.log('Stripe service initialized');
+    if (!this.isStripeDisabled) {
+      this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+        apiVersion: '2025-10-29.clover',
+        typescript: true,
+      });
+      this.logger.log('Stripe service initialized');
+    } else {
+      this.logger.log('Stripe integration disabled; using mock implementations for tests.');
+    }
   }
 
   /**
    * Create a Stripe customer and save reference in database
    */
   async createCustomer(dto: CreateStripeCustomerDto): Promise<Stripe.Customer> {
-    try {
-      // Check if user already has a Stripe customer
-      const existingUser = await this.prisma.user.findUnique({
-        where: { id: dto.userId },
-        select: { stripeCustomerId: true },
-      });
+    const existingUser = await this.prisma.user.findUnique({
+      where: { id: dto.userId },
+      select: { stripeCustomerId: true },
+    });
 
-      if (existingUser?.stripeCustomerId) {
-        this.logger.warn(`User ${dto.userId} already has Stripe customer ${existingUser.stripeCustomerId}`);
-        return await this.stripe.customers.retrieve(existingUser.stripeCustomerId) as Stripe.Customer;
+    if (this.isStripeDisabled) {
+      const customerId = existingUser?.stripeCustomerId ?? this.createMockCustomerId(dto.userId);
+      const customer = this.createMockCustomer(customerId, dto);
+      if (!existingUser?.stripeCustomerId) {
+        await this.prisma.user.update({
+          where: { id: dto.userId },
+          data: { stripeCustomerId: customer.id },
+        });
       }
-
-      // Create Stripe customer
-      const customer = await this.stripe.customers.create({
-        email: dto.email,
-        name: dto.name,
-        metadata: {
-          userId: dto.userId.toString(),
-        },
-      });
-
-      // Update user with Stripe customer ID
-      await this.prisma.user.update({
-        where: { id: dto.userId },
-        data: { stripeCustomerId: customer.id },
-      });
-
-      this.logger.log(`Created Stripe customer ${customer.id} for user ${dto.userId}`);
       return customer;
-    } catch (error) {
-      this.logger.error(`Failed to create Stripe customer for user ${dto.userId}:`, error);
-      throw new BadRequestException('Failed to create payment customer');
     }
+
+    if (existingUser?.stripeCustomerId) {
+      this.logger.warn(
+        `User ${dto.userId} already has Stripe customer ${existingUser.stripeCustomerId}`,
+      );
+      return (await this.stripe!.customers.retrieve(existingUser.stripeCustomerId)) as Stripe.Customer;
+    }
+
+    const customer = await this.stripe!.customers.create({
+      email: dto.email,
+      name: dto.name,
+      metadata: {
+        userId: dto.userId.toString(),
+      },
+    });
+
+    await this.prisma.user.update({
+      where: { id: dto.userId },
+      data: { stripeCustomerId: customer.id },
+    });
+
+    this.logger.log(`Created Stripe customer ${customer.id} for user ${dto.userId}`);
+    return customer;
   }
 
   /**
    * Save a payment method to a customer
    */
   async savePaymentMethod(dto: SetupPaymentMethodDto): Promise<Stripe.PaymentMethod> {
+    if (this.isStripeDisabled) {
+      const id = dto.paymentMethodId ?? `mock_pm_${dto.customerId}`;
+      return this.createMockPaymentMethod(id, dto.customerId);
+    }
+
     try {
-      const paymentMethod = await this.stripe.paymentMethods.attach(dto.paymentMethodId, {
+      const paymentMethod = await this.stripe!.paymentMethods.attach(dto.paymentMethodId, {
         customer: dto.customerId,
       });
 
@@ -100,8 +116,23 @@ export class StripeService {
    * Process a payment
    */
   async processPayment(dto: ProcessPaymentDto): Promise<Stripe.PaymentIntent> {
+    if (this.isStripeDisabled) {
+      return {
+        id: `mock_pi_${dto.customerId}`,
+        object: 'payment_intent',
+        amount: Math.round(dto.amount * 100),
+        currency: dto.currency || 'usd',
+        customer: dto.customerId,
+        payment_method: dto.paymentMethodId,
+        status: 'succeeded',
+        metadata: dto.metadata || {},
+        description: dto.description,
+        client_secret: 'mock_secret',
+      } as Stripe.PaymentIntent;
+    }
+
     try {
-      const paymentIntent = await this.stripe.paymentIntents.create({
+      const paymentIntent = await this.stripe!.paymentIntents.create({
         amount: Math.round(dto.amount * 100), // Convert to cents
         currency: dto.currency || 'usd',
         customer: dto.customerId,
@@ -119,11 +150,11 @@ export class StripeService {
       return paymentIntent;
     } catch (error) {
       this.logger.error(`Payment failed for customer ${dto.customerId}:`, error);
-      
+
       if (error instanceof Stripe.errors.StripeCardError) {
         throw new BadRequestException(`Payment failed: ${error.message}`);
       }
-      
+
       throw new BadRequestException('Payment processing failed');
     }
   }
@@ -132,8 +163,19 @@ export class StripeService {
    * Create a setup intent for saving payment methods
    */
   async createSetupIntent(customerId: string): Promise<Stripe.SetupIntent> {
+    if (this.isStripeDisabled) {
+      return {
+        id: `mock_setup_${customerId}`,
+        object: 'setup_intent',
+        status: 'succeeded',
+        usage: 'off_session',
+        customer: customerId,
+        payment_method_types: ['card'],
+      } as Stripe.SetupIntent;
+    }
+
     try {
-      const setupIntent = await this.stripe.setupIntents.create({
+      const setupIntent = await this.stripe!.setupIntents.create({
         customer: customerId,
         payment_method_types: ['card'],
         usage: 'off_session',
@@ -150,8 +192,12 @@ export class StripeService {
    * List customer's payment methods
    */
   async listPaymentMethods(customerId: string): Promise<Stripe.PaymentMethod[]> {
+    if (this.isStripeDisabled) {
+      return [];
+    }
+
     try {
-      const paymentMethods = await this.stripe.paymentMethods.list({
+      const paymentMethods = await this.stripe!.paymentMethods.list({
         customer: customerId,
         type: 'card',
       });
@@ -167,6 +213,11 @@ export class StripeService {
    * Handle Stripe webhooks
    */
   async handleWebhook(signature: string, payload: Buffer): Promise<void> {
+    if (this.isStripeDisabled) {
+      this.logger.log('Stripe webhook ignored because integration is disabled in this environment.');
+      return;
+    }
+
     if (!process.env.STRIPE_WEBHOOK_SECRET) {
       throw new Error('STRIPE_WEBHOOK_SECRET environment variable is required');
     }
@@ -174,7 +225,7 @@ export class StripeService {
     let event: Stripe.Event;
 
     try {
-      event = this.stripe.webhooks.constructEvent(
+      event = this.stripe!.webhooks.constructEvent(
         payload,
         signature,
         process.env.STRIPE_WEBHOOK_SECRET,
@@ -205,7 +256,6 @@ export class StripeService {
 
   private async handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent): Promise<void> {
     try {
-      // Find the payment record and update it
       const payment = await this.prisma.payment.findFirst({
         where: { externalId: paymentIntent.id },
       });
@@ -252,7 +302,7 @@ export class StripeService {
   /**
    * Get Stripe customer by user ID
    */
-  async getCustomerByUserId(userId: number): Promise<string | null> {
+  async getCustomerByUserId(userId: string): Promise<string | null> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { stripeCustomerId: true },
@@ -265,8 +315,19 @@ export class StripeService {
    * Refund a payment
    */
   async refundPayment(paymentIntentId: string, amount?: number): Promise<Stripe.Refund> {
+    if (this.isStripeDisabled) {
+      return {
+        id: `mock_refund_${paymentIntentId}`,
+        object: 'refund',
+        amount: amount ? Math.round(amount * 100) : undefined,
+        currency: 'usd',
+        payment_intent: paymentIntentId,
+        status: 'succeeded',
+      } as Stripe.Refund;
+    }
+
     try {
-      const refund = await this.stripe.refunds.create({
+      const refund = await this.stripe!.refunds.create({
         payment_intent: paymentIntentId,
         amount: amount ? Math.round(amount * 100) : undefined, // Convert to cents if specified
       });
@@ -277,5 +338,53 @@ export class StripeService {
       this.logger.error(`Failed to refund payment ${paymentIntentId}:`, error);
       throw new BadRequestException('Refund failed');
     }
+  }
+
+  private createMockCustomerId(userId: string) {
+    return `mock_cus_${userId}`;
+  }
+
+  private createMockCustomer(customerId: string, dto: CreateStripeCustomerDto): Stripe.Customer {
+    return {
+      id: customerId,
+      object: 'customer',
+      email: dto.email,
+      name: dto.name,
+      metadata: {
+        userId: dto.userId.toString(),
+      },
+      created: Math.floor(Date.now() / 1000),
+      livemode: false,
+      balance: 0,
+      currency: 'usd',
+      default_source: null,
+      invoice_prefix: 'TEST',
+      invoice_settings: { default_payment_method: null },
+      description: `Mock customer for user ${dto.userId}`,
+      address: null,
+      phone: null,
+      shipping: null,
+      preferred_locales: [],
+      delinquent: false,
+      default_payment_method: null,
+      sources: { object: 'list', data: [], has_more: false, total_count: 0, url: '' } as any,
+      tax_ids: { object: 'list', data: [], has_more: false, total_count: 0, url: '' } as any,
+      subscriptions: { object: 'list', data: [], has_more: false, total_count: 0, url: '' } as any,
+    } as unknown as Stripe.Customer;
+  }
+
+  private createMockPaymentMethod(id: string, customerId: string): Stripe.PaymentMethod {
+    return {
+      id,
+      object: 'payment_method',
+      customer: customerId,
+      type: 'card',
+      card: {
+        brand: 'Visa',
+        last4: '4242',
+        exp_month: 12,
+        exp_year: 2030,
+      },
+    } as Stripe.PaymentMethod;
   }
 }

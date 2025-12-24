@@ -13,8 +13,10 @@ import {
   HttpException,
   HttpStatus,
   Patch,
+  BadRequestException,
 } from '@nestjs/common';
 import { LeadApplicationsService } from './lead-applications.service';
+import { isUUID } from 'class-validator';
 
 @Controller('api/applications')
 export class LeadApplicationsController {
@@ -114,7 +116,12 @@ export class LeadApplicationsController {
     try {
       const filters: any = {};
 
-      if (propertyId) filters.propertyId = parseInt(propertyId, 10);
+      if (propertyId) {
+        if (!isUUID(propertyId)) {
+          throw new BadRequestException('Invalid propertyId');
+        }
+        filters.propertyId = propertyId;
+      }
       if (status) filters.status = status;
       if (dateFrom) filters.dateFrom = new Date(dateFrom);
       if (dateTo) filters.dateTo = new Date(dateTo);
@@ -147,7 +154,7 @@ export class LeadApplicationsController {
     @Body()
     body: {
       status: string;
-      reviewedById?: number;
+      reviewedById?: string;
       reviewNotes?: string;
     },
   ) {
@@ -156,6 +163,9 @@ export class LeadApplicationsController {
 
       if (!status) {
         throw new HttpException('Status is required', HttpStatus.BAD_REQUEST);
+      }
+      if (reviewedById && !isUUID(reviewedById)) {
+        throw new HttpException('Invalid reviewedById', HttpStatus.BAD_REQUEST);
       }
 
       const application = await this.leadApplicationsService.updateApplicationStatus(

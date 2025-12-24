@@ -30,30 +30,34 @@ export class PushService {
    * @param data Additional data payload
    */
   async sendPush(
-    userId: number,
+    userId: string | number,
     title: string,
     message: string,
     data?: Record<string, any>,
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    if (!this.enabled) {
-      this.logger.debug(`Push disabled - would send to user ${userId}: ${title} - ${message}`);
+    // Re-read config at call time to allow tests to toggle values after construction
+    const enabled = this.configService.get<string>('PUSH_ENABLED', 'false') === 'true';
+    const provider = (this.configService.get<string>('PUSH_PROVIDER', this.provider) as 'FIREBASE' | 'APNS' | 'MOCK') || this.provider;
+    const userIdStr = String(userId);
+    if (!enabled) {
+      this.logger.debug(`Push disabled - would send to user ${userIdStr}: ${title} - ${message}`);
       return { success: false, error: 'Push notification service is disabled' };
     }
 
     try {
-      switch (this.provider) {
+      switch (provider) {
         case 'FIREBASE':
-          return await this.sendViaFirebase(userId, title, message, data);
+          return await this.sendViaFirebase(userIdStr, title, message, data);
         case 'APNS':
-          return await this.sendViaApns(userId, title, message, data);
+          return await this.sendViaApns(userIdStr, title, message, data);
         case 'MOCK':
         default:
-          this.logger.log(`[MOCK PUSH] User: ${userId}, Title: ${title}, Message: ${message}`, data);
+          this.logger.log(`[MOCK PUSH] User: ${userIdStr}, Title: ${title}, Message: ${message}`, data);
           return { success: true, messageId: `push-mock-${Date.now()}` };
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Failed to send push notification to user ${userId}:`, errorMessage);
+      this.logger.error(`Failed to send push notification to user ${userIdStr}:`, errorMessage);
       return { success: false, error: errorMessage };
     }
   }
@@ -62,7 +66,7 @@ export class PushService {
    * Send push notification via Firebase Cloud Messaging (FCM)
    */
   private async sendViaFirebase(
-    userId: number,
+    userId: string,
     title: string,
     message: string,
     data?: Record<string, any>,
@@ -99,7 +103,7 @@ export class PushService {
    * Send push notification via Apple Push Notification Service (APNS)
    */
   private async sendViaApns(
-    userId: number,
+    userId: string,
     title: string,
     message: string,
     data?: Record<string, any>,

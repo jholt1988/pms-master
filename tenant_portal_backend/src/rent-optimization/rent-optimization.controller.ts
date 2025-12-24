@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Put, Delete, Param, Body, Query, UseGuards, Request } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { BadRequestException } from '@nestjs/common';
 import { RentOptimizationService } from './rent-optimization.service';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '@prisma/client';
@@ -52,17 +53,17 @@ export class RentOptimizationController {
   // Parameterized specific routes
   @Get('property/:propertyId')
   async getRecommendationsByProperty(@Param('propertyId') propertyId: string) {
-    return this.rentOptimizationService.getRecommendationsByProperty(Number(propertyId));
+    return this.rentOptimizationService.getRecommendationsByProperty(propertyId);
   }
 
   @Get('comparison/:unitId')
   async getComparison(@Param('unitId') unitId: string) {
-    return this.rentOptimizationService.getComparison(Number(unitId));
+    return this.rentOptimizationService.getComparison(unitId);
   }
 
   @Get('unit/:unitId')
   async getRecommendationByUnit(@Param('unitId') unitId: string) {
-    return this.rentOptimizationService.getRecommendationByUnit(Number(unitId));
+    return this.rentOptimizationService.getRecommendationByUnit(unitId);
   }
 
   // Dynamic route - MUST be last to prevent intercepting specific routes
@@ -78,12 +79,19 @@ export class RentOptimizationController {
   // Specific routes
   @Post('generate')
   async generateRecommendations(@Body() dto: GenerateRecommendationsDto) {
-    return this.rentOptimizationService.generateRecommendations(dto.unitIds);
+    const unitIds = dto.unitIds.map((id) => {
+      const parsed = Number(id);
+      if (!Number.isFinite(parsed) || Number.isNaN(parsed) || !Number.isInteger(parsed)) {
+        throw new BadRequestException(`Invalid unit id: ${id}`);
+      }
+      return parsed;
+    });
+    return this.rentOptimizationService.generateRecommendations(unitIds);
   }
 
   @Post('bulk-generate/property/:propertyId')
   async bulkGenerateByProperty(@Param('propertyId') propertyId: string) {
-    return this.rentOptimizationService.bulkGenerateByProperty(Number(propertyId));
+    return this.rentOptimizationService.bulkGenerateByProperty(propertyId);
   }
 
   @Post('bulk-generate/all')

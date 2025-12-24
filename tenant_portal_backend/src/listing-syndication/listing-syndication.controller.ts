@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
@@ -15,7 +15,7 @@ export class ListingSyndicationController {
 
   @Post(':propertyId/trigger')
   triggerSyndication(
-    @Param('propertyId', ParseIntPipe) propertyId: number,
+    @Param('propertyId', ParseUUIDPipe) propertyId: string,
     @Body() dto: SyndicationActionDto,
   ) {
     return this.listingSyndicationService.queueSyndication(propertyId, dto);
@@ -23,14 +23,14 @@ export class ListingSyndicationController {
 
   @Post(':propertyId/pause')
   pauseSyndication(
-    @Param('propertyId', ParseIntPipe) propertyId: number,
+    @Param('propertyId', ParseUUIDPipe) propertyId: string,
     @Body() dto: SyndicationActionDto,
   ) {
     return this.listingSyndicationService.pauseSyndication(propertyId, dto);
   }
 
   @Get(':propertyId/status')
-  getStatus(@Param('propertyId', ParseIntPipe) propertyId: number) {
+  getStatus(@Param('propertyId', ParseUUIDPipe) propertyId: string) {
     return this.listingSyndicationService.getPropertyStatus(propertyId);
   }
 

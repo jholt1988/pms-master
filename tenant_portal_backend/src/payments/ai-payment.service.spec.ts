@@ -32,6 +32,9 @@ describe('AIPaymentService', () => {
     get: jest.fn(),
   };
 
+  const tenantId = '00000000-0000-0000-0000-tenant-uuid';
+  const invoiceId = 1;
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -96,13 +99,13 @@ describe('AIPaymentService', () => {
 
     it('should assess payment risk for tenant', async () => {
       const mockTenant = {
-        id: 1,
+        id: tenantId,
         username: 'tenant@test.com',
       };
 
       const mockLease = {
         id: 1,
-        tenantId: 1,
+        tenantId,
         rentAmount: 1500,
       };
 
@@ -124,7 +127,7 @@ describe('AIPaymentService', () => {
       mockPrismaService.invoice.findUnique.mockResolvedValue(mockInvoice);
       mockPrismaService.payment.findMany.mockResolvedValue(mockPayments);
 
-      const assessment = await service.assessPaymentRisk(1, 1);
+      const assessment = await service.assessPaymentRisk(tenantId, invoiceId);
 
       expect(assessment).toBeDefined();
       expect(assessment.riskLevel).toMatch(/LOW|MEDIUM|HIGH|CRITICAL/);
@@ -140,12 +143,12 @@ describe('AIPaymentService', () => {
         { amount: 1500, paymentDate: new Date('2024-02-10'), status: 'COMPLETED' }, // 9 days late
       ];
 
-      mockPrismaService.user.findUnique.mockResolvedValue({ id: 1 });
-      mockPrismaService.lease.findUnique.mockResolvedValue({ id: 1, tenantId: 1 });
+      mockPrismaService.user.findUnique.mockResolvedValue({ id: tenantId });
+      mockPrismaService.lease.findUnique.mockResolvedValue({ id: 1, tenantId });
       mockPrismaService.invoice.findUnique.mockResolvedValue({ id: 1, amount: 1500 });
       mockPrismaService.payment.findMany.mockResolvedValue(mockPayments);
 
-      const assessment = await service.assessPaymentRisk(1, 1);
+      const assessment = await service.assessPaymentRisk(tenantId, invoiceId);
 
       expect(assessment.riskLevel).toBe('HIGH');
     });
@@ -155,12 +158,12 @@ describe('AIPaymentService', () => {
         { amount: 1500, paymentDate: new Date('2024-01-15'), status: 'COMPLETED' }, // Very late
       ];
 
-      mockPrismaService.user.findUnique.mockResolvedValue({ id: 1 });
-      mockPrismaService.lease.findUnique.mockResolvedValue({ id: 1, tenantId: 1 });
+      mockPrismaService.user.findUnique.mockResolvedValue({ id: tenantId });
+      mockPrismaService.lease.findUnique.mockResolvedValue({ id: 1, tenantId });
       mockPrismaService.invoice.findUnique.mockResolvedValue({ id: 1, amount: 3000 });
       mockPrismaService.payment.findMany.mockResolvedValue(mockPayments);
 
-      const assessment = await service.assessPaymentRisk(1, 1);
+      const assessment = await service.assessPaymentRisk(tenantId, invoiceId);
 
       if (assessment.riskLevel === 'HIGH' || assessment.riskLevel === 'CRITICAL') {
         expect(assessment.suggestPaymentPlan).toBe(true);
@@ -181,7 +184,7 @@ describe('AIPaymentService', () => {
 
     it('should determine optimal reminder timing', async () => {
       const mockTenant = {
-        id: 1,
+        id: tenantId,
         username: 'tenant@test.com',
       };
 
@@ -194,7 +197,7 @@ describe('AIPaymentService', () => {
       mockPrismaService.user.findUnique.mockResolvedValue(mockTenant);
       mockPrismaService.invoice.findUnique.mockResolvedValue(mockInvoice);
 
-      const timing = await service.determineReminderTiming(1, 1);
+      const timing = await service.determineReminderTiming(tenantId, 1);
 
       expect(timing).toBeDefined();
       expect(timing.optimalTime).toBeInstanceOf(Date);
@@ -209,10 +212,10 @@ describe('AIPaymentService', () => {
         dueDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // Overdue
       };
 
-      mockPrismaService.user.findUnique.mockResolvedValue({ id: 1 });
+      mockPrismaService.user.findUnique.mockResolvedValue({ id: tenantId });
       mockPrismaService.invoice.findUnique.mockResolvedValue(mockInvoice);
 
-      const timing = await service.determineReminderTiming(1, 1);
+      const timing = await service.determineReminderTiming(tenantId, 1);
 
       expect(timing.urgency).toBe('HIGH');
       expect(timing.channel).toBe('SMS');
@@ -223,7 +226,7 @@ describe('AIPaymentService', () => {
     it('should handle missing tenant gracefully', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue(null);
 
-      await expect(service.assessPaymentRisk(999, 1)).rejects.toThrow();
+      await expect(service.assessPaymentRisk('missing-tenant', 1)).rejects.toThrow();
     });
 
     it('should handle API errors gracefully', async () => {
@@ -236,13 +239,13 @@ describe('AIPaymentService', () => {
 
       mockOpenAI.chat.completions.create.mockRejectedValue(new Error('API Error'));
 
-      mockPrismaService.user.findUnique.mockResolvedValue({ id: 1 });
-      mockPrismaService.lease.findUnique.mockResolvedValue({ id: 1 });
+      mockPrismaService.user.findUnique.mockResolvedValue({ id: tenantId });
+      mockPrismaService.lease.findUnique.mockResolvedValue({ id: 1, tenantId });
       mockPrismaService.invoice.findUnique.mockResolvedValue({ id: 1 });
       mockPrismaService.payment.findMany.mockResolvedValue([]);
 
       // Should use fallback logic
-      const assessment = await service.assessPaymentRisk(1, 1);
+      const assessment = await service.assessPaymentRisk(tenantId, 1);
       expect(assessment).toBeDefined();
       expect(assessment.riskLevel).toBeDefined();
     });

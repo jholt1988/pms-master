@@ -54,8 +54,7 @@ describe('Maintenance AI Metrics API (e2e)', () => {
     });
 
     unit = await prisma.unit.create({
-      data: TestDataFactory.createUnit({
-        propertyId: property.id,
+      data: TestDataFactory.createUnit(property.id, {
         name: 'Unit 1',
       }),
     });
@@ -65,7 +64,7 @@ describe('Maintenance AI Metrics API (e2e)', () => {
       .post('/auth/login')
       .send({
         username: 'tenant@test.com',
-        password: 'TestPassword123!',
+        password: 'password123',
       });
 
     tenantToken = tenantLoginResponse.body.access_token || tenantLoginResponse.body.accessToken;
@@ -74,7 +73,7 @@ describe('Maintenance AI Metrics API (e2e)', () => {
       .post('/auth/login')
       .send({
         username: 'pm@test.com',
-        password: 'TestPassword123!',
+        password: 'password123',
       });
 
     propertyManagerToken =

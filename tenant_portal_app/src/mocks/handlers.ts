@@ -139,14 +139,16 @@ export const handlers = [
 
   http.post(`${API_BASE}/auth/register`, async ({ request }) => {
     await networkDelay();
-    const body = await request.json() as { username: string; password: string; role: string };
+    const body = await request.json() as { username: string; password: string; role: string; email?: string; firstName?: string; lastName?: string };
     
     return HttpResponse.json({
       user: {
         id: Math.floor(Math.random() * 1000),
         username: body.username,
         role: body.role || 'TENANT',
-        email: body.username,
+        email: body.email ?? body.username,
+        firstName: body.firstName ?? 'Test',
+        lastName: body.lastName ?? 'User',
       },
       accessToken: 'mock-jwt-token-' + Date.now(),
     }, { status: 201 });

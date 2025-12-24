@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query, Request, UseGuards, Put } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Request, UseGuards, Put, ParseIntPipe } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { MaintenanceService } from './maintenance.service';
 import { AIMaintenanceMetricsService } from './ai-maintenance-metrics.service';
@@ -9,10 +9,12 @@ import { CreateMaintenanceRequestDto } from './dto/create-maintenance-request.dt
 import { UpdateMaintenanceStatusDto } from './dto/update-maintenance-status.dto';
 import { AssignTechnicianDto } from './dto/assign-technician.dto';
 import { AddMaintenanceNoteDto } from './dto/add-maintenance-note.dto';
+import { ApiException } from '../common/errors';
+import { ErrorCode } from '../common/errors/error-codes.enum';
 
 interface AuthenticatedRequest extends Request {
   user: {
-    userId: number;
+    userId: string;
     username: string;
     role: Role;
   };
@@ -40,16 +42,26 @@ export class MaintenanceController {
     return this.maintenanceService.findAllForUser(req.user.userId);
   }
 
+  @Get('ai-metrics')
+  @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
+  async getAIMetrics() {
+    return this.aiMetrics.getMetrics();
+  }
+
   @Get(':id')
   async findOne(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Request() req: AuthenticatedRequest,
   ) {
-    const request = await this.maintenanceService.findById(Number(id));
+    const request = await this.maintenanceService.findById(id);
     
     // Verify access: tenants can only see their own requests
     if (req.user.role === Role.TENANT && request.authorId !== req.user.userId) {
-      throw new BadRequestException('You do not have access to this maintenance request');
+      throw ApiException.forbidden(
+        ErrorCode.AUTH_FORBIDDEN,
+        'You do not have access to this maintenance request',
+        { userId: req.user.userId, requestId: id },
+      );
     }
     
     return request;
@@ -63,40 +75,40 @@ export class MaintenanceController {
   @Patch(':id/status')
   @Roles(Role.PROPERTY_MANAGER)
   async updateStatus(
-    @Param('id') id: string,
+      @Param('id', ParseIntPipe) id: number,
     @Body() updateStatusDto: UpdateMaintenanceStatusDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.maintenanceService.updateStatus(Number(id), updateStatusDto, req.user.userId);
+    return this.maintenanceService.updateStatus(id, updateStatusDto, req.user.userId);
   }
 
   @Put(':id/status')
   @Roles(Role.PROPERTY_MANAGER)
   async replaceStatus(
-    @Param('id') id: string,
+      @Param('id', ParseIntPipe) id: number,
     @Body() updateStatusDto: UpdateMaintenanceStatusDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.maintenanceService.updateStatus(Number(id), updateStatusDto, req.user.userId);
+    return this.maintenanceService.updateStatus(id, updateStatusDto, req.user.userId);
   }
 
   @Patch(':id/assign')
   @Roles(Role.PROPERTY_MANAGER)
   async assignTechnician(
-    @Param('id') id: string,
+      @Param('id', ParseIntPipe) id: number,
     @Body() dto: AssignTechnicianDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.maintenanceService.assignTechnician(Number(id), dto, req.user.userId);
+    return this.maintenanceService.assignTechnician(id, dto, req.user.userId);
   }
 
   @Post(':id/notes')
   async addNote(
-    @Param('id') id: string,
+      @Param('id', ParseIntPipe) id: number,
     @Body() dto: AddMaintenanceNoteDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.maintenanceService.addNote(Number(id), dto, req.user.userId);
+    return this.maintenanceService.addNote(id, dto, req.user.userId);
   }
 
   @Get('technicians')
@@ -107,15 +119,15 @@ export class MaintenanceController {
 
   @Post('technicians')
   @Roles(Role.PROPERTY_MANAGER)
-  createTechnician(@Body() body: { name: string; phone?: string; email?: string; userId?: number; role?: string }) {
+  createTechnician(@Body() body: { name: string; phone?: string; email?: string; userId?: string; role?: string }) {
     return this.maintenanceService.createTechnician(body);
   }
 
   @Get('assets')
   @Roles(Role.PROPERTY_MANAGER)
   listAssets(@Query('propertyId') propertyId?: string, @Query('unitId') unitId?: string) {
-    const parsedPropertyId = this.parseOptionalNumber(propertyId, 'propertyId', { min: 1 });
-    const parsedUnitId = this.parseOptionalNumber(unitId, 'unitId', { min: 1 });
+    const parsedPropertyId = this.parseOptionalNumber(propertyId, 'propertyId');
+    const parsedUnitId = this.parseOptionalNumber(unitId, 'unitId');
     return this.maintenanceService.listAssets(parsedPropertyId, parsedUnitId);
   }
 
@@ -124,8 +136,8 @@ export class MaintenanceController {
   createAsset(
     @Body()
     body: {
-      propertyId: number;
-      unitId?: number;
+      propertyId: string;
+      unitId?: string;
       name: string;
       category: string;
       manufacturer?: string;
@@ -140,14 +152,8 @@ export class MaintenanceController {
   @Get('sla-policies')
   @Roles(Role.PROPERTY_MANAGER)
   getSlaPolicies(@Query('propertyId') propertyId?: string) {
-    const parsedPropertyId = this.parseOptionalNumber(propertyId, 'propertyId', { min: 1 });
+    const parsedPropertyId = this.parseOptionalNumber(propertyId, 'propertyId');
     return this.maintenanceService.getSlaPolicies(parsedPropertyId);
-  }
-
-  @Get('ai-metrics')
-  @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
-  async getAIMetrics() {
-    return this.aiMetrics.getMetrics();
   }
 
   private parseManagerFilters(query: Record<string, string | undefined>): ManagerFilters {
@@ -163,12 +169,12 @@ export class MaintenanceController {
       filters.priority = priority;
     }
 
-    const propertyId = this.parseOptionalNumber(query.propertyId, 'propertyId', { min: 1 });
+    const propertyId = this.parseOptionalNumber(query.propertyId, 'propertyId');
     if (propertyId !== undefined) {
       filters.propertyId = propertyId;
     }
 
-    const unitId = this.parseOptionalNumber(query.unitId, 'unitId', { min: 1 });
+    const unitId = this.parseOptionalNumber(query.unitId, 'unitId');
     if (unitId !== undefined) {
       filters.unitId = unitId;
     }
@@ -199,7 +205,11 @@ export class MaintenanceController {
     if ((Object.values(Status) as string[]).includes(normalized)) {
       return normalized as Status;
     }
-    throw new BadRequestException(`Unsupported status filter: ${value}`);
+    throw ApiException.badRequest(
+      ErrorCode.VALIDATION_INVALID_INPUT,
+      `Unsupported status filter: ${value}`,
+      { field: 'status', value },
+    );
   }
 
   private parsePriority(value?: string): MaintenancePriority | undefined {
@@ -210,7 +220,11 @@ export class MaintenanceController {
     if ((Object.values(MaintenancePriority) as string[]).includes(normalized)) {
       return normalized as MaintenancePriority;
     }
-    throw new BadRequestException(`Unsupported priority filter: ${value}`);
+    throw ApiException.badRequest(
+      ErrorCode.VALIDATION_INVALID_INPUT,
+      `Unsupported priority filter: ${value}`,
+      { field: 'priority', value },
+    );
   }
 
   private parseOptionalNumber(
@@ -223,12 +237,21 @@ export class MaintenanceController {
     }
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) {
-      throw new BadRequestException(`Invalid ${field} value: ${value}`);
+      throw ApiException.badRequest(
+        ErrorCode.VALIDATION_INVALID_FORMAT,
+        `Invalid ${field} value: ${value}`,
+        { field, value },
+      );
     }
     const normalized = Math.trunc(parsed);
     if (options?.min !== undefined && normalized < options.min) {
-      throw new BadRequestException(`${field} must be greater than or equal to ${options.min}`);
+      throw ApiException.badRequest(
+        ErrorCode.VALIDATION_OUT_OF_RANGE,
+        `${field} must be greater than or equal to ${options.min}`,
+        { field, min: options.min, value: normalized },
+      );
     }
     return normalized;
   }
+
 }

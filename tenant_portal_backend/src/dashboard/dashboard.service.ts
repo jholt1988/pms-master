@@ -150,7 +150,7 @@ const [
     };
   }
 
-  async getTenantDashboard(userId: number) {
+  async getTenantDashboard(userId: string) {
     const [leases, maintenanceRequests, recentInspections] = await Promise.all([
       this.prisma.lease.findMany({
         where: { tenantId: userId },

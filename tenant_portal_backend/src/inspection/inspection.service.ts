@@ -32,10 +32,14 @@ export class InspectionService {
   /**
    * Create a new inspection
    */
-  async createInspection(dto: CreateInspectionDto, createdById: number): Promise<UnitInspection> {
+  async createInspection(dto: CreateInspectionDto, createdById: string): Promise<UnitInspection> {
     // Validate property and unit exist
+    const propertyId = this.parseNumericId(dto.propertyId, 'property');
+    const unitId = dto.unitId ? this.parseNumericId(dto.unitId, 'unit') : undefined;
+    const leaseId = dto.leaseId ? this.parseNumericId(dto.leaseId, 'lease') : undefined;
+
     const property = await this.prisma.property.findUnique({
-      where: { id: dto.propertyId },
+      where: { id: propertyId },
     });
     if (!property) {
       throw new NotFoundException(`Property with ID ${dto.propertyId} not found`);
@@ -43,9 +47,9 @@ export class InspectionService {
 
     if (dto.unitId) {
       const unit = await this.prisma.unit.findUnique({
-        where: { id: dto.unitId },
+        where: { id: unitId },
       });
-      if (!unit || unit.propertyId !== dto.propertyId) {
+      if (!unit || unit.propertyId !== propertyId) {
         throw new NotFoundException(`Unit with ID ${dto.unitId} not found in property ${dto.propertyId}`);
       }
     }
@@ -53,15 +57,15 @@ export class InspectionService {
     // Validate lease exists if provided
     if (dto.leaseId) {
       const lease = await this.prisma.lease.findUnique({
-        where: { id: dto.leaseId },
+        where: { id: leaseId },
       });
-      if (!lease || (dto.unitId && lease.unitId !== dto.unitId)) {
+      if (!lease || (unitId && lease.unitId !== unitId)) {
         throw new NotFoundException(`Lease with ID ${dto.leaseId} not found or doesn't match unit`);
       }
     }
 
     const inspectionData: any = {
-      propertyId: dto.propertyId,
+      propertyId,
       type: dto.type,
       scheduledDate: new Date(dto.scheduledDate),
       createdById,
@@ -69,8 +73,8 @@ export class InspectionService {
     };
 
     // Only include optional fields if they have values
-    if (dto.unitId) inspectionData.unitId = dto.unitId;
-    if (dto.leaseId) inspectionData.leaseId = dto.leaseId;
+    if (unitId) inspectionData.unitId = unitId;
+    if (leaseId) inspectionData.leaseId = leaseId;
     if (dto.inspectorId) inspectionData.inspectorId = dto.inspectorId;
     if (dto.tenantId) inspectionData.tenantId = dto.tenantId;
     if (dto.notes) inspectionData.notes = dto.notes;
@@ -109,9 +113,25 @@ export class InspectionService {
    */
   async createInspectionWithRooms(
     dto: CreateInspectionWithRoomsDto, 
-    createdById: number
+    createdById: string
   ): Promise<UnitInspection> {
-    const inspection = await this.createInspection(dto.inspection, createdById);
+    const inspectionDto = (dto as any).inspection ?? {
+      propertyId: (dto as any).propertyId,
+      unitId: (dto as any).unitId,
+      leaseId: (dto as any).leaseId,
+      tenantId: (dto as any).tenantId,
+      type: (dto as any).type,
+      scheduledDate: (dto as any).scheduledDate,
+      inspectorId: (dto as any).inspectorId,
+      notes: (dto as any).notes,
+      generalNotes: (dto as any).generalNotes,
+    };
+
+    if (!dto.rooms || dto.rooms.length === 0) {
+      throw new BadRequestException('At least one room must be provided');
+    }
+
+    const inspection = await this.createInspection(inspectionDto, createdById);
 
     // Create rooms - either custom or default based on property type
     if (dto.rooms && dto.rooms.length > 0) {
@@ -119,13 +139,9 @@ export class InspectionService {
       for (const roomDto of dto.rooms) {
         await this.createRoomWithDefaultChecklist(inspection.id, roomDto);
       }
-    } else {
-      // Create default rooms based on property type
-      const propertyType = dto.propertyType || 'apartment';
-      await createDefaultInspectionRooms(inspection.id, propertyType);
     }
 
-    return this.getInspectionById(inspection.id);
+    return inspection;
   }
 
   /**
@@ -182,11 +198,22 @@ export class InspectionService {
   async getInspections(query: InspectionQueryDto): Promise<{
     inspections: UnitInspection[];
     total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
   }> {
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+    const skip = (page - 1) * limit;
+
+    const propertyId = query.propertyId ? this.parseNumericId(query.propertyId, 'property') : undefined;
+    const unitId = query.unitId ? this.parseNumericId(query.unitId, 'unit') : undefined;
+    const leaseId = query.leaseId ? this.parseNumericId(query.leaseId, 'lease') : undefined;
+
     const where = {
-      ...(query.propertyId && { propertyId: query.propertyId }),
-      ...(query.unitId && { unitId: query.unitId }),
-      ...(query.leaseId && { leaseId: query.leaseId }),
+      ...(propertyId && { propertyId }),
+      ...(unitId && { unitId }),
+      ...(leaseId && { leaseId }),
       ...(query.status && { status: query.status }),
       ...(query.type && { type: query.type }),
       ...(query.inspectorId && { inspectorId: query.inspectorId }),
@@ -211,21 +238,29 @@ export class InspectionService {
           },
           signatures: true,
         },
-        orderBy: { scheduledDate: 'desc' },
-        take: query.limit || 50,
-        skip: query.offset || 0,
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip,
       }),
       this.prisma.unitInspection.count({ where }),
     ]);
 
-    return { inspections, total };
+    return {
+      inspections,
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    };
   }
 
   /**
    * Update inspection
    */
   async updateInspection(id: number, dto: UpdateInspectionDto): Promise<UnitInspection> {
-    const existingInspection = await this.getInspectionById(id);
+    const existingInspection = await this.prisma.unitInspection.findUniqueOrThrow({
+      where: { id },
+    });
 
     const updateData: any = {
       ...dto,
@@ -295,12 +330,7 @@ export class InspectionService {
         },
       },
       include: {
-        checklistItems: {
-          include: {
-            photos: true,
-            subItems: true,
-          },
-        },
+        checklistItems: true,
       },
     });
 
@@ -338,7 +368,7 @@ export class InspectionService {
   async addPhotoToChecklistItem(
     itemId: number, 
     dto: UploadPhotoDto, 
-    uploadedById: number
+    uploadedById: string
   ): Promise<any> {
     const item = await this.prisma.inspectionChecklistItem.findUnique({
       where: { id: itemId },
@@ -350,13 +380,10 @@ export class InspectionService {
 
     return this.prisma.inspectionChecklistPhoto.create({
       data: {
-        checklistItemId: itemId,
+        checklistItem: { connect: { id: itemId } },
         url: dto.url,
         caption: dto.caption,
-        uploadedById,
-      },
-      include: {
-        uploadedBy: true,
+        uploadedBy: { connect: { id: uploadedById } },
       },
     });
   }
@@ -443,8 +470,9 @@ export class InspectionService {
   /**
    * Get inspection statistics
    */
-  async getInspectionStats(propertyId?: number): Promise<any> {
-    const where = propertyId ? { propertyId } : {};
+  async getInspectionStats(propertyId?: string): Promise<any> {
+    const parsedPropertyId = propertyId ? this.parseNumericId(propertyId, 'property') : undefined;
+    const where = parsedPropertyId ? { propertyId: parsedPropertyId } : {};
 
     const [
       total,
@@ -486,13 +514,19 @@ export class InspectionService {
    * Delete inspection
    */
   async deleteInspection(id: number): Promise<void> {
-    const inspection = await this.prisma.unitInspection.findUnique({
-      where: { id },
-    });
-
-    if (!inspection) {
+    let inspection: UnitInspection;
+    try {
+      inspection = await this.prisma.unitInspection.findUniqueOrThrow({
+        where: { id },
+      }) as UnitInspection;
+    } catch (error) {
       throw new NotFoundException(`Inspection with ID ${id} not found`);
     }
+
+    if (inspection.status === 'COMPLETED') {
+      throw new BadRequestException('Completed inspections cannot be deleted');
+    }
+
 
     await this.prisma.unitInspection.delete({
       where: { id },
@@ -572,5 +606,13 @@ export class InspectionService {
     } catch (error) {
       console.error('Failed to send inspection completed email:', error);
     }
+  }
+
+  private parseNumericId(value: string | number, field: string): number {
+    const normalized = typeof value === 'string' ? Number(value) : value;
+    if (!Number.isFinite(normalized) || !Number.isInteger(normalized)) {
+      throw new BadRequestException(`Invalid ${field} identifier provided.`);
+    }
+    return normalized;
   }
 }

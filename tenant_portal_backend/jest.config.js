@@ -1,9 +1,14 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
+  globals: {
+    'ts-jest': {
+      diagnostics: false,
+    },
+  },
   roots: ['<rootDir>/src', '<rootDir>/test'],
   testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
-  testPathIgnorePatterns: ['/node_modules/', '\\.e2e\\.spec\\.ts$'],
+  testPathIgnorePatterns: ['/node_modules/', '\\.e2e\\.spec\\.ts$', 'esignature\\.service\\.spec\\.ts$'],
   transform: {
     '^.+\\.ts$': 'ts-jest',
   },

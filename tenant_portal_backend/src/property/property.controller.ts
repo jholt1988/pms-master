@@ -8,6 +8,7 @@ import {
   Request,
   Param,
   ParseIntPipe,
+  ParseUUIDPipe,
   HttpCode,
   HttpStatus,
   ValidationPipe,
@@ -33,7 +34,7 @@ import { Request as ExpressRequest } from 'express';
 
 interface AuthenticatedRequest extends ExpressRequest {
   user: {
-    userId: number;
+    userId: string;
     role: Role;
   };
 }
@@ -56,7 +57,7 @@ export class PropertyController {
   @Roles(Role.PROPERTY_MANAGER)
   @HttpCode(HttpStatus.CREATED)
   createUnit(
-    @Param('id', ParseIntPipe) propertyId: number,
+    @Param('id', ParseUUIDPipe) propertyId: string,
     @Body() dto: CreateUnitDto,
   ) {
     return this.propertyService.createUnit(propertyId, dto.name);
@@ -111,14 +112,14 @@ export class PropertyController {
   @Get(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.PROPERTY_MANAGER)
-  getPropertyById(@Param('id', ParseIntPipe) id: number) {
+  getPropertyById(@Param('id', ParseUUIDPipe) id: string) {
     return this.propertyService.getPropertyById(id);
   }
 
   @Get(':id/marketing')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.PROPERTY_MANAGER)
-  getMarketingProfile(@Param('id', ParseIntPipe) id: number) {
+  getMarketingProfile(@Param('id', ParseUUIDPipe) id: string) {
     return this.propertyService.getMarketingProfile(id);
   }
 
@@ -126,7 +127,7 @@ export class PropertyController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.PROPERTY_MANAGER)
   updateMarketingProfile(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdatePropertyMarketingDto,
   ) {
     return this.propertyService.updateMarketingProfile(id, dto);
@@ -136,7 +137,7 @@ export class PropertyController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.PROPERTY_MANAGER)
   updateProperty(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdatePropertyDto,
   ) {
     return this.propertyService.updateProperty(id, dto);
@@ -146,8 +147,8 @@ export class PropertyController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.PROPERTY_MANAGER)
   updateUnit(
-    @Param('id', ParseIntPipe) propertyId: number,
-    @Param('unitId', ParseIntPipe) unitId: number,
+    @Param('id', ParseUUIDPipe) propertyId: string,
+    @Param('unitId', ParseUUIDPipe) unitId: string,
     @Body() dto: UpdateUnitDto,
   ) {
     return this.propertyService.updateUnit(propertyId, unitId, dto);

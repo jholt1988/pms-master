@@ -7,7 +7,7 @@ import {
   IsNumber,
   IsOptional,
   IsPositive,
-  IsString,
+  IsUUID,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -24,8 +24,8 @@ export class CreateLeaseDto {
   @IsPositive()
   rentAmount!: number;
 
-  @IsInt()
-  tenantId!: number;
+  @IsUUID()
+  tenantId!: string;
 
   @IsInt()
   unitId!: number;

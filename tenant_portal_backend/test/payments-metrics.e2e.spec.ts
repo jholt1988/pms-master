@@ -55,17 +55,14 @@ describe('Payments AI Metrics API (e2e)', () => {
     });
 
     unit = await prisma.unit.create({
-      data: TestDataFactory.createUnit({
-        propertyId: property.id,
+      data: TestDataFactory.createUnit(property.id, {
         name: 'Unit 1',
       }),
     });
 
     // Create lease
     lease = await prisma.lease.create({
-      data: TestDataFactory.createLease({
-        tenantId: tenantUser.id,
-        unitId: unit.id,
+      data: TestDataFactory.createLease(tenantUser.id, unit.id, {
         status: 'ACTIVE',
       }),
     });
@@ -75,7 +72,7 @@ describe('Payments AI Metrics API (e2e)', () => {
       .post('/auth/login')
       .send({
         username: 'tenant@test.com',
-        password: 'TestPassword123!',
+        password: 'password123',
       });
 
     tenantToken = tenantLoginResponse.body.access_token || tenantLoginResponse.body.accessToken;
@@ -84,7 +81,7 @@ describe('Payments AI Metrics API (e2e)', () => {
       .post('/auth/login')
       .send({
         username: 'pm@test.com',
-        password: 'TestPassword123!',
+        password: 'password123',
       });
 
     propertyManagerToken =

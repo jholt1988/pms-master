@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateScheduleEventDto } from './dto/create-schedule-event.dto';
 
@@ -7,6 +7,8 @@ export class ScheduleService {
   constructor(private prisma: PrismaService) {}
 
   async createEvent(dto: CreateScheduleEventDto) {
+    const propertyId = this.parseNumericId(dto.propertyId, 'property');
+    const unitId = dto.unitId ? this.parseNumericId(dto.unitId, 'unit') : undefined;
     const event = await this.prisma.scheduleEvent.create({
       data: {
         type: dto.type,
@@ -14,8 +16,8 @@ export class ScheduleService {
         date: new Date(dto.date),
         priority: dto.priority,
         description: dto.description,
-        propertyId: dto.propertyId,
-        unitId: dto.unitId,
+        propertyId,
+        unitId,
         tenantId: dto.tenantId,
       },
     });
@@ -197,5 +199,13 @@ export class ScheduleService {
       tenantName: event.tenant?.username,
       status: event.status,
     }));
+  }
+
+  private parseNumericId(value: string | number, field: string): number {
+    const normalized = typeof value === 'string' ? Number(value) : value;
+    if (!Number.isFinite(normalized) || !Number.isInteger(normalized)) {
+      throw new BadRequestException(`Invalid ${field} identifier provided.`);
+    }
+    return normalized;
   }
 }

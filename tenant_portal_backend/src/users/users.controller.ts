@@ -24,7 +24,7 @@ import { Request } from 'express';
 
 interface AuthenticatedRequest extends Request {
   user: {
-    sub: number;
+    sub: string;
     username: string;
     role: Role;
   };
@@ -36,7 +36,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
   async listUsers(@Query() query: ListUsersDto) {
     const users = await this.usersService.findAll(query.skip, query.take, query.role);
     const total = await this.usersService.count(query.role);
@@ -49,8 +49,8 @@ export class UsersController {
   }
 
   @Get(':id')
-  @Roles(Role.PROPERTY_MANAGER)
-  async getUser(@Param('id', ParseIntPipe) id: number) {
+  @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
+  async getUser(@Param('id') id: string) {
     const user = await this.usersService.findById(id);
     if (!user) {
       throw new BadRequestException('User not found');
@@ -61,15 +61,15 @@ export class UsersController {
   }
 
   @Post()
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
   async createUser(@Body() createUserDto: CreateUserDto, @Req() req: AuthenticatedRequest) {
     return this.usersService.create(createUserDto, req.user.role);
   }
 
   @Put(':id')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
   async updateUser(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
     @Req() req: AuthenticatedRequest,
   ) {
@@ -77,10 +77,9 @@ export class UsersController {
   }
 
   @Delete(':id')
-  @Roles(Role.PROPERTY_MANAGER)
-  async deleteUser(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest) {
+  @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
+  async deleteUser(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     await this.usersService.delete(id, req.user.sub);
     return { success: true };
   }
 }
-

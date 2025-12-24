@@ -16,7 +16,7 @@ export interface ApplicationLifecycleEvent {
   fromStatus?: ApplicationStatus;
   toStatus: ApplicationStatus;
   performedBy?: {
-    userId: number;
+    userId: string;
     username: string;
     role: Role;
   };
@@ -379,7 +379,7 @@ export class ApplicationLifecycleService {
     eventType: ApplicationLifecycleEventType,
     fromStatus: ApplicationStatus | null,
     toStatus: ApplicationStatus,
-    performedBy: { userId: number; username: string; role: Role },
+    performedBy: { userId: string; username: string; role: Role },
     metadata?: Record<string, any>,
   ): Promise<ApplicationLifecycleEvent> {
     const application = await this.prisma.rentalApplication.findUnique({
@@ -632,7 +632,7 @@ export class ApplicationLifecycleService {
   async transitionStatus(
     applicationId: number,
     toStatus: ApplicationStatus,
-    performedBy: { userId: number; username: string; role: Role },
+    performedBy: { userId: string; username: string; role: Role },
     metadata?: Record<string, any>,
   ): Promise<ApplicationLifecycleEvent> {
     const application = await this.prisma.rentalApplication.findUnique({

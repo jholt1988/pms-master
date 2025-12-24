@@ -1,10 +1,9 @@
-import { IsBoolean, IsDateString, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsPositive, Max, Min } from 'class-validator';
+import { IsBoolean, IsDateString, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsUUID, Max, Min } from 'class-validator';
 import { BillingFrequency } from '@prisma/client';
 
 export class UpsertScheduleDto {
-  @IsNumber()
-  @IsPositive()
-  leaseId!: number;
+  @IsUUID()
+  leaseId!: string;
 
   @IsNumber()
   amount!: number;

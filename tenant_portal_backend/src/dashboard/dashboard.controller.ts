@@ -7,7 +7,7 @@ import { DashboardService } from './dashboard.service';
 
 interface AuthenticatedRequest extends Request {
   user: {
-    userId: number;
+    userId: string;
     role: Role;
   };
 }

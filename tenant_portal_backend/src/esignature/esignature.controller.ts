@@ -11,7 +11,7 @@ import { VoidEnvelopeDto } from './dto/void-envelope.dto';
 
 interface AuthenticatedRequest extends ExpressRequest {
   user: {
-    userId: number;
+    userId: string;
     role: Role;
     username?: string;
   };
@@ -25,7 +25,7 @@ export class EsignatureController {
   @Get('leases/:leaseId/envelopes')
   @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
   getLeaseEnvelopes(@Param('leaseId') leaseId: string, @Request() req: AuthenticatedRequest) {
-    return this.esignatureService.listLeaseEnvelopes(Number(leaseId), req.user);
+    return this.esignatureService.listLeaseEnvelopes(leaseId, req.user);
   }
 
   @Post('leases/:leaseId/envelopes')
@@ -35,7 +35,7 @@ export class EsignatureController {
     @Body() dto: CreateEnvelopeDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.esignatureService.createEnvelope(Number(leaseId), dto, req.user.userId);
+    return this.esignatureService.createEnvelope(leaseId, dto, req.user.userId);
   }
 
   @Post('envelopes/:envelopeId/recipient-view')

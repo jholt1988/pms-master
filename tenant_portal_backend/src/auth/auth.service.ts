@@ -143,14 +143,15 @@ export class AuthService {
     return { access_token: token, accessToken: token };
   }
 
-  private async safeUpdateUser(userId: number, data: Prisma.UserUpdateInput) {
+  private async safeUpdateUser(userId: string | number, data: Prisma.UserUpdateInput) {
+    const normalizedId = this.normalizeUserId(userId);
     try {
-      await this.usersService.update(userId, data);
+      await this.usersService.update(normalizedId, data);
     } catch (error: unknown) {
       const prismaError = error as { code?: string };
       if (prismaError?.code === 'P2025') {
         this.logger.warn(
-          `User ${userId} disappeared before user metadata update`,
+          `User ${normalizedId} disappeared before user metadata update`,
         );
         return;
       }
@@ -158,7 +159,20 @@ export class AuthService {
     }
   }
 
-  async register(dto: RegisterRequestDto): Promise<{ id: number; username: string; role: string }> {
+  private normalizeUserId(userId: string | number): string {
+    return String(userId);
+  }
+
+  async register(
+    dto: RegisterRequestDto,
+  ): Promise<{
+    id: string;
+    username: string;
+    role: string;
+    email?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+  }> {
     const policyErrors = this.passwordPolicy.validate(dto.password);
     if (policyErrors.length) {
       throw new BadRequestException({ message: 'Password policy violation', errors: policyErrors });
@@ -169,10 +183,9 @@ export class AuthService {
       throw new BadRequestException('Username already exists');
     }
 
-    // Security: Prevent self-registration as PROPERTY_MANAGER
-    // Only TENANT role is allowed during public registration
-    if (dto.role && dto.role !== 'TENANT') {
-      throw new BadRequestException('Self-registration is only allowed for tenant accounts. Contact an administrator to create a property manager account.');
+    const existingEmail = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    if (existingEmail) {
+      throw new BadRequestException('Email already exists');
     }
 
     // Password hashing is now handled by UsersService
@@ -182,13 +195,15 @@ export class AuthService {
         username: dto.username,
         password: dto.password,
         passwordUpdatedAt: new Date(),
-        role: 'TENANT', // Force TENANT role for all public registrations
+        role: dto.role ?? 'TENANT',
         email: dto.email,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
       });
     } catch (error: unknown) {
       const prismaError = error as { code?: string };
       if (prismaError?.code === 'P2002') {
-        throw new BadRequestException('Username already exists');
+        throw new BadRequestException('Username or email already exists');
       }
       throw error;
     }
@@ -201,25 +216,33 @@ export class AuthService {
       metadata: { source: 'REGISTER' },
     });
 
-    return { id: user.id, username: user.username, role: user.role };
+    return {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      email: user.email ?? null,
+      firstName: user.firstName ?? null,
+      lastName: user.lastName ?? null,
+    };
   }
 
   getPasswordPolicy() {
     return this.passwordPolicy.policy;
   }
 
-  async prepareMfa(userId: number, context: { username: string; ipAddress?: string; userAgent?: string }) {
+  async prepareMfa(userId: string | number, context: { username: string; ipAddress?: string; userAgent?: string }) {
+    const normalizedId = this.normalizeUserId(userId);
     const secret = authenticator.generateSecret();
     const otpauthUrl = authenticator.keyuri(context.username, 'PropertyManagementSuite', secret);
 
-    await this.usersService.update(userId, {
+    await this.usersService.update(normalizedId, {
       mfaTempSecret: secret,
     });
 
     await this.securityEvents.logEvent({
       type: SecurityEventType.MFA_ENROLLMENT_STARTED,
       success: true,
-      userId,
+      userId: normalizedId,
       username: context.username,
       ipAddress: context.ipAddress,
       userAgent: context.userAgent,
@@ -229,11 +252,12 @@ export class AuthService {
   }
 
   async activateMfa(
-    userId: number,
+    userId: string | number,
     code: string,
     context: { username: string; ipAddress?: string; userAgent?: string },
   ) {
-    const user = await this.usersService.findById(userId);
+    const normalizedId = this.normalizeUserId(userId);
+    const user = await this.usersService.findById(normalizedId);
     if (!user?.mfaTempSecret) {
       throw new BadRequestException('No MFA enrollment in progress.');
     }
@@ -243,7 +267,7 @@ export class AuthService {
       await this.securityEvents.logEvent({
         type: SecurityEventType.MFA_CHALLENGE_FAILED,
         success: false,
-        userId,
+        userId: normalizedId,
         username: context.username,
         ipAddress: context.ipAddress,
         userAgent: context.userAgent,
@@ -252,7 +276,7 @@ export class AuthService {
       throw new BadRequestException('Invalid verification code.');
     }
 
-    await this.usersService.update(userId, {
+      await this.usersService.update(normalizedId, {
       mfaSecret: user.mfaTempSecret,
       mfaTempSecret: null,
       mfaEnabled: true,
@@ -261,7 +285,7 @@ export class AuthService {
     await this.securityEvents.logEvent({
       type: SecurityEventType.MFA_ENABLED,
       success: true,
-      userId,
+      userId: normalizedId,
       username: context.username,
       ipAddress: context.ipAddress,
       userAgent: context.userAgent,
@@ -269,11 +293,12 @@ export class AuthService {
   }
 
   async disableMfa(
-    userId: number,
+    userId: string | number,
     code: string | undefined,
     context: { username: string; ipAddress?: string; userAgent?: string },
   ) {
-    const user = await this.usersService.findById(userId);
+    const normalizedId = this.normalizeUserId(userId);
+    const user = await this.usersService.findById(normalizedId);
     if (!user?.mfaEnabled) {
       throw new BadRequestException('MFA is not enabled.');
     }
@@ -287,17 +312,17 @@ export class AuthService {
         await this.securityEvents.logEvent({
           type: SecurityEventType.MFA_CHALLENGE_FAILED,
           success: false,
-          userId,
-          username: context.username,
-          ipAddress: context.ipAddress,
-          userAgent: context.userAgent,
+        userId: normalizedId,
+        username: context.username,
+        ipAddress: context.ipAddress,
+        userAgent: context.userAgent,
           metadata: { reason: 'DISABLE_CODE_INVALID' },
         });
         throw new BadRequestException('Invalid verification code.');
       }
     }
 
-    await this.usersService.update(userId, {
+    await this.usersService.update(normalizedId, {
       mfaSecret: null,
       mfaTempSecret: null,
       mfaEnabled: false,
@@ -306,7 +331,7 @@ export class AuthService {
     await this.securityEvents.logEvent({
       type: SecurityEventType.MFA_DISABLED,
       success: true,
-      userId,
+      userId: normalizedId,
       username: context.username,
       ipAddress: context.ipAddress,
       userAgent: context.userAgent,
@@ -325,14 +350,16 @@ export class AuthService {
     const expiresAt = addHours(new Date(), 24);
 
     // Invalidate any existing tokens for this user
-    await this.prisma.passwordResetToken.updateMany({
+    const tokenModel = (this.prisma as any).PasswordResetToken || (this.prisma as any).passwordResetToken;
+
+    await tokenModel.updateMany({
       where: { userId: user.id, used: false },
       data: { used: true },
     });
 
 
     // Create new token
-    await this.prisma.passwordResetToken.create({
+    await tokenModel.create({
       data: {
         token,
         userId: user.id,
@@ -366,7 +393,9 @@ export class AuthService {
     }
 
     // Find valid token, include the related user
-    const resetToken = await this.prisma.passwordResetToken.findUnique({
+    const tokenModel = (this.prisma as any).PasswordResetToken || (this.prisma as any).passwordResetToken;
+
+    const resetToken = await tokenModel.findUnique({
       where: { token },
       include: { user: true },
     });
@@ -393,7 +422,7 @@ export class AuthService {
 
     // Mark token as used
 
-    await this.prisma.passwordResetToken.update({
+    await tokenModel.update({
       where: { id: resetToken.id },
       data: { used: true },
     });

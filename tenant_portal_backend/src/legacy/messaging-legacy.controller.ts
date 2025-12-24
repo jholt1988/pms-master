@@ -23,7 +23,7 @@ import {
 
 interface AuthenticatedRequest {
   user: {
-    userId: number;
+    userId: string;
     username: string;
     role: string;
   };

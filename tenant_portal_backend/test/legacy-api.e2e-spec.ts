@@ -118,27 +118,27 @@ describe('Legacy API Contracts (e2e)', () => {
     await app.close();
   });
 
-  it('exposes /api/leads and polls stats/messages/status', async () => {
+  it('exposes /leads and polls stats/messages/status', async () => {
     const listResp = await request(app.getHttpServer())
-      .get('/api/leads')
+      .get('/leads')
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
     expect(listResp.body.leads).toHaveLength(1);
 
     const statsResp = await request(app.getHttpServer())
-      .get('/api/leads/statistics/dashboard')
+      .get('/leads/statistics/dashboard')
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
     expect(statsResp.body.stats).toMatchObject({ totalLeads: 1 });
 
     const messagesResp = await request(app.getHttpServer())
-      .get(`/api/leads/${lead.id}/messages`)
+      .get(`/leads/${lead.id}/messages`)
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
     expect(messagesResp.body.messages).toHaveLength(1);
 
     const patchResp = await request(app.getHttpServer())
-      .patch(`/api/leads/${lead.id}/status`)
+      .patch(`/leads/${lead.id}/status`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({ status: 'QUALIFIED' })
       .expect(200);
@@ -147,7 +147,7 @@ describe('Legacy API Contracts (e2e)', () => {
 
   it('returns maintenance aliases through legacy endpoints', async () => {
     const requestsResp = await request(app.getHttpServer())
-      .get('/api/maintenance-requests')
+      .get('/maintenance-requests')
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
     expect(requestsResp.body).toHaveProperty('items') || expect(requestsResp.body).toHaveProperty('requests');
@@ -160,14 +160,14 @@ describe('Legacy API Contracts (e2e)', () => {
     });
 
     const assignResp = await request(app.getHttpServer())
-      .put(`/api/maintenance/${maintenanceRequest.id}/assignee`)
+      .put(`/maintenance/${maintenanceRequest.id}/assignee`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({ technicianId: tech.id })
       .expect(200);
     expect(assignResp.body).toHaveProperty('assigneeId');
 
     const techResp = await request(app.getHttpServer())
-      .get('/api/users/technicians')
+      .get('/users/technicians')
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
     expect(Array.isArray(techResp.body)).toBeTruthy();

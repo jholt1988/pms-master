@@ -76,22 +76,22 @@ describe('WorkflowRateLimiterService', () => {
 
   describe('Key Generation', () => {
     it('should generate user key', () => {
-      const key = service.generateUserKey(123);
+      const key = service.generateUserKey('123');
       expect(key).toBe('workflow:123');
     });
 
     it('should generate user key with workflow', () => {
-      const key = service.generateUserKey(123, 'test-workflow');
+      const key = service.generateUserKey('123', 'test-workflow');
       expect(key).toBe('workflow:123:test-workflow');
     });
 
     it('should generate tenant key', () => {
-      const key = service.generateTenantKey(456);
+      const key = service.generateTenantKey('456');
       expect(key).toBe('workflow:tenant:456');
     });
 
     it('should generate tenant key with workflow', () => {
-      const key = service.generateTenantKey(456, 'test-workflow');
+      const key = service.generateTenantKey('456', 'test-workflow');
       expect(key).toBe('workflow:tenant:456:test-workflow');
     });
   });

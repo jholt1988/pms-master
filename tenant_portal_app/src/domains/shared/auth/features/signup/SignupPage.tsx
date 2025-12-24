@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Card, CardBody, Input, Progress } from '@nextui-org/react';
+import { Button, Card, CardBody, Input, Progress, Select, SelectItem } from '@nextui-org/react';
 import { Eye, EyeOff, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 import { AuthLayout } from '../../layouts';
 import { baseColors } from '../../../../../design-tokens/colors';
@@ -28,9 +28,12 @@ interface PasswordRequirement {
  */
 export const SignupPage: React.FC = () => {
   const [username, setUsername] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role] = useState<'TENANT' | 'PROPERTY_MANAGER'>('TENANT');
+  const [role, setRole] = useState<'TENANT' | 'PROPERTY_MANAGER' | 'ADMIN'>('TENANT');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [policy, setPolicy] = useState<PasswordPolicy | null>(null);
@@ -126,7 +129,7 @@ export const SignupPage: React.FC = () => {
     try {
       await apiFetch('/auth/register', {
         method: 'POST',
-        body: { username, password, role },
+        body: { username, password, role, firstName, lastName, email },
       });
 
       navigate('/login');
@@ -148,6 +151,41 @@ export const SignupPage: React.FC = () => {
       <Card shadow="lg" style={{ boxShadow: elevation.card }}>
         <CardBody style={{ padding: spacing[6] }}>
           <form className="space-y-4" onSubmit={handleSignup}>
+            <div className="grid gap-3 md:grid-cols-2">
+              <Input
+                label="First name"
+                placeholder="Jane"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                autoComplete="given-name"
+                isRequired
+                variant="bordered"
+                size="lg"
+              />
+              <Input
+                label="Last name"
+                placeholder="Doe"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                autoComplete="family-name"
+                isRequired
+                variant="bordered"
+                size="lg"
+              />
+            </div>
+
+            <Input
+              label="Email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              type="email"
+              isRequired
+              variant="bordered"
+              size="lg"
+            />
+
             {/* Username Input */}
             <Input
               label="Username"
@@ -159,6 +197,24 @@ export const SignupPage: React.FC = () => {
               variant="bordered"
               size="lg"
             />
+
+            {/* Role selector */}
+            <Select
+              label="Account role"
+              selectedKeys={[role]}
+              onSelectionChange={(keys) => {
+                const next = Array.from(keys)[0] as 'TENANT' | 'PROPERTY_MANAGER' | 'ADMIN';
+                if (next) {
+                  setRole(next);
+                }
+              }}
+              variant="bordered"
+              size="lg"
+            >
+              <SelectItem key="TENANT">Tenant</SelectItem>
+              <SelectItem key="PROPERTY_MANAGER">Property Manager</SelectItem>
+              <SelectItem key="ADMIN">Admin</SelectItem>
+            </Select>
 
             {/* Password Input with Strength Indicator */}
             <div className="space-y-2">

@@ -9,7 +9,7 @@ export class MessagingService {
   /**
    * Get all conversations for a user with pagination
    */
-  async getConversations(userId: number, query?: GetConversationsQueryDto) {
+  async getConversations(userId: string, query?: GetConversationsQueryDto) {
     const page = query?.page || 1;
     const limit = query?.limit || 20;
     const skip = (page - 1) * limit;
@@ -65,7 +65,7 @@ export class MessagingService {
   /**
    * Get a single conversation by ID
    */
-  async getConversationById(conversationId: number, userId: number) {
+  async getConversationById(conversationId: number, userId: string) {
     await this.ensureConversationParticipant(conversationId, userId);
 
     return this.prisma.conversation.findUnique({
@@ -101,7 +101,7 @@ export class MessagingService {
   /**
    * Get messages in a conversation with pagination
    */
-  async getConversationMessages(conversationId: number, userId: number, query?: GetMessagesQueryDto) {
+  async getConversationMessages(conversationId: number, userId: string, query?: GetMessagesQueryDto) {
     await this.ensureConversationParticipant(conversationId, userId);
 
     const page = query?.page || 1;
@@ -143,11 +143,12 @@ export class MessagingService {
   /**
    * Create a new conversation with initial participants
    */
-  async createConversation(dto: CreateConversationDto, creatorId: number) {
+  async createConversation(dto: CreateConversationDto, creatorId: string | number) {
+    const creatorIdStr = String(creatorId);
     // Add creator to participants if not already included
-    const participantIds = dto.participantIds.includes(creatorId)
+    const participantIds = dto.participantIds.includes(creatorIdStr)
       ? dto.participantIds
-      : [...dto.participantIds, creatorId];
+      : [...dto.participantIds, creatorIdStr];
 
     // Verify all participants exist
     const users = await this.prisma.user.findMany({
@@ -162,7 +163,7 @@ export class MessagingService {
       const conversation = await prisma.conversation.create({
         data: {
           participants: {
-            create: participantIds.map((userId) => ({ userId })),
+            create: participantIds.map((userId) => ({ user: { connect: { id: userId } } })),
           },
         },
         include: {
@@ -185,7 +186,7 @@ export class MessagingService {
         await prisma.message.create({
           data: {
             content: dto.initialMessage,
-            senderId: creatorId,
+            senderId: creatorIdStr,
             conversationId: conversation.id,
           },
         });
@@ -198,7 +199,7 @@ export class MessagingService {
   /**
    * Send a message (create new conversation if needed)
    */
-  async sendMessage(dto: CreateMessageDto, senderId: number) {
+  async sendMessage(dto: CreateMessageDto, senderId: string) {
     // If conversationId provided, use existing conversation
     if (dto.conversationId) {
       await this.ensureConversationParticipant(dto.conversationId, senderId);
@@ -406,7 +407,7 @@ export class MessagingService {
   /**
    * Search conversations by username (for property managers/admins)
    */
-  async searchConversations(searchTerm: string, userId?: number) {
+  async searchConversations(searchTerm: string, userId?: string) {
     const whereClause: any = {
       participants: {
         some: {
@@ -502,7 +503,7 @@ export class MessagingService {
   /**
    * Find existing conversation between two users
    */
-  private async findConversationBetweenUsers(userId1: number, userId2: number) {
+  private async findConversationBetweenUsers(userId1: string, userId2: string) {
     const conversations = await this.prisma.conversation.findMany({
       where: {
         participants: {
@@ -525,7 +526,7 @@ export class MessagingService {
     );
   }
 
-  private async ensureConversationParticipant(conversationId: number, userId: number) {
+  private async ensureConversationParticipant(conversationId: number, userId: string) {
     const conversation = await this.prisma.conversation.findFirst({
       where: {
         id: conversationId,

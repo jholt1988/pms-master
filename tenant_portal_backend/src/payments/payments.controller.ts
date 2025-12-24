@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Post, Body, UseGuards, Request, Query, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Request, Query, Param, Optional } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { PaymentsService } from './payments.service';
 import { AIPaymentMetricsService } from './ai-payment-metrics.service';
@@ -12,7 +12,7 @@ import { Request as ExpressRequest } from 'express';
 
 type AuthenticatedRequest = ExpressRequest & {
   user: {
-    userId: number;
+    userId: string;
     role: Role;
   };
 };
@@ -22,7 +22,7 @@ type AuthenticatedRequest = ExpressRequest & {
 export class PaymentsController {
   constructor(
     private readonly paymentsService: PaymentsService,
-    private readonly aiMetrics: AIPaymentMetricsService,
+    @Optional() private readonly aiMetrics?: AIPaymentMetricsService,
   ) {}
 
   @Post('invoices')
@@ -37,11 +37,7 @@ export class PaymentsController {
     @Request() req: AuthenticatedRequest,
     @Query('leaseId') leaseId?: string,
   ): Promise<Invoice[]> {
-    const parsedLeaseId = leaseId === undefined ? undefined : Number(leaseId);
-    if (leaseId !== undefined && Number.isNaN(parsedLeaseId)) {
-      throw new BadRequestException('leaseId must be a number');
-    }
-    return this.paymentsService.getInvoicesForUser(req.user.userId, req.user.role, parsedLeaseId);
+    return this.paymentsService.getInvoicesForUser(req.user.userId, req.user.role, leaseId);
   }
 
   @Post()
@@ -59,17 +55,13 @@ export class PaymentsController {
     @Request() req: AuthenticatedRequest,
     @Query('leaseId') leaseId?: string,
   ): Promise<Payment[]> {
-    const parsedLeaseId = leaseId === undefined ? undefined : Number(leaseId);
-    if (leaseId !== undefined && Number.isNaN(parsedLeaseId)) {
-      throw new BadRequestException('leaseId must be a number');
-    }
-    return this.paymentsService.getPaymentsForUser(req.user.userId, req.user.role, parsedLeaseId);
+    return this.paymentsService.getPaymentsForUser(req.user.userId, req.user.role, leaseId);
   }
 
   @Get('ai-metrics')
   @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
   async getAIMetrics() {
-    return this.aiMetrics.getMetrics();
+    return this.aiMetrics ? this.aiMetrics.getMetrics() : {};
   }
 
   @Get('invoices/:id')

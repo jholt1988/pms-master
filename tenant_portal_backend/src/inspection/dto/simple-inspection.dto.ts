@@ -1,4 +1,4 @@
-import { IsEnum, IsInt, IsString, IsOptional, IsBoolean, IsDateString, IsNumber, Min, Max } from 'class-validator';
+import { IsEnum, IsInt, IsString, IsOptional, IsBoolean, IsDateString, IsNumber, Min, Max, IsUUID } from 'class-validator';
 
 // Enums (simplified)
 export enum InspectionStatus {
@@ -41,13 +41,20 @@ export enum EstimateStatus {
 
 // Basic DTOs without complex validation
 export class CreateInspectionDto {
-  propertyId!: number;
-  unitId?: number;
-  leaseId?: number;
+  @IsUUID()
+  propertyId!: string;
+
+  @IsOptional()
+  @IsUUID()
+  unitId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  leaseId?: string;
   type!: InspectionType;
   scheduledDate!: string;
-  inspectorId?: number;
-  tenantId?: number;
+  inspectorId?: string;
+  tenantId?: string;
   notes?: string;
   generalNotes?: string;
 }
@@ -79,16 +86,26 @@ export class UploadPhotoDto {
 }
 
 export class CreateSignatureDto {
-  userId!: number;
+  @IsUUID()
+  userId!: string;
   role!: string;
   signatureData!: string;
 }
 
 export class CreateEstimateDto {
   inspectionId?: number;
-  maintenanceRequestId?: number;
-  propertyId?: number;
-  unitId?: number;
+
+  @IsOptional()
+  @IsUUID()
+  maintenanceRequestId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  propertyId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  unitId?: string;
 }
 
 export class CreateEstimateLineItemDto {
@@ -125,21 +142,22 @@ export class UpdateInspectionDto {
 }
 
 export class InspectionQueryDto {
-  propertyId?: number;
-  unitId?: number;
-  leaseId?: number;
+  propertyId?: string;
+  unitId?: string;
+  leaseId?: string;
   status?: InspectionStatus;
   type?: InspectionType;
-  inspectorId?: number;
-  tenantId?: number;
+  inspectorId?: string;
+  tenantId?: string;
   limit?: number;
   offset?: number;
+  page?: number;
 }
 
 export class EstimateQueryDto {
   inspectionId?: number;
-  maintenanceRequestId?: number;
-  propertyId?: number;
+  maintenanceRequestId?: string;
+  propertyId?: string | number;
   status?: EstimateStatus;
   limit?: number;
   offset?: number;

@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 interface LogEventParams {
   type: SecurityEventType;
   success: boolean;
-  userId?: number | null;
+  userId?: string | null;
   username?: string | null;
   ipAddress?: string | null;
   userAgent?: string | null;
@@ -15,7 +15,7 @@ interface LogEventParams {
 interface ListEventsParams {
   limit?: number;
   offset?: number;
-  userId?: number;
+  userId?: string;
   username?: string;
   type?: SecurityEventType;
   from?: Date;
@@ -79,4 +79,3 @@ export class SecurityEventsService {
     });
   }
 }
-

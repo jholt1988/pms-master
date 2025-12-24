@@ -1,19 +1,24 @@
 
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class RentEstimatorService {
   constructor(private prisma: PrismaService) {}
 
-  async estimateRent(propertyId: number, unitId: number): Promise<{ estimatedRent: number; details: string }> {
+  async estimateRent(
+    propertyId: string | number,
+    unitId: string | number,
+  ): Promise<{ estimatedRent: number; details: string }> {
+    const normalizedUnitId = this.parseNumericId(unitId, 'unit');
+    this.parseNumericId(propertyId, 'property');
     // In a real application, this would involve more sophisticated logic:
     // - Fetching comparable properties/units from the database.
     // - Using external data sources (e.g., Zillow API, local market data).
     // - Applying algorithms based on square footage, number of bedrooms/bathrooms, amenities, location, etc.
 
     const unit = await this.prisma.unit.findUnique({
-      where: { id: unitId },
+      where: { id: normalizedUnitId },
       include: { property: true },
     });
 
@@ -35,12 +40,20 @@ export class RentEstimatorService {
 
     // Further adjustments could be based on property location, amenities, etc.
     // For example, if property.name includes 'Luxury', add more.
-    if (unit.property.name.includes('Luxury')) {
+    if (unit.property?.name?.includes('Luxury')) {
       estimatedRent += 300;
     }
 
-    const details = `Estimated based on unit type (${unit.name}) and property features (${unit.property.name}).`;
+    const details = `Estimated based on unit type (${unit.name}) and property features (${unit.property?.name ?? 'N/A'}).`;
 
     return { estimatedRent, details };
+  }
+
+  private parseNumericId(value: string | number, field: string): number {
+    const normalized = typeof value === 'string' ? Number(value) : value;
+    if (!Number.isFinite(normalized) || !Number.isInteger(normalized)) {
+      throw new BadRequestException(`Invalid ${field} identifier provided.`);
+    }
+    return normalized;
   }
 }

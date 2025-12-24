@@ -10,7 +10,7 @@ import { Request } from 'express';
 
 interface AuthenticatedRequest extends Request {
   user: {
-    userId: number;
+    userId: string;
     username: string;
     role: Role;
   };
@@ -43,7 +43,7 @@ export class BillingController {
   async deactivate(@Param('leaseId') leaseId: string, @Req() req: AuthenticatedRequest) {
     return this.billingService.deactivateSchedule(
       { userId: req.user.userId, username: req.user.username, role: req.user.role },
-      Number(leaseId),
+      leaseId,
     );
   }
 
@@ -59,7 +59,7 @@ export class BillingController {
       throw new BadRequestException('leaseId query param required for property manager');
     }
 
-    const lease = await this.billingService.getAutopayForLease(Number(leaseId));
+    const lease = await this.billingService.getAutopayForLease(leaseId);
     return {
       leaseId: lease.id,
       autopayEnrollment: lease.autopayEnrollment,
@@ -84,7 +84,7 @@ export class BillingController {
   async disableAutopay(@Param('leaseId') leaseId: string, @Req() req: AuthenticatedRequest) {
     return this.billingService.disableAutopay(
       { userId: req.user.userId, username: req.user.username, role: req.user.role },
-      Number(leaseId),
+      leaseId,
     );
   }
 
@@ -95,5 +95,4 @@ export class BillingController {
     return this.billingService.manualRun();
   }
 }
-
 

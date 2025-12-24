@@ -65,14 +65,14 @@ export class WorkflowRateLimiterService {
   /**
    * Generate rate limit key for user
    */
-  generateUserKey(userId: number, workflowId?: string): string {
+  generateUserKey(userId: string, workflowId?: string): string {
     return workflowId ? `workflow:${userId}:${workflowId}` : `workflow:${userId}`;
   }
 
   /**
    * Generate rate limit key for tenant
    */
-  generateTenantKey(tenantId: number, workflowId?: string): string {
+  generateTenantKey(tenantId: string, workflowId?: string): string {
     return workflowId ? `workflow:tenant:${tenantId}:${workflowId}` : `workflow:tenant:${tenantId}`;
   }
 

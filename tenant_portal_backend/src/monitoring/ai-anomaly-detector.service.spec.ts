@@ -40,7 +40,7 @@ describe('AIAnomalyDetectorService', () => {
   });
 
   describe('constructor', () => {
-    it('should load configurable thresholds', () => {
+    it('should load configurable thresholds', async () => {
       mockConfigService.get.mockImplementation((key: string, defaultValue?: string) => {
         const config: Record<string, string> = {
           ANOMALY_DETECTION_ENABLED: 'true',

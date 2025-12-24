@@ -93,7 +93,7 @@ describe('WorkflowEngineService - Optimizations', () => {
       });
       (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({ role: 'PROPERTY_MANAGER' });
 
-      await service.executeWorkflow('test-workflow', {}, 1);
+      await service.executeWorkflow('test-workflow', {}, '1');
 
       expect(cacheService.getWorkflow).toHaveBeenCalledWith('test-workflow');
       expect(cacheService.setWorkflow).not.toHaveBeenCalled(); // Should not set if already cached
@@ -116,7 +116,7 @@ describe('WorkflowEngineService - Optimizations', () => {
         steps: [],
       });
 
-      await service.executeWorkflow('test-workflow', {}, 1);
+      await service.executeWorkflow('test-workflow', {}, '1');
 
       expect(cacheService.setWorkflow).toHaveBeenCalled();
     });
@@ -150,7 +150,7 @@ describe('WorkflowEngineService - Optimizations', () => {
         ],
       });
 
-      await service.executeWorkflow('test-workflow', { requestId: 1 }, 1);
+      await service.executeWorkflow('test-workflow', { requestId: '1' }, '1');
 
       expect(cacheService.getAIResponse).toHaveBeenCalledWith(cacheKey);
     });
@@ -166,7 +166,7 @@ describe('WorkflowEngineService - Optimizations', () => {
       });
       (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({ role: 'PROPERTY_MANAGER' });
 
-      await service.executeWorkflow('test-workflow', {}, 1);
+      await service.executeWorkflow('test-workflow', {}, '1');
 
       expect(rateLimiter.checkRateLimit).toHaveBeenCalled();
     });
@@ -180,7 +180,7 @@ describe('WorkflowEngineService - Optimizations', () => {
       });
       (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({ role: 'PROPERTY_MANAGER' });
 
-      await expect(service.executeWorkflow('test-workflow', {}, 1)).rejects.toThrow();
+      await expect(service.executeWorkflow('test-workflow', {}, '1')).rejects.toThrow();
 
       expect(rateLimiter.checkRateLimit).toHaveBeenCalled();
     });
@@ -228,7 +228,7 @@ describe('WorkflowEngineService - Optimizations', () => {
       (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({ role: 'PROPERTY_MANAGER' });
 
       const startTime = Date.now();
-      await service.executeWorkflow('parallel-workflow', {}, 1);
+      await service.executeWorkflow('parallel-workflow', {}, '1');
       const duration = Date.now() - startTime;
 
       // Both steps should execute
@@ -273,7 +273,7 @@ describe('WorkflowEngineService - Optimizations', () => {
       (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({ role: 'PROPERTY_MANAGER' });
 
       const startTime = Date.now();
-      await service.executeWorkflow('sequential-workflow', {}, 1);
+      await service.executeWorkflow('sequential-workflow', {}, '1');
       const duration = Date.now() - startTime;
 
       // Should take ~100ms (sequential)
@@ -312,7 +312,7 @@ describe('WorkflowEngineService - Optimizations', () => {
         ],
       });
 
-      await service.executeWorkflow('test-workflow', { requestId: 1 }, 1);
+      await service.executeWorkflow('test-workflow', { requestId: '1' }, '1');
 
       // Should call findUnique once with include
       expect(mockPrisma.maintenanceRequest.findUnique).toHaveBeenCalledTimes(1);

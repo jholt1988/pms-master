@@ -1,0 +1,3 @@
+
+GRANT ALL PRIVILEGES ON SCHEMA public TO postgres;
+

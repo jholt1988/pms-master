@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsOptional, IsInt, IsDateString } from 'class-validator';
+import { IsString, IsEnum, IsOptional, IsUUID, IsDateString } from 'class-validator';
 
 export enum EventType {
   TOUR = 'TOUR',
@@ -35,14 +35,14 @@ export class CreateScheduleEventDto {
   description?: string;
 
   @IsOptional()
-  @IsInt()
-  propertyId?: number;
+  @IsUUID()
+  propertyId?: string;
 
   @IsOptional()
-  @IsInt()
-  unitId?: number;
+  @IsUUID()
+  unitId?: string;
 
   @IsOptional()
-  @IsInt()
-  tenantId?: number;
+  @IsUUID()
+  tenantId?: string;
 }

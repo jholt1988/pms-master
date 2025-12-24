@@ -8,7 +8,7 @@ import { AssignTechnicianDto } from '../maintenance/dto/assign-technician.dto';
 
 interface AuthenticatedRequest {
   user: {
-    userId: number;
+    userId: string;
     role: Role;
   };
 }
@@ -35,6 +35,6 @@ export class MaintenanceLegacyController {
     @Body() dto: AssignTechnicianDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.maintenanceService.assignTechnician(Number(requestId), dto, req.user.userId);
+    return this.maintenanceService.assignTechnician(requestId, dto, req.user.userId);
   }
 }

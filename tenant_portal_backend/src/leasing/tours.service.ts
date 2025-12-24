@@ -3,7 +3,7 @@
  * Handles property tour scheduling and management
  */
 
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 
@@ -19,17 +19,19 @@ export class ToursService {
    */
   async scheduleTour(data: {
     leadId: string;
-    propertyId: number;
-    unitId?: number;
+    propertyId: string | number;
+    unitId?: string | number;
     scheduledDate: Date;
     scheduledTime: string;
     notes?: string;
   }) {
+    const propertyId = this.parseNumericId(data.propertyId, 'property');
+    const unitId = data.unitId ? this.parseNumericId(data.unitId, 'unit') : undefined;
     const tour = await this.prisma.tour.create({
       data: {
         leadId: data.leadId,
-        propertyId: data.propertyId,
-        unitId: data.unitId || null,
+        propertyId,
+        unitId: unitId ?? null,
         scheduledDate: data.scheduledDate,
         scheduledTime: data.scheduledTime,
         notes: data.notes || null,
@@ -84,7 +86,7 @@ export class ToursService {
    * Get all tours with filtering
    */
   async getTours(filters?: {
-    propertyId?: number;
+    propertyId?: string;
     status?: string;
     dateFrom?: Date;
     dateTo?: Date;
@@ -94,7 +96,7 @@ export class ToursService {
     const where: any = {};
 
     if (filters?.propertyId) {
-      where.propertyId = filters.propertyId;
+      where.propertyId = this.parseNumericId(filters.propertyId, 'property');
     }
 
     if (filters?.status) {
@@ -153,7 +155,7 @@ export class ToursService {
   /**
    * Assign tour to property manager
    */
-  async assignTour(id: string, userId: number) {
+  async assignTour(id: string, userId: string) {
     return this.prisma.tour.update({
       where: { id },
       data: { conductedById: userId },
@@ -177,5 +179,13 @@ export class ToursService {
         updatedAt: new Date(),
       },
     });
+  }
+
+  private parseNumericId(value: string | number, field: string): number {
+    const parsed = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(parsed) || Number.isNaN(parsed) || !Number.isInteger(parsed)) {
+      throw new BadRequestException(`Invalid ${field} id: ${value}`);
+    }
+    return parsed;
   }
 }

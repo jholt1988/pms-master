@@ -27,7 +27,7 @@ import { Role } from '@prisma/client';
 
 interface AuthenticatedRequest extends Request {
   user: {
-    userId: number;
+    userId: string;
     username: string;
     role: string;
   };

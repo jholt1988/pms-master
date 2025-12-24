@@ -66,7 +66,7 @@ export class InspectionController {
   @Get('stats')
   async getInspectionStats(@Query('propertyId') propertyId?: string) {
     return this.inspectionService.getInspectionStats(
-      propertyId ? parseInt(propertyId) : undefined
+      propertyId ? this.ensureUuid(propertyId, 'propertyId') : undefined,
     );
   }
 
@@ -198,5 +198,15 @@ export class InspectionController {
   @Get(':id/estimates')
   async getInspectionEstimates(@Param('id', ParseIntPipe) inspectionId: number) {
     return this.estimateService.getEstimates({ inspectionId });
+  }
+
+  private ensureUuid(value: string, field: string): string {
+    const normalized = value?.trim();
+    const uuidRegex =
+      /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
+    if (!normalized || !uuidRegex.test(normalized)) {
+      throw new BadRequestException(`Invalid ${field}`);
+    }
+    return normalized;
   }
 }

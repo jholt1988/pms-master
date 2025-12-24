@@ -150,7 +150,7 @@ describe('Payments API (e2e)', () => {
   describe('GET /payments/payment-methods', () => {
     it('should get payment methods for tenant', async () => {
       const response = await request(app.getHttpServer())
-        .get('/api/payments/payment-methods')
+      .get('/payments/payment-methods')
         .set('Authorization', `Bearer ${tenantToken}`)
         .expect(200);
 

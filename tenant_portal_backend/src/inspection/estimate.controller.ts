@@ -8,7 +8,7 @@ import {
   Query,
   UseGuards,
   Request,
-  ParseIntPipe,
+  ParseUUIDPipe,
   HttpStatus,
   HttpCode,
 } from '@nestjs/common';
@@ -27,7 +27,7 @@ export class EstimateController {
   @Post('from-maintenance/:requestId')
   @HttpCode(HttpStatus.CREATED)
   async generateEstimateFromMaintenance(
-    @Param('requestId', ParseIntPipe) requestId: number,
+    @Param('requestId', ParseUUIDPipe) requestId: string,
     @Request() req: any,
   ) {
     return this.estimateService.generateEstimateForMaintenance(requestId, req.user.id);
@@ -40,21 +40,20 @@ export class EstimateController {
 
   @Get('stats')
   async getEstimateStats(@Query('propertyId') propertyId?: string) {
-    const propertyIdNum = propertyId ? parseInt(propertyId) : undefined;
-    if (propertyIdNum) {
-      return this.estimateService.getEstimateStats(propertyIdNum);
+    if (propertyId) {
+      return this.estimateService.getEstimateStats(propertyId);
     }
     return this.estimateService.getEstimateStats();
   }
 
   @Get(':id')
-  async getEstimate(@Param('id', ParseIntPipe) id: number) {
+  async getEstimate(@Param('id', ParseUUIDPipe) id: string) {
     return this.estimateService.getEstimateById(id);
   }
 
   @Patch(':id')
   async updateEstimate(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateEstimateDto,
     @Request() req: any,
   ) {
@@ -64,7 +63,7 @@ export class EstimateController {
   @Post(':id/approve')
   @HttpCode(HttpStatus.OK)
   async approveEstimate(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: string,
     @Request() req: any,
   ) {
     return this.estimateService.updateEstimate(
@@ -77,7 +76,7 @@ export class EstimateController {
   @Post(':id/reject')
   @HttpCode(HttpStatus.OK)
   async rejectEstimate(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: string,
     @Request() req: any,
   ) {
     return this.estimateService.updateEstimate(
@@ -90,14 +89,14 @@ export class EstimateController {
   @Post(':id/convert-to-maintenance')
   @HttpCode(HttpStatus.CREATED)
   async convertToMaintenanceRequests(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: string,
     @Request() req: any,
   ) {
     return this.estimateService.convertEstimateToMaintenanceRequests(id, req.user.id);
   }
 
   @Get(':id/line-items')
-  async getEstimateLineItems(@Param('id', ParseIntPipe) id: number) {
+  async getEstimateLineItems(@Param('id', ParseUUIDPipe) id: string) {
     // Get estimate with line items included
     const estimate = await this.estimateService.getEstimateById(id) as any;
     return estimate.lineItems || [];

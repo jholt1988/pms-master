@@ -3,7 +3,7 @@
  * Handles lead management, property search, and conversation tracking
  */
 
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { Lead, LeadStatus, LeadMessage, MessageRole, PropertyInquiry, InterestLevel, Prisma } from '@prisma/client';
@@ -302,15 +302,17 @@ export class LeasingService {
    */
   async recordPropertyInquiry(
     leadId: string,
-    propertyId: number,
-    unitId?: number,
+    propertyId: string | number,
+    unitId?: string | number,
     interest: InterestLevel = InterestLevel.MEDIUM,
   ): Promise<PropertyInquiry> {
+    const normalizedPropertyId = this.parseNumericId(propertyId, 'property');
+    const normalizedUnitId = unitId ? this.parseNumericId(unitId, 'unit') : undefined;
     return this.prisma.propertyInquiry.create({
       data: {
         leadId,
-        propertyId,
-        unitId: unitId || null,
+        propertyId: normalizedPropertyId,
+        unitId: normalizedUnitId ?? null,
         interest,
       },
     });
@@ -388,5 +390,13 @@ export class LeasingService {
     if (property.hasElevator) amenities.push('Elevator');
 
     return amenities;
+  }
+
+  private parseNumericId(value: string | number, field: string): number {
+    const parsed = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(parsed) || Number.isNaN(parsed) || !Number.isInteger(parsed)) {
+      throw new BadRequestException(`Invalid ${field} id: ${value}`);
+    }
+    return parsed;
   }
 }

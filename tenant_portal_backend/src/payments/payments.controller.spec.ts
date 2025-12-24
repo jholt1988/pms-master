@@ -182,10 +182,17 @@ describe('PaymentsController', () => {
 
       mockPaymentsService.createPayment.mockResolvedValue(mockPayment);
 
-      const result = await controller.createPayment(createPaymentDto);
+      const mockRequest = {
+        user: {
+          userId: 1,
+          role: Role.TENANT,
+        },
+      } as any;
+
+      const result = await controller.createPayment(createPaymentDto, mockRequest);
 
       expect(result).toEqual(mockPayment);
-      expect(service.createPayment).toHaveBeenCalledWith(createPaymentDto);
+      expect(service.createPayment).toHaveBeenCalledWith(createPaymentDto, mockRequest.user);
       expect(service.createPayment).toHaveBeenCalledTimes(1);
     });
   });
@@ -278,7 +285,7 @@ describe('PaymentsController', () => {
 
       mockPaymentsService.testRentDueReminder.mockResolvedValue(mockResponse);
 
-      const result = await controller.testRentReminder('5');
+      const result = await (controller as any).testRentReminder('5');
 
       expect(result).toEqual(mockResponse);
       expect(service.testRentDueReminder).toHaveBeenCalledWith(5);
@@ -295,7 +302,7 @@ describe('PaymentsController', () => {
 
       mockPaymentsService.testLateRentNotification.mockResolvedValue(mockResponse);
 
-      const result = await controller.testLateNotice('8');
+      const result = await (controller as any).testLateNotice('8');
 
       expect(result).toEqual(mockResponse);
       expect(service.testLateRentNotification).toHaveBeenCalledWith(8);

@@ -8,6 +8,7 @@ export class UsersService {
   private readonly saltRounds = 10;
 
   constructor(private prisma: PrismaService) {}
+  private readonly elevatedRoles: Role[] = [Role.PROPERTY_MANAGER, Role.ADMIN];
 
   async findOne(username: string): Promise<User | null> {
     return this.prisma.user.findUnique({ where: { username } });
@@ -22,10 +23,10 @@ export class UsersService {
       data.password = await bcrypt.hash(data.password, this.saltRounds);
     }
 
-    // Role validation: Only PROPERTY_MANAGER can create PROPERTY_MANAGER accounts
-    if (data.role === Role.PROPERTY_MANAGER) {
-      if (requestingUserRole !== Role.PROPERTY_MANAGER) {
-        throw new ForbiddenException('Only property managers can create property manager accounts');
+    // Role validation: elevated roles require elevated creator
+    if (this.elevatedRoles.includes(data.role as Role)) {
+      if (requestingUserRole && !this.elevatedRoles.includes(requestingUserRole)) {
+        throw new ForbiddenException('Only property managers or admins can create privileged accounts');
       }
     } else {
       // Default to TENANT if not specified
@@ -35,7 +36,7 @@ export class UsersService {
     return this.prisma.user.create({ data });
   }
 
-  async findById(id: number): Promise<User | null> {
+  async findById(id: string): Promise<User | null> {
     return this.prisma.user.findUnique({ where: { id } });
   }
 
@@ -57,9 +58,9 @@ export class UsersService {
   }
 
   async update(
-    id: number,
+    id: string,
     data: Prisma.UserUpdateInput,
-    requestingUserId?: number,
+    requestingUserId?: string,
     requestingUserRole?: Role,
   ): Promise<User> {
     // Prevent self-promotion (users cannot change their own role)
@@ -67,9 +68,11 @@ export class UsersService {
       throw new ForbiddenException('Users cannot change their own role');
     }
 
-    // Role validation: Only PROPERTY_MANAGER can assign PROPERTY_MANAGER role
-    if (data.role === Role.PROPERTY_MANAGER && requestingUserRole !== Role.PROPERTY_MANAGER) {
-      throw new ForbiddenException('Only property managers can assign property manager role');
+    // Role validation: elevated roles require elevated updater
+    if (data.role && this.elevatedRoles.includes(data.role as Role)) {
+      if (requestingUserRole && !this.elevatedRoles.includes(requestingUserRole)) {
+        throw new ForbiddenException('Only property managers or admins can assign privileged roles');
+      }
     }
 
     // Hash password if provided
@@ -80,7 +83,7 @@ export class UsersService {
     return this.prisma.user.update({ where: { id }, data });
   }
 
-  async delete(id: number, requestingUserId?: number): Promise<void> {
+  async delete(id: string, requestingUserId?: string): Promise<void> {
     // Prevent self-deletion
     if (requestingUserId === id) {
       throw new ForbiddenException('Users cannot delete their own account');

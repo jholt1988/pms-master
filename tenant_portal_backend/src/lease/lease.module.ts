@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { LeaseController } from './lease.controller';
+import { LegacyLeaseController } from './legacy-lease.controller';
 import { LeaseService } from './lease.service';
 import { AILeaseRenewalService } from './ai-lease-renewal.service';
 import { AILeaseRenewalMetricsService } from './ai-lease-renewal-metrics.service';
@@ -16,7 +17,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     ScheduleModule.forRoot(),
     NotificationsModule,
   ],
-  controllers: [LeaseController],
+  controllers: [LeaseController, LegacyLeaseController],
   providers: [
     LeaseService,
     AILeaseRenewalService,

@@ -9,7 +9,8 @@ import {
   ValidateNested,
   IsNumber,
   Min,
-  Max
+  Max,
+  IsUUID
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { 
@@ -22,16 +23,16 @@ import {
 
 // Create Inspection DTOs
 export class CreateInspectionDto {
-  @IsInt()
-  propertyId!: number;
+  @IsUUID()
+  propertyId!: string;
 
-  @IsInt()
+  @IsUUID()
   @IsOptional()
-  unitId?: number;
+  unitId?: string;
 
-  @IsInt()
+  @IsUUID()
   @IsOptional()
-  leaseId?: number;
+  leaseId?: string;
 
   @IsEnum(InspectionType)
   type!: InspectionType;
@@ -39,13 +40,13 @@ export class CreateInspectionDto {
   @IsDateString()
   scheduledDate!: string;
 
-  @IsInt()
+  @IsUUID()
   @IsOptional()
-  inspectorId?: number;
+  inspectorId?: string;
 
-  @IsInt()
+  @IsUUID()
   @IsOptional()
-  tenantId?: number;
+  tenantId?: string;
 
   @IsString()
   @IsOptional()
@@ -69,13 +70,13 @@ export class UpdateInspectionDto {
   @IsOptional()
   completedDate?: string;
 
-  @IsInt()
+  @IsUUID()
   @IsOptional()
-  inspectorId?: number;
+  inspectorId?: string;
 
-  @IsInt()
+  @IsUUID()
   @IsOptional()
-  tenantId?: number;
+  tenantId?: string;
 
   @IsString()
   @IsOptional()
@@ -176,8 +177,8 @@ export class UploadPhotoDto {
 
 // Signature DTO
 export class CreateSignatureDto {
-  @IsInt()
-  userId!: number;
+  @IsUUID()
+  userId!: string;
 
   @IsString()
   role!: string;
@@ -192,17 +193,17 @@ export class CreateEstimateDto {
   @IsOptional()
   inspectionId?: number;
 
-  @IsInt()
+  @IsUUID()
   @IsOptional()
-  maintenanceRequestId?: number;
+  maintenanceRequestId?: string;
 
-  @IsInt()
+  @IsUUID()
   @IsOptional()
-  propertyId?: number;
+  propertyId?: string;
 
-  @IsInt()
+  @IsUUID()
   @IsOptional()
-  unitId?: number;
+  unitId?: string;
 }
 
 export class CreateEstimateLineItemDto {
@@ -312,20 +313,17 @@ export class CreateInspectionWithRoomsDto {
 
 // Query DTOs
 export class InspectionQueryDto {
-  @IsInt()
+  @IsUUID()
   @IsOptional()
-  @Type(() => Number)
-  propertyId?: number;
+  propertyId?: string;
 
-  @IsInt()
+  @IsUUID()
   @IsOptional()
-  @Type(() => Number)
-  unitId?: number;
+  unitId?: string;
 
-  @IsInt()
+  @IsUUID()
   @IsOptional()
-  @Type(() => Number)
-  leaseId?: number;
+  leaseId?: string;
 
   @IsEnum(InspectionStatus)
   @IsOptional()
@@ -335,15 +333,13 @@ export class InspectionQueryDto {
   @IsOptional()
   type?: InspectionType;
 
-  @IsInt()
+  @IsUUID()
   @IsOptional()
-  @Type(() => Number)
-  inspectorId?: number;
+  inspectorId?: string;
 
-  @IsInt()
+  @IsUUID()
   @IsOptional()
-  @Type(() => Number)
-  tenantId?: number;
+  tenantId?: string;
 
   @IsInt()
   @IsOptional()
@@ -365,15 +361,12 @@ export class EstimateQueryDto {
   @Type(() => Number)
   inspectionId?: number;
 
-  @IsInt()
+  @IsUUID()
   @IsOptional()
-  @Type(() => Number)
-  maintenanceRequestId?: number;
+  maintenanceRequestId?: string;
 
-  @IsInt()
   @IsOptional()
-  @Type(() => Number)
-  propertyId?: number;
+  propertyId?: string | number;
 
   @IsEnum(EstimateStatus)
   @IsOptional()

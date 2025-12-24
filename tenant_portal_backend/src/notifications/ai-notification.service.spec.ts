@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { AINotificationService } from './ai-notification.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationPreferencesService } from './notification-preferences.service';
 import { NotificationType } from '@prisma/client';
 import OpenAI from 'openai';
 
@@ -12,6 +13,7 @@ describe('AINotificationService', () => {
   let prismaService: PrismaService;
   let configService: ConfigService;
   let mockOpenAI: jest.Mocked<OpenAI>;
+  let preferencesService: any;
 
   const mockPrismaService = {
     user: {
@@ -25,12 +27,23 @@ describe('AINotificationService', () => {
   const mockConfigService = {
     get: jest.fn(),
   };
+  const mockPreferencesService = {
+    getPreferences: jest.fn().mockResolvedValue({
+      emailEnabled: true,
+      smsEnabled: true,
+      pushEnabled: true,
+      preferredChannel: 'EMAIL',
+      quietHoursStart: '22:00',
+      quietHoursEnd: '08:00',
+    }),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
 
+    const mockChatCreate = jest.fn();
     const mockChatCompletions = {
-      create: jest.fn(),
+      create: mockChatCreate,
     };
     mockOpenAI = {
       chat: {
@@ -45,12 +58,14 @@ describe('AINotificationService', () => {
         AINotificationService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: ConfigService, useValue: mockConfigService },
+        { provide: NotificationPreferencesService, useValue: mockPreferencesService },
       ],
     }).compile();
 
     service = module.get<AINotificationService>(AINotificationService);
     prismaService = module.get<PrismaService>(PrismaService);
     configService = module.get<ConfigService>(ConfigService);
+    preferencesService = module.get<NotificationPreferencesService>(NotificationPreferencesService);
   });
 
   describe('Initialization', () => {
@@ -73,6 +88,7 @@ describe('AINotificationService', () => {
         return undefined;
       });
 
+      (OpenAI as jest.MockedClass<typeof OpenAI>).mockClear();
       const newService = new AINotificationService(prismaService, configService);
       expect(OpenAI).not.toHaveBeenCalled();
     });
@@ -162,7 +178,7 @@ describe('AINotificationService', () => {
         notifications: [],
       };
 
-      mockOpenAI.chat.completions.create.mockResolvedValue({
+      (mockOpenAI.chat.completions.create as jest.Mock).mockResolvedValue({
         choices: [
           {
             message: {
@@ -193,7 +209,7 @@ describe('AINotificationService', () => {
         notifications: [],
       };
 
-      mockOpenAI.chat.completions.create.mockRejectedValue(new Error('API Error'));
+      (mockOpenAI.chat.completions.create as jest.Mock).mockRejectedValue(new Error('API Error'));
 
       mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
 
@@ -271,7 +287,7 @@ describe('AINotificationService', () => {
         return undefined;
       });
 
-      mockOpenAI.chat.completions.create.mockRejectedValue(new Error('API Error'));
+      (mockOpenAI.chat.completions.create as jest.Mock).mockRejectedValue(new Error('API Error'));
 
       const mockUser = {
         id: 1,

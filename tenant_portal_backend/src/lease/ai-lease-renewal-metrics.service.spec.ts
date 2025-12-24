@@ -19,7 +19,7 @@ describe('AILeaseRenewalMetricsService', () => {
         operation: 'predictRenewalLikelihood',
         success: true,
         responseTime: 500,
-        leaseId: 1,
+      leaseId: '1',
         renewalProbability: 0.75,
       });
       const afterTime = Date.now();
@@ -41,14 +41,14 @@ describe('AILeaseRenewalMetricsService', () => {
         operation: 'predictRenewalLikelihood',
         success: true,
         responseTime: 500,
-        leaseId: 1,
+        leaseId: '1',
         renewalProbability: 0.75,
       });
       service.recordMetric({
         operation: 'getRentAdjustment',
         success: true,
         responseTime: 1200,
-        leaseId: 2,
+        leaseId: '2',
         rentAdjustmentPercentage: 3.5,
         mlServiceUsed: true,
       });
@@ -56,7 +56,7 @@ describe('AILeaseRenewalMetricsService', () => {
         operation: 'generatePersonalizedOffer',
         success: false,
         responseTime: 0,
-        leaseId: 3,
+        leaseId: '3',
         error: 'Lease not found',
       });
 
@@ -127,7 +127,7 @@ describe('AILeaseRenewalMetricsService', () => {
         operation: 'generatePersonalizedOffer',
         success: false,
         responseTime: 0,
-        leaseId: 4,
+        leaseId: '4',
         error: 'Error',
       });
 
@@ -147,21 +147,21 @@ describe('AILeaseRenewalMetricsService', () => {
         operation: 'predictRenewalLikelihood',
         success: true,
         responseTime: 500,
-        leaseId: 1,
+        leaseId: '1',
         renewalProbability: 0.85,
       });
       service.recordMetric({
         operation: 'predictRenewalLikelihood',
         success: true,
         responseTime: 600,
-        leaseId: 2,
+        leaseId: '2',
         renewalProbability: 0.25,
       });
       service.recordMetric({
         operation: 'predictRenewalLikelihood',
         success: false,
         responseTime: 0,
-        leaseId: 3,
+        leaseId: '3',
         error: 'Error',
       });
 
@@ -170,7 +170,7 @@ describe('AILeaseRenewalMetricsService', () => {
         operation: 'getRentAdjustment',
         success: true,
         responseTime: 1200,
-        leaseId: 4,
+        leaseId: '4',
         rentAdjustmentPercentage: 3.5,
         mlServiceUsed: true,
       });
@@ -178,7 +178,7 @@ describe('AILeaseRenewalMetricsService', () => {
         operation: 'getRentAdjustment',
         success: true,
         responseTime: 100,
-        leaseId: 5,
+        leaseId: '5',
         rentAdjustmentPercentage: 2.0,
         mlServiceUsed: false,
         cacheHit: true,
@@ -215,14 +215,14 @@ describe('AILeaseRenewalMetricsService', () => {
         operation: 'predictRenewalLikelihood',
         success: true,
         responseTime: 500,
-        leaseId: 1,
+        leaseId: '1',
         renewalProbability: 0.75,
       });
       service.recordMetric({
         operation: 'predictRenewalLikelihood',
         success: false,
         responseTime: 0,
-        leaseId: 2,
+        leaseId: '2',
         error: 'Error',
       });
 

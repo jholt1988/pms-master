@@ -5,7 +5,7 @@ export interface AIPaymentMetric {
   success: boolean;
   responseTime: number; // milliseconds
   timestamp: Date;
-  tenantId?: number;
+  tenantId?: string;
   invoiceId?: number;
   error?: string;
 }

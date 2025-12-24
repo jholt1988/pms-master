@@ -10,6 +10,7 @@ import {
   IsObject,
   ValidateNested,
   IsPositive,
+  IsUUID,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { BulkSendStrategy, LeaseStatus, Role } from '@prisma/client';
@@ -23,16 +24,16 @@ export class CreateMessageDto {
   @IsOptional()
   conversationId?: number;
 
-  @IsInt()
+  @IsUUID()
   @IsOptional()
-  recipientId?: number;
+  recipientId?: string;
 }
 
 export class CreateConversationDto {
   @IsArray()
   @ArrayMinSize(1)
-  @IsInt({ each: true })
-  participantIds: number[];
+  @IsUUID('4', { each: true })
+  participantIds: string[];
 
   @IsString()
   @IsOptional()
@@ -67,8 +68,8 @@ export class RecipientFilterDto {
 
   @IsOptional()
   @IsArray()
-  @IsInt({ each: true })
-  propertyIds?: number[];
+  @IsUUID('4', { each: true })
+  propertyIds?: string[];
 
   @IsOptional()
   @IsArray()
@@ -100,8 +101,8 @@ export class CreateBulkMessageDto {
 
   @IsOptional()
   @IsArray()
-  @IsInt({ each: true })
-  recipientIds?: number[];
+  @IsUUID('4', { each: true })
+  recipientIds?: string[];
 
   @IsOptional()
   @IsEnum(BulkSendStrategy)

@@ -21,7 +21,7 @@ export class NotificationsService {
   ) { }
 
   async create(data: {
-    userId: number;
+    userId: string | number;
     type: NotificationType;
     title: string;
     message: string;
@@ -31,6 +31,7 @@ export class NotificationsService {
     personalize?: boolean;
     urgency?: 'LOW' | 'MEDIUM' | 'HIGH';
   }) {
+    const userIdStr = String(data.userId);
     let title = data.title;
     let message = data.message;
     let sendAt = new Date();
@@ -41,7 +42,7 @@ export class NotificationsService {
       try {
         const startTime = Date.now();
         const personalizedMessage = await this.aiNotificationService.customizeNotificationContent(
-          data.userId,
+          userIdStr,
           data.type,
           message,
         );
@@ -50,12 +51,12 @@ export class NotificationsService {
         if (personalizedMessage && personalizedMessage !== message) {
           message = personalizedMessage;
           this.logger.log(
-            `AI personalized notification content for user ${data.userId} (${responseTime}ms)`,
+          `AI personalized notification content for user ${userIdStr} (${responseTime}ms)`,
           );
         }
       } catch (error) {
         this.logger.warn(
-          `AI content personalization failed for user ${data.userId}, using original content`,
+          `AI content personalization failed for user ${userIdStr}, using original content`,
           error instanceof Error ? error.message : String(error),
         );
       }
@@ -67,7 +68,7 @@ export class NotificationsService {
         const startTime = Date.now();
         const urgency = data.urgency || 'MEDIUM';
         const timing = await this.aiNotificationService.determineOptimalTiming(
-          data.userId,
+          userIdStr,
           data.type,
           urgency,
         );
@@ -82,19 +83,19 @@ export class NotificationsService {
         }
 
         this.logger.log(
-          `AI determined optimal timing for user ${data.userId}: ` +
+          `AI determined optimal timing for user ${userIdStr}: ` +
           `channel=${channel}, sendAt=${sendAt.toISOString()} (${responseTime}ms)`,
         );
       } catch (error) {
         this.logger.warn(
-          `AI timing calculation failed for user ${data.userId}, using immediate send`,
+          `AI timing calculation failed for user ${userIdStr}, using immediate send`,
           error instanceof Error ? error.message : String(error),
         );
       }
     }
 
     // Check user preferences
-    const preferences = await this.preferencesService.getPreferences(data.userId);
+    const preferences = await this.preferencesService.getPreferences(userIdStr);
 
     // Override channel based on preferences if available
     if (preferences) {
@@ -106,7 +107,7 @@ export class NotificationsService {
       if (preferences.notificationTypes) {
         const typeEnabled = (preferences.notificationTypes as Record<string, boolean>)[data.type];
         if (typeEnabled === false) {
-          this.logger.debug(`Notification type ${data.type} disabled for user ${data.userId}`);
+          this.logger.debug(`Notification type ${data.type} disabled for user ${userIdStr}`);
           // Still create the notification but don't send
         }
       }
@@ -116,7 +117,7 @@ export class NotificationsService {
     const scheduledFor = sendAt > new Date() ? sendAt : null;
     const notification = await this.prisma.notification.create({
       data: {
-        userId: data.userId,
+        userId: userIdStr,
         type: data.type,
         title,
         message,
@@ -227,7 +228,7 @@ export class NotificationsService {
     }
   }
 
-  async findAll(userId: number, filters?: { read?: boolean; type?: NotificationType; skip?: number; take?: number }) {
+  async findAll(userId: string, filters?: { read?: boolean; type?: NotificationType; skip?: number; take?: number }) {
     const where: Prisma.NotificationWhereInput = {
       userId,
       ...(filters?.read !== undefined && { read: filters.read }),
@@ -252,7 +253,7 @@ export class NotificationsService {
     };
   }
 
-  async getUnreadCount(userId: number): Promise<number> {
+  async getUnreadCount(userId: string): Promise<number> {
     return this.prisma.notification.count({
       where: {
         userId,
@@ -261,7 +262,7 @@ export class NotificationsService {
     });
   }
 
-  async markAsRead(userId: number, notificationId: number) {
+  async markAsRead(userId: string, notificationId: number) {
     const notification = await this.prisma.notification.findUnique({
       where: { id: notificationId },
     });
@@ -279,7 +280,7 @@ export class NotificationsService {
     });
   }
 
-  async markAllAsRead(userId: number): Promise<void> {
+  async markAllAsRead(userId: string): Promise<void> {
     await this.prisma.notification.updateMany({
       where: {
         userId,
@@ -292,7 +293,7 @@ export class NotificationsService {
     });
   }
 
-  async delete(userId: number, notificationId: number): Promise<void> {
+  async delete(userId: string, notificationId: number): Promise<void> {
     await this.prisma.notification.deleteMany({
       where: {
         id: notificationId,
@@ -304,9 +305,9 @@ export class NotificationsService {
   async sendSignatureAlert(data: {
     event: 'REQUESTED' | 'COMPLETED' | 'VOIDED';
     envelopeId: number;
-    leaseId: number;
+    leaseId: string;
     participantName: string;
-    userId?: number;
+    userId?: string;
     email?: string;
     phone?: string;
   }) {
@@ -340,8 +341,8 @@ export class NotificationsService {
     }
 
     if (data.userId) {
-      await this.create({
-        userId: data.userId,
+        await this.create({
+        userId: String(data.userId),
         type,
         title,
         message,

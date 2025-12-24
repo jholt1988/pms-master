@@ -7,7 +7,7 @@ const QuickBooks = require('node-quickbooks');
 
 export interface QuickBooksConnection {
   id?: number;
-  userId: number;
+  userId: string;
   companyId: string;
   accessToken: string;
   refreshToken: string;
@@ -43,7 +43,7 @@ export class QuickBooksService {
   /**
    * Generate OAuth authorization URL for QuickBooks connection
    */
-  getAuthorizationUrl(userId: number): string {
+  getAuthorizationUrl(userId: string): string {
     const authUri = this.oauthClient.authorizeUri({
       scope: [OAuthClient.scopes.Accounting],
       state: `user_${userId}`, // Pass user ID in state for callback handling
@@ -155,7 +155,7 @@ export class QuickBooksService {
   /**
    * Get active QuickBooks connection for user
    */
-  async getConnectionForUser(userId: number): Promise<QuickBooksConnection | null> {
+  async getConnectionForUser(userId: string): Promise<QuickBooksConnection | null> {
     const connection = await this.prisma.quickBooksConnection.findFirst({
       where: {
         userId,
@@ -193,7 +193,7 @@ export class QuickBooksService {
   /**
    * Sync property management data to QuickBooks
    */
-  async syncToQuickBooks(userId: number): Promise<SyncResult> {
+  async syncToQuickBooks(userId: string): Promise<SyncResult> {
     const connection = await this.getConnectionForUser(userId);
     if (!connection) {
       throw new Error('No active QuickBooks connection found');
@@ -244,7 +244,7 @@ export class QuickBooksService {
   /**
    * Sync Properties to QuickBooks as Items/Services
    */
-  private async syncProperties(qbo: any, userId: number, errors: string[], syncedCount: number): Promise<void> {
+  private async syncProperties(qbo: any, userId: string, errors: string[], syncedCount: number): Promise<void> {
     const properties = await this.prisma.property.findMany({
       where: { userId },
       include: { units: true },
@@ -302,7 +302,7 @@ export class QuickBooksService {
   /**
    * Sync Tenants to QuickBooks as Customers
    */
-  private async syncTenants(qbo: any, userId: number, errors: string[], syncedCount: number): Promise<void> {
+  private async syncTenants(qbo: any, userId: string, errors: string[], syncedCount: number): Promise<void> {
     const leases = await this.prisma.lease.findMany({
       where: {
         property: { userId },
@@ -376,7 +376,7 @@ export class QuickBooksService {
   /**
    * Sync Rent Payments to QuickBooks as Invoices and Payments
    */
-  private async syncRentPayments(qbo: any, userId: number, errors: string[], syncedCount: number): Promise<void> {
+  private async syncRentPayments(qbo: any, userId: string, errors: string[], syncedCount: number): Promise<void> {
     const payments = await this.prisma.payment.findMany({
       where: {
         lease: {
@@ -472,7 +472,7 @@ export class QuickBooksService {
   /**
    * Sync Expenses to QuickBooks
    */
-  private async syncExpenses(qbo: any, userId: number, errors: string[], syncedCount: number): Promise<void> {
+  private async syncExpenses(qbo: any, userId: string, errors: string[], syncedCount: number): Promise<void> {
     const expenses = await this.prisma.expense.findMany({
       where: {
         property: { userId },
@@ -527,7 +527,7 @@ export class QuickBooksService {
   /**
    * Disconnect QuickBooks integration
    */
-  async disconnect(userId: number): Promise<void> {
+  async disconnect(userId: string): Promise<void> {
     await this.prisma.quickBooksConnection.updateMany({
       where: { userId },
       data: { isActive: false },
@@ -539,7 +539,7 @@ export class QuickBooksService {
   /**
    * Get sync status and last sync time
    */
-  async getSyncStatus(userId: number): Promise<{
+  async getSyncStatus(userId: string): Promise<{
     isConnected: boolean;
     lastSyncAt: Date | null;
     companyName?: string;

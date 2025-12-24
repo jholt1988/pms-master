@@ -5,6 +5,11 @@ import * as bcrypt from 'bcrypt';
 export const testData = {
   counter: 1,
   getUniqueId: () => testData.counter++,
+  uuid: () => {
+    const n = testData.getUniqueId();
+    const suffix = String(100000000000 + n).slice(-12);
+    return `00000000-0000-0000-0000-${suffix}`;
+  },
   email: () => `user${testData.getUniqueId()}@test.com`,
   firstName: () => ['John', 'Jane', 'Bob', 'Alice', 'Mike', 'Sarah'][testData.getUniqueId() % 6],
   lastName: () => ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia'][testData.getUniqueId() % 6],
@@ -42,9 +47,14 @@ export class TestDataFactory {
         ? rawPassword
         : bcrypt.hashSync(rawPassword, 10);
 
+    const uniqueEmail = testData.email();
+
     return {
-      username: testData.email(),
+      username: uniqueEmail,
+      email: uniqueEmail,
       password, // bcrypt hash of 'password123' by default
+      firstName: testData.firstName(),
+      lastName: testData.lastName(),
       role: Role.TENANT,
       ...rest,
     };
@@ -84,11 +94,26 @@ export class TestDataFactory {
   /**
    * Create a test unit
    */
-  static createUnit(propertyId: number, overrides: any = {}) {
+  static createUnit(
+    propertyId:
+      | number
+      | { propertyId?: number; id?: number } & Record<string, any>,
+    overrides: any = {},
+  ) {
+    const isPrimitiveId = typeof propertyId === 'number';
+    const baseOverrides = isPrimitiveId ? overrides : propertyId;
+    const resolvedPropertyId =
+      typeof propertyId === 'number'
+        ? propertyId
+        : propertyId.propertyId ?? propertyId.id;
+
+    if (typeof resolvedPropertyId === 'undefined') {
+      throw new Error('propertyId is required to create a unit');
+    }
     const unitNum = String(100 + testData.getUniqueId());
     return {
       name: `Unit ${unitNum}`,
-      propertyId,
+      propertyId: resolvedPropertyId,
       unitNumber: unitNum,
       bedrooms: 1 + (testData.getUniqueId() % 3),
       bathrooms: 1 + ((testData.getUniqueId() % 3) * 0.5),
@@ -99,23 +124,35 @@ export class TestDataFactory {
       hasAC: testData.boolean(),
       isFurnished: testData.boolean(),
       petsAllowed: testData.boolean(),
-      ...overrides,
+      ...baseOverrides,
     };
   }
 
   /**
    * Create a test lease
    */
-  static createLease(tenantId: number, unitId: number, overrides: any = {}) {
+  static createLease(
+    tenantId: string | { tenantId: string; unitId: number } & Record<string, any>,
+    unitId?: number,
+    overrides: any = {},
+  ) {
+    const params =
+      typeof tenantId === 'string'
+        ? { tenantId, unitId: unitId as number, ...overrides }
+        : tenantId;
+
+    if (!params.tenantId || !params.unitId) {
+      throw new Error('tenantId and unitId are required to create a lease');
+    }
     // Prisma schema no longer exposes securityDeposit, so strip it from overrides to avoid invalid writes
-    const { securityDeposit, ...sanitizedOverrides } = overrides;
+    const { securityDeposit, ...sanitizedOverrides } = params;
     const startDate = testData.date(30);
     const endDate = new Date(startDate);
     endDate.setFullYear(endDate.getFullYear() + 1);
 
     return {
-      tenantId,
-      unitId,
+      tenantId: params.tenantId,
+      unitId: params.unitId,
       startDate,
       endDate,
       rentAmount: testData.amount(1000, 3000),
@@ -128,11 +165,11 @@ export class TestDataFactory {
   /**
    * Create a test invoice
    */
-  static createInvoice(leaseId: number, overrides: any = {}) {
+  static createInvoice(leaseId: string | number, overrides: any = {}) {
     const dueDate = testData.date(30);
     
     return {
-      leaseId,
+      leaseId: String(leaseId),
       description: 'Monthly Rent',
       amount: testData.amount(1000, 3000),
       dueDate,
@@ -144,7 +181,7 @@ export class TestDataFactory {
   /**
    * Create an overdue invoice
    */
-  static createOverdueInvoice(leaseId: number, overrides: any = {}) {
+  static createOverdueInvoice(leaseId: string, overrides: any = {}) {
     const dueDate = testData.date(-10); // 10 days ago
     
     return this.createInvoice(leaseId, {
@@ -157,7 +194,7 @@ export class TestDataFactory {
   /**
    * Create an upcoming invoice (due in 5 days)
    */
-  static createUpcomingInvoice(leaseId: number, overrides: any = {}) {
+  static createUpcomingInvoice(leaseId: string, overrides: any = {}) {
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 5);
     
@@ -171,7 +208,7 @@ export class TestDataFactory {
   /**
    * Create a test payment
    */
-  static createPayment(leaseId: number, userId: number, overrides: any = {}) {
+  static createPayment(leaseId: string, userId: string, overrides: any = {}) {
     return {
       leaseId,
       userId,
@@ -219,7 +256,7 @@ export class TestDataFactory {
   /**
    * Create a conversation message
    */
-  static createMessage(leadId: number, role: 'USER' | 'ASSISTANT', overrides: any = {}) {
+  static createMessage(leadId: string, role: 'USER' | 'ASSISTANT', overrides: any = {}) {
     return {
       leadId,
       role,
@@ -231,7 +268,7 @@ export class TestDataFactory {
   /**
    * Create a tour
    */
-  static createTour(leadId: number, unitId: number, overrides: any = {}) {
+  static createTour(leadId: string, unitId: string, overrides: any = {}) {
     return {
       leadId,
       unitId,
@@ -244,7 +281,7 @@ export class TestDataFactory {
   /**
    * Create a late fee
    */
-  static createLateFee(invoiceId: number, overrides: any = {}) {
+  static createLateFee(invoiceId: string, overrides: any = {}) {
     return {
       invoiceId,
       amount: testData.amount(25, 100),
@@ -256,7 +293,7 @@ export class TestDataFactory {
   /**
    * Create a property inquiry
    */
-  static createPropertyInquiry(leadId: number, unitId: number, overrides: any = {}) {
+  static createPropertyInquiry(leadId: string, unitId: string, overrides: any = {}) {
     return {
       leadId,
       unitId,
@@ -302,7 +339,7 @@ export class MockHelpers {
   /**
    * Create a mock authenticated tenant request
    */
-  static createTenantRequest(userId = 1) {
+  static createTenantRequest(userId = testData.uuid()) {
     return this.createMockRequest({
       userId,
       role: Role.TENANT,
@@ -312,7 +349,7 @@ export class MockHelpers {
   /**
    * Create a mock authenticated property manager request
    */
-  static createPMRequest(userId = 2) {
+  static createPMRequest(userId = testData.uuid()) {
     return this.createMockRequest({
       userId,
       role: Role.PROPERTY_MANAGER,

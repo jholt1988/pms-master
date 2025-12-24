@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LeaseStatus, SyndicationChannel } from '@prisma/client';
 
@@ -6,10 +6,11 @@ import { LeaseStatus, SyndicationChannel } from '@prisma/client';
 export class ReportingService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getRentRoll(filters?: { propertyId?: number; status?: LeaseStatus }) {
+  async getRentRoll(filters?: { propertyId?: string; status?: LeaseStatus }) {
+    const propertyId = filters?.propertyId ? this.parseNumericId(filters.propertyId, 'property') : undefined;
     const leases = await this.prisma.lease.findMany({
       where: {
-        ...(filters?.propertyId && { unit: { propertyId: filters.propertyId } }),
+        ...(propertyId && { unit: { propertyId } }),
         ...(filters?.status && { status: filters.status }),
       },
       include: {
@@ -59,9 +60,10 @@ export class ReportingService {
     }));
   }
 
-  async getProfitAndLoss(filters?: { propertyId?: number; startDate?: Date; endDate?: Date }) {
+  async getProfitAndLoss(filters?: { propertyId?: string; startDate?: Date; endDate?: Date }) {
     const startDate = filters?.startDate || new Date(new Date().getFullYear(), 0, 1);
     const endDate = filters?.endDate || new Date();
+    const propertyId = filters?.propertyId ? this.parseNumericId(filters.propertyId, 'property') : undefined;
 
     // Get income (rent payments)
     const payments = await this.prisma.payment.findMany({
@@ -71,10 +73,10 @@ export class ReportingService {
           lte: endDate,
         },
         status: 'COMPLETED',
-        ...(filters?.propertyId && {
+        ...(propertyId && {
           lease: {
             unit: {
-              propertyId: filters.propertyId,
+              propertyId,
             },
           },
         }),
@@ -99,14 +101,14 @@ export class ReportingService {
           gte: startDate,
           lte: endDate,
         },
-        ...(filters?.propertyId && { propertyId: filters.propertyId }),
+        ...(propertyId && { propertyId }),
       },
       include: {
         property: true,
       },
     });
 
-    const incomeByProperty: Record<number, { name: string; income: number; expenses: number }> = {};
+    const incomeByProperty: Record<string, { name: string; income: number; expenses: number }> = {};
 
     // Calculate income
     payments.forEach((payment) => {
@@ -144,9 +146,10 @@ export class ReportingService {
     }));
   }
 
-  async getMaintenanceResolutionAnalytics(filters?: { propertyId?: number; startDate?: Date; endDate?: Date }) {
+  async getMaintenanceResolutionAnalytics(filters?: { propertyId?: string; startDate?: Date; endDate?: Date }) {
     const startDate = filters?.startDate || new Date(new Date().getFullYear(), 0, 1);
     const endDate = filters?.endDate || new Date();
+    const propertyId = filters?.propertyId ? this.parseNumericId(filters.propertyId, 'property') : undefined;
 
     const requests = await this.prisma.maintenanceRequest.findMany({
       where: {
@@ -158,7 +161,7 @@ export class ReportingService {
         completedAt: {
           not: null,
         },
-        ...(filters?.propertyId && { propertyId: filters.propertyId }),
+        ...(propertyId && { propertyId }),
       },
       include: {
         property: true,
@@ -210,9 +213,10 @@ export class ReportingService {
     };
   }
 
-  async getVacancyRate(filters?: { propertyId?: number }) {
+  async getVacancyRate(filters?: { propertyId?: string }) {
+    const propertyId = filters?.propertyId ? this.parseNumericId(filters.propertyId, 'property') : undefined;
     const properties = await this.prisma.property.findMany({
-      where: filters?.propertyId ? { id: filters.propertyId } : undefined,
+      where: propertyId ? { id: propertyId } : undefined,
       include: {
         units: {
           include: {
@@ -241,9 +245,10 @@ export class ReportingService {
     });
   }
 
-  async getPaymentHistory(filters?: { userId?: number; propertyId?: number; startDate?: Date; endDate?: Date }) {
+  async getPaymentHistory(filters?: { userId?: string; propertyId?: string; startDate?: Date; endDate?: Date }) {
     const startDate = filters?.startDate || new Date(new Date().getFullYear(), 0, 1);
     const endDate = filters?.endDate || new Date();
+    const propertyId = filters?.propertyId ? this.parseNumericId(filters.propertyId, 'property') : undefined;
 
     const payments = await this.prisma.payment.findMany({
       where: {
@@ -252,10 +257,10 @@ export class ReportingService {
           lte: endDate,
         },
         ...(filters?.userId && { userId: filters.userId }),
-        ...(filters?.propertyId && {
+        ...(propertyId && {
           lease: {
             unit: {
-              propertyId: filters.propertyId,
+              propertyId,
             },
           },
         }),
@@ -294,19 +299,26 @@ export class ReportingService {
   }
 
   async logSyndicationError(input: {
-    propertyId: number;
+    propertyId: string | number;
     channel: SyndicationChannel;
     error: string;
     context?: unknown;
   }) {
     await this.prisma.syndicationErrorLog.create({
       data: {
-        propertyId: input.propertyId,
+        propertyId: this.parseNumericId(input.propertyId, 'property'),
         channel: input.channel,
         error: input.error,
         context: input.context ? (input.context as object) : undefined,
       },
     });
   }
-}
 
+  private parseNumericId(value: string | number, field: string): number {
+    const normalized = typeof value === 'string' ? Number(value) : value;
+    if (!Number.isFinite(normalized) || !Number.isInteger(normalized)) {
+      throw new BadRequestException(`Invalid ${field} identifier provided.`);
+    }
+    return normalized;
+  }
+}

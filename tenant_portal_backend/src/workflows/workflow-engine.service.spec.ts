@@ -376,7 +376,7 @@ describe('WorkflowEngineService', () => {
       const step: WorkflowStep = {
         id: 'step1',
         type: 'PERSONALIZE_NOTIFICATION_AI',
-        input: { userId: 1, notificationType: 'RENT_REMINDER', message: 'Original message' },
+        input: { userId: '1', notificationType: 'RENT_REMINDER', message: 'Original message' },
       };
 
       const execution: WorkflowExecution = {
@@ -420,7 +420,7 @@ describe('WorkflowEngineService', () => {
       const step: WorkflowStep = {
         id: 'step1',
         type: 'PERSONALIZE_NOTIFICATION_AI',
-        input: { userId: 1, notificationType: 'RENT_REMINDER', message: 'Original message' },
+        input: { userId: '1', notificationType: 'RENT_REMINDER', message: 'Original message' },
       };
 
       const execution: WorkflowExecution = {

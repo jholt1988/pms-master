@@ -178,11 +178,12 @@ export class BillingService {
   }
 
   async upsertSchedule(
-    actor: { userId: number; username: string; role: Role },
+    actor: { userId: string; username: string; role: Role },
     dto: UpsertScheduleDto,
   ) {
+    const leaseId = this.parseLeaseId(dto.leaseId);
     const lease = await this.prisma.lease.findUnique({
-      where: { id: dto.leaseId },
+      where: { id: leaseId },
       include: { tenant: true, unit: true },
     });
 
@@ -203,9 +204,9 @@ export class BillingService {
       : this.computeInitialRun(dto, lease.startDate);
 
     const schedule = await this.prisma.recurringInvoiceSchedule.upsert({
-      where: { leaseId: dto.leaseId },
+      where: { leaseId },
       create: {
-        leaseId: dto.leaseId,
+        leaseId,
         amount: dto.amount,
         description: dto.description ?? 'Recurring Charge',
         frequency: dto.frequency,
@@ -243,7 +244,7 @@ export class BillingService {
       userId: actor.userId,
       username: actor.username,
       metadata: {
-        leaseId: dto.leaseId,
+        leaseId,
         frequency: dto.frequency,
         amount: dto.amount,
         lateFeeAmount: dto.lateFeeAmount,
@@ -254,9 +255,10 @@ export class BillingService {
     return schedule;
   }
 
-  async deactivateSchedule(actor: { userId: number; username: string; role: Role }, leaseId: number) {
+  async deactivateSchedule(actor: { userId: string; username: string; role: Role }, leaseId: string | number) {
+    const leaseIdNum = this.parseLeaseId(leaseId);
     await this.prisma.recurringInvoiceSchedule.updateMany({
-      where: { leaseId },
+      where: { leaseId: leaseIdNum },
       data: { active: false },
     });
 
@@ -265,13 +267,13 @@ export class BillingService {
       success: true,
       userId: actor.userId,
       username: actor.username,
-      metadata: { leaseId, action: 'DEACTIVATE_SCHEDULE' },
+      metadata: { leaseId: leaseIdNum, action: 'DEACTIVATE_SCHEDULE' },
     });
 
     return { leaseId, active: false };
   }
 
-  async getAutopayForTenant(userId: number) {
+  async getAutopayForTenant(userId: string) {
     const lease = await this.prisma.lease.findUnique({
       where: { tenantId: userId },
       include: {
@@ -291,9 +293,10 @@ export class BillingService {
     };
   }
 
-  async getAutopayForLease(leaseId: number) {
+  async getAutopayForLease(leaseId: string | number) {
+    const leaseIdNum = this.parseLeaseId(leaseId);
     const lease = await this.prisma.lease.findUnique({
-      where: { id: leaseId },
+      where: { id: leaseIdNum },
       include: {
         autopayEnrollment: {
           include: { paymentMethod: true },
@@ -311,11 +314,12 @@ export class BillingService {
   }
 
   async configureAutopay(
-    actor: { userId: number; username: string; role: Role },
+    actor: { userId: string; username: string; role: Role },
     dto: ConfigureAutopayDto,
   ) {
+    const leaseId = this.parseLeaseId(dto.leaseId);
     const lease = await this.prisma.lease.findUnique({
-      where: { id: dto.leaseId },
+      where: { id: leaseId },
       include: { tenant: true },
     });
 
@@ -336,9 +340,9 @@ export class BillingService {
     }
 
     const enrollment = await this.prisma.autopayEnrollment.upsert({
-      where: { leaseId: dto.leaseId },
+      where: { leaseId },
       create: {
-        leaseId: dto.leaseId,
+        leaseId,
         paymentMethodId: dto.paymentMethodId,
         active: dto.active ?? true,
         maxAmount: dto.maxAmount,
@@ -365,7 +369,7 @@ export class BillingService {
       userId: actor.userId,
       username: actor.username,
       metadata: {
-        leaseId: dto.leaseId,
+        leaseId,
         paymentMethodId: dto.paymentMethodId,
         maxAmount: dto.maxAmount,
       },
@@ -375,11 +379,12 @@ export class BillingService {
   }
 
   async disableAutopay(
-    actor: { userId: number; username: string; role: Role },
-    leaseId: number,
+    actor: { userId: string; username: string; role: Role },
+    leaseId: string | number,
   ) {
+    const leaseIdNum = this.parseLeaseId(leaseId);
     const lease = await this.prisma.lease.findUnique({
-      where: { id: leaseId },
+      where: { id: leaseIdNum },
     });
 
     if (!lease) {
@@ -391,7 +396,7 @@ export class BillingService {
     }
 
     const result = await this.prisma.autopayEnrollment.updateMany({
-      where: { leaseId },
+      where: { leaseId: leaseIdNum },
       data: { active: false },
     });
 
@@ -401,11 +406,11 @@ export class BillingService {
         success: true,
         userId: actor.userId,
         username: actor.username,
-        metadata: { leaseId },
+        metadata: { leaseId: leaseIdNum },
       });
     }
 
-    return { leaseId, active: false };
+    return { leaseId: leaseIdNum, active: false };
   }
 
   private computeInitialRun(dto: UpsertScheduleDto, leaseStart: Date): Date {
@@ -428,5 +433,12 @@ export class BillingService {
 
     return addMonths(now, 1);
   }
-}
 
+  private parseLeaseId(value: string | number): number {
+    const normalized = typeof value === 'string' ? Number(value) : value;
+    if (!Number.isFinite(normalized) || !Number.isInteger(normalized)) {
+      throw new BadRequestException('Invalid lease identifier provided.');
+    }
+    return normalized;
+  }
+}

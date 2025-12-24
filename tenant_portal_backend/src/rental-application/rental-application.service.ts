@@ -21,11 +21,13 @@ export class RentalApplicationService {
     private readonly lifecycleService: ApplicationLifecycleService,
   ) {}
 
-  async submitApplication(data: SubmitApplicationDto, applicantId?: number) {
+  async submitApplication(data: SubmitApplicationDto, applicantId?: string) {
+    const propertyId = this.parseNumericId(data.propertyId, 'property');
+    const unitId = this.parseNumericId(data.unitId, 'unit');
     const application = await this.prisma.rentalApplication.create({
       data: {
-        property: { connect: { id: data.propertyId } },
-        unit: { connect: { id: data.unitId } },
+        property: { connect: { id: propertyId } },
+        unit: { connect: { id: unitId } },
         applicant: applicantId ? { connect: { id: applicantId } } : undefined,
         fullName: data.fullName,
         email: data.email,
@@ -54,7 +56,7 @@ export class RentalApplicationService {
           null,
           ApplicationStatus.PENDING,
           {
-            userId: applicantId,
+          userId: applicantId,
             username: applicant.username,
             role: applicant.role as Role,
           },
@@ -80,7 +82,7 @@ export class RentalApplicationService {
     });
   }
 
-  async getApplicationsByApplicantId(applicantId: number) {
+  async getApplicationsByApplicantId(applicantId: string) {
     return this.prisma.rentalApplication.findMany({
       where: { applicantId },
       include: { property: true, unit: true, manualNotes: true },
@@ -103,7 +105,7 @@ export class RentalApplicationService {
   async updateApplicationStatus(
     id: number,
     status: ApplicationStatus,
-    actor?: { userId: number; username: string; role: Role },
+    actor?: { userId: string; username: string; role: Role },
   ) {
     const application = await this.prisma.rentalApplication.findUnique({
       where: { id },
@@ -145,7 +147,7 @@ export class RentalApplicationService {
 
   async screenApplication(
     id: number,
-    actor: { userId: number; username: string; role: Role },
+    actor: { userId: string; username: string; role: Role },
   ) {
     const application = await this.prisma.rentalApplication.findUnique({
       where: { id },
@@ -317,7 +319,7 @@ export class RentalApplicationService {
   async addNote(
     applicationId: number,
     dto: AddRentalApplicationNoteDto,
-    actor: { userId: number; username: string; role: Role },
+    actor: { userId: string; username: string; role: Role },
   ) {
     const application = await this.prisma.rentalApplication.findUnique({
       where: { id: applicationId },
@@ -388,8 +390,12 @@ export class RentalApplicationService {
     }
     return this.lifecycleService.getAvailableTransitions(application.status, userRole);
   }
+
+  private parseNumericId(value: string | number, field: string): number {
+    const parsed = typeof value === 'string' ? Number(value) : value;
+    if (!Number.isFinite(parsed) || !Number.isInteger(parsed)) {
+      throw new BadRequestException(`Invalid ${field} identifier provided.`);
+    }
+    return parsed;
+  }
 }
-
-
-
-

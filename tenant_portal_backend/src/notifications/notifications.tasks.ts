@@ -40,7 +40,7 @@ export class NotificationTasks {
 
       for (const invoice of upcomingInvoices) {
         try {
-          if (!invoice.leaseId) {
+          if (!invoice.leaseId || !invoice.lease?.tenantId) {
             continue;
           }
 
@@ -50,7 +50,7 @@ export class NotificationTasks {
           let responseTime: number;
           try {
             timing = await this.aiPaymentService.determineReminderTiming(
-              invoice.leaseId,
+              invoice.lease.tenantId,
               invoice.id,
             );
             responseTime = Date.now() - startTime;
@@ -60,7 +60,7 @@ export class NotificationTasks {
               operation: 'determineReminderTiming',
               success: true,
               responseTime,
-              tenantId: invoice.leaseId,
+              tenantId: invoice.lease.tenantId,
               invoiceId: invoice.id,
             });
           } catch (error) {
@@ -70,7 +70,7 @@ export class NotificationTasks {
               operation: 'determineReminderTiming',
               success: false,
               responseTime,
-              tenantId: invoice.leaseId,
+              tenantId: invoice.lease.tenantId,
               invoiceId: invoice.id,
               error: error instanceof Error ? error.message : String(error),
             });

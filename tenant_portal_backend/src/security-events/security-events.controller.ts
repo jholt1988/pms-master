@@ -24,7 +24,7 @@ export class SecurityEventsController {
     return this.securityEventsService.listEvents({
       limit: limit ? Number(limit) : undefined,
       offset: offset ? Number(offset) : undefined,
-      userId: userId ? Number(userId) : undefined,
+      userId: userId ?? undefined,
       username: username ?? undefined,
       type:
         type && Object.values(SecurityEventType).includes(type as SecurityEventType)

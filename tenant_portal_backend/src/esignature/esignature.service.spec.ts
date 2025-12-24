@@ -57,13 +57,13 @@ describe('EsignatureService', () => {
         templateId: 'tmpl-123',
         message: 'Sign please',
         recipients: [
-          { name: 'Tenant', email: 'tenant@test.com', role: 'TENANT', userId: 42 },
+          { name: 'Tenant', email: 'tenant@test.com', role: 'TENANT', userId: '42' },
         ],
       };
 
       (prisma.lease.findUnique as jest.Mock).mockResolvedValue({
-        id: 1,
-        tenant: { id: 42 },
+        id: '1',
+        tenant: { id: '42' },
         unit: {},
       });
       mockAxiosInstance.request.mockRejectedValue(new Error('network'));
@@ -72,13 +72,13 @@ describe('EsignatureService', () => {
         participants: [{ id: 1, name: 'Tenant', email: 'tenant@test.com' }],
       });
 
-      const envelope = await service.createEnvelope(1, dto, 7);
+      const envelope = await service.createEnvelope('1', dto, '7');
 
       expect(envelope.id).toBe(99);
       expect(prisma.esignEnvelope.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ leaseId: 1, createdById: 7 }),
-        }),
+          expect.objectContaining({
+            data: expect.objectContaining({ leaseId: '1', createdById: '7' }),
+          }),
       );
       expect(notifications.sendSignatureAlert).toHaveBeenCalledWith(
         expect.objectContaining({ event: 'REQUESTED', envelopeId: 99 }),
@@ -90,13 +90,13 @@ describe('EsignatureService', () => {
     it('updates status, stores documents, and notifies participants on completion', async () => {
       const envelopeRecord = {
         id: 5,
-        leaseId: 12,
-        createdById: 7,
+        leaseId: '12',
+        createdById: '7',
         provider: EsignProvider.DOCUSIGN,
         providerEnvelopeId: 'env-123',
         status: EsignEnvelopeStatus.SENT,
         participants: [
-          { id: 1, name: 'Tenant', email: 'tenant@test.com', phone: '555-0000', userId: 42 },
+          { id: 1, name: 'Tenant', email: 'tenant@test.com', phone: '555-0000', userId: '42' },
         ],
       };
 
@@ -149,7 +149,7 @@ describe('EsignatureService', () => {
     it('handles webhook errors gracefully', async () => {
       const envelopeRecord = {
         id: 5,
-        leaseId: 12,
+        leaseId: '12',
         providerEnvelopeId: 'env-123',
         participants: [],
       };
@@ -177,14 +177,14 @@ describe('EsignatureService', () => {
       };
 
       await expect(
-        service.createRecipientView(1, { userId: 1, role: Role.TENANT }, dto),
+        service.createRecipientView(1, { userId: '1', role: Role.TENANT }, dto),
       ).rejects.toThrow(NotFoundException);
     });
 
     it('throws ForbiddenException when user is not authorized', async () => {
       const envelope = {
         id: 1,
-        lease: { tenantId: 999 }, // Different tenant
+        lease: { tenantId: '999' }, // Different tenant
         participants: [],
       };
 
@@ -195,7 +195,7 @@ describe('EsignatureService', () => {
       };
 
       await expect(
-        service.createRecipientView(1, { userId: 1, role: Role.TENANT }, dto),
+        service.createRecipientView(1, { userId: '1', role: Role.TENANT }, dto),
       ).rejects.toThrow('not assigned to this envelope');
     });
   });

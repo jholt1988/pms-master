@@ -8,7 +8,7 @@ import { Request } from 'express';
 
 interface AuthenticatedRequest extends Request {
   user: {
-    sub: number;
+    sub: string;
     username: string;
     role: string;
   };
@@ -26,7 +26,7 @@ export class ReportingController {
     @Query('status') status?: LeaseStatus,
   ) {
     return this.reportingService.getRentRoll({
-      propertyId: propertyId ? parseInt(propertyId, 10) : undefined,
+      propertyId: propertyId && propertyId.trim() ? propertyId.trim() : undefined,
       status,
     });
   }
@@ -38,7 +38,7 @@ export class ReportingController {
     @Query('endDate') endDate?: string,
   ) {
     return this.reportingService.getProfitAndLoss({
-      propertyId: propertyId ? parseInt(propertyId, 10) : undefined,
+      propertyId: propertyId && propertyId.trim() ? propertyId.trim() : undefined,
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
     });
@@ -51,7 +51,7 @@ export class ReportingController {
     @Query('endDate') endDate?: string,
   ) {
     return this.reportingService.getMaintenanceResolutionAnalytics({
-      propertyId: propertyId ? parseInt(propertyId, 10) : undefined,
+      propertyId: propertyId && propertyId.trim() ? propertyId.trim() : undefined,
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
     });
@@ -60,7 +60,7 @@ export class ReportingController {
   @Get('vacancy-rate')
   async getVacancyRate(@Query('propertyId') propertyId?: string) {
     return this.reportingService.getVacancyRate({
-      propertyId: propertyId ? parseInt(propertyId, 10) : undefined,
+      propertyId: propertyId && propertyId.trim() ? propertyId.trim() : undefined,
     });
   }
 
@@ -72,11 +72,10 @@ export class ReportingController {
     @Query('endDate') endDate?: string,
   ) {
     return this.reportingService.getPaymentHistory({
-      userId: userId ? parseInt(userId, 10) : undefined,
-      propertyId: propertyId ? parseInt(propertyId, 10) : undefined,
+      userId: userId && userId.trim() ? userId.trim() : undefined,
+      propertyId: propertyId && propertyId.trim() ? propertyId.trim() : undefined,
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
     });
   }
 }
-

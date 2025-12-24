@@ -221,7 +221,7 @@ export class WorkflowSchedulerService {
   async triggerWorkflow(
     workflowId: string,
     input?: Record<string, any>,
-    userId?: number,
+    userId?: string,
   ): Promise<any> {
     return await this.workflowEngine.executeWorkflow(workflowId, input || {}, userId);
   }

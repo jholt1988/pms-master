@@ -1,9 +1,8 @@
-import { IsBoolean, IsNumber, IsOptional, IsPositive } from 'class-validator';
+import { IsBoolean, IsNumber, IsOptional, IsPositive, IsUUID } from 'class-validator';
 
 export class ConfigureAutopayDto {
-  @IsNumber()
-  @IsPositive()
-  leaseId!: number;
+  @IsUUID()
+  leaseId!: string;
 
   @IsNumber()
   @IsPositive()

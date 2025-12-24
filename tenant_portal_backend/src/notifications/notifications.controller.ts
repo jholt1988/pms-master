@@ -7,7 +7,7 @@ import { Request } from 'express';
 
 interface AuthenticatedRequest extends Request {
   user: {
-    sub: number;
+    sub: string;
     username: string;
     role: string;
   };
@@ -85,4 +85,3 @@ export class NotificationsController {
     return preferences;
   }
 }
-

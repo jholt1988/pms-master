@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DocumentCategory, Prisma } from '@prisma/client'; 
 import { Multer } from 'multer';
@@ -27,12 +27,12 @@ export class DocumentsService {
 
   async uploadFile(
     file: any, // Fixed: Express.Multer.File may not be available, use any
-    userId: number,
+    userId: string,
     data: {
       category: DocumentCategory;
       description?: string;
-      leaseId?: number;
-      propertyId?: number;
+      leaseId?: string;
+      propertyId?: string;
     },
   ) {
     // Generate unique filename
@@ -51,8 +51,16 @@ export class DocumentsService {
         category: data.category,
         description: data.description,
         uploadedBy: { connect: { id: userId } },
-        ...(data.leaseId && { lease: { connect: { id: data.leaseId } } }),
-        ...(data.propertyId && { property: { connect: { id: data.propertyId } } }),
+      ...(data.leaseId &&
+        (() => {
+          const leaseId = this.parseNumericId(data.leaseId, 'lease');
+          return { lease: { connect: { id: leaseId } } };
+        })()),
+      ...(data.propertyId &&
+        (() => {
+          const propertyId = this.parseNumericId(data.propertyId, 'property');
+          return { property: { connect: { id: propertyId } } };
+        })()),
       },
     });
 
@@ -63,11 +71,11 @@ export class DocumentsService {
     buffer: Buffer,
     params: {
       fileName: string;
-      userId: number;
+      userId: string;
       category: DocumentCategory;
       description?: string;
-      leaseId?: number;
-      propertyId?: number;
+      leaseId?: string;
+      propertyId?: string;
       mimeType?: string;
     },
   ) {
@@ -85,13 +93,21 @@ export class DocumentsService {
         description: params.description,
         mimeType: params.mimeType ?? 'application/pdf',
         uploadedBy: { connect: { id: params.userId } },
-        ...(params.leaseId && { lease: { connect: { id: params.leaseId } } }),
-        ...(params.propertyId && { property: { connect: { id: params.propertyId } } }),
+        ...(params.leaseId &&
+          (() => {
+            const leaseId = this.parseNumericId(params.leaseId, 'lease');
+            return { lease: { connect: { id: leaseId } } };
+          })()),
+        ...(params.propertyId &&
+          (() => {
+            const propertyId = this.parseNumericId(params.propertyId, 'property');
+            return { property: { connect: { id: propertyId } } };
+          })()),
       },
     });
   }
 
-  async getFileStream(documentId: number, userId: number) {
+  async getFileStream(documentId: number, userId: string) {
     const document = await this.prisma.document.findFirst({
       where: {
         id: documentId,
@@ -122,10 +138,10 @@ export class DocumentsService {
   }
 
   async listDocuments(filters: {
-    userId?: number;
+    userId?: string;
     category?: DocumentCategory;
-    leaseId?: number;
-    propertyId?: number;
+    leaseId?: string;
+    propertyId?: string;
     skip?: number;
     take?: number;
   }) {
@@ -137,8 +153,8 @@ export class DocumentsService {
         ],
       }),
       ...(filters.category && { category: filters.category }),
-      ...(filters.leaseId && { leaseId: filters.leaseId }),
-      ...(filters.propertyId && { propertyId: filters.propertyId }),
+      ...(filters.leaseId && { leaseId: this.parseNumericId(filters.leaseId, 'lease') }),
+      ...(filters.propertyId && { propertyId: this.parseNumericId(filters.propertyId, 'property') }),
     };
 
     const [documents, total] = await Promise.all([
@@ -166,7 +182,7 @@ export class DocumentsService {
     };
   }
 
-  async shareDocument(documentId: number, userIds: number[], requestingUserId: number) {
+  async shareDocument(documentId: number, userIds: string[], requestingUserId: string) {
     const document = await this.prisma.document.findFirst({
       where: {
         id: documentId,
@@ -190,7 +206,7 @@ export class DocumentsService {
     return { success: true };
   }
 
-  async deleteDocument(documentId: number, userId: number) {
+  async deleteDocument(documentId: number, userId: string) {
     const document = await this.prisma.document.findFirst({
       where: {
         id: documentId,
@@ -216,5 +232,13 @@ export class DocumentsService {
     });
 
     return { success: true };
+  }
+
+  private parseNumericId(value: string | number, field: string): number {
+    const normalized = typeof value === 'string' ? Number(value) : value;
+    if (!Number.isFinite(normalized) || !Number.isInteger(normalized)) {
+      throw new BadRequestException(`Invalid ${field} identifier provided.`);
+    }
+    return normalized;
   }
 }

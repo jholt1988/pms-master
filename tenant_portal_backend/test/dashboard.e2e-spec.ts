@@ -54,10 +54,10 @@ describe('Dashboard (e2e)', () => {
     await app.close();
   });
 
-  describe('/api/dashboard/metrics (GET)', () => {
+  describe('/dashboard/metrics (GET)', () => {
     it('should return dashboard metrics for property manager', () => {
       return request(app.getHttpServer())
-        .get('/api/dashboard/metrics')
+        .get('/dashboard/metrics')
         .set('Authorization', `Bearer ${propertyManagerToken}`)
         .expect(200)
         .then((res) => {
@@ -72,16 +72,16 @@ describe('Dashboard (e2e)', () => {
 
     it('should return 403 for tenant', () => {
       return request(app.getHttpServer())
-        .get('/api/dashboard/metrics')
+        .get('/dashboard/metrics')
         .set('Authorization', `Bearer ${tenantToken}`)
         .expect(403);
     });
   });
 
-  describe('/api/dashboard/tenant (GET)', () => {
+  describe('/dashboard/tenant (GET)', () => {
     it('should return dashboard data for tenant', () => {
       return request(app.getHttpServer())
-        .get('/api/dashboard/tenant')
+        .get('/dashboard/tenant')
         .set('Authorization', `Bearer ${tenantToken}`)
         .expect(200)
         .then((res) => {
@@ -91,16 +91,16 @@ describe('Dashboard (e2e)', () => {
           });
     });
 
-    it('should also allow /api/tenant/dashboard for tenant', () => {
+    it('should also allow /tenant/dashboard for tenant', () => {
       return request(app.getHttpServer())
-        .get('/api/tenant/dashboard')
+        .get('/tenant/dashboard')
         .set('Authorization', `Bearer ${tenantToken}`)
         .expect(200);
     });
 
     it('should return 403 for property manager', () => {
       return request(app.getHttpServer())
-        .get('/api/dashboard/tenant')
+        .get('/dashboard/tenant')
         .set('Authorization', `Bearer ${propertyManagerToken}`)
         .expect(403);
     });

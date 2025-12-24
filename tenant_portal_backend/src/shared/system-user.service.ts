@@ -13,7 +13,7 @@ import * as bcrypt from 'bcrypt';
 @Injectable()
 export class SystemUserService implements OnModuleInit {
   private readonly logger = new Logger(SystemUserService.name);
-  private systemUserId: number | null = null;
+  private systemUserId: string | number | null = null;
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -28,7 +28,7 @@ export class SystemUserService implements OnModuleInit {
    * Get or create the system user
    * Returns the system user ID
    */
-  async getSystemUserId(): Promise<number> {
+  async getSystemUserId(): Promise<string | number> {
     if (this.systemUserId) {
       return this.systemUserId;
     }
@@ -98,14 +98,13 @@ export class SystemUserService implements OnModuleInit {
     } catch (error) {
       this.logger.error('Failed to ensure system user exists:', error);
       // Fallback: try to find any admin or property manager user as last resort
-      const fallbackUser = await this.prisma.user.findFirst({
-        where: {
-          OR: [
-            { role: Role.ADMIN },
-            { role: Role.PROPERTY_MANAGER },
-          ],
-        },
-      });
+      const fallbackUser =
+        (await this.prisma.user.findFirst({
+          where: { role: Role.PROPERTY_MANAGER },
+        })) ??
+        (await this.prisma.user.findFirst({
+          where: { role: Role.ADMIN },
+        }));
       if (fallbackUser) {
         this.logger.warn(
           `Using fallback user (ID: ${fallbackUser.id}, role: ${fallbackUser.role}) as system user`,
@@ -122,9 +121,8 @@ export class SystemUserService implements OnModuleInit {
   /**
    * Check if a user ID is the system user
    */
-  async isSystemUser(userId: number): Promise<boolean> {
+  async isSystemUser(userId: string | number): Promise<boolean> {
     const systemId = await this.getSystemUserId();
-    return userId === systemId;
+    return systemId != null && systemId == (userId as any);
   }
 }
-

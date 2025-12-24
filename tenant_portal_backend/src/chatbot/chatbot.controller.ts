@@ -4,7 +4,7 @@ import { ChatbotService } from './chatbot.service';
 
 interface AuthenticatedRequest extends Request {
   user: {
-    userId: number;
+    userId: string;
     username: string;
     role: string;
   };

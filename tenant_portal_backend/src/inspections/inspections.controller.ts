@@ -12,6 +12,7 @@ import {
   ParseIntPipe,
   UseInterceptors,
   UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
@@ -27,10 +28,11 @@ import { memoryStorage } from 'multer';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { randomBytes } from 'crypto';
+import { isUUID } from 'class-validator';
 
 interface AuthenticatedRequest extends Request {
   user: {
-    sub: number;
+    sub: string;
     username: string;
     role: Role;
   };
@@ -80,8 +82,8 @@ export class InspectionsController {
     return this.inspectionsService.findAll({
       userId: req.user.sub,
       userRole: req.user.role,
-      unitId: unitId ? parseInt(unitId, 10) : undefined,
-      propertyId: propertyId ? parseInt(propertyId, 10) : undefined,
+      unitId: this.parseOptionalUuid(unitId, 'unitId'),
+      propertyId: this.parseOptionalUuid(propertyId, 'propertyId'),
       status,
       type,
       startDate: startDate ? new Date(startDate) : undefined,
@@ -160,5 +162,21 @@ export class InspectionsController {
   async delete(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest) {
     return this.inspectionsService.delete(id, req.user.sub);
   }
-}
 
+  private parseOptionalUuid(value: string | undefined, field: string): string | undefined {
+    if (!value) {
+      return undefined;
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+
+    if (!isUUID(trimmed)) {
+      throw new BadRequestException(`Invalid ${field}: ${value}`);
+    }
+
+    return trimmed;
+  }
+}

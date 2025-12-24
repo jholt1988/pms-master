@@ -43,7 +43,8 @@ export class SmsService {
     }
 
     // Validate phone number format (basic E.164 check)
-    if (!/^\+[1-9]\d{1,14}$/.test(to)) {
+    // Require at least 10 digits to avoid accepting extremely short numbers
+    if (!/^\+[1-9]\d{9,14}$/.test(to)) {
       this.logger.warn(`Invalid phone number format: ${to}`);
       return { success: false, error: 'Invalid phone number format. Must be in E.164 format (e.g., +1234567890)' };
     }
@@ -128,6 +129,6 @@ export class SmsService {
       return false;
     }
     // E.164 format: +[country code][number]
-    return /^\+[1-9]\d{1,14}$/.test(phone);
+    return /^\+[1-9]\d{9,14}$/.test(phone);
   }
 }

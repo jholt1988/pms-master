@@ -1,5 +1,6 @@
 import {
   IsEmail,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
@@ -9,10 +10,10 @@ import {
 } from 'class-validator';
 
 export class SubmitApplicationDto {
-  @IsNumber()
+  @IsInt()
   propertyId!: number;
 
-  @IsNumber()
+  @IsInt()
   unitId!: number;
 
   @IsString()

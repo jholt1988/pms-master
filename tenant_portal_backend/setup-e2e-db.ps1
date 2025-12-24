@@ -6,13 +6,43 @@ Write-Host "E2E Test Database Setup" -ForegroundColor Cyan
 Write-Host "==================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Configuration
+# Configuration (defaults, will be overridden by DATABASE_URL if present)
 $DB_USER = "postgres"
 $DB_PASSWORD = "jordan"
 $DB_HOST = "localhost"
 $DB_PORT = "5432"
 $DB_NAME = "tenant_portal_test"
-$DATABASE_URL = "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?schema=public_"
+$SCHEMA = "public"
+$DATABASE_URL = $null
+
+# Try to load DATABASE_URL from environment or .env so the script stays in sync with app config
+if (-not [string]::IsNullOrWhiteSpace($env:DATABASE_URL)) {
+    $DATABASE_URL = $env:DATABASE_URL
+} elseif (Test-Path ".env") {
+    $envLine = Get-Content ".env" | Where-Object { $_ -match '^DATABASE_URL=' } | Select-Object -First 1
+    if ($envLine) {
+        $DATABASE_URL = ($envLine -replace '^DATABASE_URL="?','') -replace '"?$',''
+    }
+}
+
+# If we found a URL, parse it to update connection pieces
+if ($DATABASE_URL) {
+    # Support prisma+postgres and plain postgres/postgresql
+    $cleanUrl = $DATABASE_URL -replace '^prisma\+', ''
+    $pattern = '^(?<scheme>[^:]+)://(?<user>[^:]+):(?<pass>[^@]+)@(?<host>[^:/]+)(:(?<port>\d+))?/(?<db>[^?]+)(\?schema=(?<schema>[^&]+))?'
+    $match = [regex]::Match($cleanUrl, $pattern)
+    if ($match.Success) {
+        $DB_USER = $match.Groups['user'].Value
+        $DB_PASSWORD = $match.Groups['pass'].Value
+        $DB_HOST = $match.Groups['host'].Value
+        if ($match.Groups['port'].Success) { $DB_PORT = $match.Groups['port'].Value }
+        $DB_NAME = $match.Groups['db'].Value
+        if ($match.Groups['schema'].Success) { $SCHEMA = $match.Groups['schema'].Value }
+    }
+} else {
+    # Build default DATABASE_URL if none provided
+    $DATABASE_URL = "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?schema=${SCHEMA}"
+}
 
 # Set PGPASSWORD environment variable for PostgreSQL commands
 $env:PGPASSWORD = $DB_PASSWORD

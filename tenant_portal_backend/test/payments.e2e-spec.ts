@@ -132,7 +132,7 @@ describe('Payments API (e2e)', () => {
           description: 'Test',
           amount: 1500,
           dueDate: '2025-12-01',
-          leaseId: 99999,
+          leaseId: '00000000-0000-0000-0000-999999999999',
         })
         .expect(404);
     });

@@ -78,6 +78,9 @@ describe('AuthService', () => {
       update: jest.fn(),
       updateMany: jest.fn(),
     },
+    user: {
+      findUnique: jest.fn(),
+    },
   };
 
   const mockEmailService = {
@@ -361,6 +364,9 @@ describe('AuthService', () => {
       const registerDto = {
         username: 'newuser@example.com',
         password: 'SecurePass123!',
+        email: 'newuser@example.com',
+        firstName: 'New',
+        lastName: 'User',
       };
 
       const mockUser = {
@@ -368,9 +374,13 @@ describe('AuthService', () => {
         username: registerDto.username,
         role: Role.TENANT,
         password: 'hashedPassword',
+        email: registerDto.email,
+        firstName: registerDto.firstName,
+        lastName: registerDto.lastName,
       };
 
       mockUsersService.findOne.mockResolvedValue(null); // User doesn't exist yet
+      mockPrismaService.user = { findUnique: jest.fn().mockResolvedValue(null) } as any;
       mockPasswordPolicy.validate.mockReturnValue([]);
       mockUsersService.create.mockResolvedValue(mockUser);
       mockSecurityEvents.logEvent.mockResolvedValue(undefined);
@@ -381,6 +391,9 @@ describe('AuthService', () => {
         id: mockUser.id,
         username: mockUser.username,
         role: mockUser.role,
+        email: mockUser.email,
+        firstName: mockUser.firstName,
+        lastName: mockUser.lastName,
       });
       expect(mockPasswordPolicy.validate).toHaveBeenCalledWith(registerDto.password);
       expect(mockUsersService.create).toHaveBeenCalledWith({
@@ -388,6 +401,9 @@ describe('AuthService', () => {
         password: registerDto.password,
         passwordUpdatedAt: expect.any(Date),
         role: 'TENANT',
+        email: registerDto.email,
+        firstName: registerDto.firstName,
+        lastName: registerDto.lastName,
       });
       expect(mockSecurityEvents.logEvent).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -401,6 +417,9 @@ describe('AuthService', () => {
       const registerDto = {
         username: 'newuser@example.com',
         password: 'weak',
+        email: 'newuser@example.com',
+        firstName: 'New',
+        lastName: 'User',
       };
 
       mockPasswordPolicy.validate.mockReturnValue([

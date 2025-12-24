@@ -18,6 +18,6 @@ export class RentEstimatorController {
     @Query('unitId') unitId: string,
     // Add more query parameters for other factors like bedrooms, bathrooms, etc.
   ) {
-    return this.rentEstimatorService.estimateRent(Number(propertyId), Number(unitId));
+    return this.rentEstimatorService.estimateRent(propertyId, unitId);
   }
 }

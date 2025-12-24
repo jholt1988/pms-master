@@ -23,7 +23,7 @@ import { memoryStorage } from 'multer';
 
 interface AuthenticatedRequest extends Request {
   user: {
-    sub: number;
+    sub: string;
     username: string;
     role: string;
   };
@@ -61,8 +61,8 @@ export class DocumentsController {
       {
         category,
         description,
-        leaseId: leaseId ? parseInt(leaseId, 10) : undefined,
-        propertyId: propertyId ? parseInt(propertyId, 10) : undefined,
+        leaseId,
+        propertyId,
       },
     );
   }
@@ -79,8 +79,8 @@ export class DocumentsController {
     return this.documentsService.listDocuments({
       userId: req.user.sub,
       category,
-      leaseId: leaseId ? parseInt(leaseId, 10) : undefined,
-      propertyId: propertyId ? parseInt(propertyId, 10) : undefined,
+      leaseId,
+      propertyId,
       skip: skip ? parseInt(skip, 10) : undefined,
       take: take ? parseInt(take, 10) : undefined,
     });
@@ -102,7 +102,7 @@ export class DocumentsController {
   async shareDocument(
     @Param('id', ParseIntPipe) id: number,
     @Req() req: AuthenticatedRequest,
-    @Body('userIds') userIds: number[],
+    @Body('userIds') userIds: string[],
   ) {
     return this.documentsService.shareDocument(id, userIds, req.user.sub);
   }

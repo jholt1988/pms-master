@@ -67,8 +67,8 @@ export class LeaseService {
     try {
       const lease = await this.prisma.lease.create({
         data: {
-          tenantId: dto.tenantId,
-          unitId: dto.unitId,
+          tenantId: this.normalizeId(dto.tenantId as any),
+          unitId: this.normalizeNumericId(dto.unitId as any),
           startDate,
           endDate,
           rentAmount: dto.rentAmount,
@@ -103,32 +103,37 @@ export class LeaseService {
     });
   }
 
-  async getLeaseById(id: number) {
-    const lease = await this.prisma.lease.findUnique({ where: { id }, include: this.leaseInclude });
+  async getLeaseById(id: string | number) {
+    const leaseId = this.normalizeNumericId(id);
+    const lease = await this.prisma.lease.findUnique({ where: { id: leaseId }, include: this.leaseInclude });
     if (!lease) {
       throw new NotFoundException('Lease not found');
     }
     return lease;
   }
 
-  async getLeaseHistory(id: number) {
-    const lease = await this.prisma.lease.findUnique({ where: { id } });
+  async getLeaseHistory(id: string | number) {
+    const leaseId = this.normalizeNumericId(id);
+    const lease = await this.prisma.lease.findUnique({ where: { id: leaseId } });
     if (!lease) {
       throw new NotFoundException('Lease not found');
     }
     return this.prisma.leaseHistory.findMany({
-      where: { leaseId: id },
+      where: { leaseId },
       include: { actor: { select: { id: true, username: true } } },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async getLeaseByTenantId(tenantId: number) {
-    return this.prisma.lease.findUnique({ where: { tenantId }, include: this.leaseInclude });
+  async getLeaseByTenantId(tenantId: string | number) {
+    const tenantIdStr = this.normalizeId(tenantId);
+    return this.prisma.lease.findUnique({ where: { tenantId: tenantIdStr }, include: this.leaseInclude });
   }
 
-  async updateLease(id: number, dto: UpdateLeaseDto, actorId: number) {
-    const lease = await this.ensureLease(id);
+  async updateLease(id: string | number, dto: UpdateLeaseDto, actorId: string | number) {
+    const leaseId = this.normalizeNumericId(id);
+    const actorIdStr = this.normalizeId(actorId);
+    const lease = await this.ensureLease(leaseId);
 
     const data: Prisma.LeaseUncheckedUpdateInput = {};
     if (dto.startDate) {
@@ -163,13 +168,13 @@ export class LeaseService {
     }
 
     const updated = await this.prisma.lease.update({
-      where: { id },
+      where: { id: leaseId },
       data,
       include: this.leaseInclude,
     });
 
     if (dto.rentAmount !== undefined || dto.depositAmount !== undefined) {
-      await this.logHistory(updated.id, actorId, {
+      await this.logHistory(updated.id, actorIdStr, {
         fromStatus: lease.status,
         toStatus: updated.status,
         rentAmount: updated.rentAmount,
@@ -181,8 +186,10 @@ export class LeaseService {
     return updated;
   }
 
-  async updateLeaseStatus(id: number, dto: UpdateLeaseStatusDto, actorId: number) {
-    const lease = await this.ensureLease(id);
+  async updateLeaseStatus(id: string | number, dto: UpdateLeaseStatusDto, actorId: string | number) {
+    const leaseId = this.normalizeNumericId(id);
+    const actorIdStr = this.normalizeId(actorId);
+    const lease = await this.ensureLease(leaseId);
 
     const data: Prisma.LeaseUncheckedUpdateInput = {
       status: dto.status,
@@ -225,9 +232,9 @@ export class LeaseService {
       data.autoRenew = dto.autoRenew;
     }
 
-    const updated = await this.prisma.lease.update({ where: { id }, data, include: this.leaseInclude });
+    const updated = await this.prisma.lease.update({ where: { id: leaseId }, data, include: this.leaseInclude });
 
-    await this.logHistory(updated.id, actorId, {
+    await this.logHistory(updated.id, actorIdStr, {
       fromStatus: lease.status,
       toStatus: updated.status,
       note: 'Lease status updated',
@@ -236,8 +243,10 @@ export class LeaseService {
     return updated;
   }
 
-  async createRenewalOffer(id: number, dto: CreateRenewalOfferDto, actorId: number) {
-    const lease = await this.ensureLease(id);
+  async createRenewalOffer(id: string | number, dto: CreateRenewalOfferDto, actorId: string | number) {
+    const leaseId = this.normalizeNumericId(id);
+    const actorIdStr = this.normalizeId(actorId);
+    const lease = await this.ensureLease(leaseId);
 
     const proposedStart = this.requireDate(dto.proposedStart, 'proposedStart');
     const proposedEnd = this.requireDate(dto.proposedEnd, 'proposedEnd');
@@ -258,7 +267,7 @@ export class LeaseService {
     if (!dto.proposedRent || dto.proposedRent === 0) {
       try {
         const startTime = Date.now();
-        const adjustment = await this.aiLeaseRenewalService.getRentAdjustmentRecommendation(id);
+        const adjustment = await this.aiLeaseRenewalService.getRentAdjustmentRecommendation(Number(leaseId));
         const responseTime = Date.now() - startTime;
 
         proposedRent = adjustment.recommendedRent;
@@ -287,7 +296,7 @@ export class LeaseService {
 
     const offer = await this.prisma.leaseRenewalOffer.create({
       data: {
-        leaseId: id,
+        leaseId,
         proposedRent,
         proposedStart,
         proposedEnd,
@@ -295,12 +304,12 @@ export class LeaseService {
         message: dto.message || (aiRentUsed ? rentAdjustmentDetails.reasoning : undefined),
         status: LeaseRenewalStatus.OFFERED,
         expiresAt: this.optionalDate(dto.expiresAt),
-        respondedById: actorId,
+        respondedById: actorIdStr,
       },
     });
 
     const updated = await this.prisma.lease.update({
-      where: { id },
+      where: { id: leaseId },
       data: {
         status: LeaseStatus.RENEWAL_PENDING,
         renewalOfferedAt: new Date(),
@@ -313,7 +322,7 @@ export class LeaseService {
       ? `Renewal offer sent with AI-recommended rent (${rentAdjustmentDetails.adjustmentPercentage?.toFixed(1)}% adjustment)`
       : 'Renewal offer sent';
 
-    await this.logHistory(updated.id, actorId, {
+    await this.logHistory(updated.id, actorIdStr, {
       fromStatus: lease.status,
       toStatus: updated.status,
       note: historyNote,
@@ -323,17 +332,19 @@ export class LeaseService {
     return updated;
   }
 
-  async recordLeaseNotice(id: number, dto: RecordLeaseNoticeDto, actorId: number) {
-    await this.ensureLease(id);
+  async recordLeaseNotice(id: string | number, dto: RecordLeaseNoticeDto, actorId: string | number) {
+    const leaseId = this.normalizeNumericId(id);
+    const actorIdStr = this.normalizeId(actorId);
+    await this.ensureLease(leaseId);
 
     const notice = await this.prisma.leaseNotice.create({
       data: {
-        lease: { connect: { id } },
+        lease: { connect: { id: leaseId } },
         type: dto.type,
         deliveryMethod: dto.deliveryMethod,
         message: dto.message,
         acknowledgedAt: this.optionalDate(dto.acknowledgedAt),
-        createdBy: { connect: { id: actorId } },
+        createdBy: { connect: { id: actorIdStr } },
       },
       include: {
         lease: true,
@@ -344,33 +355,36 @@ export class LeaseService {
     if (dto.type === LeaseNoticeType.MOVE_OUT) {
       updatedStatus = LeaseStatus.NOTICE_GIVEN;
       await this.prisma.lease.update({
-        where: { id },
+        where: { id: leaseId },
         data: { status: updatedStatus },
       });
     }
 
-    await this.logHistory(id, actorId, {
+    await this.logHistory(leaseId, actorIdStr, {
       fromStatus: notice.lease.status,
       toStatus: updatedStatus ?? notice.lease.status,
       note: `Notice recorded (${dto.type})`,
     });
 
-    return this.getLeaseById(id);
+    return this.getLeaseById(leaseId);
   }
 
   async respondToRenewalOffer(
-    leaseId: number,
-    offerId: number,
+    leaseId: string | number,
+    offerId: string | number,
     dto: RespondRenewalOfferDto,
-    tenantUserId: number,
+    tenantUserId: string | number,
   ) {
-    const lease = await this.ensureLease(leaseId);
-    if (lease.tenantId !== tenantUserId) {
+    const leaseIdNum = this.normalizeNumericId(leaseId);
+    const offerIdNum = typeof offerId === 'string' ? Number(offerId) : offerId;
+    const tenantUserIdStr = this.normalizeId(tenantUserId);
+    const lease = await this.ensureLease(leaseIdNum);
+    if (lease.tenantId !== tenantUserIdStr) {
       throw new ForbiddenException('You are not authorized to respond to this renewal offer.');
     }
 
-    const offer = await this.prisma.leaseRenewalOffer.findUnique({ where: { id: offerId } });
-    if (!offer || offer.leaseId !== leaseId) {
+    const offer = await this.prisma.leaseRenewalOffer.findUnique({ where: { id: offerIdNum } });
+    if (!offer || offer.leaseId !== leaseIdNum) {
       throw new NotFoundException('Renewal offer not found.');
     }
 
@@ -403,15 +417,15 @@ export class LeaseService {
 
     const [, updatedLease] = await this.prisma.$transaction([
       this.prisma.leaseRenewalOffer.update({
-        where: { id: offerId },
+        where: { id: offerIdNum },
         data: {
           status: decisionStatus,
           respondedAt,
-          respondedBy: { connect: { id: tenantUserId } },
+          respondedBy: { connect: { id: tenantUserIdStr } },
         },
       }),
       this.prisma.lease.update({
-        where: { id: leaseId },
+        where: { id: leaseIdNum },
         data: leaseUpdate,
       }),
     ]);
@@ -432,7 +446,7 @@ export class LeaseService {
       historyMetadata.message = dto.message.trim();
     }
 
-    await this.logHistory(leaseId, tenantUserId, {
+    await this.logHistory(leaseIdNum, tenantUserIdStr, {
       fromStatus: lease.status,
       toStatus: updatedLease.status,
       note: noteParts.join(' '),
@@ -440,12 +454,14 @@ export class LeaseService {
       metadata: historyMetadata,
     });
 
-    return this.getLeaseById(leaseId);
+    return this.getLeaseById(leaseIdNum);
   }
 
-  async submitTenantNotice(leaseId: number, dto: TenantSubmitNoticeDto, tenantUserId: number) {
-    const lease = await this.ensureLease(leaseId);
-    if (lease.tenantId !== tenantUserId) {
+  async submitTenantNotice(leaseId: string | number, dto: TenantSubmitNoticeDto, tenantUserId: string | number) {
+    const leaseIdNum = this.normalizeNumericId(leaseId);
+    const tenantUserIdStr = this.normalizeId(tenantUserId);
+    const lease = await this.ensureLease(leaseIdNum);
+    if (lease.tenantId !== tenantUserIdStr) {
       throw new ForbiddenException('You are not authorized to update this lease.');
     }
 
@@ -456,15 +472,15 @@ export class LeaseService {
     const [, updatedLease] = await this.prisma.$transaction([
       this.prisma.leaseNotice.create({
         data: {
-          lease: { connect: { id: leaseId } },
+          lease: { connect: { id: leaseIdNum } },
           type: dto.type,
           deliveryMethod: LeaseNoticeDeliveryMethod.PORTAL,
           message: dto.message,
-          createdBy: { connect: { id: tenantUserId } },
+          createdBy: { connect: { id: tenantUserIdStr } },
         },
       }),
       this.prisma.lease.update({
-        where: { id: leaseId },
+        where: { id: leaseIdNum },
         data: {
           moveOutAt: dto.type === LeaseNoticeType.MOVE_OUT ? moveOutAt : lease.moveOutAt,
           status: updatedStatus,
@@ -489,18 +505,19 @@ export class LeaseService {
       metadata.message = dto.message.trim();
     }
 
-    await this.logHistory(leaseId, tenantUserId, {
+    await this.logHistory(leaseIdNum, tenantUserIdStr, {
       fromStatus: lease.status,
       toStatus: updatedLease.status,
       note: noteParts.join(' '),
       metadata,
     });
 
-    return this.getLeaseById(leaseId);
+    return this.getLeaseById(leaseIdNum);
   }
 
-  private async ensureLease(id: number) {
-    const lease = await this.prisma.lease.findUnique({ where: { id }, include: this.leaseInclude });
+  private async ensureLease(id: string | number) {
+    const leaseId = this.normalizeNumericId(id);
+    const lease = await this.prisma.lease.findUnique({ where: { id: leaseId }, include: this.leaseInclude });
     if (!lease) {
       throw new NotFoundException('Lease not found');
     }
@@ -535,9 +552,21 @@ export class LeaseService {
     throw error;
   }
 
+  private normalizeId(id: string | number): string {
+    return String(id);
+  }
+
+  private normalizeNumericId(id: string | number): number {
+    const parsed = typeof id === 'string' ? Number(id) : id;
+    if (!Number.isFinite(parsed) || !Number.isInteger(parsed)) {
+      throw new BadRequestException('Invalid numeric identifier provided.');
+    }
+    return parsed;
+  }
+
   async logHistory(
-    leaseId: number,
-    actorId: number | undefined,
+    leaseId: string | number,
+    actorId: string | number | undefined,
     data: {
       fromStatus?: LeaseStatus;
       toStatus?: LeaseStatus;
@@ -547,10 +576,13 @@ export class LeaseService {
       metadata?: Prisma.InputJsonValue;
     },
   ) {
+    const leaseIdNum = this.normalizeNumericId(leaseId);
+    const actorIdStr = actorId !== undefined ? this.normalizeId(actorId) : undefined;
+
     await this.prisma.leaseHistory.create({
       data: {
-        lease: { connect: { id: leaseId } },
-        actor: actorId ? { connect: { id: actorId } } : undefined,
+        lease: { connect: { id: leaseIdNum } },
+        actor: actorIdStr ? { connect: { id: actorIdStr } } : undefined,
         fromStatus: data.fromStatus,
         toStatus: data.toStatus,
         note: data.note,
@@ -597,9 +629,10 @@ export class LeaseService {
   /**
    * Prepare for vacancy (mark unit as potentially available, start marketing)
    */
-  async prepareForVacancy(leaseId: number): Promise<void> {
+  async prepareForVacancy(leaseId: string | number): Promise<void> {
+    const leaseIdNum = this.normalizeNumericId(leaseId);
     const lease = await this.prisma.lease.findUnique({
-      where: { id: leaseId },
+      where: { id: leaseIdNum },
       include: {
         unit: {
           include: {
@@ -666,7 +699,7 @@ export class LeaseService {
               connect: { id: property.id },
             },
             lease: {
-              connect: { id: leaseId },
+              connect: { id: leaseIdNum },
             },
             createdBy: {
               connect: { id: systemUser.id },
@@ -684,7 +717,7 @@ export class LeaseService {
     }
 
     // 4. Log the action
-    await this.logHistory(leaseId, 0, {
+    await this.logHistory(leaseIdNum, 0, {
       fromStatus: lease.status,
       toStatus: lease.status,
       note: `Prepared for vacancy due to low renewal likelihood. Unit marked available on ${lease.endDate.toISOString()}, inspection scheduled for ${inspectionDate.toISOString()}`,

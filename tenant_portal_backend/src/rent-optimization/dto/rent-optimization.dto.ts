@@ -7,9 +7,8 @@ import { Type } from 'class-transformer';
 export class GenerateRecommendationsDto {
   @IsArray()
   @ArrayMinSize(1, { message: 'At least one unit ID is required' })
-  @IsNumber({}, { each: true, message: 'Each unit ID must be a number' })
-  @Type(() => Number)
-  unitIds!: number[];
+  @IsString({ each: true, message: 'Each unit ID must be a string UUID' })
+  unitIds!: string[];
 }
 
 /**

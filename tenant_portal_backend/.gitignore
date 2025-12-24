@@ -6,3 +6,5 @@ coverage-e2e/
 # Test results
 test-results/
 *.test-results
+
+/generated/prisma

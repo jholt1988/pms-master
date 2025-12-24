@@ -5,7 +5,7 @@ import { PaymentsService } from '../payments/payments.service';
 import { AIPaymentService } from '../payments/ai-payment.service';
 import { AIPaymentMetricsService } from '../payments/ai-payment-metrics.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { NotificationType } from '@prisma/client';
+import { NotificationType, Invoice } from '@prisma/client';
 import { subDays } from 'date-fns';
 import { EsignatureService } from '../esignature/esignature.service';
 
@@ -34,7 +34,9 @@ export class ScheduledJobsService {
     this.logger.log('Checking for due payments...');
 
     try {
-      const dueInvoices = await this.paymentsService.getInvoicesDueToday();
+      const dueInvoices = (await this.paymentsService.getInvoicesDueToday()) as Array<
+        Invoice & { lease?: { tenantId?: string } }
+      >;
       this.logger.log(`Found ${dueInvoices.length} invoices due today`);
 
       let processedCount = 0;
@@ -48,12 +50,13 @@ export class ScheduledJobsService {
             continue;
           }
 
+          const tenantId = invoice.lease?.tenantId ?? String(invoice.leaseId);
           // Assess payment risk using AI
           const startTime = Date.now();
           let riskAssessment;
           try {
             riskAssessment = await this.aiPaymentService.assessPaymentRisk(
-              invoice.leaseId,
+              tenantId,
               invoice.id,
             );
             const responseTime = Date.now() - startTime;
@@ -63,7 +66,7 @@ export class ScheduledJobsService {
               operation: 'assessPaymentRisk',
               success: true,
               responseTime,
-              tenantId: invoice.leaseId,
+              tenantId,
               invoiceId: invoice.id,
             });
 
@@ -79,7 +82,7 @@ export class ScheduledJobsService {
               operation: 'assessPaymentRisk',
               success: false,
               responseTime,
-              tenantId: invoice.leaseId,
+              tenantId,
               invoiceId: invoice.id,
               error: error instanceof Error ? error.message : String(error),
             });

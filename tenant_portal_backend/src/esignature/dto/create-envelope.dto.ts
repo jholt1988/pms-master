@@ -1,6 +1,6 @@
 import { EsignProvider } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsArray, IsEnum, IsInt, IsOptional, IsString, ValidateNested, IsEmail } from 'class-validator';
+import { IsArray, IsEnum, IsOptional, IsString, ValidateNested, IsEmail, IsUUID } from 'class-validator';
 
 export class EnvelopeRecipientDto {
   @IsString()
@@ -17,8 +17,8 @@ export class EnvelopeRecipientDto {
   role!: string;
 
   @IsOptional()
-  @IsInt()
-  userId?: number;
+  @IsUUID()
+  userId?: string;
 }
 
 export class CreateEnvelopeDto {

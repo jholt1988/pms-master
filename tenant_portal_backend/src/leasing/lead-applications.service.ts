@@ -79,7 +79,7 @@ export class LeadApplicationsService {
    * Get all applications with filtering
    */
   async getApplications(filters?: {
-    propertyId?: number;
+    propertyId?: string;
     status?: string;
     dateFrom?: Date;
     dateTo?: Date;
@@ -127,7 +127,7 @@ export class LeadApplicationsService {
   async updateApplicationStatus(
     id: string,
     status: string,
-    reviewedById?: number,
+    reviewedById?: string,
     reviewNotes?: string,
   ) {
     const normalizedStatus = this.normalizeLeadApplicationStatus(status);

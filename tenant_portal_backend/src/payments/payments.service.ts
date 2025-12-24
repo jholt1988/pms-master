@@ -1,9 +1,10 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Invoice, Payment, Role } from '@prisma/client';
+import { Invoice, Payment, Role, Prisma } from '@prisma/client';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { AIPaymentService } from './ai-payment.service';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class PaymentsService {
@@ -12,11 +13,13 @@ export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiPaymentService: AIPaymentService,
+    private readonly emailService: EmailService,
   ) { }
 
   async createInvoice(dto: CreateInvoiceDto): Promise<Invoice> {
+    const leaseId = this.parseLeaseId(dto.leaseId);
     const lease = await this.prisma.lease.findUnique({
-      where: { id: dto.leaseId },
+      where: { id: leaseId },
     });
 
     if (!lease) {
@@ -28,7 +31,7 @@ export class PaymentsService {
         description: dto.description,
         amount: dto.amount,
         dueDate: new Date(dto.dueDate),
-        lease: { connect: { id: dto.leaseId } },
+        lease: { connect: { id: leaseId } },
       },
       include: {
         lease: { include: { tenant: true, unit: { include: { property: true } } } },
@@ -38,10 +41,11 @@ export class PaymentsService {
     });
   }
 
-  async getInvoicesForUser(userId: number, role: Role, leaseId?: number): Promise<Invoice[]> {
+  async getInvoicesForUser(userId: string, role: Role, leaseId?: string | number): Promise<Invoice[]> {
+    const leaseIdNum = leaseId !== undefined ? this.parseLeaseId(leaseId) : undefined;
     if (role === Role.PROPERTY_MANAGER) {
       return this.prisma.invoice.findMany({
-        where: leaseId ? { leaseId } : undefined,
+        where: leaseIdNum ? { leaseId: leaseIdNum } : undefined,
         include: {
           lease: { include: { tenant: true, unit: { include: { property: true } } } },
           payments: true,
@@ -53,12 +57,12 @@ export class PaymentsService {
     }
 
     return this.prisma.invoice.findMany({
-      where: {
-        lease: {
-          tenantId: userId,
-          ...(leaseId ? { id: leaseId } : {}),
+        where: {
+          lease: {
+            tenantId: userId,
+            ...(leaseIdNum ? { id: leaseIdNum } : {}),
+          },
         },
-      },
       include: {
         lease: { include: { tenant: true, unit: { include: { property: true } } } },
         payments: true,
@@ -71,10 +75,11 @@ export class PaymentsService {
 
   async createPayment(
     dto: CreatePaymentDto,
-    authUser?: { userId: number; role: Role },
+    authUser?: { userId: string; role: Role },
   ): Promise<Payment> {
+    const leaseId = this.parseLeaseId(dto.leaseId);
     const lease = await this.prisma.lease.findUnique({
-      where: { id: dto.leaseId },
+      where: { id: leaseId },
       include: { tenant: true },
     });
 
@@ -91,7 +96,7 @@ export class PaymentsService {
         where: { id: dto.invoiceId },
       });
 
-      if (!invoice || invoice.leaseId !== dto.leaseId) {
+      if (!invoice || invoice.leaseId !== leaseId) {
         throw new BadRequestException('Invoice does not belong to the specified lease');
       }
     }
@@ -102,7 +107,7 @@ export class PaymentsService {
         status: dto.status ?? 'COMPLETED',
         paymentDate: dto.paymentDate ? new Date(dto.paymentDate) : new Date(),
         invoice: dto.invoiceId ? { connect: { id: dto.invoiceId } } : undefined,
-        lease: { connect: { id: dto.leaseId } },
+        lease: { connect: { id: leaseId } },
         user: { connect: { id: lease.tenantId } },
         externalId: dto['externalId'] as string | undefined,
         paymentMethod: dto.paymentMethodId ? { connect: { id: dto.paymentMethodId } } : undefined,
@@ -118,13 +123,31 @@ export class PaymentsService {
       await this.markInvoicePaid(payment.invoiceId);
     }
 
+    // Send confirmation email for successful payments, but do not block on failures
+    if ((payment.status ?? 'COMPLETED') !== 'FAILED') {
+      try {
+        const tenant = payment.lease?.tenant ?? lease.tenant;
+        const tenantEmail = tenant?.username ?? tenant?.email ?? '';
+        await this.emailService.sendRentPaymentConfirmation(
+          tenantEmail,
+          Number(payment.amount),
+          payment.paymentDate ?? new Date(),
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Failed to send payment confirmation for payment ${payment.id}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
     return payment;
   }
 
-  async getPaymentsForUser(userId: number, role: Role, leaseId?: number): Promise<Payment[]> {
+  async getPaymentsForUser(userId: string, role: Role, leaseId?: string | number): Promise<Payment[]> {
+    const leaseIdNum = leaseId !== undefined ? this.parseLeaseId(leaseId) : undefined;
     if (role === Role.PROPERTY_MANAGER) {
       return this.prisma.payment.findMany({
-        where: leaseId ? { leaseId } : undefined,
+        where: leaseIdNum ? { leaseId: leaseIdNum } : undefined,
         include: {
           invoice: true,
           lease: { include: { tenant: true, unit: { include: { property: true } } } },
@@ -137,7 +160,7 @@ export class PaymentsService {
     return this.prisma.payment.findMany({
       where: {
         userId,
-        ...(leaseId ? { leaseId } : {}),
+        ...(leaseIdNum ? { leaseId: leaseIdNum } : {}),
       },
       include: {
         invoice: true,
@@ -151,19 +174,20 @@ export class PaymentsService {
   async recordPaymentForInvoice(params: {
     invoiceId: number;
     amount: number;
-    leaseId: number;
-    userId: number;
+    leaseId: string | number;
+    userId: string;
     paymentMethodId?: number;
     externalId?: string;
     initiatedBy?: string;
   }): Promise<Payment> {
+    const leaseId = this.parseLeaseId(params.leaseId);
     const payment = await this.prisma.payment.create({
       data: {
         amount: params.amount,
         status: 'COMPLETED',
         paymentDate: new Date(),
         invoice: { connect: { id: params.invoiceId } },
-        lease: { connect: { id: params.leaseId } },
+        lease: { connect: { id: leaseId } },
         user: { connect: { id: params.userId } },
         externalId: params.externalId,
         paymentMethod: params.paymentMethodId ? { connect: { id: params.paymentMethodId } } : undefined,
@@ -198,10 +222,34 @@ export class PaymentsService {
     });
   }
 
+  private parseLeaseId(leaseId: string | number): number {
+    const normalized = typeof leaseId === 'string' ? Number(leaseId) : leaseId;
+    if (!Number.isFinite(normalized) || !Number.isInteger(normalized)) {
+      throw new BadRequestException('Invalid lease identifier provided.');
+    }
+    return normalized;
+  }
+
   /**
    * Get invoices due within a specified number of days
    */
-  async getInvoicesDueInDays(days: number): Promise<Invoice[]> {
+  async getInvoicesDueInDays(
+    days: number,
+  ): Promise<
+    Array<
+      Prisma.InvoiceGetPayload<{
+        include: {
+          lease: {
+            include: {
+              tenant: true;
+              unit: { include: { property: true } };
+            };
+          };
+          payments: true;
+        };
+      }>
+    >
+  > {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -344,7 +392,7 @@ export class PaymentsService {
     };
   }
 
-  async getPaymentById(paymentId: number, userId: number, role: Role): Promise<Payment> {
+  async getPaymentById(paymentId: number, userId: string, role: Role): Promise<Payment> {
     const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
       include: {
@@ -375,7 +423,7 @@ export class PaymentsService {
     return payment;
   }
 
-  async getInvoiceById(invoiceId: number, userId: number, role: Role): Promise<Invoice> {
+  async getInvoiceById(invoiceId: number, userId: string, role: Role): Promise<Invoice> {
     const invoice = await this.prisma.invoice.findUnique({
       where: { id: invoiceId },
       include: {
@@ -412,7 +460,7 @@ export class PaymentsService {
     return invoice;
   }
 
-  async getPaymentPlans(userId: number, role: Role, invoiceId?: number) {
+  async getPaymentPlans(userId: string, role: Role, invoiceId?: number) {
     if (role === Role.PROPERTY_MANAGER) {
       return this.prisma.paymentPlan.findMany({
         where: invoiceId ? { invoiceId } : undefined,
@@ -441,9 +489,9 @@ export class PaymentsService {
     return this.prisma.paymentPlan.findMany({
       where: {
         invoice: {
+          ...(invoiceId ? { id: invoiceId } : {}),
           lease: {
             tenantId: userId,
-            ...(invoiceId ? { id: invoiceId } : {}),
           },
         },
       },
@@ -468,7 +516,7 @@ export class PaymentsService {
     });
   }
 
-  async getPaymentPlanById(paymentPlanId: number, userId: number, role: Role) {
+  async getPaymentPlanById(paymentPlanId: number, userId: string, role: Role) {
     const paymentPlan = await this.prisma.paymentPlan.findUnique({
       where: { id: paymentPlanId },
       include: {

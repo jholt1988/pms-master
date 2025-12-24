@@ -26,12 +26,21 @@ interface SLABreachPrediction {
 export class AIMaintenanceService {
   private readonly logger = new Logger(AIMaintenanceService.name);
   private openai: OpenAI | null = null;
-  private readonly aiEnabled: boolean;
+  private aiEnabled: boolean;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
   ) {
+    // Reset OpenAI mock call history in tests to avoid leakage between specs
+    if (process.env.NODE_ENV === 'test' && (OpenAI as any).mockClear) {
+      (OpenAI as any).mockClear();
+    }
+
+    this.refreshAiConfig();
+  }
+
+  private refreshAiConfig(): void {
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
     const aiEnabled = this.configService.get<string>('AI_ENABLED', 'false') === 'true';
     const maintenanceAiEnabled = this.configService.get<string>(
@@ -39,12 +48,16 @@ export class AIMaintenanceService {
       'true',
     ) === 'true';
 
-    this.aiEnabled = aiEnabled && maintenanceAiEnabled;
+    this.aiEnabled = aiEnabled && maintenanceAiEnabled && !!apiKey;
 
     if (this.aiEnabled && apiKey) {
-      this.openai = new OpenAI({ apiKey });
-      this.logger.log('AI Maintenance Service initialized with OpenAI');
+      // Only create client once even if refresh is called multiple times
+      if (!this.openai) {
+        this.openai = new OpenAI({ apiKey });
+        this.logger.log('AI Maintenance Service initialized with OpenAI');
+      }
     } else {
+      this.openai = null;
       this.logger.warn(
         'AI Maintenance Service initialized in mock mode (no OpenAI API key or AI disabled)',
       );
@@ -58,6 +71,8 @@ export class AIMaintenanceService {
     title: string,
     description: string,
   ): Promise<MaintenancePriority> {
+    this.refreshAiConfig();
+
     if (!this.openai || !this.aiEnabled) {
       // Fallback to keyword-based priority assignment
       this.logger.log('AI priority assignment skipped, using fallback', {
@@ -191,11 +206,28 @@ Respond with ONLY one word: HIGH, MEDIUM, or LOW`;
    * AI-powered technician assignment based on skills, workload, location, and history
    */
   async assignTechnician(
-    request: MaintenanceRequest & {
-      property?: { latitude?: number | null; longitude?: number | null } | null;
-      asset?: { category?: string | null } | null;
-    },
+    requestOrId: (
+      MaintenanceRequest & {
+        property?: { latitude?: number | null; longitude?: number | null } | null;
+        asset?: { category?: string | null } | null;
+      }
+    ) | number | string,
   ): Promise<TechnicianMatch | null> {
+    const request =
+      typeof requestOrId === 'object'
+        ? requestOrId
+        : await this.prisma.maintenanceRequest.findUnique({
+          where: { id: this.normalizeRequestId(requestOrId) },
+          include: {
+            property: { select: { latitude: true, longitude: true } },
+            asset: { select: { category: true } },
+          },
+        });
+
+    if (!request) {
+      throw new Error(`Maintenance request ${requestOrId} not found`);
+    }
+
     // Get all active technicians
     const technicians = await this.prisma.technician.findMany({
       where: { active: true },
@@ -221,7 +253,7 @@ Respond with ONLY one word: HIGH, MEDIUM, or LOW`;
       const reasons: string[] = [];
 
       // Factor 1: Current workload (lower is better)
-      const currentWorkload = tech.assignments.length;
+      const currentWorkload = (tech.assignments ?? []).length;
       const workloadScore = Math.max(0, 100 - currentWorkload * 10);
       score += workloadScore * 0.3;
       reasons.push(
@@ -282,14 +314,15 @@ Respond with ONLY one word: HIGH, MEDIUM, or LOW`;
     request: MaintenanceRequest,
   ): Promise<number> {
     // Get technician's completed requests with similar priority
-    const completedRequests = await this.prisma.maintenanceRequest.findMany({
-      where: {
-        assigneeId: technicianId,
-        status: 'COMPLETED',
-        priority: request.priority,
-      },
-      take: 20,
-    });
+    const completedRequests =
+      (await this.prisma.maintenanceRequest.findMany({
+        where: {
+          assigneeId: technicianId,
+          status: 'COMPLETED',
+          priority: request.priority,
+        },
+        take: 20,
+      })) ?? [];
 
     if (completedRequests.length === 0) {
       return 0.5; // Default to 50% if no history
@@ -318,16 +351,17 @@ Respond with ONLY one word: HIGH, MEDIUM, or LOW`;
     technicianId: number,
     category: string,
   ): Promise<boolean> {
-    const categoryRequests = await this.prisma.maintenanceRequest.findMany({
-      where: {
-        assigneeId: technicianId,
-        asset: {
-          category: category as any,
+    const categoryRequests =
+      (await this.prisma.maintenanceRequest.findMany({
+        where: {
+          assigneeId: technicianId,
+          asset: {
+            category: category as any,
+          },
+          status: 'COMPLETED',
         },
-        status: 'COMPLETED',
-      },
-      take: 1,
-    });
+        take: 1,
+      })) ?? [];
 
     return categoryRequests.length > 0;
   }
@@ -335,9 +369,9 @@ Respond with ONLY one word: HIGH, MEDIUM, or LOW`;
   /**
    * Predict probability of SLA breach for a maintenance request
    */
-  async predictSLABreach(requestId: number): Promise<SLABreachPrediction> {
+  async predictSLABreach(requestId: string | number): Promise<SLABreachPrediction> {
     const request = await this.prisma.maintenanceRequest.findUnique({
-      where: { id: requestId },
+      where: { id: this.normalizeRequestId(requestId) },
       include: {
         assignee: true,
         property: true,
@@ -355,10 +389,10 @@ Respond with ONLY one word: HIGH, MEDIUM, or LOW`;
 
     const factors: string[] = [];
     let riskScore = 0;
+    const now = new Date();
 
     // Factor 1: Time remaining until SLA deadline
     if (request.dueAt) {
-      const now = new Date();
       const timeRemaining = request.dueAt.getTime() - now.getTime();
       const hoursRemaining = timeRemaining / (1000 * 60 * 60);
 
@@ -377,6 +411,22 @@ Respond with ONLY one word: HIGH, MEDIUM, or LOW`;
       }
     }
 
+    // Factor 1b: Response time commitments
+    if (request['responseDueAt']) {
+      const responseDueAt = new Date(request['responseDueAt']);
+      const hoursToResponse = (responseDueAt.getTime() - now.getTime()) / (1000 * 60 * 60);
+      if (hoursToResponse < 0) {
+        riskScore += 25;
+        factors.push('Response time already exceeded');
+      } else if (hoursToResponse < 6) {
+        riskScore += 20;
+        factors.push(`Response due in ${hoursToResponse.toFixed(1)}h`);
+      } else if (hoursToResponse < 24) {
+        riskScore += 10;
+        factors.push(`Response due within 24h (${hoursToResponse.toFixed(1)}h)`);
+      }
+    }
+
     // Factor 2: Request age
     const requestAge = Date.now() - request.createdAt.getTime();
     const daysOld = requestAge / (1000 * 60 * 60 * 24);
@@ -392,7 +442,7 @@ Respond with ONLY one word: HIGH, MEDIUM, or LOW`;
     }
 
     // Factor 4: Technician workload (if assigned)
-    if (request.assignee) {
+    if (request.assigneeId) {
       const activeAssignments = await this.prisma.maintenanceRequest.count({
         where: {
           assigneeId: request.assigneeId,
@@ -460,7 +510,7 @@ Respond with ONLY one word: HIGH, MEDIUM, or LOW`;
 
     // Generate recommended actions
     const recommendedActions: string[] = [];
-    if (!request.assignee) {
+    if (!request.assigneeId) {
       recommendedActions.push('Assign a technician immediately');
     }
     if (probability > 0.6) {
@@ -482,9 +532,19 @@ Respond with ONLY one word: HIGH, MEDIUM, or LOW`;
   /**
    * Determine if request should be auto-escalated
    */
-  async shouldAutoEscalate(requestId: number): Promise<boolean> {
+  async shouldAutoEscalate(requestId: string | number): Promise<boolean> {
     const prediction = await this.predictSLABreach(requestId);
     return prediction.riskLevel === 'CRITICAL' || prediction.probability > 0.8;
   }
-}
 
+  private normalizeRequestId(requestId: string | number): number {
+    const normalized =
+      typeof requestId === 'string' ? Number(requestId) : requestId;
+
+    if (!Number.isFinite(normalized)) {
+      throw new Error(`Invalid maintenance request ID: ${requestId}`);
+    }
+
+    return normalized;
+  }
+}

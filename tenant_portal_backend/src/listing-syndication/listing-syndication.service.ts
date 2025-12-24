@@ -1,5 +1,5 @@
 import { InjectQueue } from '@nestjs/bull';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, SyndicationChannel, SyndicationStatus } from '@prisma/client';
 import { Queue } from 'bull';
 import { PrismaService } from '../prisma/prisma.service';
@@ -55,7 +55,8 @@ export class ListingSyndicationService {
     });
   }
 
-  async queueSyndication(propertyId: number, dto?: SyndicationActionDto) {
+  async queueSyndication(propertyId: string | number, dto?: SyndicationActionDto) {
+    const propertyIdNum = this.parseNumericId(propertyId, 'property');
     const channels = dto?.channels?.length
       ? dto.channels
       : (Object.keys(this.adapters) as SyndicationChannel[]);
@@ -63,7 +64,7 @@ export class ListingSyndicationService {
     for (const channelKey of channels) {
       await this.prisma.syndicationQueue.create({
         data: {
-          propertyId,
+          propertyId: propertyIdNum,
           channel: channelKey,
           status: SyndicationStatus.PENDING,
         },
@@ -72,17 +73,18 @@ export class ListingSyndicationService {
 
     await this.schedulePendingJobs();
 
-    return this.getPropertyStatus(propertyId);
+    return this.getPropertyStatus(propertyIdNum);
   }
 
-  async pauseSyndication(propertyId: number, dto?: SyndicationActionDto) {
+  async pauseSyndication(propertyId: string | number, dto?: SyndicationActionDto) {
+    const propertyIdNum = this.parseNumericId(propertyId, 'property');
     const channels = dto?.channels?.length
       ? dto.channels
       : (Object.keys(this.adapters) as SyndicationChannel[]);
 
     await this.prisma.syndicationQueue.updateMany({
       where: {
-        propertyId,
+        propertyId: propertyIdNum,
         channel: { in: channels as SyndicationChannel[] },
       },
       data: {
@@ -90,18 +92,19 @@ export class ListingSyndicationService {
       },
     });
 
-    return this.getPropertyStatus(propertyId);
+    return this.getPropertyStatus(propertyIdNum);
   }
 
-  async getPropertyStatus(propertyId: number) {
-    const property = await this.prisma.property.findUnique({ where: { id: propertyId } });
+  async getPropertyStatus(propertyId: string | number) {
+    const propertyIdNum = this.parseNumericId(propertyId, 'property');
+    const property = await this.prisma.property.findUnique({ where: { id: propertyIdNum } });
 
     if (!property) {
       throw new NotFoundException('Property not found');
     }
 
     const queue = await this.prisma.syndicationQueue.findMany({
-      where: { propertyId },
+      where: { propertyId: propertyIdNum },
       orderBy: { updatedAt: 'desc' },
     });
 
@@ -239,5 +242,13 @@ export class ListingSyndicationService {
       })),
       unitCount: property.units.length,
     };
+  }
+
+  private parseNumericId(value: string | number, field: string): number {
+    const parsed = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(parsed) || Number.isNaN(parsed) || !Number.isInteger(parsed)) {
+      throw new BadRequestException(`Invalid ${field} id: ${value}`);
+    }
+    return parsed;
   }
 }

@@ -7,7 +7,16 @@ import { TestDataFactory } from './factories';
 import { APP_GUARD } from '@nestjs/core';
 import { EmailService } from '../src/email/email.service';
 import { resetDatabase } from './utils/reset-database';
-import { jwtDecode } from 'jwt-decode';
+const decodeJwt = <T = any>(token: string): Partial<T> => {
+  const parts = token.split('.');
+  if (parts.length < 2) return {};
+  try {
+    const payload = Buffer.from(parts[1], 'base64').toString('utf8');
+    return JSON.parse(payload);
+  } catch {
+    return {};
+  }
+};
 
 // Mock guard that always allows requests (disables rate limiting in tests)
 class MockThrottlerGuard {
@@ -70,7 +79,7 @@ describe('Authentication Edge Cases (e2e)', () => {
       const expiredToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImV4cCI6MTYwOTQ1NjgwMCwiaWF0IjoxNjA5NDU2ODAwfQ.invalid';
 
       const response = await request(app.getHttpServer())
-        .get('/api/auth/profile')
+        .get('/auth/profile')
         .set('Authorization', `Bearer ${expiredToken}`)
         .expect(HttpStatus.UNAUTHORIZED);
 
@@ -88,12 +97,12 @@ describe('Authentication Edge Cases (e2e)', () => {
       const pmToken = pmLogin.body.accessToken || pmLogin.body.access_token;
 
       // Decode token to check expiration
-      const decoded = jwtDecode<{ exp?: number }>(pmToken);
+      const decoded = decodeJwt<{ exp?: number }>(pmToken);
       expect(decoded.exp).toBeDefined();
 
       // Use valid token for request
       const response = await request(app.getHttpServer())
-        .get('/api/lease')
+        .get('/lease')
         .set('Authorization', `Bearer ${pmToken}`)
         .expect((res) => {
           // Should succeed with valid token
@@ -121,13 +130,13 @@ describe('Authentication Edge Cases (e2e)', () => {
       // Make multiple concurrent requests with same token
       const requests = [
         request(app.getHttpServer())
-          .get('/api/lease')
+          .get('/lease')
           .set('Authorization', `Bearer ${pmToken}`),
         request(app.getHttpServer())
-          .get('/api/property')
+          .get('/property')
           .set('Authorization', `Bearer ${pmToken}`),
         request(app.getHttpServer())
-          .get('/api/dashboard/metrics')
+          .get('/dashboard/metrics')
           .set('Authorization', `Bearer ${pmToken}`),
       ];
 
@@ -155,7 +164,7 @@ describe('Authentication Edge Cases (e2e)', () => {
 
       for (const token of invalidTokens) {
         const response = await request(app.getHttpServer())
-          .get('/api/auth/profile')
+          .get('/auth/profile')
           .set('Authorization', token.startsWith('Bearer') ? token : `Bearer ${token}`)
           .expect(HttpStatus.UNAUTHORIZED);
 
@@ -165,7 +174,7 @@ describe('Authentication Edge Cases (e2e)', () => {
 
     it('should reject requests without Authorization header', async () => {
       const response = await request(app.getHttpServer())
-        .get('/api/auth/profile')
+        .get('/auth/profile')
         .expect(HttpStatus.UNAUTHORIZED);
 
       expect(response.body).toHaveProperty('message');
@@ -183,7 +192,7 @@ describe('Authentication Edge Cases (e2e)', () => {
       const loginResponse = await request(app.getHttpServer())
         .post('/auth/login')
         .send({ username: 'user3', password: 'password123' })
-        .expect(HttpStatus.CREATED);
+        .expect(HttpStatus.OK);
 
       // If refresh token is provided, test refresh
       if (loginResponse.body.refreshToken) {
@@ -191,7 +200,7 @@ describe('Authentication Edge Cases (e2e)', () => {
           .post('/auth/refresh')
           .send({ refreshToken: loginResponse.body.refreshToken })
           .expect((res) => {
-            expect([HttpStatus.CREATED, HttpStatus.NOT_FOUND]).toContain(res.status);
+            expect([HttpStatus.OK, HttpStatus.CREATED, HttpStatus.NOT_FOUND]).toContain(res.status);
           });
 
         if (refreshResponse.status === HttpStatus.CREATED) {

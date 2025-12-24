@@ -3,8 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { InspectionType, InspectionStatus, Role, Prisma } from '@prisma/client';
 
 interface CreateInspectionDto {
-  unitId: number;
-  propertyId: number;
+  unitId: string;
+  propertyId: string;
   type: InspectionType;
   scheduledDate: Date;
   notes?: string;
@@ -25,7 +25,7 @@ interface CompleteInspectionDto {
 export class InspectionsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: CreateInspectionDto, userId: number) {
+  async create(data: CreateInspectionDto, userId: string) {
     // Verify user is a property manager
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (user?.role !== Role.PROPERTY_MANAGER) {
@@ -65,10 +65,10 @@ export class InspectionsService {
   }
 
   async findAll(filters: {
-    userId?: number;
+    userId?: string;
     userRole?: Role;
-    unitId?: number;
-    propertyId?: number;
+    unitId?: string;
+    propertyId?: string;
     status?: InspectionStatus;
     type?: InspectionType;
     startDate?: Date;
@@ -149,7 +149,7 @@ export class InspectionsService {
     return { data: inspections, total };
   }
 
-  async findOne(id: number, userId: number, userRole: Role) {
+  async findOne(id: number, userId: string, userRole: Role) {
     const inspection = await this.prisma.unitInspection.findUnique({
       where: { id },
       include: {
@@ -201,7 +201,7 @@ export class InspectionsService {
     return inspection;
   }
 
-  async update(id: number, data: UpdateInspectionDto, userId: number) {
+  async update(id: number, data: UpdateInspectionDto, userId: string) {
     // Only property managers can update
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (user?.role !== Role.PROPERTY_MANAGER) {
@@ -239,7 +239,7 @@ export class InspectionsService {
     });
   }
 
-  async complete(id: number, data: CompleteInspectionDto, userId: number) {
+  async complete(id: number, data: CompleteInspectionDto, userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (user?.role !== Role.PROPERTY_MANAGER) {
       throw new ForbiddenException('Only property managers can complete inspections');
@@ -278,7 +278,7 @@ export class InspectionsService {
     });
   }
 
-  async delete(id: number, userId: number) {
+  async delete(id: number, userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (user?.role !== Role.PROPERTY_MANAGER) {
       throw new ForbiddenException('Only property managers can delete inspections');
@@ -299,7 +299,7 @@ export class InspectionsService {
     return { success: true };
   }
 
-  async addPhoto(inspectionId: number, url: string, caption: string | undefined, userId: number) {
+  async addPhoto(inspectionId: number, url: string, caption: string | undefined, userId: string) {
     const inspection = await this.prisma.unitInspection.findUnique({
       where: { id: inspectionId },
     });
@@ -318,4 +318,3 @@ export class InspectionsService {
     });
   }
 }
-

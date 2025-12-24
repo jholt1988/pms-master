@@ -56,11 +56,18 @@ describe('Auth API (e2e)', () => {
   });
 
   describe('POST /auth/register', () => {
+    const baseRegisterPayload = {
+      email: 'newuser@test.com',
+      firstName: 'New',
+      lastName: 'User',
+    };
+
     it('should register a new user successfully', async () => {
       const response = await request(app.getHttpServer())
         .post('/auth/register')
         .send({
           username: 'newuser@test.com',
+          ...baseRegisterPayload,
           password: 'StrongPass@123',
           role: 'TENANT',
         })
@@ -85,6 +92,7 @@ describe('Auth API (e2e)', () => {
         .post('/auth/register')
         .send({
           username: 'weakpass@test.com',
+          ...baseRegisterPayload,
           password: 'weak',
           role: 'TENANT',
         })

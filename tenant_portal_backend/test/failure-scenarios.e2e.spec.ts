@@ -86,7 +86,7 @@ describe('Failure Scenarios (e2e)', () => {
 
       // Attempt payment with invalid payment method (simulating Stripe failure)
       const response = await request(app.getHttpServer())
-        .post('/api/payments')
+        .post('/payments')
         .set('Authorization', `Bearer ${tenantToken}`)
         .send({
           invoiceId: invoice.id,
@@ -133,7 +133,7 @@ describe('Failure Scenarios (e2e)', () => {
 
       // Attempt payment that will fail
       await request(app.getHttpServer())
-        .post('/api/payments')
+        .post('/payments')
         .set('Authorization', `Bearer ${tenantToken}`)
         .send({
           invoiceId: invoice.id,
@@ -162,7 +162,7 @@ describe('Failure Scenarios (e2e)', () => {
 
       // Send malformed JSON
       const response = await request(app.getHttpServer())
-        .post('/api/leases')
+        .post('/leases')
         .set('Authorization', `Bearer ${pmToken}`)
         .set('Content-Type', 'application/json')
         .send('{ invalid json }')
@@ -218,7 +218,7 @@ describe('Failure Scenarios (e2e)', () => {
 
       // Send invalid data types
       const response = await request(app.getHttpServer())
-        .post('/api/leases')
+        .post('/leases')
         .set('Authorization', `Bearer ${pmToken}`)
         .send({
           unitId: unit.id,
@@ -274,7 +274,7 @@ describe('Failure Scenarios (e2e)', () => {
 
       // Attempt to sync with QuickBooks (may fail if not configured)
       const response = await request(app.getHttpServer())
-        .post('/api/quickbooks/sync')
+        .post('/quickbooks/sync')
         .set('Authorization', `Bearer ${pmToken}`)
         .send({});
 

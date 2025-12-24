@@ -124,7 +124,11 @@ export class LeasingController {
         filters.page = parsedPage;
       }
 
-      return this.leasingService.getLeads(filters);
+      const result = await this.leasingService.getLeads(filters);
+      return {
+        success: true,
+        ...result,
+      };
     } catch (error) {
       this.handleError(error, 'Failed to fetch leads');
     }
@@ -142,11 +146,12 @@ export class LeasingController {
     try {
       const { role, content, metadata } = body;
 
-      if (!role || !content) {
-        throw new HttpException(
-          'role and content are required',
-          HttpStatus.BAD_REQUEST,
-        );
+      if (!role) {
+        throw new HttpException('role is required', HttpStatus.BAD_REQUEST);
+      }
+
+      if (!content) {
+        throw new HttpException('content is required', HttpStatus.BAD_REQUEST);
       }
 
       const message = await this.leasingService.addMessage(
@@ -169,9 +174,7 @@ export class LeasingController {
   @Get('leads/:id/messages')
   async getMessages(@Param('id') leadId: string) {
     try {
-      const messages = await this.leasingService.getConversationHistory(leadId);
-
-      return messages;
+      return await this.leasingService.getConversationHistory(leadId);
     } catch (error) {
       this.handleError(error, 'Failed to fetch messages');
     }
@@ -184,8 +187,7 @@ export class LeasingController {
   @Post('leads/:id/properties/search')
   @HttpCode(200)
   async searchProperties(
-    @Param('id') leadId: string,
-    @Body() criteria: {
+    @Body() body: {
       bedrooms?: number;
       bathrooms?: number;
       maxRent?: number;
@@ -194,7 +196,15 @@ export class LeasingController {
     },
   ) {
     try {
-      return this.leasingService.searchProperties(criteria);
+      const criteria: any = {};
+      if (body?.bedrooms !== undefined) criteria.bedrooms = body.bedrooms;
+      if (body?.bathrooms !== undefined) criteria.bathrooms = body.bathrooms;
+      if (body?.maxRent !== undefined) criteria.maxRent = body.maxRent;
+      if (body?.petFriendly !== undefined) criteria.petFriendly = body.petFriendly;
+      if (body?.limit !== undefined) criteria.limit = body.limit;
+
+      const properties = await this.leasingService.searchProperties(criteria);
+      return properties;
     } catch (error) {
       this.handleError(error, 'Failed to search properties');
     }
@@ -207,20 +217,34 @@ export class LeasingController {
   @Post('leads/:id/inquiries')
   async recordInquiry(
     @Param('id') leadId: string,
-    @Body() body: { propertyId: number; unitId?: number; interestLevel?: string },
+    @Body() body: { propertyId: string | number; unitId?: string | number; interest?: string; interestLevel?: string },
   ) {
     try {
-      const { propertyId, unitId, interestLevel } = body;
+      const { propertyId, unitId, interest, interestLevel } = body;
 
-      if (!propertyId) {
+      const normalizedPropertyId =
+        typeof propertyId === 'string' ? propertyId.trim() : propertyId;
+
+      if (!normalizedPropertyId) {
         throw new HttpException('propertyId is required', HttpStatus.BAD_REQUEST);
       }
 
+      const propertyIdNumber =
+        typeof normalizedPropertyId === 'string'
+          ? Number(normalizedPropertyId)
+          : normalizedPropertyId;
+      const unitIdNumber =
+        typeof unitId === 'string' && unitId !== undefined
+          ? Number(unitId)
+          : unitId === undefined
+            ? undefined
+            : (unitId as number);
+
       const inquiry = await this.leasingService.recordPropertyInquiry(
         leadId,
-        propertyId,
-        unitId,
-        interestLevel as any,
+        propertyIdNumber as any,
+        unitIdNumber as any,
+        (interest ?? interestLevel) as any,
       );
 
       return {
@@ -277,10 +301,12 @@ export class LeasingController {
       const from = dateFrom || startDate;
       const to = dateTo || endDate;
 
-      return this.leasingService.getLeadStatistics(
+      const stats = await this.leasingService.getLeadStatistics(
         from ? new Date(from) : undefined,
         to ? new Date(to) : undefined,
       );
+
+      return stats;
     } catch (error) {
       this.handleError(error, 'Failed to fetch statistics');
     }

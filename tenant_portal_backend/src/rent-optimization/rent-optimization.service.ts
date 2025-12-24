@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RentRecommendationStatus } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import axios from 'axios';
 import { ApiException } from '../common/errors';
 import { ErrorCode } from '../common/errors/error-codes.enum';
@@ -67,24 +68,25 @@ export class RentOptimizationService {
   async createRecommendation(data: MLPredictionResponse) {
     const { unit_id, recommended_rent, confidence_interval_low, confidence_interval_high, factors, market_comparables, model_version, reasoning } = data;
 
-    const unitId = parseInt(unit_id, 10);
-    const unit = await this.prisma.unit.findUnique({ 
+    const unitId = this.parseNumericId(unit_id, 'unit');
+    const unitIdLabel = String(unitId);
+    const unit = await this.prisma.unit.findUnique({
       where: { id: unitId },
       include: { lease: true },
-    });
+    }) as Prisma.UnitGetPayload<{ include: { lease: true } }>;
 
     if (!unit) {
       throw ApiException.notFound(
         ErrorCode.UNIT_NOT_FOUND,
-        `Unit with ID ${unitId} not found`,
-        { unitId },
+        `Unit with ID ${unitIdLabel} not found`,
+        { unitId: unitIdLabel },
       );
     }
     
     // Create the rent recommendation using unchecked input
     return this.prisma.rentRecommendation.create({
       data: {
-        id: `${unitId}-${Date.now().toString()}`,
+        id: `${unitIdLabel}-${Date.now().toString()}`,
         unit: { connect: { id: unitId } },
         currentRent: unit.lease?.rentAmount || 0,
         recommendedRent: recommended_rent,
@@ -163,9 +165,10 @@ export class RentOptimizationService {
     return recommendation;
   }
 
-  async getRecommendationByUnit(unitId: number) {
+  async getRecommendationByUnit(unitId: string | number) {
+    const unitIdNum = this.parseNumericId(unitId, 'unit');
     const recommendations = await this.prisma.rentRecommendation.findMany({
-      where: { unitId },
+      where: { unitId: unitIdNum },
       include: {
         unit: {
           include: {
@@ -199,20 +202,22 @@ export class RentOptimizationService {
     const results = [];
 
     for (const unitId of unitIds) {
+      const unitIdNumeric = this.parseNumericId(unitId, 'unit');
+      const unitIdLabel = String(unitIdNumeric);
       // Get unit details
       const unit = await this.prisma.unit.findUnique({
-        where: { id: unitId },
+        where: { id: unitIdNumeric },
         include: {
           lease: true,
           property: true,
         },
-      });
+      }) as Prisma.UnitGetPayload<{ include: { lease: true; property: true } }>;
 
       if (!unit) {
         throw ApiException.notFound(
         ErrorCode.UNIT_NOT_FOUND,
-        `Unit with ID ${unitId} not found`,
-        { unitId },
+        `Unit with ID ${unitIdLabel} not found`,
+        { unitId: unitIdLabel },
       );
       }
 
@@ -222,10 +227,10 @@ export class RentOptimizationService {
       if (this.USE_ML_SERVICE) {
         try {
           predictionData = await this.callMLService(unit);
-          this.logger.log(`ML service prediction for unit ${unitId}: $${predictionData.recommendedRent}`);
+          this.logger.log(`ML service prediction for unit ${unitIdLabel}: $${predictionData.recommendedRent}`);
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
-          this.logger.warn(`ML service unavailable, using mock data for unit ${unitId}`, errorMessage);
+          this.logger.warn(`ML service unavailable, using mock data for unit ${unitIdLabel}`, errorMessage);
           predictionData = this.generateMockRecommendation(unit);
         }
       } else {
@@ -235,8 +240,8 @@ export class RentOptimizationService {
       // Create recommendation in database
       const recommendation = await this.prisma.rentRecommendation.create({
         data: {
-          id: `${unitId}-${Date.now().toString()}`, // Unique ID
-          unit: { connect: { id: unitId } },
+          id: `${unitIdLabel}-${Date.now().toString()}`, // Unique ID
+          unit: { connect: { id: unitIdNumeric } },
           currentRent: unit.lease?.rentAmount || 0,
           recommendedRent: predictionData.recommendedRent,
           confidenceIntervalLow: predictionData.confidenceIntervalLow,
@@ -334,7 +339,7 @@ export class RentOptimizationService {
     return typeMap[type.toUpperCase()] || 'APARTMENT';
   }
 
-  async acceptRecommendation(id: string, userId: number) {
+  async acceptRecommendation(id: string, userId: string) {
     const recommendation = await this.prisma.rentRecommendation.findUnique({
       where: { id },
     });
@@ -388,7 +393,7 @@ export class RentOptimizationService {
     return updated;
   }
 
-  async rejectRecommendation(id: string, userId: number) {
+  async rejectRecommendation(id: string, userId: string) {
     const recommendation = await this.prisma.rentRecommendation.findUnique({
       where: { id },
     });
@@ -543,11 +548,12 @@ export class RentOptimizationService {
     });
   }
 
-  async getRecommendationsByProperty(propertyId: number) {
+  async getRecommendationsByProperty(propertyId: string | number) {
+    const propertyIdNum = this.parseNumericId(propertyId, 'property');
     return this.prisma.rentRecommendation.findMany({
       where: {
         unit: {
-          propertyId: propertyId,
+          propertyId: propertyIdNum,
         },
       },
       include: {
@@ -576,25 +582,27 @@ export class RentOptimizationService {
     });
   }
 
-  async getComparison(unitId: number) {
+  async getComparison(unitId: string | number) {
+    const unitIdNumeric = this.parseNumericId(unitId, 'unit');
+    const unitIdLabel = String(unitIdNumeric);
     const unit = await this.prisma.unit.findUnique({
-      where: { id: unitId },
+      where: { id: unitIdNumeric },
       include: {
         property: true,
         lease: true,
       },
-    });
+    }) as Prisma.UnitGetPayload<{ include: { property: true; lease: true } }>;
 
     if (!unit) {
       throw ApiException.notFound(
         ErrorCode.UNIT_NOT_FOUND,
-        `Unit with ID ${unitId} not found`,
-        { unitId },
+        `Unit with ID ${unitIdLabel} not found`,
+        { unitId: unitIdLabel },
       );
     }
 
     const recommendations = await this.prisma.rentRecommendation.findMany({
-      where: { unitId },
+      where: { unitId: unitIdNumeric },
       orderBy: {
         generatedAt: 'desc',
       },
@@ -643,17 +651,19 @@ export class RentOptimizationService {
     };
   }
 
-  async bulkGenerateByProperty(propertyId: number) {
+  async bulkGenerateByProperty(propertyId: string | number) {
+    const propertyIdNum = this.parseNumericId(propertyId, 'property');
+    const propertyIdLabel = String(propertyIdNum);
     const units = await this.prisma.unit.findMany({
-      where: { propertyId },
+      where: { propertyId: propertyIdNum },
       select: { id: true },
     });
 
     if (units.length === 0) {
       throw ApiException.notFound(
         ErrorCode.UNIT_NOT_FOUND,
-        `No units found for property ${propertyId}`,
-        { propertyId },
+        `No units found for property ${propertyIdLabel}`,
+        { propertyId: propertyIdLabel },
       );
     }
 
@@ -679,7 +689,7 @@ export class RentOptimizationService {
     return this.generateRecommendations(unitIds);
   }
 
-  async applyRecommendation(id: string, userId: number) {
+  async applyRecommendation(id: string, userId: string) {
     const recommendation = await this.prisma.rentRecommendation.findUnique({
       where: { id },
       include: {
@@ -864,4 +874,13 @@ export class RentOptimizationService {
       modelVersion: '1.0',
       reasoning: `Based on market analysis, this unit could be adjusted by ${(increase * 100).toFixed(1)}% to align with current market conditions.`,
     };
-  } }
+  }
+
+  private parseNumericId(value: string | number, field: string): number {
+    const parsed = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(parsed) || Number.isNaN(parsed) || !Number.isInteger(parsed)) {
+      throw new BadRequestException(`Invalid ${field} id: ${value}`);
+    }
+    return parsed;
+  }
+}

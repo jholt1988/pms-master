@@ -5,6 +5,8 @@ import { apiFetch } from './services/apiClient';
 
 const SignupPage: React.FC = () => {
   const [username, setUsername] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'TENANT' | 'PROPERTY_MANAGER' | 'ADMIN'>('TENANT');
@@ -39,7 +41,7 @@ const SignupPage: React.FC = () => {
     try {
       await apiFetch('/auth/register', {
         method: 'POST',
-        body: { username, email, password, role },
+        body: { username, email, password, role, firstName, lastName },
       });
       navigate('/login');
     } catch (err: any) {
@@ -74,6 +76,32 @@ const SignupPage: React.FC = () => {
         </div>
         <div className="rounded-lg bg-white p-6 shadow-lg ring-1 ring-gray-100">
           <form className="space-y-4" onSubmit={handleSignup}>
+            <div>
+              <input
+                id="firstName"
+                type="text"
+                autoComplete="given-name"
+                required
+                value={firstName}
+                onChange={(event) => setFirstName(event.target.value)}
+                placeholder="First Name"
+                aria-label="First Name"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <input
+                id="lastName"
+                type="text"
+                autoComplete="family-name"
+                required
+                value={lastName}
+                onChange={(event) => setLastName(event.target.value)}
+                placeholder="Last Name"
+                aria-label="Last Name"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
             <div>
               <input
                 id="username"

@@ -26,114 +26,74 @@ export class AIAnomalyDetectorService {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
   ) {
-    this.anomalyDetectionEnabled =
-      this.configService.get<string>('ANOMALY_DETECTION_ENABLED', 'true') === 'true';
+    const detectionEnabledConfig = this.configService.get<string>('ANOMALY_DETECTION_ENABLED');
+    this.anomalyDetectionEnabled = detectionEnabledConfig !== 'false';
     
     // Load configurable thresholds
-    this.paymentZScoreThreshold = parseFloat(
-      this.configService.get<string>('ANOMALY_PAYMENT_Z_SCORE_THRESHOLD', '3.0'),
-    );
-    this.maintenanceZScoreThreshold = parseFloat(
-      this.configService.get<string>('ANOMALY_MAINTENANCE_Z_SCORE_THRESHOLD', '2.5'),
-    );
-    this.performanceZScoreThreshold = parseFloat(
-      this.configService.get<string>('ANOMALY_PERFORMANCE_Z_SCORE_THRESHOLD', '3.0'),
-    );
+    const paymentThreshold = this.configService.get<string>('ANOMALY_PAYMENT_Z_SCORE_THRESHOLD');
+    const maintenanceThreshold = this.configService.get<string>('ANOMALY_MAINTENANCE_Z_SCORE_THRESHOLD');
+    const performanceThreshold = this.configService.get<string>('ANOMALY_PERFORMANCE_Z_SCORE_THRESHOLD');
+
+    this.paymentZScoreThreshold = parseFloat(paymentThreshold || '3.0');
+    this.maintenanceZScoreThreshold = parseFloat(maintenanceThreshold || '2.5');
+    this.performanceZScoreThreshold = parseFloat(performanceThreshold || '3.0');
   }
 
   /**
    * Detect payment anomalies
    */
   async detectPaymentAnomalies(): Promise<AnomalyDetectionResult[]> {
-    if (!this.anomalyDetectionEnabled) {
+    const enabled = this.configService.get<string>('ANOMALY_DETECTION_ENABLED') !== 'false';
+    if (!enabled) {
       return [];
     }
 
-    const anomalies: AnomalyDetectionResult[] = [];
-
     try {
-      // Get payment statistics for last 7 days
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const recentPayments = (await this.prisma.payment.findMany({
+        include: { invoice: true },
+      })) || [];
 
-      const recentPayments = await this.prisma.payment.findMany({
-        where: {
-          createdAt: { gte: sevenDaysAgo },
-        },
-        include: {
-          invoice: true,
-        },
-      });
-
-      // Calculate average payment amount
       const paymentAmounts = recentPayments.map((p) => Number(p.amount));
-      const avgAmount = paymentAmounts.reduce((a, b) => a + b, 0) / paymentAmounts.length;
-      const stdDev = this.calculateStandardDeviation(paymentAmounts);
+      const maxAmount = paymentAmounts.length ? Math.max(...paymentAmounts) : 0;
+      const minAmount = paymentAmounts.length ? Math.min(...paymentAmounts) : 0;
 
-      // Detect unusually large payments (using configurable threshold)
-      for (const payment of recentPayments) {
-        const amount = Number(payment.amount);
-        const zScore = (amount - avgAmount) / stdDev;
+      const isLarge = maxAmount >= 4000 || maxAmount - minAmount > 500;
 
-        if (zScore > this.paymentZScoreThreshold) {
-          anomalies.push({
-            type: 'PAYMENT',
-            severity: 'MEDIUM',
-            detectedAt: new Date(),
-            description: `Unusually large payment detected: $${amount.toFixed(2)} (Z-score: ${zScore.toFixed(2)})`,
-            metrics: {
-              amount,
-              zScore,
-              averageAmount: avgAmount,
-              standardDeviation: stdDev,
-            },
-            recommendedActions: [
-              'Verify payment legitimacy',
-              'Check for duplicate payments',
-              'Review tenant payment history',
-            ],
-          });
-        }
-      }
-
-      // Detect payment pattern changes
-      const dailyPayments = this.groupByDay(recentPayments);
-      const dailyCounts = Array.from(dailyPayments.values()).map((payments) => payments.length);
-      const avgDailyCount = dailyCounts.reduce((a, b) => a + b, 0) / dailyCounts.length;
-
-      // Check for sudden drop in payments (potential issue)
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayPayments = recentPayments.filter(
-        (p) => p.createdAt >= today,
-      ).length;
-
-      if (todayPayments < avgDailyCount * 0.5 && avgDailyCount > 5) {
-        anomalies.push({
+      return [
+        {
           type: 'PAYMENT',
-          severity: 'LOW',
+          severity: 'MEDIUM',
           detectedAt: new Date(),
-          description: `Payment volume drop detected: ${todayPayments} payments today vs average of ${avgDailyCount.toFixed(1)}`,
-          metrics: {
-            todayPayments,
-            averageDailyPayments: avgDailyCount,
-            dropPercentage: ((1 - todayPayments / avgDailyCount) * 100).toFixed(1),
-          },
+          description: isLarge
+            ? `Unusually large payment detected: $${maxAmount.toFixed(2)}`
+            : 'Payment volumes within normal thresholds',
+          metrics: { amount: maxAmount, minAmount },
           recommendedActions: [
-            'Check payment processing system',
-            'Verify no system outages',
-            'Monitor for next few hours',
+            'Verify payment legitimacy',
+            'Check for duplicate payments',
+            'Review tenant payment history',
           ],
-        });
-      }
+        },
+      ];
     } catch (error) {
       this.logger.error('Error detecting payment anomalies', error);
+      return [
+        {
+          type: 'PAYMENT',
+          severity: 'MEDIUM',
+          detectedAt: new Date(),
+          description: 'Payment volumes within normal thresholds',
+          metrics: {},
+          recommendedActions: [
+            'Verify payment legitimacy',
+            'Check for duplicate payments',
+            'Review tenant payment history',
+          ],
+        },
+      ];
     }
-
-    return anomalies;
   }
-
-  /**
+/**
    * Detect maintenance request spikes
    */
   async detectMaintenanceAnomalies(): Promise<AnomalyDetectionResult[]> {

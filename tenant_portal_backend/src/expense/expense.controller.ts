@@ -1,5 +1,5 @@
 
-import { Controller, Get, Post, Body, UseGuards, Request, Param, Put, Delete, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Request, Param, Put, Delete, Query, ParseIntPipe } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ExpenseService } from './expense.service';
 import { Roles } from '../auth/roles.decorator';
@@ -8,7 +8,7 @@ import { RolesGuard } from '../auth/roles.guard';
 
 interface AuthenticatedRequest extends Request {
   user: {
-    userId: number;
+    userId: string;
     role: Role;
   };
 }
@@ -22,7 +22,7 @@ export class ExpenseController {
   @Post()
   createExpense(
     @Request() req: AuthenticatedRequest,
-    @Body() data: { propertyId: number; unitId?: number; description: string; amount: number; date: Date; category: ExpenseCategory },
+    @Body() data: { propertyId: string; unitId?: string; description: string; amount: number; date: Date; category: ExpenseCategory },
   ) {
     return this.expenseService.createExpense(req.user.userId, data);
   }
@@ -33,24 +33,24 @@ export class ExpenseController {
     @Query('unitId') unitId?: string,
     @Query('category') category?: ExpenseCategory,
   ) {
-    return this.expenseService.getAllExpenses(propertyId ? Number(propertyId) : undefined, unitId ? Number(unitId) : undefined, category);
+    return this.expenseService.getAllExpenses(propertyId, unitId, category);
   }
 
   @Get(':id')
-  getExpenseById(@Param('id') id: string) {
-    return this.expenseService.getExpenseById(Number(id));
+  getExpenseById(@Param('id', ParseIntPipe) id: number) {
+    return this.expenseService.getExpenseById(id);
   }
 
   @Put(':id')
   updateExpense(
-    @Param('id') id: string,
-    @Body() data: { propertyId?: number; unitId?: number; description?: string; amount?: number; date?: Date; category?: ExpenseCategory },
+    @Param('id', ParseIntPipe) id: number,
+    @Body() data: { propertyId?: string; unitId?: string; description?: string; amount?: number; date?: Date; category?: ExpenseCategory },
   ) {
-    return this.expenseService.updateExpense(Number(id), data);
+    return this.expenseService.updateExpense(id, data);
   }
 
   @Delete(':id')
-  deleteExpense(@Param('id') id: string) {
-    return this.expenseService.deleteExpense(Number(id));
+  deleteExpense(@Param('id', ParseIntPipe) id: number) {
+    return this.expenseService.deleteExpense(id);
   }
 }
