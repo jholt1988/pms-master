@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import { normalizeEmail } from '../utils/normalizeEmail';
 
 /**
  * Bootstraps an initial admin user on application startup when enabled by env flag.
@@ -79,7 +80,7 @@ export class InitialAdminService implements OnModuleInit {
     const adminUser = await this.prisma.user.create({
       data: {
         username,
-        email,
+        email: normalizeEmail(email),
         password,
         firstName,
         lastName,

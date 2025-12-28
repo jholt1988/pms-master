@@ -38,6 +38,28 @@ interface NormalizedSearchFilters {
 const MAX_PAGE_SIZE = 50;
 const DEFAULT_PAGE_SIZE = 12;
 
+const normalizeAddressField = (value?: string | null): string | null => {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const normalizeState = (value?: string | null): string | null => {
+  const trimmed = normalizeAddressField(value);
+  return trimmed ? trimmed.toUpperCase() : null;
+};
+
+const normalizeCountry = (value?: string | null): string | null => {
+  const trimmed = normalizeAddressField(value);
+  return trimmed ? trimmed.toUpperCase() : null;
+};
+
+const normalizeTags = (tags?: string[] | null): string[] =>
+  tags?.map((tag) => tag.trim().toLowerCase()).filter((tag) => tag.length > 0) ?? [];
+
 @Injectable()
 export class PropertyService {
   constructor(private prisma: PrismaService) {}
@@ -47,11 +69,11 @@ export class PropertyService {
       return await this.prisma.property.create({
         data: {
           name: dto.name,
-          address: dto.address,
-          city: dto.city,
-          state: dto.state,
-          zipCode: dto.zipCode,
-          country: dto.country,
+          address: normalizeAddressField(dto.address),
+          city: normalizeAddressField(dto.city),
+          state: normalizeState(dto.state),
+          zipCode: normalizeAddressField(dto.zipCode),
+          country: normalizeCountry(dto.country),
           propertyType: dto.propertyType,
           description: dto.description,
           latitude: dto.latitude,
@@ -61,7 +83,7 @@ export class PropertyService {
           minRent: dto.minRent,
           maxRent: dto.maxRent,
           yearBuilt: dto.yearBuilt,
-          tags: dto.tags?.map((tag) => tag.trim().toLowerCase()).filter((tag) => tag.length > 0) ?? [],
+          tags: normalizeTags(dto.tags),
         },
         include: {
           units: true,
@@ -115,11 +137,11 @@ export class PropertyService {
       const updateData: Prisma.PropertyUpdateInput = {};
 
       if (dto.name !== undefined) updateData.name = dto.name;
-      if (dto.address !== undefined) updateData.address = dto.address;
-      if (dto.city !== undefined) updateData.city = dto.city;
-      if (dto.state !== undefined) updateData.state = dto.state;
-      if (dto.zipCode !== undefined) updateData.zipCode = dto.zipCode;
-      if (dto.country !== undefined) updateData.country = dto.country;
+      if (dto.address !== undefined) updateData.address = normalizeAddressField(dto.address);
+      if (dto.city !== undefined) updateData.city = normalizeAddressField(dto.city);
+      if (dto.state !== undefined) updateData.state = normalizeState(dto.state);
+      if (dto.zipCode !== undefined) updateData.zipCode = normalizeAddressField(dto.zipCode);
+      if (dto.country !== undefined) updateData.country = normalizeCountry(dto.country);
       if (dto.propertyType !== undefined) updateData.propertyType = dto.propertyType;
       if (dto.description !== undefined) updateData.description = dto.description;
       if (dto.latitude !== undefined) updateData.latitude = dto.latitude;
@@ -130,7 +152,7 @@ export class PropertyService {
       if (dto.maxRent !== undefined) updateData.maxRent = dto.maxRent;
       if (dto.yearBuilt !== undefined) updateData.yearBuilt = dto.yearBuilt;
       if (dto.tags !== undefined) {
-        updateData.tags = dto.tags.map((tag) => tag.trim().toLowerCase()).filter((tag) => tag.length > 0);
+        updateData.tags = normalizeTags(dto.tags);
       }
 
       return await this.prisma.property.update({
