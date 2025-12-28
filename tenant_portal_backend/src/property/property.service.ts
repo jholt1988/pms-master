@@ -46,6 +46,7 @@ export class PropertyService {
     try {
       return await this.prisma.property.create({
         data: {
+          ...dto,
           name: dto.name,
           address: dto.address,
           city: dto.city,
@@ -73,11 +74,11 @@ export class PropertyService {
     }
   }
 
-  async createUnit(propertyId: string | number, name: string) {
-    const normalizedPropertyId = this.parseNumericId(propertyId, 'property');
+  async createUnit(propertyId: string, name: string) {
+   
     // Verify property exists
     const property = await this.prisma.property.findUnique({
-      where: { id: normalizedPropertyId },
+      where: { id: propertyId },
     });
 
     if (!property) {
@@ -87,7 +88,7 @@ export class PropertyService {
     try {
       return await this.prisma.unit.create({
         data: {
-          propertyId: normalizedPropertyId,
+          propertyId: propertyId,
           name,
         },
         include: {
@@ -100,8 +101,8 @@ export class PropertyService {
     }
   }
 
-  async updateProperty(id: string | number, dto: UpdatePropertyDto) {
-    const propertyId = this.parseNumericId(id, 'property');
+  async updateProperty(id: string, dto: UpdatePropertyDto) {
+    const propertyId = id
     // Verify property exists
     const property = await this.prisma.property.findUnique({
       where: { id: propertyId },
@@ -153,8 +154,8 @@ export class PropertyService {
     }
   }
 
-  async updateUnit(propertyId: string | number, unitId: string | number, dto: UpdateUnitDto) {
-    const normalizedPropertyId = this.parseNumericId(propertyId, 'property');
+  async updateUnit(propertyId: string, unitId: string | number, dto: UpdateUnitDto) {
+    const normalizedPropertyId = propertyId
     const normalizedUnitId = this.parseNumericId(unitId, 'unit');
     // Verify property exists
     const property = await this.prisma.property.findUnique({
@@ -169,7 +170,7 @@ export class PropertyService {
       const unit = await this.prisma.unit.findFirst({
         where: {
           id: normalizedUnitId,
-          propertyId: normalizedPropertyId,
+          propertyId: propertyId,
         },
       });
 
@@ -220,10 +221,10 @@ export class PropertyService {
     });
   }
 
-  async getPropertyById(id: string | number) {
-    const propertyId = this.parseNumericId(id, 'property');
+  async getPropertyById(id: string ) {
+    
     const property = await this.prisma.property.findUnique({
-      where: { id: propertyId },
+      where: { id: id },
       include: {
         units: true,
       },
@@ -236,10 +237,10 @@ export class PropertyService {
     return property;
   }
 
-  async getMarketingProfile(propertyId: string | number) {
-    const normalizedPropertyId = this.parseNumericId(propertyId, 'property');
+  async getMarketingProfile(propertyId: string) {
+    
     const property = await this.prisma.property.findUnique({
-      where: { id: normalizedPropertyId },
+      where: { id: propertyId },
       include: {
         marketingProfile: true,
         photos: { orderBy: { displayOrder: 'asc' } },
@@ -273,9 +274,9 @@ export class PropertyService {
     };
   }
 
-  async updateMarketingProfile(propertyId: string | number, dto: UpdatePropertyMarketingDto) {
-    const normalizedPropertyId = this.parseNumericId(propertyId, 'property');
-    const property = await this.prisma.property.findUnique({ where: { id: normalizedPropertyId } });
+  async updateMarketingProfile(propertyId: string , dto: UpdatePropertyMarketingDto) {
+    
+    const property = await this.prisma.property.findUnique({ where: { id: propertyId } });
 
     if (!property) {
       throw new NotFoundException(`Property with ID ${propertyId} not found`);
@@ -284,9 +285,9 @@ export class PropertyService {
     const { photos, amenities, availableOn, ...profileFields } = dto;
 
     await this.prisma.propertyMarketingProfile.upsert({
-      where: { propertyId: normalizedPropertyId },
+      where: { propertyId: propertyId },
       create: {
-        propertyId: normalizedPropertyId,
+        propertyId: propertyId,
         ...profileFields,
         availableOn: availableOn ? new Date(availableOn) : undefined,
       },
@@ -308,18 +309,18 @@ export class PropertyService {
     }
 
     if (Object.keys(propertyUpdate).length) {
-      await this.prisma.property.update({ where: { id: normalizedPropertyId }, data: propertyUpdate });
+      await this.prisma.property.update({ where: { id: propertyId }, data: propertyUpdate });
     }
 
     if (photos) {
-      await this.replacePhotos(normalizedPropertyId, photos);
+      await this.replacePhotos(propertyId, photos);
     }
 
     if (amenities) {
-      await this.replaceAmenities(normalizedPropertyId, amenities);
+      await this.replaceAmenities(propertyId, amenities);
     }
 
-    return this.getMarketingProfile(normalizedPropertyId);
+    return this.getMarketingProfile(propertyId);
   }
 
   async searchProperties(filters: PropertySearchQueryDto) {
@@ -393,9 +394,9 @@ export class PropertyService {
     await this.prisma.savedPropertyFilter.delete({ where: { id: filterId } });
   }
 
-  private async replacePhotos(propertyId: string | number, photos: PropertyPhotoDto[]) {
-    const normalizedPropertyId = this.parseNumericId(propertyId, 'property');
-    await this.prisma.propertyPhoto.deleteMany({ where: { propertyId: normalizedPropertyId } });
+  private async replacePhotos(propertyId: string , photos: PropertyPhotoDto[]) {
+    
+    await this.prisma.propertyPhoto.deleteMany({ where: { propertyId: propertyId } });
 
     if (!photos.length) {
       return;
@@ -403,7 +404,7 @@ export class PropertyService {
 
     await this.prisma.propertyPhoto.createMany({
       data: photos.map((photo, index) => ({
-        propertyId: normalizedPropertyId,
+        propertyId: propertyId,
         url: photo.url,
         caption: photo.caption,
         isPrimary: photo.isPrimary ?? index === 0,
@@ -412,9 +413,9 @@ export class PropertyService {
     });
   }
 
-  private async replaceAmenities(propertyId: string | number, amenities: PropertyAmenityDto[]) {
-    const normalizedPropertyId = this.parseNumericId(propertyId, 'property');
-    await this.prisma.propertyAmenity.deleteMany({ where: { propertyId: normalizedPropertyId } });
+  private async replaceAmenities(propertyId: string , amenities: PropertyAmenityDto[]) {
+   
+    await this.prisma.propertyAmenity.deleteMany({ where: { propertyId: propertyId } });
 
     if (!amenities.length) {
       return;
@@ -446,7 +447,7 @@ export class PropertyService {
 
     await this.prisma.propertyAmenity.createMany({
       data: normalized.map((record) => ({
-        propertyId: normalizedPropertyId,
+        propertyId: propertyId,
         amenityId: record.amenityId,
         isFeatured: record.isFeatured,
         value: record.value,

@@ -1,14 +1,37 @@
 import * as Sentry from '@sentry/nestjs';
-import { nodeProfilingIntegration } from '@sentry/profiling-node';
+import type { Integration } from '@sentry/types';
+
+function getProfilingIntegration(): Integration | undefined {
+  if (process.env.SENTRY_PROFILING !== 'true') {
+    return undefined;
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+    const { nodeProfilingIntegration } = require('@sentry/profiling-node') as {
+      nodeProfilingIntegration?: () => Integration;
+    };
+    if (typeof nodeProfilingIntegration === 'function') {
+      return nodeProfilingIntegration();
+    }
+  } catch (error) {
+    console.warn('Sentry profiling integration unavailable:', error);
+  }
+
+  return undefined;
+}
 
 export function initializeSentry() {
+  const profilingIntegration = getProfilingIntegration();
+  const integrations: Integration[] = [];
+  if (profilingIntegration) {
+    integrations.push(profilingIntegration);
+  }
+
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     environment: process.env.NODE_ENV || 'development',
-    integrations: [
-      // Add profiling integration (optional but recommended)
-      nodeProfilingIntegration(),
-    ],
+    integrations,
     // Performance Monitoring
     tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
     // Set sampling rate for profiling - this is relative to tracesSampleRate

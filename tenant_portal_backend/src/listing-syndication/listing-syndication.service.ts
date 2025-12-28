@@ -55,8 +55,8 @@ export class ListingSyndicationService {
     });
   }
 
-  async queueSyndication(propertyId: string | number, dto?: SyndicationActionDto) {
-    const propertyIdNum = this.parseNumericId(propertyId, 'property');
+  async queueSyndication(propertyId: string , dto?: SyndicationActionDto) {
+   
     const channels = dto?.channels?.length
       ? dto.channels
       : (Object.keys(this.adapters) as SyndicationChannel[]);
@@ -64,7 +64,7 @@ export class ListingSyndicationService {
     for (const channelKey of channels) {
       await this.prisma.syndicationQueue.create({
         data: {
-          propertyId: propertyIdNum,
+          propertyId: propertyId,
           channel: channelKey,
           status: SyndicationStatus.PENDING,
         },
@@ -73,18 +73,18 @@ export class ListingSyndicationService {
 
     await this.schedulePendingJobs();
 
-    return this.getPropertyStatus(propertyIdNum);
+    return this.getPropertyStatus(propertyId);
   }
 
-  async pauseSyndication(propertyId: string | number, dto?: SyndicationActionDto) {
-    const propertyIdNum = this.parseNumericId(propertyId, 'property');
+  async pauseSyndication(propertyId: string , dto?: SyndicationActionDto) {
+   
     const channels = dto?.channels?.length
       ? dto.channels
       : (Object.keys(this.adapters) as SyndicationChannel[]);
 
     await this.prisma.syndicationQueue.updateMany({
       where: {
-        propertyId: propertyIdNum,
+        propertyId: propertyId,
         channel: { in: channels as SyndicationChannel[] },
       },
       data: {
@@ -92,19 +92,19 @@ export class ListingSyndicationService {
       },
     });
 
-    return this.getPropertyStatus(propertyIdNum);
+    return this.getPropertyStatus(propertyId);
   }
 
-  async getPropertyStatus(propertyId: string | number) {
-    const propertyIdNum = this.parseNumericId(propertyId, 'property');
-    const property = await this.prisma.property.findUnique({ where: { id: propertyIdNum } });
+  async getPropertyStatus(propertyId: string ) {
+   
+    const property = await this.prisma.property.findUnique({ where: { id: propertyId } });
 
     if (!property) {
       throw new NotFoundException('Property not found');
     }
 
     const queue = await this.prisma.syndicationQueue.findMany({
-      where: { propertyId: propertyIdNum },
+      where: { propertyId: propertyId },
       orderBy: { updatedAt: 'desc' },
     });
 

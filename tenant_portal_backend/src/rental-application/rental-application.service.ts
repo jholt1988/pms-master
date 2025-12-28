@@ -20,10 +20,18 @@ export class RentalApplicationService {
     private readonly securityEvents: SecurityEventsService,
     private readonly lifecycleService: ApplicationLifecycleService,
   ) {}
-
+  
   async submitApplication(data: SubmitApplicationDto, applicantId?: string) {
-    const propertyId = this.parseNumericId(data.propertyId, 'property');
+    const propertyId = data.propertyId
     const unitId = this.parseNumericId(data.unitId, 'unit');
+    const references = this.buildReferences(data.references);
+    const pastLandlords = this.buildPastLandlords(data.pastLandlords);
+    const employments = this.buildEmployments(data.employments);
+    const additionalIncomes = this.buildAdditionalIncomes(data.additionalIncomes);
+    const pets = this.buildPets(data.pets);
+    const vehicles = this.buildVehicles(data.vehicles);
+    const negativeAspects = this.normalizeString(data.negativeAspectsExplanation);
+
     const application = await this.prisma.rentalApplication.create({
       data: {
         property: { connect: { id: propertyId } },
@@ -33,12 +41,23 @@ export class RentalApplicationService {
         email: data.email,
         phoneNumber: data.phoneNumber,
         income: data.income,
-        employmentStatus: data.employmentStatus,
         previousAddress: data.previousAddress,
         creditScore: data.creditScore,
         monthlyDebt: data.monthlyDebt,
+        authorizeCreditCheck: data.authorizeCreditCheck,
+        authorizeBackgroundCheck: data.authorizeBackgroundCheck,
+        authorizeEmploymentVerification: data.authorizeEmploymentVerification,
+        negativeAspectsExplanation: negativeAspects,
+        ssCardUploaded: data.ssCardUploaded,
+        dlIdUploaded: data.dlIdUploaded,
         bankruptcyFiledYear: data.bankruptcyFiledYear,
         rentalHistoryComments: data.rentalHistoryComments,
+        references: { create: references },
+        pastLandlords: { create: pastLandlords },
+        employments: { create: employments },
+        additionalIncomes: { create: additionalIncomes },
+        pets: { create: pets },
+        vehicles: { create: vehicles },
         status: ApplicationStatus.PENDING,
       },
     });
@@ -76,6 +95,12 @@ export class RentalApplicationService {
         applicant: true,
         property: true,
         unit: true,
+        references: true,
+        pastLandlords: true,
+        employments: true,
+        additionalIncomes: true,
+        pets: true,
+        vehicles: true,
         manualNotes: { include: { author: true }, orderBy: { createdAt: 'desc' } },
       },
       orderBy: { createdAt: 'desc' },
@@ -85,7 +110,17 @@ export class RentalApplicationService {
   async getApplicationsByApplicantId(applicantId: string) {
     return this.prisma.rentalApplication.findMany({
       where: { applicantId },
-      include: { property: true, unit: true, manualNotes: true },
+      include: {
+        property: true,
+        unit: true,
+        references: true,
+        pastLandlords: true,
+        employments: true,
+        additionalIncomes: true,
+        pets: true,
+        vehicles: true,
+        manualNotes: true,
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -97,6 +132,12 @@ export class RentalApplicationService {
         applicant: true,
         property: true,
         unit: true,
+        references: true,
+        pastLandlords: true,
+        employments: true,
+        additionalIncomes: true,
+        pets: true,
+        vehicles: true,
         manualNotes: { include: { author: true }, orderBy: { createdAt: 'desc' } },
       },
     });
@@ -389,6 +430,121 @@ export class RentalApplicationService {
       throw new BadRequestException('Application not found');
     }
     return this.lifecycleService.getAvailableTransitions(application.status, userRole);
+  }
+
+  private buildReferences(entries?: SubmitApplicationDto['references']) {
+    return (entries ?? [])
+      .map((entry) => ({
+        name: entry.name.trim(),
+        relationship: this.normalizeString(entry.relationship),
+        phone: this.normalizeString(entry.phone),
+        email: this.normalizeString(entry.email),
+        yearsKnown: this.normalizeString(entry.yearsKnown),
+      }))
+      .filter((entry) => !!entry.name);
+  }
+
+  private buildPastLandlords(entries?: SubmitApplicationDto['pastLandlords']) {
+    return (entries ?? [])
+      .map((entry) => ({
+        name: entry.name.trim(),
+        phone: this.normalizeString(entry.phone),
+        email: this.normalizeString(entry.email),
+        propertyAddress: this.normalizeString(entry.propertyAddress),
+        startDate: this.parseDate(entry.startDate),
+        endDate: this.parseDate(entry.endDate),
+        monthlyRent: this.parseFloat(entry.monthlyRent),
+        reasonForLeaving: this.normalizeString(entry.reasonForLeaving),
+      }))
+      .filter((entry) => !!entry.name);
+  }
+
+  private buildEmployments(entries?: SubmitApplicationDto['employments']) {
+    return (entries ?? [])
+      .map((entry) => ({
+        employerName: entry.employerName.trim(),
+        jobTitle: this.normalizeString(entry.jobTitle),
+        supervisorName: this.normalizeString(entry.supervisorName),
+        phone: this.normalizeString(entry.phone),
+        email: this.normalizeString(entry.email),
+        startDate: this.parseDate(entry.startDate),
+        employmentType: this.normalizeString(entry.employmentType),
+        monthlyIncome: this.parseFloat(entry.monthlyIncome),
+      }))
+      .filter((entry) => !!entry.employerName);
+  }
+
+  private buildAdditionalIncomes(entries?: SubmitApplicationDto['additionalIncomes']) {
+    return (entries ?? [])
+      .map((entry) => ({
+        source: entry.source.trim(),
+        amount: this.parseFloat(entry.amount),
+        frequency: this.normalizeString(entry.frequency),
+      }))
+      .filter((entry) => !!entry.source);
+  }
+
+  private buildPets(entries?: SubmitApplicationDto['pets']) {
+    return (entries ?? [])
+      .map((entry) => ({
+        type: entry.type.trim(),
+        breed: this.normalizeString(entry.breed),
+        name: this.normalizeString(entry.name),
+        weight: this.parseFloat(entry.weight),
+        age: this.parseInteger(entry.age),
+        vaccinated: entry.vaccinated,
+        spayedNeutered: entry.spayedNeutered,
+      }))
+      .filter((entry) => !!entry.type);
+  }
+
+  private buildVehicles(entries?: SubmitApplicationDto['vehicles']) {
+    return (entries ?? [])
+      .map((entry) => ({
+        make: entry.make.trim(),
+        model: this.normalizeString(entry.model),
+        year: this.normalizeString(entry.year),
+        color: this.normalizeString(entry.color),
+        licensePlate: this.normalizeString(entry.licensePlate),
+        registeredOwner: this.normalizeString(entry.registeredOwner),
+      }))
+      .filter((entry) => !!entry.make);
+  }
+
+  private normalizeString(value?: string): string | undefined {
+    const trimmed = value?.trim();
+    return trimmed && trimmed.length ? trimmed : undefined;
+  }
+
+  private parseFloat(value?: string | number): number | undefined {
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+
+    if (typeof value === 'string' && !value.trim()) {
+      return undefined;
+    }
+
+    const parsed = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  private parseInteger(value?: string | number): number | undefined {
+    const parsed = this.parseFloat(value);
+    if (parsed === undefined) {
+      return undefined;
+    }
+    return Number.isInteger(parsed) ? parsed : Math.round(parsed);
+  }
+
+  private parseDate(value?: string): Date | undefined {
+    const normalized = this.normalizeString(value);
+    if (!normalized) {
+      return undefined;
+    }
+
+    const parsed = new Date(normalized);
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed;
   }
 
   private parseNumericId(value: string | number, field: string): number {

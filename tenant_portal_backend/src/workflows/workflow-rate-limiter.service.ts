@@ -13,7 +13,7 @@ interface RateLimitEntry {
 export class WorkflowRateLimiterService {
   private readonly logger = new Logger(WorkflowRateLimiterService.name);
   private rateLimits: Map<string, RateLimitEntry> = new Map();
-  private readonly defaultPoints = 10; // Requests per window
+  private readonly defaultPoints = 20; // Requests per window
   private readonly defaultWindow = 60; // Seconds
 
   /**

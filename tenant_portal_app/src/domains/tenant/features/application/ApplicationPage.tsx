@@ -286,6 +286,11 @@ const RentalApplicationPage: React.FC = () => {
     }
   };
 
+  const normalizeStringValue = (value: string) => {
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : undefined;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -298,6 +303,73 @@ const RentalApplicationPage: React.FC = () => {
       setSubmitting(false);
       return;
     }
+
+    const sanitizedReferences = references
+      .map((ref) => ({
+        name: ref.name.trim(),
+        relationship: normalizeStringValue(ref.relationship),
+        phone: normalizeStringValue(ref.phone),
+        email: normalizeStringValue(ref.email),
+        yearsKnown: normalizeStringValue(ref.yearsKnown),
+      }))
+      .filter((ref) => ref.name);
+
+    const sanitizedPastLandlords = pastLandlords
+      .map((landlord) => ({
+        name: landlord.name.trim(),
+        phone: normalizeStringValue(landlord.phone),
+        email: normalizeStringValue(landlord.email),
+        propertyAddress: normalizeStringValue(landlord.propertyAddress),
+        startDate: normalizeStringValue(landlord.startDate),
+        endDate: normalizeStringValue(landlord.endDate),
+        monthlyRent: normalizeStringValue(landlord.monthlyRent),
+        reasonForLeaving: normalizeStringValue(landlord.reasonForLeaving),
+      }))
+      .filter((landlord) => landlord.name);
+
+    const sanitizedEmployments = employments
+      .map((employment) => ({
+        employerName: employment.employerName.trim(),
+        jobTitle: normalizeStringValue(employment.jobTitle),
+        supervisorName: normalizeStringValue(employment.supervisorName),
+        phone: normalizeStringValue(employment.phone),
+        email: normalizeStringValue(employment.email),
+        startDate: normalizeStringValue(employment.startDate),
+        employmentType: normalizeStringValue(employment.employmentType),
+        monthlyIncome: normalizeStringValue(employment.monthlyIncome),
+      }))
+      .filter((employment) => employment.employerName);
+
+    const sanitizedAdditionalIncomes = additionalIncomes
+      .map((income) => ({
+        source: income.source.trim(),
+        amount: normalizeStringValue(income.amount),
+        frequency: normalizeStringValue(income.frequency),
+      }))
+      .filter((income) => income.source);
+
+    const sanitizedPets = pets
+      .map((pet) => ({
+        type: pet.type.trim(),
+        breed: normalizeStringValue(pet.breed),
+        name: normalizeStringValue(pet.name),
+        weight: normalizeStringValue(pet.weight),
+        age: normalizeStringValue(pet.age),
+        vaccinated: pet.vaccinated,
+        spayedNeutered: pet.spayedNeutered,
+      }))
+      .filter((pet) => pet.type);
+
+    const sanitizedVehicles = vehicles
+      .map((vehicle) => ({
+        make: vehicle.make.trim(),
+        model: normalizeStringValue(vehicle.model),
+        year: normalizeStringValue(vehicle.year),
+        color: normalizeStringValue(vehicle.color),
+        licensePlate: normalizeStringValue(vehicle.licensePlate),
+        registeredOwner: normalizeStringValue(vehicle.registeredOwner),
+      }))
+      .filter((vehicle) => vehicle.make);
 
     try {
       // Calculate total income
@@ -319,12 +391,12 @@ const RentalApplicationPage: React.FC = () => {
           income: totalMonthlyIncome,
           creditScore: creditScore ? Number(creditScore) : undefined,
           monthlyDebt: monthlyDebt ? Number(monthlyDebt) : undefined,
-          references: references.filter(r => r.name.trim()),
-          pastLandlords: pastLandlords.filter(l => l.name.trim()),
-          employments: employments.filter(e => e.employerName.trim()),
-          additionalIncomes: additionalIncomes.filter(i => i.source.trim()),
-          pets: pets.filter(p => p.type.trim()),
-          vehicles: vehicles.filter(v => v.make.trim()),
+          references: sanitizedReferences,
+          pastLandlords: sanitizedPastLandlords,
+          employments: sanitizedEmployments,
+          additionalIncomes: sanitizedAdditionalIncomes,
+          pets: sanitizedPets,
+          vehicles: sanitizedVehicles,
           authorizeCreditCheck,
           authorizeBackgroundCheck,
           authorizeEmploymentVerification,
@@ -444,7 +516,7 @@ const RentalApplicationPage: React.FC = () => {
                   size="lg"
                 >
                   {properties.map((property) => (
-                    <SelectItem key={property.id} value={property.id}>
+                    <SelectItem key={property.id} value={property.id} >
                       {property.name} - {property.address}
                     </SelectItem>
                   ))}
@@ -458,6 +530,7 @@ const RentalApplicationPage: React.FC = () => {
                     setSelectedUnit(selected || '');
                   }}
                   isRequired
+                
                   isDisabled={!selectedProperty}
                   variant="bordered"
                   size="lg"
