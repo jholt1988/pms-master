@@ -2,6 +2,8 @@ import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/com
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, Role, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { normalizeEmail } from '../utils/normalizeEmail';
+import { normalizePhone } from '../utils/normalizePhone';
 
 @Injectable()
 export class UsersService {
@@ -18,6 +20,14 @@ export class UsersService {
     data: Prisma.XOR<Prisma.UserCreateInput, Prisma.UserUncheckedCreateInput>,
     requestingUserRole?: Role,
   ): Promise<User> {
+    if (typeof data.email === 'string' || data.email === null) {
+      data.email = normalizeEmail(data.email);
+    }
+
+    if (typeof data.phoneNumber === 'string' || data.phoneNumber === null) {
+      data.phoneNumber = normalizePhone(data.phoneNumber);
+    }
+
     // Hash password if provided
     if (data.password) {
       data.password = await bcrypt.hash(data.password, this.saltRounds);
@@ -78,6 +88,14 @@ export class UsersService {
     // Hash password if provided
     if (typeof data.password === 'string') {
       data.password = await bcrypt.hash(data.password, this.saltRounds);
+    }
+
+    if (typeof data.email === 'string' || data.email === null) {
+      data.email = normalizeEmail(data.email);
+    }
+
+    if (typeof data.phoneNumber === 'string' || data.phoneNumber === null) {
+      data.phoneNumber = normalizePhone(data.phoneNumber);
     }
 
     return this.prisma.user.update({ where: { id }, data });
