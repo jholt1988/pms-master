@@ -10,6 +10,89 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// --- Multi-tenant foundation (PM company / landlord account) ---
+model Organization {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  properties Property[]
+  members    UserOrganization[]
+}
+
+model UserOrganization {
+  id             String  @id @default(uuid()) @db.Uuid
+  userId         String  @db.Uuid
+  organizationId String  @db.Uuid
+  role           OrgRole @default(MEMBER)
+
+  user         User         @relation(fields: [userId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+  @@index([userId])
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+// --- Predictive maintenance ML enums/models ---
+enum SeverityLevel {
+  LOW
+  MED
+  HIGH
+  EMERGENCY
+}
+
+enum ModelName {
+  PREDICTIVE_MAINTENANCE_V1
+}
+
+model ModelRun {
+  id           String   @id @default(uuid()) @db.Uuid
+  modelName    ModelName
+  modelVersion String
+  horizonDays  Int      @default(60)
+  trainedAt    DateTime @default(now())
+
+  trainWindowStart DateTime?
+  trainWindowEnd   DateTime?
+
+  metricsJson  Json?
+  artifactPath String
+
+  @@unique([modelName, modelVersion])
+  @@index([trainedAt])
+}
+
+model AssetRiskScore {
+  id                 String   @id @default(uuid()) @db.Uuid
+  maintenanceAssetId Int
+
+  maintenanceAsset MaintenanceAsset @relation(fields: [maintenanceAssetId], references: [id])
+
+  modelName    ModelName
+  modelVersion String
+  horizonDays  Int      @default(60)
+
+  riskScore   Float
+  reasonsJson Json?
+
+  // Date bucket to prevent nightly table bloat. Store as DATE (no time component).
+  scoredOn DateTime @db.Date
+  // Optional: keep the exact timestamp too (last time we updated this day's score)
+  scoredAt DateTime @default(now())
+
+  @@unique([maintenanceAssetId, modelName, modelVersion, scoredOn])
+  @@index([maintenanceAssetId, scoredOn])
+  @@index([modelName, modelVersion, scoredOn])
+}
+
 model User {
   id                        String                      @id @default(uuid()) @db.Uuid
   username                  String                      @unique
@@ -87,10 +170,17 @@ model User {
   agentRunsAsTenant        AgentRun[]               @relation("AgentRunTenant")
   transactionImportBatches TransactionImportBatch[] @relation("TransactionImportBy")
   bankTransactionsRecorded BankTransaction[]        @relation("BankTransactionRecordedBy")
+
+  organizationMemberships UserOrganization[]
 }
 
 model Property {
-  id                   String                       @id @default(uuid()) @db.Uuid
+  id             String @id @default(uuid()) @db.Uuid
+
+  // Multi-tenant scope
+  organizationId String @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
   name                 String?
   address     String?
   city                 String?
@@ -136,6 +226,7 @@ model Property {
   @@index([bedrooms])
   @@index([bathrooms])
   @@index([minRent])
+  @@index([organizationId])
 }
 
 model PropertyMarketingProfile {
@@ -390,6 +481,12 @@ model MaintenanceRequest {
   id                Int                          @id @default(autoincrement())
   title             String
   description       String
+
+  // Derived severity (rules-based; used for predictive maintenance labels)
+  severityScoreDerived Int?
+  severityDerived      SeverityLevel?
+  isAfterHours         Boolean?
+  isUrgentFlag         Boolean?
   status            Status                       @default(PENDING)
   author            User                         @relation(fields: [authorId], references: [id])
   authorId          String                       @db.Uuid
@@ -419,6 +516,8 @@ model MaintenanceRequest {
   agentRuns         AgentRun[]                   @relation("AgentRunRequest")
   communicationLogs CommunicationLog[]           @relation("CommunicationLogRequest")
   documents         MaintenanceRequestDocument[] @relation("MaintenanceRequestDocuments")
+
+  @@index([createdAt, severityDerived])
 }
 
 model MaintenanceAsset {
@@ -435,6 +534,7 @@ model MaintenanceAsset {
   installDate       DateTime?
   warrantyExpiresAt DateTime?
   notes             String?
+  lastServiceDate   DateTime?
   createdAt         DateTime                 @default(now())
   updatedAt         DateTime                 @updatedAt
   requests          MaintenanceRequest[]     @relation("AssetRequests")
