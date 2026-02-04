@@ -110,7 +110,10 @@ export default function InspectionManagementPage(): React.ReactElement {
 
       const queryString = params.toString() ? `?${params.toString()}` : '';
       const data = await apiFetch(`/inspections${queryString}`, { token: token ?? undefined });
-      setInspections(data?.data ?? []);
+      const resolved = (data && typeof data === 'object')
+        ? ((data as any).data ?? (data as any).inspections ?? (data as any).items ?? [])
+        : [];
+      setInspections(Array.isArray(resolved) ? resolved : []);
     } catch (err: any) {
       setInspections([]);
       setError(err.message ?? 'Failed to load inspections');

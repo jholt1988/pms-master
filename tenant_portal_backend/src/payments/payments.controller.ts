@@ -58,6 +58,16 @@ export class PaymentsController {
     return this.paymentsService.getPaymentsForUser(req.user.userId, req.user.role, leaseId);
   }
 
+  // Back-compat alias for older UIs
+  @Get('history')
+  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  async getPaymentHistory(
+    @Request() req: AuthenticatedRequest,
+    @Query('leaseId') leaseId?: string,
+  ): Promise<Payment[]> {
+    return this.paymentsService.getPaymentsForUser(req.user.userId, req.user.role, leaseId);
+  }
+
   @Get('ai-metrics')
   @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
   async getAIMetrics() {

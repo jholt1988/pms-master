@@ -86,22 +86,11 @@ const MessagingPage = () => {
     setBulkLoading(true);
     setBulkError(null);
     try {
-      const [batchesResponse, templatesResponse] = await Promise.all([
+      const [batchesData, templatesData] = await Promise.all([
         apiFetch('/messaging/bulk', { token }),
         apiFetch('/messaging/templates', { token }),
       ]);
 
-      if (!batchesResponse.ok) {
-        throw new Error('Failed to load bulk message batches');
-      }
-      if (!templatesResponse.ok) {
-        throw new Error('Failed to load templates');
-      }
-
-      const [batchesData, templatesData] = await Promise.all([
-        batchesResponse.json(),
-        templatesResponse.json(),
-      ]);
       setBulkBatches(Array.isArray(batchesData) ? batchesData : []);
       setTemplates(Array.isArray(templatesData) ? templatesData : []);
     } catch (fetchError: any) {

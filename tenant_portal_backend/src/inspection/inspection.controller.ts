@@ -61,7 +61,20 @@ export class InspectionController {
 
   @Get()
   async getInspections(@Query() query: InspectionQueryDto) {
-    return this.inspectionService.getInspections(query);
+    // Back-compat: some clients expect `{ data: [...] }`, others expect `{ inspections, total, ... }`.
+    // Return both shapes until we finish contract normalization.
+    const result = await this.inspectionService.getInspections(query);
+    return {
+      ...result,
+      data: result.inspections,
+      items: result.inspections,
+      meta: {
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+      },
+    };
   }
 
   @Get('stats')
