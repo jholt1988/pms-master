@@ -171,6 +171,35 @@ function EstimatePanel({ estimate, embedded = false }: { estimate: any; embedded
 
   const body = (
     <div className={embedded ? 'flex flex-col gap-4' : 'flex flex-col gap-4'}>
+      {(hasRange || e.confidenceLevel || e.confidenceReason) && (
+        <div className="border border-default-200 rounded p-3">
+          <div className="text-xs text-foreground-500 font-semibold mb-1">Bid explanation</div>
+          <div className="text-sm">
+            {e.confidenceReason ? e.confidenceReason : 'Bid range reflects uncertainty in labor/materials and scope based on the inspection notes.'}
+          </div>
+          {(e as any).assumptions?.length ? (
+            <div className="mt-2 text-xs">
+              <div className="font-semibold text-foreground-500">Top assumptions</div>
+              <ul className="list-disc pl-5">
+                {(e as any).assumptions.slice(0, 3).map((a: string, idx: number) => (
+                  <li key={idx} className="whitespace-pre-wrap">{a}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {(e as any).questionsToReduceUncertainty?.length ? (
+            <div className="mt-2 text-xs">
+              <div className="font-semibold text-foreground-500">To tighten this bid</div>
+              <ul className="list-disc pl-5">
+                {(e as any).questionsToReduceUncertainty.slice(0, 3).map((q: string, idx: number) => (
+                  <li key={idx} className="whitespace-pre-wrap">{q}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         <Stat label="Labor" value={formatCurrency(e.totalLaborCost ?? 0, currency)} />
         <Stat label="Materials" value={formatCurrency(e.totalMaterialCost ?? 0, currency)} />
