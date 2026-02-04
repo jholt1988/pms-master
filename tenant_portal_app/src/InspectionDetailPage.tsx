@@ -144,12 +144,12 @@ type Estimate = {
   }>;
 };
 
-function EstimatePanel({ estimate }: { estimate: any }) {
+function EstimatePanel({ estimate, compact = false }: { estimate: any; compact?: boolean }) {
   const e = estimate as Estimate;
   const currency = e.currency ?? 'USD';
 
   return (
-    <Card className="mb-4">
+    <Card className={compact ? "" : "mb-4"}>
       <CardHeader className="flex items-center gap-3">
         <div className="flex flex-col">
           <h2 className="text-lg font-semibold">Estimate</h2>
@@ -235,6 +235,50 @@ function Stat({ label, value }: { label: string; value: string }) {
       <div className="text-xs text-foreground-500">{label}</div>
       <div className="text-sm font-semibold">{value}</div>
     </div>
+  );
+}
+
+function EstimateHistoryList({ estimates }: { estimates: any[] }) {
+  const sorted = [...(estimates ?? [])].sort((a, b) => {
+    const ad = a?.generatedAt ? new Date(a.generatedAt).getTime() : 0;
+    const bd = b?.generatedAt ? new Date(b.generatedAt).getTime() : 0;
+    return bd - ad;
+  });
+
+  if (sorted.length === 0) return null;
+
+  return (
+    <Card className="mb-4">
+      <CardHeader>
+        <h2 className="text-lg font-semibold">Estimate history</h2>
+      </CardHeader>
+      <Divider />
+      <CardBody className="flex flex-col gap-3">
+        {sorted.map((e) => (
+          <details key={e.id} className="border border-default-200 rounded p-3">
+            <summary className="cursor-pointer select-none">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold">Estimate #{e.id}</span>
+                {e.status && (
+                  <Chip size="sm" variant="flat">
+                    {e.status}
+                  </Chip>
+                )}
+                <span className="text-xs text-foreground-500">
+                  {e.generatedAt ? new Date(e.generatedAt).toLocaleString() : ''}
+                </span>
+                <span className="ml-auto font-semibold">
+                  {formatCurrency(Number(e.totalProjectCost ?? 0), e.currency ?? 'USD')}
+                </span>
+              </div>
+            </summary>
+            <div className="mt-3">
+              <EstimatePanel estimate={e} compact />
+            </div>
+          </details>
+        ))}
+      </CardBody>
+    </Card>
   );
 }
 
@@ -530,9 +574,13 @@ export default function InspectionDetailPage(): React.ReactElement {
         </Card>
       )}
 
+      {/* If we just generated an estimate this session, show it first */}
       {estimateResult && (
         <EstimatePanel estimate={estimateResult} />
       )}
+
+      {/* Full history list from inspection.repairEstimates */}
+      <EstimateHistoryList estimates={(inspection.repairEstimates ?? []) as any[]} />
 
       {inspection.notes && (
         <Card className="mb-4">
