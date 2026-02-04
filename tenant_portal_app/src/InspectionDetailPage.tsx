@@ -144,12 +144,78 @@ type Estimate = {
   }>;
 };
 
-function EstimatePanel({ estimate, compact = false }: { estimate: any; compact?: boolean }) {
+function EstimatePanel({ estimate, embedded = false }: { estimate: any; embedded?: boolean }) {
   const e = estimate as Estimate;
   const currency = e.currency ?? 'USD';
 
+  const body = (
+    <div className={embedded ? 'flex flex-col gap-4' : 'flex flex-col gap-4'}>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <Stat label="Labor" value={formatCurrency(e.totalLaborCost ?? 0, currency)} />
+        <Stat label="Materials" value={formatCurrency(e.totalMaterialCost ?? 0, currency)} />
+        <Stat label="Items to repair" value={String(e.itemsToRepair ?? 0)} />
+        <Stat label="Items to replace" value={String(e.itemsToReplace ?? 0)} />
+      </div>
+
+      <Divider />
+
+      <div>
+        <h3 className="text-sm font-semibold mb-2">Line items</h3>
+        {(e.lineItems?.length ?? 0) === 0 ? (
+          <p className="text-sm text-foreground-500">No line items returned.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {e.lineItems!.map((li) => (
+              <div key={li.id} className="border border-default-200 rounded p-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex flex-col">
+                    <div className="text-sm font-semibold">{li.itemDescription}</div>
+                    <div className="text-xs text-foreground-500">
+                      {li.location} · {li.category} · {li.issueType}
+                    </div>
+                  </div>
+                  <div className="ml-auto text-right">
+                    <div className="text-xs text-foreground-500">Total</div>
+                    <div className="text-sm font-semibold">{formatCurrency(li.totalCost ?? 0, currency)}</div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2 text-xs text-foreground-500">
+                  <div>Labor: {formatCurrency(li.laborCost ?? 0, currency)}</div>
+                  <div>Materials: {formatCurrency(li.materialCost ?? 0, currency)}</div>
+                  <div>
+                    Hours/Rate: {li.laborHours ?? '—'} / {li.laborRate ?? '—'}
+                  </div>
+                </div>
+
+                {(li.repairInstructions || li.notes) && (
+                  <div className="mt-2 text-xs">
+                    {li.repairInstructions && (
+                      <div>
+                        <div className="font-semibold text-foreground-500">Instructions</div>
+                        <div className="whitespace-pre-wrap">{li.repairInstructions}</div>
+                      </div>
+                    )}
+                    {li.notes && (
+                      <div className="mt-2">
+                        <div className="font-semibold text-foreground-500">Notes</div>
+                        <div className="whitespace-pre-wrap">{li.notes}</div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  if (embedded) return body;
+
   return (
-    <Card className={compact ? "" : "mb-4"}>
+    <Card className="mb-4">
       <CardHeader className="flex items-center gap-3">
         <div className="flex flex-col">
           <h2 className="text-lg font-semibold">Estimate</h2>
@@ -164,67 +230,7 @@ function EstimatePanel({ estimate, compact = false }: { estimate: any; compact?:
         </div>
       </CardHeader>
       <Divider />
-      <CardBody className="flex flex-col gap-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <Stat label="Labor" value={formatCurrency(e.totalLaborCost ?? 0, currency)} />
-          <Stat label="Materials" value={formatCurrency(e.totalMaterialCost ?? 0, currency)} />
-          <Stat label="Items to repair" value={String(e.itemsToRepair ?? 0)} />
-          <Stat label="Items to replace" value={String(e.itemsToReplace ?? 0)} />
-        </div>
-
-        <Divider />
-
-        <div>
-          <h3 className="text-sm font-semibold mb-2">Line items</h3>
-          {(e.lineItems?.length ?? 0) === 0 ? (
-            <p className="text-sm text-foreground-500">No line items returned.</p>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {e.lineItems!.map((li) => (
-                <div key={li.id} className="border border-default-200 rounded p-3">
-                  <div className="flex items-start gap-3">
-                    <div className="flex flex-col">
-                      <div className="text-sm font-semibold">{li.itemDescription}</div>
-                      <div className="text-xs text-foreground-500">
-                        {li.location} · {li.category} · {li.issueType}
-                      </div>
-                    </div>
-                    <div className="ml-auto text-right">
-                      <div className="text-xs text-foreground-500">Total</div>
-                      <div className="text-sm font-semibold">{formatCurrency(li.totalCost ?? 0, currency)}</div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2 text-xs text-foreground-500">
-                    <div>Labor: {formatCurrency(li.laborCost ?? 0, currency)}</div>
-                    <div>Materials: {formatCurrency(li.materialCost ?? 0, currency)}</div>
-                    <div>
-                      Hours/Rate: {li.laborHours ?? '—'} / {li.laborRate ?? '—'}
-                    </div>
-                  </div>
-
-                  {(li.repairInstructions || li.notes) && (
-                    <div className="mt-2 text-xs">
-                      {li.repairInstructions && (
-                        <div>
-                          <div className="font-semibold text-foreground-500">Instructions</div>
-                          <div className="whitespace-pre-wrap">{li.repairInstructions}</div>
-                        </div>
-                      )}
-                      {li.notes && (
-                        <div className="mt-2">
-                          <div className="font-semibold text-foreground-500">Notes</div>
-                          <div className="whitespace-pre-wrap">{li.notes}</div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </CardBody>
+      <CardBody className="flex flex-col gap-4">{body}</CardBody>
     </Card>
   );
 }
@@ -273,7 +279,7 @@ function EstimateHistoryList({ estimates }: { estimates: any[] }) {
               </div>
             </summary>
             <div className="mt-3">
-              <EstimatePanel estimate={e} compact />
+              <EstimatePanel estimate={e} embedded />
             </div>
           </details>
         ))}
