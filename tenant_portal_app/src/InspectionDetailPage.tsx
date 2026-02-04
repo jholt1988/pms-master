@@ -18,7 +18,7 @@ import { useAuth } from './AuthContext';
 import { apiFetch } from './services/apiClient';
 
 type InspectionStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-type InspectionCondition = 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
+type InspectionCondition = 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED' | 'NON_FUNCTIONAL';
 
 type ChecklistItem = {
   id: number;
@@ -69,6 +69,8 @@ const conditionOptions: Array<{ key: InspectionCondition; label: string }> = [
   { key: 'GOOD', label: 'Good' },
   { key: 'FAIR', label: 'Fair' },
   { key: 'POOR', label: 'Poor' },
+  { key: 'DAMAGED', label: 'Damaged' },
+  { key: 'NON_FUNCTIONAL', label: 'Non-functional' },
 ];
 
 const getStatusColor = (status: InspectionStatus) => {
@@ -101,6 +103,138 @@ function shallowEqualDraft(a: DraftChecklistItem, b: DraftChecklistItem) {
     a.requiresAction === b.requiresAction &&
     (a.condition ?? null) === (b.condition ?? null) &&
     (a.notes ?? '') === (b.notes ?? '')
+  );
+}
+
+function formatCurrency(amount: number, currency = 'USD') {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${amount.toFixed(2)} ${currency}`;
+  }
+}
+
+type Estimate = {
+  id: number;
+  currency?: string;
+  generatedAt?: string;
+  status?: string;
+  totalLaborCost: number;
+  totalMaterialCost: number;
+  totalProjectCost: number;
+  itemsToRepair: number;
+  itemsToReplace: number;
+  lineItems?: Array<{
+    id: number;
+    itemDescription: string;
+    location: string;
+    category: string;
+    issueType: string;
+    laborHours?: number | null;
+    laborRate?: number | null;
+    laborCost: number;
+    materialCost: number;
+    totalCost: number;
+    repairInstructions?: string | null;
+    notes?: string | null;
+  }>;
+};
+
+function EstimatePanel({ estimate }: { estimate: any }) {
+  const e = estimate as Estimate;
+  const currency = e.currency ?? 'USD';
+
+  return (
+    <Card className="mb-4">
+      <CardHeader className="flex items-center gap-3">
+        <div className="flex flex-col">
+          <h2 className="text-lg font-semibold">Estimate</h2>
+          <span className="text-xs text-foreground-500">
+            #{e.id}{e.status ? ` · ${e.status}` : ''}
+            {e.generatedAt ? ` · ${new Date(e.generatedAt).toLocaleString()}` : ''}
+          </span>
+        </div>
+        <div className="ml-auto text-right">
+          <div className="text-xs text-foreground-500">Total</div>
+          <div className="text-lg font-bold">{formatCurrency(e.totalProjectCost ?? 0, currency)}</div>
+        </div>
+      </CardHeader>
+      <Divider />
+      <CardBody className="flex flex-col gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <Stat label="Labor" value={formatCurrency(e.totalLaborCost ?? 0, currency)} />
+          <Stat label="Materials" value={formatCurrency(e.totalMaterialCost ?? 0, currency)} />
+          <Stat label="Items to repair" value={String(e.itemsToRepair ?? 0)} />
+          <Stat label="Items to replace" value={String(e.itemsToReplace ?? 0)} />
+        </div>
+
+        <Divider />
+
+        <div>
+          <h3 className="text-sm font-semibold mb-2">Line items</h3>
+          {(e.lineItems?.length ?? 0) === 0 ? (
+            <p className="text-sm text-foreground-500">No line items returned.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {e.lineItems!.map((li) => (
+                <div key={li.id} className="border border-default-200 rounded p-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex flex-col">
+                      <div className="text-sm font-semibold">{li.itemDescription}</div>
+                      <div className="text-xs text-foreground-500">
+                        {li.location} · {li.category} · {li.issueType}
+                      </div>
+                    </div>
+                    <div className="ml-auto text-right">
+                      <div className="text-xs text-foreground-500">Total</div>
+                      <div className="text-sm font-semibold">{formatCurrency(li.totalCost ?? 0, currency)}</div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2 text-xs text-foreground-500">
+                    <div>Labor: {formatCurrency(li.laborCost ?? 0, currency)}</div>
+                    <div>Materials: {formatCurrency(li.materialCost ?? 0, currency)}</div>
+                    <div>
+                      Hours/Rate: {li.laborHours ?? '—'} / {li.laborRate ?? '—'}
+                    </div>
+                  </div>
+
+                  {(li.repairInstructions || li.notes) && (
+                    <div className="mt-2 text-xs">
+                      {li.repairInstructions && (
+                        <div>
+                          <div className="font-semibold text-foreground-500">Instructions</div>
+                          <div className="whitespace-pre-wrap">{li.repairInstructions}</div>
+                        </div>
+                      )}
+                      {li.notes && (
+                        <div className="mt-2">
+                          <div className="font-semibold text-foreground-500">Notes</div>
+                          <div className="whitespace-pre-wrap">{li.notes}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </CardBody>
+    </Card>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border border-default-200 rounded p-3">
+      <div className="text-xs text-foreground-500">{label}</div>
+      <div className="text-sm font-semibold">{value}</div>
+    </div>
   );
 }
 
@@ -397,17 +531,7 @@ export default function InspectionDetailPage(): React.ReactElement {
       )}
 
       {estimateResult && (
-        <Card className="mb-4">
-          <CardHeader>
-            <h2 className="text-lg font-semibold">Latest Estimate (result)</h2>
-          </CardHeader>
-          <Divider />
-          <CardBody>
-            <pre className="text-xs bg-slate-50 p-3 rounded whitespace-pre-wrap wrap-break-word">
-              {JSON.stringify(estimateResult, null, 2)}
-            </pre>
-          </CardBody>
-        </Card>
+        <EstimatePanel estimate={estimateResult} />
       )}
 
       {inspection.notes && (
@@ -498,7 +622,11 @@ export default function InspectionDetailPage(): React.ReactElement {
                         <div className="ml-auto flex items-center gap-3">
                           <Switch
                             isSelected={draft.requiresAction}
-                            onValueChange={(v) => onDraftChange(room.id, item.id, { requiresAction: v })}
+                            onValueChange={(v) =>
+                              onDraftChange(room.id, item.id, v
+                                ? { requiresAction: true }
+                                : { requiresAction: false, condition: null, notes: '' })
+                            }
                             size="sm"
                           >
                             Requires action

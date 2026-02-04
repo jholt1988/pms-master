@@ -397,8 +397,8 @@ export class InspectionService {
           where: { id: i.itemId },
           data: {
             ...(typeof i.requiresAction === 'boolean' ? { requiresAction: i.requiresAction } : {}),
-            ...(i.condition ? { condition: i.condition } : {}),
-            ...(typeof i.notes === 'string' ? { notes: i.notes } : {}),
+            ...(('condition' in i) ? { condition: i.condition } : {}),
+            ...(('notes' in i) ? { notes: i.notes } : {}),
           },
         }),
       ),
