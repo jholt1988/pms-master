@@ -80,6 +80,27 @@ export class UpdateChecklistItemDto {
   requiresAction?: boolean;
 }
 
+export class UpdateChecklistItemBatchEntryDto {
+  @IsInt()
+  itemId!: number;
+
+  @IsOptional()
+  @IsBoolean()
+  requiresAction?: boolean;
+
+  @IsOptional()
+  @IsEnum(InspectionCondition)
+  condition?: InspectionCondition;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+export class UpdateRoomChecklistItemsDto {
+  items!: UpdateChecklistItemBatchEntryDto[];
+}
+
 export class UploadPhotoDto {
   url!: string;
   caption?: string;

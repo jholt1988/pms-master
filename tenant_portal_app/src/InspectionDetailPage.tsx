@@ -1,0 +1,548 @@
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import {
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  Chip,
+  Divider,
+  Select,
+  SelectItem,
+  Spinner,
+  Switch,
+  Textarea,
+} from '@nextui-org/react';
+import { ArrowLeft } from 'lucide-react';
+import { useAuth } from './AuthContext';
+import { apiFetch } from './services/apiClient';
+
+type InspectionStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+type InspectionCondition = 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
+
+type ChecklistItem = {
+  id: number;
+  category: string;
+  itemName: string;
+  condition?: InspectionCondition | null;
+  notes?: string | null;
+  estimatedAge?: number | null;
+  requiresAction: boolean;
+};
+
+type InspectionRoom = {
+  id: number;
+  name: string;
+  roomType: string;
+  checklistItems: ChecklistItem[];
+};
+
+type InspectionDetail = {
+  id: number;
+  type: string;
+  status: InspectionStatus;
+  scheduledDate: string;
+  completedDate?: string | null;
+  notes?: string | null;
+  property?: { name: string } | null;
+  unit?: { name: string } | null;
+  rooms: InspectionRoom[];
+  repairEstimates?: any[];
+};
+
+type DraftChecklistItem = {
+  requiresAction: boolean;
+  condition?: InspectionCondition | null;
+  notes: string;
+};
+
+type DraftByRoom = Record<number, Record<number, DraftChecklistItem>>;
+
+type RoomSaveError = {
+  itemId: number;
+  itemLabel: string;
+  reason: string;
+};
+
+const conditionOptions: Array<{ key: InspectionCondition; label: string }> = [
+  { key: 'EXCELLENT', label: 'Excellent' },
+  { key: 'GOOD', label: 'Good' },
+  { key: 'FAIR', label: 'Fair' },
+  { key: 'POOR', label: 'Poor' },
+];
+
+const getStatusColor = (status: InspectionStatus) => {
+  switch (status) {
+    case 'SCHEDULED':
+      return 'primary';
+    case 'IN_PROGRESS':
+      return 'warning';
+    case 'COMPLETED':
+      return 'success';
+    case 'CANCELLED':
+      return 'danger';
+    default:
+      return 'default';
+  }
+};
+
+function unwrapApi<T>(resp: any): T {
+  // Some endpoints appear to be wrapped as { data: ... } by interceptors.
+  if (resp && typeof resp === 'object' && 'data' in resp) return resp.data as T;
+  return resp as T;
+}
+
+function itemLabel(item: ChecklistItem) {
+  return `${item.category}: ${item.itemName}`;
+}
+
+function shallowEqualDraft(a: DraftChecklistItem, b: DraftChecklistItem) {
+  return (
+    a.requiresAction === b.requiresAction &&
+    (a.condition ?? null) === (b.condition ?? null) &&
+    (a.notes ?? '') === (b.notes ?? '')
+  );
+}
+
+export default function InspectionDetailPage(): React.ReactElement {
+  const { token } = useAuth();
+  const navigate = useNavigate();
+  const params = useParams();
+  const inspectionId = Number(params.id);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [inspection, setInspection] = useState<InspectionDetail | null>(null);
+
+  const [draftByRoom, setDraftByRoom] = useState<DraftByRoom>({});
+  const [savingRoomId, setSavingRoomId] = useState<number | null>(null);
+  const [roomErrors, setRoomErrors] = useState<Record<number, RoomSaveError[]>>({});
+
+  const [estimateLoading, setEstimateLoading] = useState(false);
+  const [estimateError, setEstimateError] = useState<string | null>(null);
+  const [estimateResult, setEstimateResult] = useState<any | null>(null);
+
+  const fetchInspection = useCallback(async (signal?: AbortSignal) => {
+    if (!inspectionId || Number.isNaN(inspectionId)) {
+      setError('Invalid inspection id');
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const resp = await apiFetch(`/inspections/${inspectionId}`, { token: token ?? undefined, signal });
+      const data = unwrapApi<InspectionDetail>(resp);
+      setInspection(data);
+
+      // Initialize draft cache with current values (but do not mark anything dirty).
+      const initialDraft: DraftByRoom = {};
+      (data.rooms ?? []).forEach((room) => {
+        initialDraft[room.id] = {};
+        (room.checklistItems ?? []).forEach((item) => {
+          initialDraft[room.id][item.id] = {
+            requiresAction: !!item.requiresAction,
+            condition: (item.condition ?? null) as any,
+            notes: (item.notes ?? '') ?? '',
+          };
+        });
+      });
+      setDraftByRoom(initialDraft);
+      setRoomErrors({});
+    } catch (err: any) {
+      setError(err.message ?? 'Failed to load inspection');
+      setInspection(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [inspectionId, token]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchInspection(controller.signal);
+    return () => controller.abort();
+  }, [fetchInspection]);
+
+  const onDraftChange = useCallback((roomId: number, itemId: number, patch: Partial<DraftChecklistItem>) => {
+    setDraftByRoom((prev) => {
+      const room = prev[roomId] ?? {};
+      const current = room[itemId] ?? { requiresAction: false, condition: null, notes: '' };
+      return {
+        ...prev,
+        [roomId]: {
+          ...room,
+          [itemId]: {
+            ...current,
+            ...patch,
+          },
+        },
+      };
+    });
+  }, []);
+
+  const roomDrafts = useMemo(() => draftByRoom ?? {}, [draftByRoom]);
+
+  const validateRoom = useCallback((room: InspectionRoom): RoomSaveError[] => {
+    const errors: RoomSaveError[] = [];
+    const drafts = roomDrafts[room.id] ?? {};
+
+    room.checklistItems.forEach((item) => {
+      const draft = drafts[item.id];
+      if (!draft) return;
+
+      if (draft.requiresAction) {
+        if (!draft.condition) {
+          errors.push({
+            itemId: item.id,
+            itemLabel: itemLabel(item),
+            reason: 'Condition is required when "Requires action" is enabled.',
+          });
+        }
+        if (!draft.notes?.trim()) {
+          errors.push({
+            itemId: item.id,
+            itemLabel: itemLabel(item),
+            reason: 'Notes are required when "Requires action" is enabled.',
+          });
+        }
+      }
+    });
+
+    return errors;
+  }, [roomDrafts]);
+
+  const getDirtyItemPatchesForRoom = useCallback((room: InspectionRoom) => {
+    const drafts = roomDrafts[room.id] ?? {};
+    const patches: Array<{ itemId: number; requiresAction: boolean; condition?: InspectionCondition | null; notes?: string }> = [];
+
+    room.checklistItems.forEach((item) => {
+      const draft = drafts[item.id];
+      if (!draft) return;
+
+      const baseline: DraftChecklistItem = {
+        requiresAction: !!item.requiresAction,
+        condition: (item.condition ?? null) as any,
+        notes: (item.notes ?? '') ?? '',
+      };
+
+      if (!shallowEqualDraft(draft, baseline)) {
+        patches.push({
+          itemId: item.id,
+          requiresAction: !!draft.requiresAction,
+          condition: (draft.condition ?? null) as any,
+          notes: draft.notes,
+        });
+      }
+    });
+
+    return patches;
+  }, [roomDrafts]);
+
+  const saveRoom = useCallback(async (room: InspectionRoom) => {
+    if (!inspection) return;
+
+    setEstimateError(null);
+
+    // Validate whole room before any network calls.
+    const validationErrors = validateRoom(room);
+    if (validationErrors.length > 0) {
+      setRoomErrors((prev) => ({ ...prev, [room.id]: validationErrors }));
+      return;
+    }
+
+    const patches = getDirtyItemPatchesForRoom(room);
+    if (patches.length === 0) {
+      setRoomErrors((prev) => ({ ...prev, [room.id]: [] }));
+      return;
+    }
+
+    setSavingRoomId(room.id);
+    setRoomErrors((prev) => ({ ...prev, [room.id]: [] }));
+
+    try {
+      // Atomic per-room save via backend transaction endpoint
+      await apiFetch(`/inspections/rooms/${room.id}/items`, {
+        token: token ?? undefined,
+        method: 'PATCH',
+        body: { items: patches },
+      });
+
+      // Re-fetch inspection to sync, then preserve drafts for other rooms.
+      await fetchInspection();
+    } catch (err: any) {
+      const reason = err.message ?? 'Save failed';
+      // All-or-nothing, but show item-level failures: since backend is transactional,
+      // any failure means none saved. We still attach the server error per item patch.
+      const itemErrors: RoomSaveError[] = patches.map((p) => ({
+        itemId: p.itemId,
+        itemLabel: room.checklistItems.find((i) => i.id === p.itemId)
+          ? itemLabel(room.checklistItems.find((i) => i.id === p.itemId)!)
+          : `Item ${p.itemId}`,
+        reason,
+      }));
+      setRoomErrors((prev) => ({ ...prev, [room.id]: itemErrors }));
+    } finally {
+      setSavingRoomId(null);
+    }
+  }, [estimateError, fetchInspection, getDirtyItemPatchesForRoom, inspection, token, validateRoom]);
+
+  const generateEstimate = useCallback(async () => {
+    if (!inspection) return;
+
+    setEstimateLoading(true);
+    setEstimateError(null);
+    setEstimateResult(null);
+
+    try {
+      const resp = await apiFetch(`/inspections/${inspection.id}/estimate`, {
+        token: token ?? undefined,
+        method: 'POST',
+      });
+      setEstimateResult(unwrapApi<any>(resp));
+
+      // Re-fetch so the inspection detail reflects newly created estimate(s)
+      await fetchInspection();
+    } catch (err: any) {
+      setEstimateError(err.message ?? 'Failed to generate estimate');
+    } finally {
+      setEstimateLoading(false);
+    }
+  }, [fetchInspection, inspection, token]);
+
+  const headerTitle = useMemo(() => {
+    if (!inspection) return 'Inspection';
+    const prop = inspection.property?.name ?? 'Property';
+    const unit = inspection.unit?.name ? ` · ${inspection.unit.name}` : '';
+    return `${prop}${unit}`;
+  }, [inspection]);
+
+  if (loading) {
+    return (
+      <div className="p-6 flex items-center gap-3">
+        <Spinner size="lg" />
+        <span className="text-sm text-foreground-500">Loading inspection…</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <Button isIconOnly variant="light" onClick={() => navigate(-1)}>
+            <ArrowLeft size={20} />
+          </Button>
+          <h1 className="text-2xl font-bold">Inspection</h1>
+        </div>
+        <Card>
+          <CardBody>
+            <p className="text-rose-600 text-sm">{error}</p>
+            <Button className="mt-4" onClick={() => fetchInspection()}>
+              Retry
+            </Button>
+          </CardBody>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!inspection) {
+    return (
+      <div className="p-6">
+        <p className="text-sm text-foreground-500">No inspection found.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 max-w-6xl mx-auto">
+      <div className="flex items-center gap-3 mb-4">
+        <Button isIconOnly variant="light" onClick={() => navigate(-1)}>
+          <ArrowLeft size={20} />
+        </Button>
+        <div className="flex flex-col">
+          <h1 className="text-2xl font-bold">{headerTitle}</h1>
+          <div className="flex items-center gap-2 mt-1">
+            <Chip color={getStatusColor(inspection.status)} size="sm" variant="flat">
+              {inspection.status}
+            </Chip>
+            <span className="text-xs text-foreground-500">
+              {inspection.type} · Scheduled {new Date(inspection.scheduledDate).toLocaleString()}
+            </span>
+            {inspection.completedDate && (
+              <span className="text-xs text-foreground-500">
+                · Completed {new Date(inspection.completedDate).toLocaleString()}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            color="primary"
+            onClick={generateEstimate}
+            isLoading={estimateLoading}
+          >
+            Generate Estimate
+          </Button>
+        </div>
+      </div>
+
+      {estimateError && (
+        <Card className="mb-4 border border-rose-200">
+          <CardBody>
+            <p className="text-sm text-rose-700">{estimateError}</p>
+          </CardBody>
+        </Card>
+      )}
+
+      {estimateResult && (
+        <Card className="mb-4">
+          <CardHeader>
+            <h2 className="text-lg font-semibold">Latest Estimate (result)</h2>
+          </CardHeader>
+          <Divider />
+          <CardBody>
+            <pre className="text-xs bg-slate-50 p-3 rounded whitespace-pre-wrap wrap-break-word">
+              {JSON.stringify(estimateResult, null, 2)}
+            </pre>
+          </CardBody>
+        </Card>
+      )}
+
+      {inspection.notes && (
+        <Card className="mb-4">
+          <CardHeader>
+            <h2 className="text-lg font-semibold">Inspection Notes</h2>
+          </CardHeader>
+          <Divider />
+          <CardBody>
+            <p className="text-sm">{inspection.notes}</p>
+          </CardBody>
+        </Card>
+      )}
+
+      <div className="flex flex-col gap-4">
+        {(inspection.rooms ?? []).map((room) => {
+          const drafts = roomDrafts[room.id] ?? {};
+          const dirtyCount = room.checklistItems.reduce((count, item) => {
+            const d = drafts[item.id];
+            if (!d) return count;
+            const baseline: DraftChecklistItem = {
+              requiresAction: !!item.requiresAction,
+              condition: (item.condition ?? null) as any,
+              notes: (item.notes ?? '') ?? '',
+            };
+            return count + (shallowEqualDraft(d, baseline) ? 0 : 1);
+          }, 0);
+
+          const errorsForRoom = roomErrors[room.id] ?? [];
+          const isSaving = savingRoomId === room.id;
+
+          return (
+            <Card key={room.id}>
+              <CardHeader className="flex flex-col items-start gap-2">
+                <div className="flex items-center w-full gap-3">
+                  <div className="flex flex-col">
+                    <h2 className="text-lg font-semibold">{room.name}</h2>
+                    <span className="text-xs text-foreground-500">{room.roomType}</span>
+                  </div>
+                  <div className="ml-auto flex items-center gap-2">
+                    {dirtyCount > 0 && (
+                      <Chip size="sm" variant="flat" color="warning">
+                        {dirtyCount} unsaved
+                      </Chip>
+                    )}
+                    <Button
+                      color="success"
+                      variant="flat"
+                      onClick={() => saveRoom(room)}
+                      isLoading={isSaving}
+                      isDisabled={dirtyCount === 0 || isSaving}
+                    >
+                      Save Room
+                    </Button>
+                  </div>
+                </div>
+                {errorsForRoom.length > 0 && (
+                  <div className="w-full text-sm text-rose-700">
+                    <div className="font-semibold mb-1">Save failed:</div>
+                    <ul className="list-disc pl-5">
+                      {errorsForRoom.map((e) => (
+                        <li key={`${e.itemId}-${e.reason}`}>
+                          <span className="font-medium">{e.itemLabel}</span>: {e.reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </CardHeader>
+
+              <Divider />
+
+              <CardBody className="flex flex-col gap-4">
+                {(room.checklistItems ?? []).map((item) => {
+                  const draft = drafts[item.id] ?? {
+                    requiresAction: !!item.requiresAction,
+                    condition: (item.condition ?? null) as any,
+                    notes: (item.notes ?? '') ?? '',
+                  };
+
+                  return (
+                    <div key={item.id} className="p-3 rounded border border-default-200">
+                      <div className="flex items-center gap-3">
+                        <div className="flex flex-col">
+                          <div className="text-sm font-semibold">{item.itemName}</div>
+                          <div className="text-xs text-foreground-500">{item.category}</div>
+                        </div>
+                        <div className="ml-auto flex items-center gap-3">
+                          <Switch
+                            isSelected={draft.requiresAction}
+                            onValueChange={(v) => onDraftChange(room.id, item.id, { requiresAction: v })}
+                            size="sm"
+                          >
+                            Requires action
+                          </Switch>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                        <Select
+                          label="Condition"
+                          selectedKeys={draft.condition ? new Set([draft.condition]) : new Set()}
+                          onSelectionChange={(keys) => {
+                            const value = Array.from(keys)[0] as any;
+                            onDraftChange(room.id, item.id, { condition: (value || null) as any });
+                          }}
+                          isDisabled={!draft.requiresAction}
+                          placeholder="Select condition"
+                        >
+                          {conditionOptions.map((opt) => (
+                            <SelectItem key={opt.key}>{opt.label}</SelectItem>
+                          ))}
+                        </Select>
+
+                        <div />
+
+                        <div className="md:col-span-2">
+                          <Textarea
+                            label="Notes"
+                            placeholder="Describe the issue, symptoms, and any context…"
+                            value={draft.notes}
+                            onValueChange={(v) => onDraftChange(room.id, item.id, { notes: v })}
+                            isDisabled={!draft.requiresAction}
+                            minRows={2}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </CardBody>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

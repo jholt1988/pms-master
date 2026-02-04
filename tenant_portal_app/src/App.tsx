@@ -27,6 +27,7 @@ const UnauthorizedPage = lazy(() => import('./UnauthorizedPage'));
 const PropertyManagementPage = lazy(() => import('./PropertyManagementPage'));
 const SchedulePage = lazy(() => import('./SchedulePage'));
 const InspectionManagementPage = lazy(() => import('./InspectionManagementPage'));
+const InspectionDetailPage = lazy(() => import('./InspectionDetailPage'));
 const MaintenanceManagementPage = lazy(() => import('./MaintenanceManagementPage'));
 const QuickBooksPage = lazy(() => import('./QuickBooksPage'));
 const RentOptimizationDashboard = lazy(() => import('./domains/property-manager/features/rent-optimization/RentOptimizationDashboard'));
@@ -239,6 +240,7 @@ export default function App({className}: {className: string}): React.ReactElemen
                 <Route path="documents" element={<DocumentManagementPage />} />
                 <Route path="reporting" element={<ReportingPage />} />
                 <Route path="inspection-management" element={<InspectionManagementPage />} />
+                <Route path="inspections/:id" element={<InspectionDetailPage />} />
                 <Route path="maintenance-management" element={<MaintenanceManagementPage />} />
                 <Route path="quickbooks" element={<QuickBooksPage />} />
               </Route>

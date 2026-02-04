@@ -363,6 +363,51 @@ export class InspectionService {
   }
 
   /**
+   * Update many checklist items in a room atomically (all-or-nothing).
+   */
+  async updateRoomChecklistItems(
+    roomId: number,
+    items: Array<{ itemId: number; requiresAction?: boolean; condition?: any; notes?: string }>,
+  ): Promise<{ roomId: number; updatedCount: number }> {
+    if (!items?.length) {
+      return { roomId, updatedCount: 0 };
+    }
+
+    // Ensure the room exists and all itemIds belong to this room.
+    const room = await this.prisma.inspectionRoom.findUnique({
+      where: { id: roomId },
+      include: { checklistItems: true },
+    });
+
+    if (!room) {
+      throw new NotFoundException(`Room with ID ${roomId} not found`);
+    }
+
+    const allowed = new Set(room.checklistItems.map((i: any) => i.id));
+    const bad = items.find((i) => !allowed.has(i.itemId));
+    if (bad) {
+      throw new BadRequestException(
+        `Checklist item ${bad.itemId} does not belong to room ${roomId}`,
+      );
+    }
+
+    await this.prisma.$transaction(
+      items.map((i) =>
+        this.prisma.inspectionChecklistItem.update({
+          where: { id: i.itemId },
+          data: {
+            ...(typeof i.requiresAction === 'boolean' ? { requiresAction: i.requiresAction } : {}),
+            ...(i.condition ? { condition: i.condition } : {}),
+            ...(typeof i.notes === 'string' ? { notes: i.notes } : {}),
+          },
+        }),
+      ),
+    );
+
+    return { roomId, updatedCount: items.length };
+  }
+
+  /**
    * Add photo to checklist item
    */
   async addPhotoToChecklistItem(

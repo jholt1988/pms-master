@@ -29,6 +29,7 @@ import {
   CreateSignatureDto,
   InspectionQueryDto,
   CreateInspectionWithRoomsDto,
+  UpdateRoomChecklistItemsDto,
 } from './dto/simple-inspection.dto';
 
 @Controller('api/inspections')
@@ -114,6 +115,14 @@ export class InspectionController {
     @Body() dto: UpdateChecklistItemDto,
   ) {
     return this.inspectionService.updateChecklistItem(itemId, dto);
+  }
+
+  @Patch('rooms/:roomId/items')
+  async updateRoomChecklistItems(
+    @Param('roomId', ParseIntPipe) roomId: number,
+    @Body() dto: UpdateRoomChecklistItemsDto,
+  ) {
+    return this.inspectionService.updateRoomChecklistItems(roomId, dto.items ?? []);
   }
 
   @Post('items/:itemId/photos')

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { apiFetch } from './services/apiClient';
 import { TabletPageShell } from './components/ui/TabletPageShell';
@@ -77,11 +78,11 @@ const getTypeLabel = (type: string) => {
 
 export default function InspectionManagementPage(): React.ReactElement {
   const { token } = useAuth();
+  const navigate = useNavigate();
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedInspection, setSelectedInspection] = useState<Inspection | null>(null);
   const [filters, setFilters] = useState(initialFilters);
   const [showDetail, setShowDetail] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -108,7 +109,7 @@ export default function InspectionManagementPage(): React.ReactElement {
       });
 
       const queryString = params.toString() ? `?${params.toString()}` : '';
-      const data = await apiFetch(`/inspections${queryString}`, { token });
+      const data = await apiFetch(`/inspections${queryString}`, { token: token ?? undefined });
       setInspections(data?.data ?? []);
     } catch (err: any) {
       setInspections([]);
@@ -120,7 +121,7 @@ export default function InspectionManagementPage(): React.ReactElement {
 
   const fetchProperties = useCallback(async () => {
     try {
-      const data = await apiFetch('/properties?limit=500', { token });
+      const data = await apiFetch('/properties?limit=500', { token: token ?? undefined });
       setProperties(data?.data ?? []);
     } catch {
       setProperties([]);
@@ -136,10 +137,8 @@ export default function InspectionManagementPage(): React.ReactElement {
   }, [fetchInspections]);
 
   const handleInspectionClick = (inspection: Inspection) => {
-    setSelectedInspection(inspection);
-    if (viewport === 'mobile' || viewport === 'tablet-portrait') {
-      setShowDetail(true);
-    }
+    // Use dedicated detail route for checklist editing + estimate generation
+    navigate(`/inspections/${inspection.id}`);
   };
 
   const handleBackClick = () => {
@@ -292,83 +291,9 @@ export default function InspectionManagementPage(): React.ReactElement {
 
   const detail = (
     <div className="p-6 h-full">
-      {selectedInspection ? (
-        <>
-          {(viewport === 'mobile' || viewport === 'tablet-portrait') && (
-            <Button
-              isIconOnly
-              variant="light"
-              onClick={handleBackClick}
-              className="mb-4"
-            >
-              <ArrowLeft size={20} />
-            </Button>
-          )}
-          <div className="bg-white rounded-lg shadow overflow-hidden p-6 flex flex-col gap-4 h-full">
-            <div>
-              <h2 className="text-2xl font-bold mb-1">
-                {getTypeLabel(selectedInspection.type)} Inspection
-              </h2>
-              <p className="text-sm text-foreground-500">
-                {selectedInspection.unit.property.name} · {selectedInspection.unit.name}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-4">
-              <span className={`px-3 py-1 rounded text-sm font-semibold ${getStatusColor(selectedInspection.status)}`}>
-                {selectedInspection.status}
-              </span>
-              <span className="text-sm text-foreground-500">
-                Scheduled: {new Date(selectedInspection.scheduledDate).toLocaleString()}
-              </span>
-              {selectedInspection.completedDate && (
-                <span className="text-sm text-foreground-500">
-                  Completed: {new Date(selectedInspection.completedDate).toLocaleString()}
-                </span>
-              )}
-            </div>
-            <div className="flex flex-col gap-1">
-              <h3 className="text-sm font-semibold text-foreground-500">Inspector</h3>
-              <p className="text-sm">{selectedInspection.inspector?.username ?? 'Unassigned'}</p>
-            </div>
-            <div className="flex flex-col gap-1">
-              <h3 className="text-sm font-semibold text-foreground-500">Notes</h3>
-              <p className="text-sm text-foreground">{selectedInspection.notes ?? 'No notes yet'}</p>
-            </div>
-            {selectedInspection.findings && (
-              <div className="flex flex-col gap-2">
-                <h3 className="text-sm font-semibold text-foreground-500">Findings</h3>
-                <pre className="text-xs text-foreground-500 bg-slate-50 p-3 rounded whitespace-pre-wrap wrap-break-word">
-                  {JSON.stringify(selectedInspection.findings, null, 2)}
-                </pre>
-              </div>
-            )}
-            {selectedInspection.photos && selectedInspection.photos.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <h3 className="text-sm font-semibold text-foreground-500">Photos</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  {selectedInspection.photos.map((photo) => (
-                    <img
-                      key={photo.id}
-                      src={photo.url}
-                      alt={photo.caption || 'Inspection photo'}
-                      className="w-full h-24 object-cover rounded"
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-            <div className="flex gap-2 mt-auto">
-              <Button variant="light" onClick={() => setShowCompleteModal(true)}>
-                Mark Complete
-              </Button>
-            </div>
-          </div>
-        </>
-      ) : (
-        <div className="flex items-center justify-center h-full">
-          <p className="text-gray-500">Select an inspection to see the details.</p>
-        </div>
-      )}
+      <div className="flex items-center justify-center h-full">
+        <p className="text-gray-500">Select an inspection to see the details.</p>
+      </div>
     </div>
   );
 
