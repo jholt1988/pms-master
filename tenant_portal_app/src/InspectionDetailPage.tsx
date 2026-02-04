@@ -12,6 +12,7 @@ import {
   Spinner,
   Switch,
   Textarea,
+  Input,
 } from '@nextui-org/react';
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from './AuthContext';
@@ -19,6 +20,9 @@ import { apiFetch } from './services/apiClient';
 
 type InspectionStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 type InspectionCondition = 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED' | 'NON_FUNCTIONAL';
+type SeverityLevel = 'LOW' | 'MED' | 'HIGH' | 'EMERGENCY';
+type InspectionIssueType = 'INVESTIGATE' | 'REPAIR' | 'REPLACE';
+type MeasurementUnit = 'COUNT' | 'LINEAR_FT' | 'SQFT' | 'INCH' | 'FOOT';
 
 type ChecklistItem = {
   id: number;
@@ -28,6 +32,13 @@ type ChecklistItem = {
   notes?: string | null;
   estimatedAge?: number | null;
   requiresAction: boolean;
+
+  // Structured action inputs
+  severity?: SeverityLevel | null;
+  issueType?: InspectionIssueType | null;
+  measurementValue?: number | null;
+  measurementUnit?: MeasurementUnit | null;
+  measurementNotes?: string | null;
 };
 
 type InspectionRoom = {
@@ -54,6 +65,12 @@ type DraftChecklistItem = {
   requiresAction: boolean;
   condition?: InspectionCondition | null;
   notes: string;
+
+  severity?: SeverityLevel | null;
+  issueType?: InspectionIssueType | null;
+  measurementValue?: number | null;
+  measurementUnit?: MeasurementUnit | null;
+  measurementNotes?: string;
 };
 
 type DraftByRoom = Record<number, Record<number, DraftChecklistItem>>;
@@ -71,6 +88,27 @@ const conditionOptions: Array<{ key: InspectionCondition; label: string }> = [
   { key: 'POOR', label: 'Poor' },
   { key: 'DAMAGED', label: 'Damaged' },
   { key: 'NON_FUNCTIONAL', label: 'Non-functional' },
+];
+
+const severityOptions: Array<{ key: SeverityLevel; label: string }> = [
+  { key: 'LOW', label: 'Low' },
+  { key: 'MED', label: 'Medium' },
+  { key: 'HIGH', label: 'High' },
+  { key: 'EMERGENCY', label: 'Emergency' },
+];
+
+const issueTypeOptions: Array<{ key: InspectionIssueType; label: string }> = [
+  { key: 'INVESTIGATE', label: 'Investigate' },
+  { key: 'REPAIR', label: 'Repair' },
+  { key: 'REPLACE', label: 'Replace' },
+];
+
+const measurementUnitOptions: Array<{ key: MeasurementUnit; label: string }> = [
+  { key: 'COUNT', label: 'Count' },
+  { key: 'LINEAR_FT', label: 'Linear ft' },
+  { key: 'SQFT', label: 'Sq ft' },
+  { key: 'INCH', label: 'In' },
+  { key: 'FOOT', label: 'Ft' },
 ];
 
 const getStatusColor = (status: InspectionStatus) => {
@@ -102,7 +140,12 @@ function shallowEqualDraft(a: DraftChecklistItem, b: DraftChecklistItem) {
   return (
     a.requiresAction === b.requiresAction &&
     (a.condition ?? null) === (b.condition ?? null) &&
-    (a.notes ?? '') === (b.notes ?? '')
+    (a.notes ?? '') === (b.notes ?? '') &&
+    (a.severity ?? null) === (b.severity ?? null) &&
+    (a.issueType ?? null) === (b.issueType ?? null) &&
+    (a.measurementValue ?? null) === (b.measurementValue ?? null) &&
+    (a.measurementUnit ?? null) === (b.measurementUnit ?? null) &&
+    (a.measurementNotes ?? '') === (b.measurementNotes ?? '')
   );
 }
 
@@ -473,7 +516,16 @@ export default function InspectionDetailPage(): React.ReactElement {
   const onDraftChange = useCallback((roomId: number, itemId: number, patch: Partial<DraftChecklistItem>) => {
     setDraftByRoom((prev) => {
       const room = prev[roomId] ?? {};
-      const current = room[itemId] ?? { requiresAction: false, condition: null, notes: '' };
+      const current = room[itemId] ?? {
+        requiresAction: false,
+        condition: null,
+        notes: '',
+        severity: null,
+        issueType: null,
+        measurementValue: null,
+        measurementUnit: null,
+        measurementNotes: '',
+      };
       return {
         ...prev,
         [roomId]: {
@@ -520,7 +572,17 @@ export default function InspectionDetailPage(): React.ReactElement {
 
   const getDirtyItemPatchesForRoom = useCallback((room: InspectionRoom) => {
     const drafts = roomDrafts[room.id] ?? {};
-    const patches: Array<{ itemId: number; requiresAction: boolean; condition?: InspectionCondition | null; notes?: string }> = [];
+    const patches: Array<{
+      itemId: number;
+      requiresAction: boolean;
+      condition?: InspectionCondition | null;
+      notes?: string;
+      severity?: SeverityLevel | null;
+      issueType?: InspectionIssueType | null;
+      measurementValue?: number | null;
+      measurementUnit?: MeasurementUnit | null;
+      measurementNotes?: string;
+    }> = [];
 
     room.checklistItems.forEach((item) => {
       const draft = drafts[item.id];
@@ -530,6 +592,11 @@ export default function InspectionDetailPage(): React.ReactElement {
         requiresAction: !!item.requiresAction,
         condition: (item.condition ?? null) as any,
         notes: (item.notes ?? '') ?? '',
+        severity: (item.severity ?? null) as any,
+        issueType: (item.issueType ?? null) as any,
+        measurementValue: (item.measurementValue ?? null) as any,
+        measurementUnit: (item.measurementUnit ?? null) as any,
+        measurementNotes: (item.measurementNotes ?? '') ?? '',
       };
 
       if (!shallowEqualDraft(draft, baseline)) {
@@ -538,6 +605,11 @@ export default function InspectionDetailPage(): React.ReactElement {
           requiresAction: !!draft.requiresAction,
           condition: (draft.condition ?? null) as any,
           notes: draft.notes,
+          severity: (draft.severity ?? null) as any,
+          issueType: (draft.issueType ?? null) as any,
+          measurementValue: (draft.measurementValue ?? null) as any,
+          measurementUnit: (draft.measurementUnit ?? null) as any,
+          measurementNotes: draft.measurementNotes,
         });
       }
     });
@@ -732,6 +804,11 @@ export default function InspectionDetailPage(): React.ReactElement {
               requiresAction: !!item.requiresAction,
               condition: (item.condition ?? null) as any,
               notes: (item.notes ?? '') ?? '',
+              severity: (item.severity ?? null) as any,
+              issueType: (item.issueType ?? null) as any,
+              measurementValue: (item.measurementValue ?? null) as any,
+              measurementUnit: (item.measurementUnit ?? null) as any,
+              measurementNotes: (item.measurementNotes ?? '') ?? '',
             };
             return count + (shallowEqualDraft(d, baseline) ? 0 : 1);
           }, 0);
@@ -786,6 +863,11 @@ export default function InspectionDetailPage(): React.ReactElement {
                     requiresAction: !!item.requiresAction,
                     condition: (item.condition ?? null) as any,
                     notes: (item.notes ?? '') ?? '',
+                    severity: (item.severity ?? null) as any,
+                    issueType: (item.issueType ?? null) as any,
+                    measurementValue: (item.measurementValue ?? null) as any,
+                    measurementUnit: (item.measurementUnit ?? null) as any,
+                    measurementNotes: (item.measurementNotes ?? '') ?? '',
                   };
 
                   return (
@@ -801,7 +883,16 @@ export default function InspectionDetailPage(): React.ReactElement {
                             onValueChange={(v) =>
                               onDraftChange(room.id, item.id, v
                                 ? { requiresAction: true }
-                                : { requiresAction: false, condition: null, notes: '' })
+                                : {
+                                    requiresAction: false,
+                                    condition: null,
+                                    notes: '',
+                                    severity: null,
+                                    issueType: null,
+                                    measurementValue: null,
+                                    measurementUnit: null,
+                                    measurementNotes: '',
+                                  })
                             }
                             size="sm"
                           >
@@ -826,7 +917,74 @@ export default function InspectionDetailPage(): React.ReactElement {
                           ))}
                         </Select>
 
-                        <div />
+                        <Select
+                          label="Severity (optional)"
+                          selectedKeys={draft.severity ? new Set([draft.severity]) : new Set()}
+                          onSelectionChange={(keys) => {
+                            const value = Array.from(keys)[0] as any;
+                            onDraftChange(room.id, item.id, { severity: (value || null) as any });
+                          }}
+                          isDisabled={!draft.requiresAction}
+                          placeholder="Select severity"
+                        >
+                          {severityOptions.map((opt) => (
+                            <SelectItem key={opt.key}>{opt.label}</SelectItem>
+                          ))}
+                        </Select>
+
+                        <Select
+                          label="Issue type (optional)"
+                          selectedKeys={draft.issueType ? new Set([draft.issueType]) : new Set()}
+                          onSelectionChange={(keys) => {
+                            const value = Array.from(keys)[0] as any;
+                            onDraftChange(room.id, item.id, { issueType: (value || null) as any });
+                          }}
+                          isDisabled={!draft.requiresAction}
+                          placeholder="Investigate / Repair / Replace"
+                        >
+                          {issueTypeOptions.map((opt) => (
+                            <SelectItem key={opt.key}>{opt.label}</SelectItem>
+                          ))}
+                        </Select>
+
+                        <div className="flex gap-2 items-end">
+                          <Input
+                            type="number"
+                            label="Measurement (optional)"
+                            placeholder="0"
+                            value={typeof draft.measurementValue === 'number' ? String(draft.measurementValue) : ''}
+                            onValueChange={(v) => {
+                              const num = v === '' ? null : Number(v);
+                              onDraftChange(room.id, item.id, { measurementValue: Number.isFinite(num as any) ? (num as any) : null });
+                            }}
+                            isDisabled={!draft.requiresAction}
+                          />
+                          <Select
+                            aria-label="Measurement unit"
+                            selectedKeys={draft.measurementUnit ? new Set([draft.measurementUnit]) : new Set()}
+                            onSelectionChange={(keys) => {
+                              const value = Array.from(keys)[0] as any;
+                              onDraftChange(room.id, item.id, { measurementUnit: (value || null) as any });
+                            }}
+                            isDisabled={!draft.requiresAction}
+                            placeholder="Unit"
+                            className="min-w-[140px]"
+                          >
+                            {measurementUnitOptions.map((opt) => (
+                              <SelectItem key={opt.key}>{opt.label}</SelectItem>
+                            ))}
+                          </Select>
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <Input
+                            label="Measurement notes (optional)"
+                            placeholder="e.g., approx 12 linear ft along baseboard"
+                            value={draft.measurementNotes ?? ''}
+                            onValueChange={(v) => onDraftChange(room.id, item.id, { measurementNotes: v })}
+                            isDisabled={!draft.requiresAction}
+                          />
+                        </div>
 
                         <div className="md:col-span-2">
                           <Textarea

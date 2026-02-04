@@ -117,6 +117,10 @@ Item ${index + 1}:
 - Condition: ${item.condition}
 - Age: ${item.estimated_age_years || 'Unknown'} years
 - Action Needed: ${item.action_needed}
+- Severity: ${item.severity || 'Unknown'}
+- Recommended Issue Type: ${item.issue_type || 'Unknown'}
+- Measurement: ${typeof item.measurement_value === 'number' ? `${item.measurement_value} ${item.measurement_unit || ''}`.trim() : 'None'}
+- Measurement Notes: ${item.measurement_notes || 'None'}
 - Notes: ${item.notes || 'None'}
 `).join('\n')}
 

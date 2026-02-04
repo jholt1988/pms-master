@@ -543,13 +543,24 @@ export class EstimateService {
     for (const room of inspection.rooms) {
       for (const checklistItem of room.checklistItems) {
         if (checklistItem.requiresAction) {
+          const actionNeeded = checklistItem.issueType
+            ? (String(checklistItem.issueType).toLowerCase() === 'investigate'
+                ? 'investigate'
+                : String(checklistItem.issueType).toLowerCase())
+            : this.determineActionNeeded(checklistItem.condition);
+
           items.push({
             item_description: checklistItem.itemName,
             location: room.name,
             category: this.mapCategoryToTrade(checklistItem.category),
             condition: checklistItem.condition || 'FAIR',
             estimated_age_years: checklistItem.estimatedAge || 5,
-            action_needed: this.determineActionNeeded(checklistItem.condition),
+            action_needed: actionNeeded as any,
+            severity: checklistItem.severity,
+            issue_type: checklistItem.issueType,
+            measurement_value: checklistItem.measurementValue,
+            measurement_unit: checklistItem.measurementUnit,
+            measurement_notes: checklistItem.measurementNotes,
             notes: checklistItem.notes || '',
           });
         }
@@ -605,9 +616,10 @@ export class EstimateService {
     return categoryMap[category] || 'general';
   }
 
-  private determineActionNeeded(condition: InspectionCondition | null): 'repair' | 'replace' {
+  private determineActionNeeded(condition: InspectionCondition | null): 'repair' | 'replace' | 'investigate' {
     if (!condition) return 'repair';
-    
+
+    // Heuristic: damaged/non-functional usually implies replacement; otherwise repair.
     const replaceConditions: InspectionCondition[] = ['DAMAGED', 'NON_FUNCTIONAL'];
     return replaceConditions.includes(condition) ? 'replace' : 'repair';
   }

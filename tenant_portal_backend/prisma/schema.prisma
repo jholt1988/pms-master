@@ -1698,6 +1698,20 @@ model InspectionRoom {
   @@index([inspectionId])
 }
 
+enum InspectionIssueType {
+  INVESTIGATE
+  REPAIR
+  REPLACE
+}
+
+enum MeasurementUnit {
+  COUNT
+  LINEAR_FT
+  SQFT
+  INCH
+  FOOT
+}
+
 model InspectionChecklistItem {
   id             Int                          @id @default(autoincrement())
   room           InspectionRoom               @relation(fields: [roomId], references: [id], onDelete: Cascade)
@@ -1708,12 +1722,24 @@ model InspectionChecklistItem {
   notes          String?
   estimatedAge   Int? // Age in years
   requiresAction Boolean                      @default(false)
+
+  // Structured action inputs (for better estimates)
+  issueType InspectionIssueType?
+  severity  SeverityLevel?
+
+  // Optional measurement to tighten bids (quantity/extent)
+  measurementValue Float?
+  measurementUnit  MeasurementUnit?
+  measurementNotes String?
+
   photos         InspectionChecklistPhoto[]
   subItems       InspectionChecklistSubItem[]
 
   @@index([roomId])
   @@index([condition])
   @@index([requiresAction])
+  @@index([issueType])
+  @@index([severity])
 }
 
 model InspectionChecklistSubItem {

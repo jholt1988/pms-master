@@ -54,7 +54,17 @@ export interface InventoryItem {
   category: string;
   condition: string;
   estimated_age_years?: number;
-  action_needed: 'repair' | 'replace';
+
+  // Recommended action from inspection input (if provided)
+  action_needed: 'repair' | 'replace' | 'investigate';
+
+  // Structured inputs to tighten estimate ranges
+  severity?: 'LOW' | 'MED' | 'HIGH' | 'EMERGENCY';
+  issue_type?: 'INVESTIGATE' | 'REPAIR' | 'REPLACE';
+  measurement_value?: number;
+  measurement_unit?: 'COUNT' | 'LINEAR_FT' | 'SQFT' | 'INCH' | 'FOOT';
+  measurement_notes?: string;
+
   notes?: string;
 }
 

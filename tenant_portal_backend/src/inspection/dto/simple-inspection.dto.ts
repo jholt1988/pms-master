@@ -20,6 +20,29 @@ export enum InspectionCondition {
   GOOD = 'GOOD',
   FAIR = 'FAIR',
   POOR = 'POOR',
+  DAMAGED = 'DAMAGED',
+  NON_FUNCTIONAL = 'NON_FUNCTIONAL',
+}
+
+export enum SeverityLevel {
+  LOW = 'LOW',
+  MED = 'MED',
+  HIGH = 'HIGH',
+  EMERGENCY = 'EMERGENCY',
+}
+
+export enum InspectionIssueType {
+  INVESTIGATE = 'INVESTIGATE',
+  REPAIR = 'REPAIR',
+  REPLACE = 'REPLACE',
+}
+
+export enum MeasurementUnit {
+  COUNT = 'COUNT',
+  LINEAR_FT = 'LINEAR_FT',
+  SQFT = 'SQFT',
+  INCH = 'INCH',
+  FOOT = 'FOOT',
 }
 
 export enum RoomType {
@@ -91,6 +114,27 @@ export class UpdateChecklistItemBatchEntryDto {
   @IsOptional()
   @IsEnum(InspectionCondition)
   condition?: InspectionCondition;
+
+  @IsOptional()
+  @IsEnum(SeverityLevel)
+  severity?: SeverityLevel;
+
+  @IsOptional()
+  @IsEnum(InspectionIssueType)
+  issueType?: InspectionIssueType;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  measurementValue?: number;
+
+  @IsOptional()
+  @IsEnum(MeasurementUnit)
+  measurementUnit?: MeasurementUnit;
+
+  @IsOptional()
+  @IsString()
+  measurementNotes?: string;
 
   @IsOptional()
   @IsString()

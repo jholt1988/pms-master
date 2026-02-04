@@ -367,7 +367,17 @@ export class InspectionService {
    */
   async updateRoomChecklistItems(
     roomId: number,
-    items: Array<{ itemId: number; requiresAction?: boolean; condition?: any; notes?: string }>,
+    items: Array<{
+      itemId: number;
+      requiresAction?: boolean;
+      condition?: any;
+      notes?: string;
+      severity?: any;
+      issueType?: any;
+      measurementValue?: number;
+      measurementUnit?: any;
+      measurementNotes?: string;
+    }>,
   ): Promise<{ roomId: number; updatedCount: number }> {
     if (!items?.length) {
       return { roomId, updatedCount: 0 };
@@ -399,6 +409,11 @@ export class InspectionService {
             ...(typeof i.requiresAction === 'boolean' ? { requiresAction: i.requiresAction } : {}),
             ...(('condition' in i) ? { condition: i.condition } : {}),
             ...(('notes' in i) ? { notes: i.notes } : {}),
+            ...(('severity' in i) ? { severity: i.severity } : {}),
+            ...(('issueType' in i) ? { issueType: i.issueType } : {}),
+            ...(('measurementValue' in i) ? { measurementValue: i.measurementValue } : {}),
+            ...(('measurementUnit' in i) ? { measurementUnit: i.measurementUnit } : {}),
+            ...(('measurementNotes' in i) ? { measurementNotes: i.measurementNotes } : {}),
           },
         }),
       ),
