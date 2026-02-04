@@ -60,6 +60,12 @@ CRITICAL: Return ONLY valid JSON in this exact format:
     "total_labor_cost": number,
     "total_material_cost": number,
     "total_project_cost": number,
+
+    "bid_low_total": number,
+    "bid_high_total": number,
+    "confidence_level": "VERY_HIGH|HIGH|MEDIUM|LOW|VERY_LOW",
+    "confidence_reason": "string",
+
     "items_to_repair": number,
     "items_to_replace": number
   },
@@ -69,11 +75,24 @@ CRITICAL: Return ONLY valid JSON in this exact format:
       "location": "string",
       "category": "string",
       "action_type": "repair|replace",
+
       "labor_hours": number,
       "labor_rate_per_hour": number,
       "labor_cost": number,
       "material_cost": number,
       "total_cost": number,
+
+      "bid_low_labor_cost": number,
+      "bid_high_labor_cost": number,
+      "bid_low_material_cost": number,
+      "bid_high_material_cost": number,
+      "bid_low_total": number,
+      "bid_high_total": number,
+      "confidence_level": "VERY_HIGH|HIGH|MEDIUM|LOW|VERY_LOW",
+      "confidence_reason": "string",
+      "assumptions": ["string"],
+      "questions_to_reduce_uncertainty": ["string"],
+
       "original_cost": number,
       "depreciated_value": number,
       "depreciation_rate_per_year": number,
@@ -206,6 +225,8 @@ Process each item through all 6 steps and return the complete JSON estimate.`;
       'total_labor_cost',
       'total_material_cost',
       'total_project_cost',
+      'bid_low_total',
+      'bid_high_total',
       'items_to_repair',
       'items_to_replace',
     ];
@@ -226,6 +247,8 @@ Process each item through all 6 steps and return the complete JSON estimate.`;
         'labor_cost',
         'material_cost',
         'total_cost',
+        'bid_low_total',
+        'bid_high_total',
       ];
 
       for (const field of requiredFields) {
@@ -243,13 +266,30 @@ Process each item through all 6 steps and return the complete JSON estimate.`;
     let totalLaborCost = 0;
     let totalMaterialCost = 0;
     let totalProjectCost = 0;
+    let bidLowTotal = 0;
+    let bidHighTotal = 0;
     let itemsToRepair = 0;
     let itemsToReplace = 0;
 
     for (const item of result.line_items) {
+      // If ranges exist, recompute midpoint costs to stay consistent.
+      if (typeof item.bid_low_labor_cost === 'number' && typeof item.bid_high_labor_cost === 'number') {
+        item.labor_cost = (item.bid_low_labor_cost + item.bid_high_labor_cost) / 2;
+      }
+      if (typeof item.bid_low_material_cost === 'number' && typeof item.bid_high_material_cost === 'number') {
+        item.material_cost = (item.bid_low_material_cost + item.bid_high_material_cost) / 2;
+      }
+      if (typeof item.bid_low_total === 'number' && typeof item.bid_high_total === 'number') {
+        item.total_cost = (item.bid_low_total + item.bid_high_total) / 2;
+      } else {
+        item.total_cost = (item.labor_cost || 0) + (item.material_cost || 0);
+      }
+
       totalLaborCost += item.labor_cost || 0;
       totalMaterialCost += item.material_cost || 0;
       totalProjectCost += item.total_cost || 0;
+      bidLowTotal += (item.bid_low_total || 0);
+      bidHighTotal += (item.bid_high_total || 0);
 
       if (item.action_type === 'repair') {
         itemsToRepair++;
@@ -257,14 +297,21 @@ Process each item through all 6 steps and return the complete JSON estimate.`;
         itemsToReplace++;
       }
 
-      // Ensure total_cost equals labor_cost + material_cost
-      item.total_cost = (item.labor_cost || 0) + (item.material_cost || 0);
     }
 
     // Update summary with calculated totals
     result.estimate_summary.total_labor_cost = Math.round(totalLaborCost * 100) / 100;
     result.estimate_summary.total_material_cost = Math.round(totalMaterialCost * 100) / 100;
     result.estimate_summary.total_project_cost = Math.round(totalProjectCost * 100) / 100;
+    result.estimate_summary.bid_low_total = Math.round(bidLowTotal * 100) / 100;
+    result.estimate_summary.bid_high_total = Math.round(bidHighTotal * 100) / 100;
+
+    // If model didn't provide an overall confidence, infer a conservative one.
+    if (!result.estimate_summary.confidence_level) {
+      result.estimate_summary.confidence_level = 'MEDIUM' as any;
+      result.estimate_summary.confidence_reason = 'Inferred confidence (not provided by model).';
+    }
+
     result.estimate_summary.items_to_repair = itemsToRepair;
     result.estimate_summary.items_to_replace = itemsToReplace;
   }
@@ -277,6 +324,9 @@ Process each item through all 6 steps and return the complete JSON estimate.`;
       // Basic fallback cost estimation
       const baseLaborCost = item.action_needed === 'replace' ? 200 : 100;
       const baseMaterialCost = item.action_needed === 'replace' ? 300 : 100;
+      const midTotal = baseLaborCost + baseMaterialCost;
+      const lowTotal = Math.round(midTotal * 0.85 * 100) / 100;
+      const highTotal = Math.round(midTotal * 1.25 * 100) / 100;
       
       return {
         item_description: item.item_description,
@@ -287,7 +337,18 @@ Process each item through all 6 steps and return the complete JSON estimate.`;
         labor_rate_per_hour: 75,
         labor_cost: baseLaborCost,
         material_cost: baseMaterialCost,
-        total_cost: baseLaborCost + baseMaterialCost,
+        total_cost: midTotal,
+
+        bid_low_labor_cost: Math.round(baseLaborCost * 0.85 * 100) / 100,
+        bid_high_labor_cost: Math.round(baseLaborCost * 1.25 * 100) / 100,
+        bid_low_material_cost: Math.round(baseMaterialCost * 0.85 * 100) / 100,
+        bid_high_material_cost: Math.round(baseMaterialCost * 1.25 * 100) / 100,
+        bid_low_total: lowTotal,
+        bid_high_total: highTotal,
+        confidence_level: 'LOW',
+        confidence_reason: 'Fallback estimate (AI unavailable); wide range used.',
+        assumptions: ['Midpoint is a rough heuristic; verify labor rates and material costs.'],
+        questions_to_reduce_uncertainty: ['Are photos available? What exact model/size is involved?'],
         original_cost: 500,
         depreciated_value: 300,
         depreciation_rate_per_year: 0.10,
@@ -303,12 +364,18 @@ Process each item through all 6 steps and return the complete JSON estimate.`;
     const totalMaterialCost = lineItems.reduce((sum, item) => sum + item.material_cost, 0);
     const itemsToRepair = lineItems.filter(item => item.action_type === 'repair').length;
     const itemsToReplace = lineItems.filter(item => item.action_type === 'replace').length;
+    const bidLowTotal = lineItems.reduce((sum, item) => sum + (item.bid_low_total ?? 0), 0);
+    const bidHighTotal = lineItems.reduce((sum, item) => sum + (item.bid_high_total ?? 0), 0);
 
     return {
       estimate_summary: {
         total_labor_cost: totalLaborCost,
         total_material_cost: totalMaterialCost,
         total_project_cost: totalLaborCost + totalMaterialCost,
+        bid_low_total: bidLowTotal,
+        bid_high_total: bidHighTotal,
+        confidence_level: 'LOW',
+        confidence_reason: 'Fallback estimate (AI unavailable).',
         items_to_repair: itemsToRepair,
         items_to_replace: itemsToReplace,
       },

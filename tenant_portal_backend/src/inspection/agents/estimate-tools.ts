@@ -58,11 +58,21 @@ export interface InventoryItem {
   notes?: string;
 }
 
+export type ConfidenceLevel = 'VERY_HIGH' | 'HIGH' | 'MEDIUM' | 'LOW' | 'VERY_LOW';
+
 export interface EstimateResult {
   estimate_summary: {
+    // Midpoint totals (these are what we persist)
     total_labor_cost: number;
     total_material_cost: number;
     total_project_cost: number;
+
+    // Bid range + confidence (display-only; not persisted in MVP)
+    bid_low_total?: number;
+    bid_high_total?: number;
+    confidence_level?: ConfidenceLevel;
+    confidence_reason?: string;
+
     items_to_repair: number;
     items_to_replace: number;
   };
@@ -71,11 +81,26 @@ export interface EstimateResult {
     location: string;
     category: string;
     action_type: 'repair' | 'replace';
+
+    // Midpoint costs (persisted)
     labor_hours: number;
     labor_rate_per_hour: number;
     labor_cost: number;
     material_cost: number;
     total_cost: number;
+
+    // Bid range + confidence (display-only)
+    bid_low_total?: number;
+    bid_high_total?: number;
+    bid_low_labor_cost?: number;
+    bid_high_labor_cost?: number;
+    bid_low_material_cost?: number;
+    bid_high_material_cost?: number;
+    confidence_level?: ConfidenceLevel;
+    confidence_reason?: string;
+    assumptions?: string[];
+    questions_to_reduce_uncertainty?: string[];
+
     original_cost?: number;
     depreciated_value?: number;
     depreciation_rate_per_year?: number;

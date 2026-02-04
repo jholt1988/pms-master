@@ -24,6 +24,10 @@ import {
   EstimateResult 
 } from './agents/estimate-tools';
 
+function midpoint(low: number, high: number) {
+  return (low + high) / 2;
+}
+
 @Injectable()
 export class EstimateService {
   constructor(
@@ -147,7 +151,41 @@ export class EstimateService {
     // Send notification
     await this.sendEstimateReadyNotification(estimate);
 
-    return estimate;
+    // Attach display-only AI metadata (bid range + confidence) for immediate UI rendering.
+    // NOTE: We persist midpoint totals only; these fields are NOT stored.
+    const enriched: any = estimate;
+    if (typeof estimateResult.estimate_summary.bid_low_total === 'number') {
+      enriched.bidLowTotal = estimateResult.estimate_summary.bid_low_total;
+    }
+    if (typeof estimateResult.estimate_summary.bid_high_total === 'number') {
+      enriched.bidHighTotal = estimateResult.estimate_summary.bid_high_total;
+    }
+    if (estimateResult.estimate_summary.confidence_level) {
+      enriched.confidenceLevel = estimateResult.estimate_summary.confidence_level;
+      enriched.confidenceReason = estimateResult.estimate_summary.confidence_reason;
+    }
+
+    if (Array.isArray(enriched.lineItems) && Array.isArray(estimateResult.line_items)) {
+      enriched.lineItems = enriched.lineItems.map((li: any, idx: number) => {
+        const src = estimateResult.line_items[idx];
+        if (!src) return li;
+        return {
+          ...li,
+          bidLowTotal: src.bid_low_total,
+          bidHighTotal: src.bid_high_total,
+          bidLowLaborCost: src.bid_low_labor_cost,
+          bidHighLaborCost: src.bid_high_labor_cost,
+          bidLowMaterialCost: src.bid_low_material_cost,
+          bidHighMaterialCost: src.bid_high_material_cost,
+          confidenceLevel: src.confidence_level,
+          confidenceReason: src.confidence_reason,
+          assumptions: src.assumptions,
+          questionsToReduceUncertainty: src.questions_to_reduce_uncertainty,
+        };
+      });
+    }
+
+    return enriched;
   }
 
   /**
@@ -229,7 +267,40 @@ export class EstimateService {
 
     await this.sendEstimateReadyNotification(estimate);
 
-    return estimate;
+    // Attach display-only AI metadata (bid range + confidence) for immediate UI rendering.
+    const enriched: any = estimate;
+    if (typeof estimateResult.estimate_summary.bid_low_total === 'number') {
+      enriched.bidLowTotal = estimateResult.estimate_summary.bid_low_total;
+    }
+    if (typeof estimateResult.estimate_summary.bid_high_total === 'number') {
+      enriched.bidHighTotal = estimateResult.estimate_summary.bid_high_total;
+    }
+    if (estimateResult.estimate_summary.confidence_level) {
+      enriched.confidenceLevel = estimateResult.estimate_summary.confidence_level;
+      enriched.confidenceReason = estimateResult.estimate_summary.confidence_reason;
+    }
+
+    if (Array.isArray(enriched.lineItems) && Array.isArray(estimateResult.line_items)) {
+      enriched.lineItems = enriched.lineItems.map((li: any, idx: number) => {
+        const src = estimateResult.line_items[idx];
+        if (!src) return li;
+        return {
+          ...li,
+          bidLowTotal: src.bid_low_total,
+          bidHighTotal: src.bid_high_total,
+          bidLowLaborCost: src.bid_low_labor_cost,
+          bidHighLaborCost: src.bid_high_labor_cost,
+          bidLowMaterialCost: src.bid_low_material_cost,
+          bidHighMaterialCost: src.bid_high_material_cost,
+          confidenceLevel: src.confidence_level,
+          confidenceReason: src.confidence_reason,
+          assumptions: src.assumptions,
+          questionsToReduceUncertainty: src.questions_to_reduce_uncertainty,
+        };
+      });
+    }
+
+    return enriched;
   }
 
   /**
