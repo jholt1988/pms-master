@@ -100,9 +100,6 @@ export default function MaintenanceManagementPage(): React.ReactElement {
   const master = (
     <div className="p-4 sm:p-6 w-full">
       <h1 className="text-2xl sm:text-3xl font-bold mb-6 text-white">Maintenance Requests</h1>
-      <div className="mb-4 text-sm text-gray-300">
-        Debug: {requests.length} requests loaded, loading: {loading ? 'true' : 'false'}
-      </div>
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <p className="text-gray-300">Loading maintenance requests...</p>

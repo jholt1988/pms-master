@@ -545,7 +545,7 @@ export const TenantDashboard: React.FC = () => {
               </Button>
               <Button
                 as={Link}
-                to="/messages"
+                to="/messaging"
                 variant="flat"
                 className="w-full justify-start"
                 startContent={<MessageSquare className="w-4 h-4" aria-hidden="true" />}
@@ -558,16 +558,8 @@ export const TenantDashboard: React.FC = () => {
                   </Chip>
                 )}
               </Button>
-              <Button
-                as={Link}
-                to="/documents"
-                variant="flat"
-                className="w-full justify-start"
-                startContent={<FileText className="w-4 h-4" aria-hidden="true" />}
-                aria-label="View documents"
-              >
-                View Documents
-              </Button>
+
+              {/* Documents page is currently PM-only; keep tenant dashboard clean to avoid 404/unauthorized. */}
             </div>
           </GlassCard>
 

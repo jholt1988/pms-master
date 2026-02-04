@@ -95,9 +95,6 @@ const LeaseManagementPageModern = () => {
         subtitle="Track occupancy, renewals, and compliance so every lease stays on schedule."
         breadcrumbs={breadcrumbs}
       />
-      <div className="mb-4 text-sm text-gray-300">
-        Debug: {leases.length} leases loaded, loading: {loading ? 'true' : 'false'}
-      </div>
 
       {error && (
         <Card className="border-danger-200 bg-danger-50">
