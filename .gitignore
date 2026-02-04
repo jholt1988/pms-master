@@ -39,3 +39,6 @@ coverage/
 tenant_portal/
 wiki-repo-temp/
 wiki-repo/
+
+# generated docs
+docs/MVP_PLAN_AND_PRODUCT_OVERVIEW.html
