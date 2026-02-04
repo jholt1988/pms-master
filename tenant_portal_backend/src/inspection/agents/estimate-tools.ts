@@ -1,4 +1,6 @@
 import OpenAI from 'openai';
+import { getLaborRateForTrade } from '../pricing/labor-pricing.service';
+import { TradeCategory } from '../pricing/pricing.types';
 
 // Trade-specific depreciation rates (per year)
 export const DEPRECIATION_RATES = {
@@ -277,19 +279,6 @@ export class EstimateToolHandler {
 
   async handleLaborCost(args: any): Promise<any> {
     const { trade_category, hours_required, complexity = 'moderate' } = args;
-    
-    // Base rates for different trades (will be adjusted by location and complexity)
-    const baseRates = {
-      hvac: 85,
-      plumbing: 75,
-      electrical: 80,
-      carpentry: 65,
-      painter: 45,
-      roofing: 70,
-      flooring: 55,
-      landscaping: 35,
-      general: 60,
-    };
 
     const complexityMultipliers = {
       simple: 0.8,
@@ -297,16 +286,34 @@ export class EstimateToolHandler {
       complex: 1.3,
     };
 
-    const baseRate = baseRates[trade_category as keyof typeof baseRates] || baseRates.general;
-    const locationMultiplier = 1.0; // Could be enhanced with real location data
-    const complexityMultiplier = complexityMultipliers[complexity as keyof typeof complexityMultipliers];
+    const trade = (trade_category as TradeCategory) || 'general';
+    const rate = getLaborRateForTrade(trade, this.userLocation.city, this.userLocation.region);
 
-    const hourlyRate = baseRate * locationMultiplier * complexityMultiplier;
-    const totalCost = hourlyRate * hours_required;
+    // All-in rates already include overhead. Complexity adjusts the effective hourly rate.
+    const complexityMultiplier = complexityMultipliers[complexity as keyof typeof complexityMultipliers] ?? 1.0;
+
+    const hourlyRateLow = rate.allInLow * complexityMultiplier;
+    const hourlyRateHigh = rate.allInHigh * complexityMultiplier;
+
+    const totalLow = hourlyRateLow * hours_required;
+    const totalHigh = hourlyRateHigh * hours_required;
 
     return {
-      hourly_rate: Math.round(hourlyRate * 100) / 100,
-      total_labor_cost: Math.round(totalCost * 100) / 100,
+      region_key: rate.regionKey,
+      overhead_pct: rate.overheadPct,
+      base_hourly_rate_low: rate.baseLow,
+      base_hourly_rate_high: rate.baseHigh,
+
+      hourly_rate_low: Math.round(hourlyRateLow * 100) / 100,
+      hourly_rate_high: Math.round(hourlyRateHigh * 100) / 100,
+
+      total_labor_cost_low: Math.round(totalLow * 100) / 100,
+      total_labor_cost_high: Math.round(totalHigh * 100) / 100,
+
+      // Back-compat fields (midpoint)
+      hourly_rate: Math.round(((hourlyRateLow + hourlyRateHigh) / 2) * 100) / 100,
+      total_labor_cost: Math.round(((totalLow + totalHigh) / 2) * 100) / 100,
+
       hours: hours_required,
       trade: trade_category,
       complexity,
