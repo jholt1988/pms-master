@@ -57,6 +57,19 @@ Current UX risks / gaps to watch:
 
 Below: each feature area includes **MVP scope**, **what to ship**, and **acceptance criteria**.
 
+### 2.0 P0 Foundation: contract coherence (must-do before feature MVPs)
+These are the “looks built but breaks at runtime” issues. Fixing them early makes every other feature cheaper and more reliable.
+
+**P0 Contract Fixes (current known mismatches)**
+- **Inspections list response shape mismatch:** some UIs read `data.data`, while some APIs return `{ inspections, total }` (or other envelopes). Result: empty lists even when backend is working.
+- **Payments history endpoint mismatch:** tenant UI calls `/payments/history`, backend appears to expose `GET /payments` (and separate invoice routes). Result: tenant sees no history / broken flows.
+- **Messaging bulk resources bug:** messaging UI calls `apiFetch('/messaging/bulk')` but then treats the return value like a raw `Response` (`.ok`, `.json()`), even though `apiFetch` returns JSON. Result: bulk messaging panel can throw.
+
+**Acceptance criteria**
+- One standard response envelope across tenant-facing endpoints (e.g., `{ data, meta }`), and all consuming pages use the same shape.
+- One blessed inspections API surface (avoid `inspection/` vs `inspections/` duplication) used by both tenant + PM where applicable.
+- No tenant/PM nav link leads to 404/unauthorized due to incorrect routes.
+
 ### 2.1 Authentication + Roles (Tenant / PM / Admin)
 **MVP scope**
 - Secure login/logout, password reset, session persistence.
