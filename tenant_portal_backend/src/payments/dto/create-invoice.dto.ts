@@ -1,9 +1,11 @@
-import { IsDateString, IsNotEmpty, IsNumber, IsPositive, IsUUID } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsDateString, IsInt, IsNotEmpty, IsNumber, IsPositive } from 'class-validator';
 
 export class CreateInvoiceDto {
   @IsNotEmpty()
   description!: string;
 
+  @Type(() => Number)
   @IsNumber()
   @IsPositive()
   amount!: number;
@@ -11,6 +13,9 @@ export class CreateInvoiceDto {
   @IsDateString()
   dueDate!: string;
 
-  @IsUUID()
-  leaseId!: string;
+  // Lease IDs are Ints in the Prisma schema.
+  @Type(() => Number)
+  @IsInt()
+  @IsPositive()
+  leaseId!: number;
 }
