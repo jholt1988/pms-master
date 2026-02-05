@@ -26,7 +26,7 @@ import { ErrorCode } from '../common/errors/error-codes.enum';
 interface MaintenanceListFilters {
   status?: Status;
   priority?: MaintenancePriority;
-  propertyId?: number;
+  propertyId?: string;
   unitId?: number;
   assigneeId?: number;
   page?: number;
@@ -46,7 +46,7 @@ export class MaintenanceService {
 
   async create(userId: string, dto: CreateMaintenanceRequestDto): Promise<MaintenanceRequest> {
     // Resolve Property and Unit from User's Lease if not provided
-    let propertyId = dto.propertyId ? Number(dto.propertyId) : undefined;
+    let propertyId = dto.propertyId ?? undefined;
     let unitId = dto.unitId ? Number(dto.unitId) : undefined;
 
     if (propertyId == null || unitId == null) {
@@ -208,7 +208,7 @@ export class MaintenanceService {
       where.priority = priority;
     }
     if (propertyId !== undefined) {
-      where.propertyId = Number(propertyId);
+      where.propertyId = propertyId;
     }
     if (unitId !== undefined) {
       where.unitId = Number(unitId);
@@ -534,7 +534,7 @@ export class MaintenanceService {
     });
   }
 
-  async listAssets(propertyId?: number, unitId?: number): Promise<MaintenanceAsset[]> {
+  async listAssets(propertyId?: string, unitId?: number): Promise<MaintenanceAsset[]> {
     const where: Prisma.MaintenanceAssetWhereInput = {};
     if (propertyId !== undefined) {
       where.propertyId = propertyId;
@@ -564,7 +564,7 @@ export class MaintenanceService {
 
     return this.prisma.maintenanceAsset.create({
       data: {
-        property: { connect: { id: Number(data.propertyId) } },
+        property: { connect: { id: data.propertyId } },
         unit: data.unitId ? { connect: { id: Number(data.unitId) } } : undefined,
         name: data.name,
         category,
@@ -576,7 +576,7 @@ export class MaintenanceService {
     });
   }
 
-  async getSlaPolicies(propertyId?: number): Promise<MaintenanceSlaPolicy[]> {
+  async getSlaPolicies(propertyId?: string): Promise<MaintenanceSlaPolicy[]> {
     const where: Prisma.MaintenanceSlaPolicyWhereInput = {
       active: true,
     };
@@ -597,7 +597,7 @@ export class MaintenanceService {
   }
 
   private async computeSlaTargets(
-    propertyId: number | null,
+    propertyId: string | null,
     priority: MaintenancePriority,
   ): Promise<{ resolutionDueAt: Date | null; responseDueAt: Date | null; policyId: number | null }> {
     const policies = await this.getSlaPolicies(propertyId ?? undefined);

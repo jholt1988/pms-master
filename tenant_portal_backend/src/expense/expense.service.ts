@@ -9,9 +9,16 @@ export class ExpenseService {
 
   async createExpense(
     recordedById: string,
-    data: { propertyId: string | number; unitId?: string | number; description: string; amount: number; date: Date; category: ExpenseCategory },
+    data: {
+      propertyId: string;
+      unitId?: string | number;
+      description: string;
+      amount: number;
+      date: Date;
+      category: ExpenseCategory;
+    },
   ) {
-    const propertyId = this.parseNumericId(data.propertyId, 'property');
+    const propertyId = data.propertyId;
     const unitId = data.unitId ? this.parseNumericId(data.unitId, 'unit') : undefined;
     return this.prisma.expense.create({
       data: {
@@ -26,10 +33,10 @@ export class ExpenseService {
     });
   }
 
-  async getAllExpenses(propertyId?: string | number, unitId?: string | number, category?: ExpenseCategory) {
+  async getAllExpenses(propertyId?: string, unitId?: string | number, category?: ExpenseCategory) {
     const where: any = {};
     if (propertyId) {
-      where.propertyId = this.parseNumericId(propertyId, 'property');
+      where.propertyId = propertyId;
     }
     if (unitId) {
       where.unitId = this.parseNumericId(unitId, 'unit');
@@ -47,12 +54,16 @@ export class ExpenseService {
 
   async updateExpense(
     id: number,
-    data: { propertyId?: string; unitId?: string; description?: string; amount?: number; date?: Date; category?: ExpenseCategory },
+    data: {
+      propertyId?: string;
+      unitId?: string | number;
+      description?: string;
+      amount?: number;
+      date?: Date;
+      category?: ExpenseCategory;
+    },
   ) {
     const updateData: any = { ...data };
-    if (data.propertyId) {
-      updateData.propertyId = this.parseNumericId(data.propertyId, 'property');
-    }
     if (data.unitId) {
       updateData.unitId = this.parseNumericId(data.unitId, 'unit');
     }

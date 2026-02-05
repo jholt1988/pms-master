@@ -1,4 +1,4 @@
-import { IsEnum, IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import { MaintenancePriority } from '@prisma/client';
 
 export class CreateMaintenanceRequestDto {
@@ -14,8 +14,8 @@ export class CreateMaintenanceRequestDto {
   priority?: MaintenancePriority;
 
   @IsOptional()
-  @IsInt()
-  propertyId?: number;
+  @IsUUID()
+  propertyId?: string;
 
   @IsOptional()
   @IsInt()

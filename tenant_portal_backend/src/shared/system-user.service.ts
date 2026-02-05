@@ -21,6 +21,10 @@ export class SystemUserService implements OnModuleInit {
    * Initialize system user on module startup
    */
   async onModuleInit() {
+    if (process.env.ALLOW_NO_DB === 'true') {
+      this.logger.warn('ALLOW_NO_DB=true; skipping system user bootstrap (DB not required for route inspection).');
+      return;
+    }
     await this.ensureSystemUser();
   }
 

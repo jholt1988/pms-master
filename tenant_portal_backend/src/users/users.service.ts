@@ -90,12 +90,26 @@ export class UsersService {
       data.password = await bcrypt.hash(data.password, this.saltRounds);
     }
 
-    if (typeof data.email === 'string' || data.email === null) {
-      data.email = normalizeEmail(data.email);
+    // Prisma update inputs can be either a raw scalar/null OR an operation object like `{ set: ... }`.
+    // Normalize both forms so strict TS compilation stays happy.
+    {
+      const email = data.email;
+      if (typeof email === 'string' || email === null) {
+        data.email = normalizeEmail(email as string);
+      } else if (typeof email === 'object' && email && 'set' in email) {
+        const op = email as { set?: string | null };
+        data.email = { ...(email as any), set: normalizeEmail(op.set) };
+      }
     }
 
-    if (typeof data.phoneNumber === 'string' || data.phoneNumber === null) {
-      data.phoneNumber = normalizePhone(data.phoneNumber);
+    {
+      const phoneNumber = data.phoneNumber;
+      if (typeof phoneNumber === 'string' || phoneNumber === null) {
+        data.phoneNumber = normalizePhone(phoneNumber as string);
+      } else if (typeof phoneNumber === 'object' && phoneNumber && 'set' in phoneNumber) {
+        const op = phoneNumber as { set?: string | null };
+        data.phoneNumber = { ...(phoneNumber as any), set: normalizePhone(op.set) };
+      }
     }
 
     return this.prisma.user.update({ where: { id }, data });

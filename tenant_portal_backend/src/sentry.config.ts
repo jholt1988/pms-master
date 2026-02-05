@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/nestjs';
-import type { Integration } from '@sentry/types';
+import type { Integration } from '@sentry/core';
 
 function getProfilingIntegration(): Integration | undefined {
   if (process.env.SENTRY_PROFILING !== 'true') {

@@ -126,9 +126,8 @@ export class MaintenanceController {
   @Get('assets')
   @Roles(Role.PROPERTY_MANAGER)
   listAssets(@Query('propertyId') propertyId?: string, @Query('unitId') unitId?: string) {
-    const parsedPropertyId = this.parseOptionalNumber(propertyId, 'propertyId');
     const parsedUnitId = this.parseOptionalNumber(unitId, 'unitId');
-    return this.maintenanceService.listAssets(parsedPropertyId, parsedUnitId);
+    return this.maintenanceService.listAssets(propertyId, parsedUnitId);
   }
 
   @Post('assets')
@@ -152,8 +151,7 @@ export class MaintenanceController {
   @Get('sla-policies')
   @Roles(Role.PROPERTY_MANAGER)
   getSlaPolicies(@Query('propertyId') propertyId?: string) {
-    const parsedPropertyId = this.parseOptionalNumber(propertyId, 'propertyId');
-    return this.maintenanceService.getSlaPolicies(parsedPropertyId);
+    return this.maintenanceService.getSlaPolicies(propertyId);
   }
 
   private parseManagerFilters(query: Record<string, string | undefined>): ManagerFilters {
@@ -169,7 +167,7 @@ export class MaintenanceController {
       filters.priority = priority;
     }
 
-    const propertyId = this.parseOptionalNumber(query.propertyId, 'propertyId');
+    const propertyId = query.propertyId;
     if (propertyId !== undefined) {
       filters.propertyId = propertyId;
     }

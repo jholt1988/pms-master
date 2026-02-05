@@ -3,10 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "main": "src/index.ts",
-
   "scripts": {
     "start": "ts-node --transpile-only src/index.ts",
-    "start:check": "ts-node src/index.ts",
+    "start:check": "ts-node --transpile-only src/index.ts",
     "seed:check": "ts-node scripts/check-seed-coverage.ts",
     "seed:missing": "ts-node scripts/seed-missing.ts",
     "build": "tsc --ignoreDeprecations 6.0",

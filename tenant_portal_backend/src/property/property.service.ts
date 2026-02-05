@@ -68,7 +68,8 @@ export class PropertyService {
     try {
       return await this.prisma.property.create({
         data: {
-          ...dto,
+          // Multi-tenant scope
+          organization: { connect: { id: dto.organizationId } },
           name: dto.name,
           address: normalizeAddressField(dto.address),
           city: normalizeAddressField(dto.city),

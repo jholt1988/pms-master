@@ -58,7 +58,7 @@ export class DocumentsService {
         })()),
       ...(data.propertyId &&
         (() => {
-          const propertyId = this.parseNumericId(data.propertyId, 'property');
+          const propertyId = data.propertyId;
           return { property: { connect: { id: propertyId } } };
         })()),
       },
@@ -100,7 +100,7 @@ export class DocumentsService {
           })()),
         ...(params.propertyId &&
           (() => {
-            const propertyId = this.parseNumericId(params.propertyId, 'property');
+            const propertyId = params.propertyId;
             return { property: { connect: { id: propertyId } } };
           })()),
       },
@@ -154,7 +154,7 @@ export class DocumentsService {
       }),
       ...(filters.category && { category: filters.category }),
       ...(filters.leaseId && { leaseId: this.parseNumericId(filters.leaseId, 'lease') }),
-      ...(filters.propertyId && { propertyId: this.parseNumericId(filters.propertyId, 'property') }),
+      ...(filters.propertyId && { propertyId: filters.propertyId }),
     };
 
     const [documents, total] = await Promise.all([

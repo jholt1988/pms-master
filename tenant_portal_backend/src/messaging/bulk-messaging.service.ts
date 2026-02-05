@@ -368,8 +368,7 @@ export class BulkMessagingService {
       });
     }
 
-    const normalizedPropertyIds =
-      filters?.propertyIds?.map((id) => Number(id)).filter(Number.isFinite) ?? [];
+    const normalizedPropertyIds = filters?.propertyIds?.map(String).filter((id) => id.length > 0) ?? [];
     if (normalizedPropertyIds.length || filters?.leaseStatuses?.length) {
       const leaseFilter: Prisma.LeaseWhereInput = {};
       if (normalizedPropertyIds.length) {

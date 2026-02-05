@@ -7,7 +7,7 @@ export class ReportingService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getRentRoll(filters?: { propertyId?: string; status?: LeaseStatus }) {
-    const propertyId = filters?.propertyId ? this.parseNumericId(filters.propertyId, 'property') : undefined;
+    const propertyId = filters?.propertyId;
     const leases = await this.prisma.lease.findMany({
       where: {
         ...(propertyId && { unit: { propertyId } }),
@@ -63,7 +63,7 @@ export class ReportingService {
   async getProfitAndLoss(filters?: { propertyId?: string; startDate?: Date; endDate?: Date }) {
     const startDate = filters?.startDate || new Date(new Date().getFullYear(), 0, 1);
     const endDate = filters?.endDate || new Date();
-    const propertyId = filters?.propertyId ? this.parseNumericId(filters.propertyId, 'property') : undefined;
+    const propertyId = filters?.propertyId;
 
     // Get income (rent payments)
     const payments = await this.prisma.payment.findMany({
@@ -149,7 +149,7 @@ export class ReportingService {
   async getMaintenanceResolutionAnalytics(filters?: { propertyId?: string; startDate?: Date; endDate?: Date }) {
     const startDate = filters?.startDate || new Date(new Date().getFullYear(), 0, 1);
     const endDate = filters?.endDate || new Date();
-    const propertyId = filters?.propertyId ? this.parseNumericId(filters.propertyId, 'property') : undefined;
+    const propertyId = filters?.propertyId;
 
     const requests = await this.prisma.maintenanceRequest.findMany({
       where: {
@@ -214,7 +214,7 @@ export class ReportingService {
   }
 
   async getVacancyRate(filters?: { propertyId?: string }) {
-    const propertyId = filters?.propertyId ? this.parseNumericId(filters.propertyId, 'property') : undefined;
+    const propertyId = filters?.propertyId;
     const properties = await this.prisma.property.findMany({
       where: propertyId ? { id: propertyId } : undefined,
       include: {
@@ -248,7 +248,7 @@ export class ReportingService {
   async getPaymentHistory(filters?: { userId?: string; propertyId?: string; startDate?: Date; endDate?: Date }) {
     const startDate = filters?.startDate || new Date(new Date().getFullYear(), 0, 1);
     const endDate = filters?.endDate || new Date();
-    const propertyId = filters?.propertyId ? this.parseNumericId(filters.propertyId, 'property') : undefined;
+    const propertyId = filters?.propertyId;
 
     const payments = await this.prisma.payment.findMany({
       where: {
@@ -299,26 +299,18 @@ export class ReportingService {
   }
 
   async logSyndicationError(input: {
-    propertyId: string | number;
+    propertyId: string;
     channel: SyndicationChannel;
     error: string;
     context?: unknown;
   }) {
     await this.prisma.syndicationErrorLog.create({
       data: {
-        propertyId: this.parseNumericId(input.propertyId, 'property'),
+        propertyId: input.propertyId,
         channel: input.channel,
         error: input.error,
         context: input.context ? (input.context as object) : undefined,
       },
     });
-  }
-
-  private parseNumericId(value: string | number, field: string): number {
-    const normalized = typeof value === 'string' ? Number(value) : value;
-    if (!Number.isFinite(normalized) || !Number.isInteger(normalized)) {
-      throw new BadRequestException(`Invalid ${field} identifier provided.`);
-    }
-    return normalized;
   }
 }

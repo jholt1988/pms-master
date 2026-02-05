@@ -28,7 +28,21 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   async onModuleInit() {
-    await this.$connect();
+    try {
+      await this.$connect();
+    } catch (error) {
+      // Dev convenience: allow the app to boot for route inspection/docs even if DB isn’t reachable.
+      // Set ALLOW_NO_DB=true to opt into this behavior.
+      if (process.env.ALLOW_NO_DB === 'true') {
+        this.logger.warn(
+          `Prisma failed to connect (ALLOW_NO_DB=true so continuing). Error: ${
+            (error as any)?.message ?? String(error)
+          }`,
+        );
+        return;
+      }
+      throw error;
+    }
   }
 
   async onModuleDestroy() {

@@ -26,12 +26,15 @@ export interface SetupPaymentMethodDto {
 export class StripeService {
   private readonly logger = new Logger(StripeService.name);
   private readonly stripe?: Stripe;
-  private readonly isStripeDisabled =
+  private isStripeDisabled =
     process.env.DISABLE_STRIPE === 'true' || process.env.NODE_ENV === 'test';
 
   constructor(private readonly prisma: PrismaService) {
+    // In development we want the backend to boot even if Stripe isn’t configured yet.
+    // Treat missing STRIPE_SECRET_KEY as "Stripe disabled" instead of a hard crash.
     if (!this.isStripeDisabled && !process.env.STRIPE_SECRET_KEY) {
-      throw new Error('STRIPE_SECRET_KEY environment variable is required');
+      this.isStripeDisabled = true;
+      this.logger.warn('STRIPE_SECRET_KEY not set; disabling Stripe integration for this run.');
     }
 
     if (!this.isStripeDisabled) {
