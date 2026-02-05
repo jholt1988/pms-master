@@ -38,7 +38,9 @@ interface AuthenticatedRequest extends Request {
   };
 }
 
-@Controller('inspections')
+// Legacy inspections API (v1). Kept for backwards compatibility during consolidation.
+// Prefer /api/inspections from src/inspection/* going forward.
+@Controller('inspections-legacy')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class InspectionsController {
   private readonly uploadDir = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads', 'inspections');
