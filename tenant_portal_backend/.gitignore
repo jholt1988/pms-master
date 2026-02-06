@@ -8,3 +8,9 @@ test-results/
 *.test-results
 
 /generated/prisma
+
+# Local logs + generated reports
+logs/
+smoke-report.*.json
+scenario-report.*.json
+.env

@@ -13,6 +13,12 @@ EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;
 
+DO $$ BEGIN
+  CREATE TYPE "SeverityLevel" AS ENUM ('LOW', 'MED', 'HIGH', 'EMERGENCY');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
+
 -- Add columns
 ALTER TABLE "InspectionChecklistItem"
   ADD COLUMN IF NOT EXISTS "issueType" "InspectionIssueType",
