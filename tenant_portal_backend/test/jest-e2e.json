@@ -3,7 +3,7 @@
   "rootDir": "..",
   "testRegex": ".*\\.e2e\\.spec\\.ts$",
   "transform": {
-    "^.+\\.(t|j)s$": "ts-jest"
+    "^.+\\.(t|j)s$": ["ts-jest", { "isolatedModules": true, "diagnostics": false }]
   },
   "setupFilesAfterEnv": ["<rootDir>/test/setup.ts"],
   "testEnvironment": "node",

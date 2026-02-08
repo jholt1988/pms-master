@@ -14,6 +14,7 @@ describe('Maintenance API (e2e)', () => {
   let propertyManagerToken: string;
   let tenantUser: any;
   let propertyManager: any;
+  let organization: any;
   let property: any;
   let unit: any;
   let lease: any;
@@ -59,9 +60,22 @@ describe('Maintenance API (e2e)', () => {
       .send({ username: 'pm@test.com', password: 'password123' });
     propertyManagerToken = pmLogin.body.access_token || pmLogin.body.accessToken;
 
+    // Create organization + membership (single-org mode)
+    organization = await prisma.organization.create({
+      data: { name: 'Test Org' },
+    });
+
+    await prisma.userOrganization.create({
+      data: {
+        userId: propertyManager.id,
+        organizationId: organization.id,
+        role: 'ADMIN',
+      },
+    });
+
     // Create property, unit, and lease
     property = await prisma.property.create({
-      data: TestDataFactory.createProperty(),
+      data: TestDataFactory.createProperty({ organizationId: organization.id }),
     });
 
     unit = await prisma.unit.create({
@@ -84,7 +98,7 @@ describe('Maintenance API (e2e)', () => {
         .post('/maintenance')
         .set('Authorization', `Bearer ${tenantToken}`)
         .send({
-          unitId: unit.id,
+          // unitId/propertyId are derived from tenant lease; client-supplied values are ignored
           title: 'Leaky faucet',
           description: 'Kitchen faucet is leaking',
           priority: MaintenancePriority.MEDIUM,
@@ -101,7 +115,6 @@ describe('Maintenance API (e2e)', () => {
       await request(app.getHttpServer())
         .post('/maintenance')
         .send({
-          unitId: unit.id,
           title: 'Test',
           description: 'Test description',
         })
@@ -114,7 +127,7 @@ describe('Maintenance API (e2e)', () => {
         .set('Authorization', `Bearer ${tenantToken}`)
         .send({
           title: 'Test',
-          // Missing description and unitId
+          // Missing description
         })
         .expect(400);
     });
@@ -144,9 +157,10 @@ describe('Maintenance API (e2e)', () => {
         .set('Authorization', `Bearer ${tenantToken}`)
         .expect(200);
 
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body.length).toBeGreaterThan(0);
-      expect(response.body[0]).toHaveProperty('id');
+      expect(response.body).toHaveProperty('items');
+      expect(Array.isArray(response.body.items)).toBe(true);
+      expect(response.body.items.length).toBeGreaterThan(0);
+      expect(response.body.items[0]).toHaveProperty('id');
     });
 
     it('should get all maintenance requests for property manager', async () => {
@@ -155,7 +169,8 @@ describe('Maintenance API (e2e)', () => {
         .set('Authorization', `Bearer ${propertyManagerToken}`)
         .expect(200);
 
-      expect(Array.isArray(response.body)).toBe(true);
+      expect(response.body).toHaveProperty('items');
+      expect(Array.isArray(response.body.items)).toBe(true);
     });
 
     it('should filter by status', async () => {
@@ -164,7 +179,7 @@ describe('Maintenance API (e2e)', () => {
         .set('Authorization', `Bearer ${tenantToken}`)
         .expect(200);
 
-      response.body.forEach((req: any) => {
+      response.body.items.forEach((req: any) => {
         expect(req.status).toBe(Status.PENDING);
       });
     });

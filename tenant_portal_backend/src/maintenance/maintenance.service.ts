@@ -241,7 +241,7 @@ export class MaintenanceService {
     return request;
   }
 
-  async findById(id: string | number): Promise<MaintenanceRequest> {
+  async findById(id: string | number): Promise<Prisma.MaintenanceRequestGetPayload<{ include: Prisma.MaintenanceRequestInclude }>> {
     const requestId = this.toRequestId(id);
     const request = await this.prisma.maintenanceRequest.findUnique({
       where: { id: requestId },
@@ -323,6 +323,9 @@ export class MaintenanceService {
       propertyId,
       unitId,
       assigneeId,
+      unassigned,
+      overdue,
+      dueSoonHours,
       page = 1,
       pageSize = 25,
     } = filters;

@@ -1,9 +1,13 @@
 import { OrgRole, Role } from '@prisma/client';
 
 export interface AuthUser {
-  userId: string;
-  username: string;
-  role: Role;
+  // Some parts of the codebase use { userId, role, username }
+  userId?: string;
+  role?: Role | string;
+  username?: string;
+
+  // Other parts (e.g., legacy controllers/tests) still reference JWT-style { sub, username }
+  sub?: string | number;
 }
 
 export interface OrgContext {
