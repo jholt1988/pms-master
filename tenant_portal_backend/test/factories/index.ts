@@ -96,14 +96,14 @@ export class TestDataFactory {
    */
   static createUnit(
     propertyId:
-      | number
-      | { propertyId?: number; id?: number } & Record<string, any>,
+      | string
+      | { propertyId?: string; id?: string } & Record<string, any>,
     overrides: any = {},
   ) {
-    const isPrimitiveId = typeof propertyId === 'number';
+    const isPrimitiveId = typeof propertyId === 'string';
     const baseOverrides = isPrimitiveId ? overrides : propertyId;
     const resolvedPropertyId =
-      typeof propertyId === 'number'
+      typeof propertyId === 'string'
         ? propertyId
         : propertyId.propertyId ?? propertyId.id;
 
