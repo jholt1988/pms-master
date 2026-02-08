@@ -193,11 +193,15 @@ export class MaintenanceService {
     return request;
   }
 
-  async findAllForTenant(userId: string): Promise<MaintenanceRequest[]> {
-    const lease = await this.prisma.lease.findUnique({
+  async getLeaseForTenant(userId: string): Promise<{ id: number } | null> {
+    return this.prisma.lease.findUnique({
       where: { tenantId: userId },
       select: { id: true },
     });
+  }
+
+  async findAllForTenant(userId: string): Promise<MaintenanceRequest[]> {
+    const lease = await this.getLeaseForTenant(userId);
 
     if (!lease) {
       return [];

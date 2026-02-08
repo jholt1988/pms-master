@@ -59,8 +59,10 @@ export class MaintenanceController {
     const request = await this.maintenanceService.findById(id);
 
     if (req.user.role === Role.TENANT) {
-      // Verify access: tenants can only see their own requests
-      if (request.authorId !== req.user.userId) {
+      // Verify access: tenants can only see requests tied to their current lease.
+      // This allows tenants to see PM-created requests for their unit/lease too.
+      const lease = await this.maintenanceService.getLeaseForTenant(req.user.userId);
+      if (!lease || request.leaseId !== lease.id) {
         throw ApiException.forbidden(
           ErrorCode.AUTH_FORBIDDEN,
           'You do not have access to this maintenance request',
