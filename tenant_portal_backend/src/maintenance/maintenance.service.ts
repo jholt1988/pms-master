@@ -20,6 +20,7 @@ import { UpdateMaintenanceStatusDto } from './dto/update-maintenance-status.dto'
 import { AssignTechnicianDto } from './dto/assign-technician.dto';
 import { AddMaintenanceNoteDto } from './dto/add-maintenance-note.dto';
 import { AddMaintenancePhotoDto } from './dto/add-maintenance-photo.dto';
+import { ConfirmMaintenanceCompleteDto } from './dto/confirm-maintenance-complete.dto';
 import { AIMaintenanceService } from './ai-maintenance.service';
 import { SystemUserService } from '../shared/system-user.service';
 import { AIMaintenanceMetricsService } from './ai-maintenance-metrics.service';
@@ -823,6 +824,52 @@ export class MaintenanceService {
 
     await this.assertRequestInOrg(requestId, orgId);
     return this.addPhoto(requestId, dto, uploadedById);
+  }
+
+  async confirmCompleteScoped(
+    requestId: string | number,
+    tenantId: string,
+    dto: ConfirmMaintenanceCompleteDto,
+  ): Promise<MaintenanceRequest> {
+    await this.assertRequestInTenantLease(requestId, tenantId);
+
+    const numericRequestId = this.toRequestId(requestId);
+    const req = await this.prisma.maintenanceRequest.findUnique({
+      where: { id: numericRequestId },
+      include: this.defaultRequestInclude,
+    });
+
+    if (!req) {
+      throw ApiException.notFound(
+        ErrorCode.MAINTENANCE_REQUEST_NOT_FOUND,
+        'Maintenance request not found',
+        { requestId },
+      );
+    }
+
+    if (req.status !== Status.COMPLETED) {
+      throw ApiException.badRequest(
+        ErrorCode.VALIDATION_INVALID_INPUT,
+        'This request must be marked completed by the property manager before you can confirm it',
+        { requestId: numericRequestId, status: req.status },
+      );
+    }
+
+    const note = dto.note?.trim() ? `Tenant confirmed completion: ${dto.note.trim()}` : 'Tenant confirmed completion';
+
+    await this.recordHistory(numericRequestId, {
+      changedById: tenantId,
+      note,
+      fromStatus: req.status,
+      toStatus: req.status,
+      fromAssignee: req.assigneeId ?? undefined,
+      toAssignee: req.assigneeId ?? undefined,
+    });
+
+    await this.addNote(numericRequestId, { body: note }, tenantId);
+
+    // Return fresh copy
+    return this.findById(numericRequestId);
   }
 
   async listTechnicians(): Promise<Technician[]> {

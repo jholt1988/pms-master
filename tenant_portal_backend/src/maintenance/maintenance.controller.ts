@@ -10,6 +10,7 @@ import { UpdateMaintenanceStatusDto } from './dto/update-maintenance-status.dto'
 import { AssignTechnicianDto } from './dto/assign-technician.dto';
 import { AddMaintenanceNoteDto } from './dto/add-maintenance-note.dto';
 import { AddMaintenancePhotoDto } from './dto/add-maintenance-photo.dto';
+import { ConfirmMaintenanceCompleteDto } from './dto/confirm-maintenance-complete.dto';
 import { ApiException } from '../common/errors';
 import { ErrorCode } from '../common/errors/error-codes.enum';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
@@ -184,25 +185,6 @@ export class MaintenanceController {
     @Body() dto: AddMaintenancePhotoDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    const request = await this.maintenanceService.findById(id);
-
-    if (req.user.role === Role.TENANT) {
-      const lease = await this.maintenanceService.getLeaseForTenant(req.user.userId);
-      if (!lease || request.leaseId !== lease.id) {
-        throw ApiException.forbidden(
-          ErrorCode.AUTH_FORBIDDEN,
-          'You do not have access to this maintenance request',
-          { userId: req.user.userId, requestId: id },
-        );
-      }
-      return this.maintenanceService.addPhotoScoped(
-        id,
-        dto,
-        req.user.userId,
-        req.user.role,
-      );
-    }
-
     const orgId = (req as any).org?.orgId as string | undefined;
     return this.maintenanceService.addPhotoScoped(
       id,
@@ -211,6 +193,16 @@ export class MaintenanceController {
       req.user.role,
       orgId,
     );
+  }
+
+  @Post(':id/confirm-complete')
+  @Roles(Role.TENANT)
+  async confirmComplete(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ConfirmMaintenanceCompleteDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.maintenanceService.confirmCompleteScoped(id, req.user.userId, dto);
   }
 
   @Get('technicians')
