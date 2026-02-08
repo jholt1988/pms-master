@@ -4,6 +4,7 @@ import {
   MaintenanceAsset,
   MaintenanceAssetCategory,
   MaintenanceNote,
+  MaintenancePhoto,
   MaintenancePriority,
   MaintenanceRequest,
   MaintenanceRequestHistory,
@@ -18,6 +19,7 @@ import { CreateMaintenanceRequestDto } from './dto/create-maintenance-request.dt
 import { UpdateMaintenanceStatusDto } from './dto/update-maintenance-status.dto';
 import { AssignTechnicianDto } from './dto/assign-technician.dto';
 import { AddMaintenanceNoteDto } from './dto/add-maintenance-note.dto';
+import { AddMaintenancePhotoDto } from './dto/add-maintenance-photo.dto';
 import { AIMaintenanceService } from './ai-maintenance.service';
 import { SystemUserService } from '../shared/system-user.service';
 import { AIMaintenanceMetricsService } from './ai-maintenance-metrics.service';
@@ -45,20 +47,80 @@ export class MaintenanceService {
     private readonly aiMetrics?: AIMaintenanceMetricsService,
   ) { }
 
+  /**
+   * Create a maintenance request.
+   *
+   * Backward compatibility:
+   * - Older call sites/tests call create(userId, dto). We still support that signature.
+   *
+   * New behavior:
+   * - Tenant requests ALWAYS attach to { leaseId, unitId, propertyId } from current lease.
+   * - PM/Admin may provide propertyId/unitId; if orgId is provided, enforce org scope.
+   */
   async create(
     userId: string,
-    role: Role,
-    dto: CreateMaintenanceRequestDto,
+    roleOrDto: Role | CreateMaintenanceRequestDto,
+    dtoMaybe?: CreateMaintenanceRequestDto,
     orgId?: string,
   ): Promise<MaintenanceRequest> {
+    let role: Role;
+    let dto: CreateMaintenanceRequestDto;
+
+    // Legacy signature: create(userId, dto)
+    if (typeof roleOrDto === 'object') {
+      role = Role.TENANT;
+      dto = roleOrDto;
+    } else {
+      role = roleOrDto;
+      dto = dtoMaybe as CreateMaintenanceRequestDto;
+    }
+
     // Tenant rule: ALWAYS derive leaseId + unitId + propertyId from the tenant's current lease.
     // PM/Admin rule: may supply propertyId/unitId; if orgId is present, enforce property org scope.
+    // Legacy signature uses the old "derive from user->lease include" behavior.
 
     let leaseId: number | undefined;
     let propertyId: string | undefined;
     let unitId: number | undefined;
 
-    if (role === Role.TENANT) {
+    if (typeof roleOrDto === 'object') {
+      // Old behavior: resolve Property + Unit from User's Lease if not provided.
+      propertyId = dto.propertyId ?? undefined;
+      unitId = dto.unitId ? Number(dto.unitId) : undefined;
+
+      if (propertyId == null || unitId == null) {
+        const userLookup = this.prisma.user?.findUnique ?? this.prisma.user?.findFirst;
+        if (userLookup) {
+          type UserWithLease = Prisma.UserGetPayload<{
+            include: {
+              lease: {
+                include: {
+                  unit: true;
+                };
+              };
+            };
+          } | null>;
+
+          const userWithLease = (await userLookup.call(this.prisma.user, {
+            where: { id: userId },
+            include: {
+              lease: {
+                include: { unit: true },
+              },
+            },
+          })) as UserWithLease;
+
+          if (userWithLease?.lease) {
+            if (unitId == null) {
+              unitId = userWithLease.lease.unitId;
+            }
+            if (propertyId == null) {
+              propertyId = userWithLease.lease.unit.propertyId;
+            }
+          }
+        }
+      }
+    } else if (role === Role.TENANT) {
       const lease = await this.prisma.lease.findUnique({
         where: { tenantId: userId },
         include: { unit: { select: { id: true, propertyId: true } } },
@@ -558,19 +620,17 @@ export class MaintenanceService {
 
     // Record history using system user
     const systemUserId = await this.systemUserService.getSystemUserId();
-    const systemUserIdStr = typeof systemUserId === 'string' ? systemUserId : String(systemUserId);
     await this.recordHistory(requestId, {
       fromStatus: existing.status,
       toStatus: updated.status,
       note: escalationNote,
-      changedById: systemUserIdStr,
+      changedById: typeof systemUserId === 'string' ? systemUserId : String(systemUserId),
     });
 
     // Add a note about the escalation using system user
     try {
       const systemUserId = await this.systemUserService.getSystemUserId();
-      const systemUserIdStr = typeof systemUserId === 'string' ? systemUserId : String(systemUserId);
-      await this.addNote(requestId, { body: escalationNote }, systemUserIdStr);
+      await this.addNote(requestId, { body: escalationNote }, systemUserId as any);
     } catch (error) {
       // If note creation fails, log but don't fail the escalation
       this.logger.warn(`Failed to add escalation note for request ${requestId}:`, error);
@@ -586,19 +646,38 @@ export class MaintenanceService {
   async addNote(
     requestId: string | number,
     dto: AddMaintenanceNoteDto,
-    authorId: string,
+    authorId: string | number,
   ): Promise<MaintenanceNote> {
     const numericRequestId = this.toRequestId(requestId);
     const note = await this.prisma.maintenanceNote.create({
       data: {
         request: { connect: { id: numericRequestId } },
-        author: { connect: { id: authorId } },
+        author: { connect: { id: authorId as any } },
         body: dto.body,
       },
       include: { author: true },
     });
 
     return note;
+  }
+
+  async addPhoto(
+    requestId: string | number,
+    dto: AddMaintenancePhotoDto,
+    uploadedById: string | number,
+  ): Promise<MaintenancePhoto> {
+    const numericRequestId = this.toRequestId(requestId);
+    const photo = await this.prisma.maintenancePhoto.create({
+      data: {
+        request: { connect: { id: numericRequestId } },
+        uploadedBy: { connect: { id: uploadedById as any } },
+        url: dto.url,
+        caption: dto.caption,
+      },
+      include: { uploadedBy: true },
+    });
+
+    return photo;
   }
 
   async listTechnicians(): Promise<Technician[]> {
@@ -710,6 +789,10 @@ export class MaintenanceService {
       slaPolicy: true,
       notes: {
         include: { author: true },
+        orderBy: { createdAt: 'desc' },
+      },
+      photos: {
+        include: { uploadedBy: true },
         orderBy: { createdAt: 'desc' },
       },
       history: {

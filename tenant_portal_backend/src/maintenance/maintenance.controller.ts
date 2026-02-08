@@ -9,6 +9,7 @@ import { CreateMaintenanceRequestDto } from './dto/create-maintenance-request.dt
 import { UpdateMaintenanceStatusDto } from './dto/update-maintenance-status.dto';
 import { AssignTechnicianDto } from './dto/assign-technician.dto';
 import { AddMaintenanceNoteDto } from './dto/add-maintenance-note.dto';
+import { AddMaintenancePhotoDto } from './dto/add-maintenance-photo.dto';
 import { ApiException } from '../common/errors';
 import { ErrorCode } from '../common/errors/error-codes.enum';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
@@ -94,10 +95,19 @@ export class MaintenanceController {
   @Patch(':id/status')
   @Roles(Role.PROPERTY_MANAGER)
   async updateStatus(
-      @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIntPipe) id: number,
     @Body() updateStatusDto: UpdateMaintenanceStatusDto,
     @Request() req: AuthenticatedRequest,
   ) {
+    const request = await this.maintenanceService.findById(id);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    if (!orgId || request.property?.organizationId !== orgId) {
+      throw ApiException.forbidden(
+        ErrorCode.AUTH_FORBIDDEN,
+        'You do not have access to this maintenance request',
+        { userId: req.user.userId, requestId: id, orgId },
+      );
+    }
     return this.maintenanceService.updateStatus(id, updateStatusDto, req.user.userId);
   }
 
@@ -114,10 +124,19 @@ export class MaintenanceController {
   @Patch(':id/assign')
   @Roles(Role.PROPERTY_MANAGER)
   async assignTechnician(
-      @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: AssignTechnicianDto,
     @Request() req: AuthenticatedRequest,
   ) {
+    const request = await this.maintenanceService.findById(id);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    if (!orgId || request.property?.organizationId !== orgId) {
+      throw ApiException.forbidden(
+        ErrorCode.AUTH_FORBIDDEN,
+        'You do not have access to this maintenance request',
+        { userId: req.user.userId, requestId: id, orgId },
+      );
+    }
     return this.maintenanceService.assignTechnician(id, dto, req.user.userId);
   }
 
@@ -151,6 +170,38 @@ export class MaintenanceController {
     }
 
     return this.maintenanceService.addNote(id, dto, req.user.userId);
+  }
+
+  @Post(':id/photos')
+  async addPhoto(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: AddMaintenancePhotoDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const request = await this.maintenanceService.findById(id);
+
+    if (req.user.role === Role.TENANT) {
+      const lease = await this.maintenanceService.getLeaseForTenant(req.user.userId);
+      if (!lease || request.leaseId !== lease.id) {
+        throw ApiException.forbidden(
+          ErrorCode.AUTH_FORBIDDEN,
+          'You do not have access to this maintenance request',
+          { userId: req.user.userId, requestId: id },
+        );
+      }
+      return this.maintenanceService.addPhoto(id, dto, req.user.userId);
+    }
+
+    const orgId = (req as any).org?.orgId as string | undefined;
+    if (!orgId || request.property?.organizationId !== orgId) {
+      throw ApiException.forbidden(
+        ErrorCode.AUTH_FORBIDDEN,
+        'You do not have access to this maintenance request',
+        { userId: req.user.userId, requestId: id, orgId },
+      );
+    }
+
+    return this.maintenanceService.addPhoto(id, dto, req.user.userId);
   }
 
   @Get('technicians')
