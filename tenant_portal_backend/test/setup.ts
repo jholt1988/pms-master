@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { execFileSync, execSync } from 'child_process';
 import { join } from 'path';
 import type { PrismaClient } from '@prisma/client';
 import { resetDatabase } from './utils/reset-database';
@@ -57,10 +57,28 @@ const shouldApplyMigrations = isE2ETest && process.env.SKIP_TEST_MIGRATIONS !== 
 if (shouldApplyMigrations) {
   try {
     // Make sure schema exists (Postgres only). Prisma will use the schema= param.
-    execSync(
-      `node -e "const {Client}=require('pg');(async()=>{const c=new Client({connectionString:process.env.DATABASE_URL});await c.connect();const schema=new URL(process.env.DATABASE_URL).searchParams.get('schema')||'public';await c.query('CREATE SCHEMA IF NOT EXISTS "'+schema.replace(/\"/g,'')+'"');await c.end();})().catch(e=>{console.error(e);process.exit(1);});"`,
-      { stdio: 'inherit', env: { ...process.env } },
-    );
+    const ensureSchemaScript = `
+      const { Client } = require('pg');
+      (async () => {
+        const url = process.env.DATABASE_URL;
+        const u = new URL(url);
+        const sslMode = (u.searchParams.get('sslmode') || '').toLowerCase();
+        const ssl = sslMode ? { rejectUnauthorized: false } : undefined;
+        const c = new Client({ connectionString: url, ssl });
+        await c.connect();
+        const schema = (u.searchParams.get('schema') || 'public').replace(/\"/g, '');
+        await c.query('CREATE SCHEMA IF NOT EXISTS "' + schema + '"');
+        await c.end();
+      })().catch((e) => {
+        console.error(e);
+        process.exit(1);
+      });
+    `;
+
+    execFileSync('node', ['-e', ensureSchemaScript], {
+      stdio: 'inherit',
+      env: { ...process.env },
+    });
 
     execSync('npx prisma migrate deploy', {
       stdio: 'inherit',
