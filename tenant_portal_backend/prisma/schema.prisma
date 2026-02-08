@@ -8,90 +8,9 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL")
 }
 
-// --- Multi-tenant foundation (PM company / landlord account) ---
-model Organization {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  properties Property[]
-  members    UserOrganization[]
-}
-
-model UserOrganization {
-  id             String  @id @default(uuid()) @db.Uuid
-  userId         String  @db.Uuid
-  organizationId String  @db.Uuid
-  role           OrgRole @default(MEMBER)
-
-  user         User         @relation(fields: [userId], references: [id])
-  organization Organization @relation(fields: [organizationId], references: [id])
-
-  @@unique([userId, organizationId])
-  @@index([organizationId])
-  @@index([userId])
-}
-
-enum OrgRole {
-  OWNER
-  ADMIN
-  MEMBER
-}
-
-// --- Predictive maintenance ML enums/models ---
-enum SeverityLevel {
-  LOW
-  MED
-  HIGH
-  EMERGENCY
-}
-
-enum ModelName {
-  PREDICTIVE_MAINTENANCE_V1
-}
-
-model ModelRun {
-  id           String    @id @default(uuid()) @db.Uuid
-  modelName    ModelName
-  modelVersion String
-  horizonDays  Int       @default(60)
-  trainedAt    DateTime  @default(now())
-
-  trainWindowStart DateTime?
-  trainWindowEnd   DateTime?
-
-  metricsJson  Json?
-  artifactPath String
-
-  @@unique([modelName, modelVersion])
-  @@index([trainedAt])
-}
-
-model AssetRiskScore {
-  id                 String @id @default(uuid()) @db.Uuid
-  maintenanceAssetId Int
-
-  maintenanceAsset MaintenanceAsset @relation(fields: [maintenanceAssetId], references: [id])
-
-  modelName    ModelName
-  modelVersion String
-  horizonDays  Int       @default(60)
-
-  riskScore   Float
-  reasonsJson Json?
-
-  // Date bucket to prevent nightly table bloat. Store as DATE (no time component).
-  scoredOn DateTime @db.Date
-  // Optional: keep the exact timestamp too (last time we updated this day's score)
-  scoredAt DateTime @default(now())
-
-  @@unique([maintenanceAssetId, modelName, modelVersion, scoredOn])
-  @@index([maintenanceAssetId, scoredOn])
-  @@index([modelName, modelVersion, scoredOn])
-}
 
 model User {
   id                        String                      @id @default(uuid()) @db.Uuid
@@ -171,18 +90,16 @@ model User {
   transactionImportBatches TransactionImportBatch[] @relation("TransactionImportBy")
   bankTransactionsRecorded BankTransaction[]        @relation("BankTransactionRecordedBy")
 
-  organizationMemberships UserOrganization[]
+  approvalTaskDecidedBy ApprovalTask[] @relation("ApprovalDecidedBy")
+ approvalTaskCreatedBy ApprovalTask[] @relation("ApprovalCreatedBy")
+
+  approvalTasks ApprovalTask[] @relation("ApprovalTenant")
 }
 
 model Property {
-  id String @id @default(uuid()) @db.Uuid
-
-  // Multi-tenant scope
-  organizationId String       @db.Uuid
-  organization   Organization @relation(fields: [organizationId], references: [id])
-
-  name                 String?
-  address              String?
+  id                   String                    @id @default(uuid()) @db.Uuid
+  name                 String
+  address              String
   city                 String?
   state                String?
   zipCode              String?
@@ -226,7 +143,7 @@ model Property {
   @@index([bedrooms])
   @@index([bathrooms])
   @@index([minRent])
-  @@index([organizationId])
+  approvalTasks ApprovalTask[]
 }
 
 model PropertyMarketingProfile {
@@ -298,7 +215,7 @@ model SavedPropertyFilter {
 }
 
 model Unit {
-  id                 Int                  @id @default(autoincrement())
+  id                 String               @id @default(uuid()) @db.Uuid
   name               String // e.g., "Apt 101"
   property           Property             @relation(fields: [propertyId], references: [id])
   propertyId         String               @db.Uuid
@@ -328,6 +245,8 @@ model Unit {
   isFurnished         Boolean              @default(false)
   petsAllowed         Boolean              @default(false)
   rentRecommendations RentRecommendation[]
+
+  approvalTasks ApprovalTask[]
 }
 
 enum PropertyAvailabilityStatus {
@@ -388,7 +307,7 @@ model SyndicationQueue {
 model RentRecommendation {
   id                     String                   @id
   unit                   Unit                     @relation(fields: [unitId], references: [id])
-  unitId                 Int
+  unitId                 String                   @db.Uuid
   currentRent            Float
   recommendedRent        Float
   confidenceIntervalLow  Float
@@ -428,7 +347,7 @@ model SyndicationErrorLog {
 }
 
 model Lease {
-  id                        Int                       @id @default(autoincrement())
+  id                        String                    @id @default(uuid()) @db.Uuid
   startDate                 DateTime
   endDate                   DateTime
   rentAmount                Float
@@ -455,7 +374,7 @@ model Lease {
   tenant                    User                      @relation(fields: [tenantId], references: [id])
   tenantId                  String                    @unique @db.Uuid // A user can only have one lease
   unit                      Unit                      @relation(fields: [unitId], references: [id])
-  unitId                    Int                       @unique // A unit can only have one lease
+  unitId                    String                    @unique @db.Uuid // A unit can only have one lease
   payments                  Payment[]
   invoices                  Invoice[]
   recurringSchedule         RecurringInvoiceSchedule?
@@ -475,49 +394,44 @@ model Lease {
 
   @@index([status])
   @@index([endDate])
+  approvalTasks ApprovalTask[]
 }
 
 model MaintenanceRequest {
-  id          Int    @id @default(autoincrement())
-  title       String
-  description String
+  id                String                       @id @default(uuid()) @db.Uuid
+  title             String
+  description       String
+  status            Status                       @default(PENDING)
+  author            User                         @relation(fields: [authorId], references: [id])
+  authorId          String                       @db.Uuid
+  createdAt         DateTime                     @default(now())
+  updatedAt         DateTime                     @updatedAt
+  priority          MaintenancePriority          @default(MEDIUM)
+  responseDueAt     DateTime?
+  dueAt             DateTime?
+  acknowledgedAt    DateTime?
+  completedAt       DateTime?
+  property          Property?                    @relation(fields: [propertyId], references: [id])
+  propertyId        String?                      @db.Uuid
+  unit              Unit?                        @relation(fields: [unitId], references: [id])
+  unitId            String?                      @db.Uuid
+  asset             MaintenanceAsset?            @relation("AssetRequests", fields: [assetId], references: [id])
+  assetId           Int?
+  assignee          Technician?                  @relation("TechnicianAssignments", fields: [assigneeId], references: [id])
+  assigneeId        Int?
+  slaPolicy         MaintenanceSlaPolicy?        @relation(fields: [slaPolicyId], references: [id])
+  slaPolicyId       Int?
+  lease             Lease?                       @relation(fields: [leaseId], references: [id])
+  leaseId           String?                      @db.Uuid
+  repairEstimates   RepairEstimate[]
+  history           MaintenanceRequestHistory[]
+  notes             MaintenanceNote[]
+  photos            MaintenancePhoto[]
+  agentRuns         AgentRun[]                   @relation("AgentRunRequest")
+  communicationLogs CommunicationLog[]           @relation("CommunicationLogRequest")
+  documents         MaintenanceRequestDocument[] @relation("MaintenanceRequestDocuments")
 
-  // Derived severity (rules-based; used for predictive maintenance labels)
-  severityScoreDerived Int?
-  severityDerived      SeverityLevel?
-  isAfterHours         Boolean?
-  isUrgentFlag         Boolean?
-  status               Status                       @default(PENDING)
-  author               User                         @relation(fields: [authorId], references: [id])
-  authorId             String                       @db.Uuid
-  createdAt            DateTime                     @default(now())
-  updatedAt            DateTime                     @updatedAt
-  priority             MaintenancePriority          @default(MEDIUM)
-  responseDueAt        DateTime?
-  dueAt                DateTime?
-  acknowledgedAt       DateTime?
-  completedAt          DateTime?
-  property             Property?                    @relation(fields: [propertyId], references: [id])
-  propertyId           String?                      @db.Uuid
-  unit                 Unit?                        @relation(fields: [unitId], references: [id])
-  unitId               Int?
-  asset                MaintenanceAsset?            @relation("AssetRequests", fields: [assetId], references: [id])
-  assetId              Int?
-  assignee             Technician?                  @relation("TechnicianAssignments", fields: [assigneeId], references: [id])
-  assigneeId           Int?
-  slaPolicy            MaintenanceSlaPolicy?        @relation(fields: [slaPolicyId], references: [id])
-  slaPolicyId          Int?
-  lease                Lease?                       @relation(fields: [leaseId], references: [id])
-  leaseId              Int?
-  repairEstimates      RepairEstimate[]
-  history              MaintenanceRequestHistory[]
-  notes                MaintenanceNote[]
-  photos               MaintenancePhoto[]
-  agentRuns            AgentRun[]                   @relation("AgentRunRequest")
-  communicationLogs    CommunicationLog[]           @relation("CommunicationLogRequest")
-  documents            MaintenanceRequestDocument[] @relation("MaintenanceRequestDocuments")
-
-  @@index([createdAt, severityDerived])
+  approvalTasks ApprovalTask[]
 }
 
 model MaintenanceAsset {
@@ -525,7 +439,7 @@ model MaintenanceAsset {
   property          Property                 @relation(fields: [propertyId], references: [id])
   propertyId        String                   @db.Uuid
   unit              Unit?                    @relation(fields: [unitId], references: [id])
-  unitId            Int?
+  unitId            String?                  @db.Uuid
   name              String
   category          MaintenanceAssetCategory
   manufacturer      String?
@@ -534,11 +448,9 @@ model MaintenanceAsset {
   installDate       DateTime?
   warrantyExpiresAt DateTime?
   notes             String?
-  lastServiceDate   DateTime?
   createdAt         DateTime                 @default(now())
   updatedAt         DateTime                 @updatedAt
   requests          MaintenanceRequest[]     @relation("AssetRequests")
-  assetRiskScores   AssetRiskScore[]
 
   @@unique([propertyId, unitId, name], name: "MaintenanceAsset_property_unit_name_key")
   @@index([propertyId])
@@ -590,7 +502,7 @@ model MaintenanceSlaPolicy {
 model MaintenanceRequestHistory {
   id             Int                @id @default(autoincrement())
   request        MaintenanceRequest @relation(fields: [requestId], references: [id])
-  requestId      Int
+  requestId      String             @db.Uuid
   changedBy      User?              @relation(fields: [changedById], references: [id])
   changedById    String?            @db.Uuid
   fromStatus     Status?
@@ -608,7 +520,7 @@ model MaintenanceRequestHistory {
 model MaintenanceNote {
   id        Int                @id @default(autoincrement())
   request   MaintenanceRequest @relation(fields: [requestId], references: [id])
-  requestId Int
+  requestId String             @db.Uuid
   author    User               @relation(fields: [authorId], references: [id])
   authorId  String             @db.Uuid
   body      String
@@ -620,7 +532,7 @@ model MaintenanceNote {
 model MaintenancePhoto {
   id           Int                @id @default(autoincrement())
   request      MaintenanceRequest @relation(fields: [requestId], references: [id])
-  requestId    Int
+  requestId    String             @db.Uuid
   uploadedBy   User?              @relation(fields: [uploadedById], references: [id])
   uploadedById String?            @db.Uuid
   url          String
@@ -633,7 +545,7 @@ model MaintenancePhoto {
 model LeaseHistory {
   id            Int          @id @default(autoincrement())
   lease         Lease        @relation(fields: [leaseId], references: [id])
-  leaseId       Int
+  leaseId       String       @db.Uuid
   actor         User?        @relation(fields: [actorId], references: [id])
   actorId       String?      @db.Uuid
   fromStatus    LeaseStatus?
@@ -650,7 +562,7 @@ model LeaseHistory {
 model LeaseDocument {
   id           Int      @id @default(autoincrement())
   lease        Lease    @relation(fields: [leaseId], references: [id])
-  leaseId      Int
+  leaseId      String   @db.Uuid
   type         String
   url          String
   description  String?
@@ -672,9 +584,9 @@ model Document {
   uploadedBy                  User                         @relation(fields: [uploadedById], references: [id])
   uploadedById                String                       @db.Uuid
   lease                       Lease?                       @relation(fields: [leaseId], references: [id])
-  leaseId                     Int?
+  leaseId                     String?                     @db.Uuid
   property                    Property?                    @relation(fields: [propertyId], references: [id])
-  propertyId                  String?                      @db.Uuid
+  propertyId                  String?                     @db.Uuid
   sharedWith                  User[]                       @relation("DocumentShares")
   createdAt                   DateTime                     @default(now())
   updatedAt                   DateTime                     @updatedAt
@@ -691,7 +603,7 @@ model Document {
 model EsignEnvelope {
   id                   Int                 @id @default(autoincrement())
   lease                Lease               @relation(fields: [leaseId], references: [id])
-  leaseId              Int
+  leaseId              String              @db.Uuid
   provider             EsignProvider       @default(DOCUSIGN)
   providerEnvelopeId   String
   status               EsignEnvelopeStatus @default(CREATED)
@@ -768,7 +680,7 @@ enum DocumentCategory {
 model LeaseRenewalOffer {
   id                Int                @id @default(autoincrement())
   lease             Lease              @relation(fields: [leaseId], references: [id])
-  leaseId           Int
+  leaseId           String             @db.Uuid
   proposedRent      Float
   proposedStart     DateTime
   proposedEnd       DateTime
@@ -789,7 +701,7 @@ model LeaseRenewalOffer {
 model LeaseNotice {
   id             Int                       @id @default(autoincrement())
   lease          Lease                     @relation(fields: [leaseId], references: [id])
-  leaseId        Int
+  leaseId        String                    @db.Uuid
   type           LeaseNoticeType
   deliveryMethod LeaseNoticeDeliveryMethod
   sentAt         DateTime                  @default(now())
@@ -808,7 +720,7 @@ model Invoice {
   dueDate     DateTime
   status      String                    @default("UNPAID") // UNPAID, PAID, OVERDUE
   lease       Lease                     @relation(fields: [leaseId], references: [id])
-  leaseId     Int
+  leaseId     String                    @db.Uuid
   payments    Payment[]
   issuedAt    DateTime                  @default(now())
   externalId  String?                   @unique
@@ -828,7 +740,7 @@ model Payment {
   user                User                 @relation(fields: [userId], references: [id])
   userId              String               @db.Uuid
   lease               Lease?               @relation(fields: [leaseId], references: [id])
-  leaseId             Int?
+  leaseId             String?              @db.Uuid
   externalId          String?              @unique
   reconciledAt        DateTime?
   paymentMethod       PaymentMethod?       @relation(fields: [paymentMethodId], references: [id])
@@ -949,139 +861,37 @@ enum BulkSendStrategy {
 }
 
 model RentalApplication {
-  id                              Int                                 @id @default(autoincrement())
-  applicant                       User?                               @relation(fields: [applicantId], references: [id])
-  applicantId                     String?                             @db.Uuid
-  property                        Property                            @relation(fields: [propertyId], references: [id])
-  propertyId                      String                              @db.Uuid
-  unit                            Unit                                @relation(fields: [unitId], references: [id])
-  unitId                          Int
-  status                          ApplicationStatus                   @default(PENDING)
-  applicationDate                 DateTime                            @default(now())
-  fullName                        String
-  email                           String
-  phoneNumber                     String
-  income                          Float
-  previousAddress                 String
-  creditScore                     Int?
-  monthlyDebt                     Float?
-  authorizeCreditCheck            Boolean                             @default(false)
-  authorizeBackgroundCheck        Boolean                             @default(false)
-  authorizeEmploymentVerification Boolean                             @default(false)
-  negativeAspectsExplanation      String?
-  ssCardUploaded                  Boolean                             @default(false)
-  dlIdUploaded                    Boolean                             @default(false)
-  bankruptcyFiledYear             Int?
-  rentalHistoryComments           String?
-  references                      RentalApplicationReference[]
-  pastLandlords                   RentalApplicationPastLandlord[]
-  employments                     RentalApplicationEmployment[]
-  additionalIncomes               RentalApplicationAdditionalIncome[]
-  pets                            RentalApplicationPet[]
-  vehicles                        RentalApplicationVehicle[]
-  qualificationStatus             QualificationStatus? // Added for screening
-  recommendation                  Recommendation? // Added for screening
-  screeningDetails                String? // Added for screening
-  screeningScore                  Float?
-  screeningReasons                Json?
-  screenedAt                      DateTime?
-  screenedBy                      User?                               @relation("ScreenedApplications", fields: [screenedById], references: [id])
-  screenedById                    String?                             @db.Uuid
-  manualNotes                     RentalApplicationNote[]
-  lifecycleEvents                 ApplicationLifecycleEvent[]
-  createdAt                       DateTime                            @default(now())
-  updatedAt                       DateTime                            @updatedAt
-}
-
-model RentalApplicationReference {
-  id            Int               @id @default(autoincrement())
-  application   RentalApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  applicationId Int
-  name          String
-  relationship  String?
-  phone         String?
-  email         String?
-  yearsKnown    String?
-  createdAt     DateTime          @default(now())
-
-  @@index([applicationId])
-}
-
-model RentalApplicationPastLandlord {
-  id               Int               @id @default(autoincrement())
-  application      RentalApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  applicationId    Int
-  name             String
-  phone            String?
-  email            String?
-  propertyAddress  String?
-  startDate        DateTime?
-  endDate          DateTime?
-  monthlyRent      Float?
-  reasonForLeaving String?
-  createdAt        DateTime          @default(now())
-
-  @@index([applicationId])
-}
-
-model RentalApplicationEmployment {
-  id             Int               @id @default(autoincrement())
-  application    RentalApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  applicationId  Int
-  employerName   String
-  jobTitle       String?
-  supervisorName String?
-  phone          String?
-  email          String?
-  startDate      DateTime?
-  employmentType String?
-  monthlyIncome  Float?
-  createdAt      DateTime          @default(now())
-
-  @@index([applicationId])
-}
-
-model RentalApplicationAdditionalIncome {
-  id            Int               @id @default(autoincrement())
-  application   RentalApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  applicationId Int
-  source        String
-  amount        Float?
-  frequency     String?
-  createdAt     DateTime          @default(now())
-
-  @@index([applicationId])
-}
-
-model RentalApplicationPet {
-  id             Int               @id @default(autoincrement())
-  application    RentalApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  applicationId  Int
-  type           String
-  breed          String?
-  name           String?
-  weight         Float?
-  age            Int?
-  vaccinated     Boolean           @default(false)
-  spayedNeutered Boolean           @default(false)
-  createdAt      DateTime          @default(now())
-
-  @@index([applicationId])
-}
-
-model RentalApplicationVehicle {
-  id              Int               @id @default(autoincrement())
-  application     RentalApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  applicationId   Int
-  make            String
-  model           String?
-  year            String?
-  color           String?
-  licensePlate    String?
-  registeredOwner String?
-  createdAt       DateTime          @default(now())
-
-  @@index([applicationId])
+  id                    Int                         @id @default(autoincrement())
+  applicant             User?                       @relation(fields: [applicantId], references: [id])
+  applicantId           String?                     @db.Uuid
+  property              Property                    @relation(fields: [propertyId], references: [id])
+  propertyId            String                      @db.Uuid
+  unit                  Unit                        @relation(fields: [unitId], references: [id])
+  unitId                String                      @db.Uuid
+  status                ApplicationStatus           @default(PENDING)
+  applicationDate       DateTime                    @default(now())
+  fullName              String
+  email                 String
+  phoneNumber           String
+  income                Float
+  employmentStatus      String
+  previousAddress       String
+  creditScore           Int?
+  monthlyDebt           Float?
+  bankruptcyFiledYear   Int?
+  rentalHistoryComments String?
+  qualificationStatus   QualificationStatus? // Added for screening
+  recommendation        Recommendation? // Added for screening
+  screeningDetails      String? // Added for screening
+  screeningScore        Float?
+  screeningReasons      Json?
+  screenedAt            DateTime?
+  screenedBy            User?                       @relation("ScreenedApplications", fields: [screenedById], references: [id])
+  screenedById          String?                     @db.Uuid
+  manualNotes           RentalApplicationNote[]
+  lifecycleEvents       ApplicationLifecycleEvent[]
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
 }
 
 enum LeadStatus {
@@ -1155,7 +965,7 @@ model PropertyInquiry {
   property   Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   propertyId String        @db.Uuid
   unit       Unit?         @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  unitId     Int?
+  unitId     String?       @db.Uuid
   interest   InterestLevel @default(MEDIUM)
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
@@ -1171,7 +981,7 @@ model Tour {
   property      Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   propertyId    String     @db.Uuid
   unit          Unit?      @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  unitId        Int?
+  unitId        String?    @db.Uuid
   scheduledDate DateTime
   scheduledTime String
   notes         String?
@@ -1204,14 +1014,14 @@ model LeadApplication {
   lead                  Lead                  @relation(fields: [leadId], references: [id], onDelete: Cascade)
   propertyId            String                @db.Uuid
   property              Property              @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  unitId                Int?
+  unitId                String?               @db.Uuid
   unit                  Unit?                 @relation(fields: [unitId], references: [id], onDelete: SetNull)
   status                LeadApplicationStatus @default(SUBMITTED)
   submittedAt           DateTime              @default(now())
   creditScore           Int?
   backgroundCheckStatus String?
   creditCheckStatus     String?
-  reviewedById          String?               @db.Uuid
+  reviewedById          String?
   reviewedBy            User?                 @relation("LeadApplicationReviewers", fields: [reviewedById], references: [id])
   reviewedAt            DateTime?
   reviewNotes           String?
@@ -1232,7 +1042,7 @@ model Expense {
   property     Property        @relation(fields: [propertyId], references: [id])
   propertyId   String          @db.Uuid
   unit         Unit?           @relation(fields: [unitId], references: [id])
-  unitId       Int?
+  unitId       String?         @db.Uuid
   description  String
   amount       Float
   date         DateTime
@@ -1422,7 +1232,7 @@ enum PaymentProvider {
 model RecurringInvoiceSchedule {
   id               Int              @id @default(autoincrement())
   lease            Lease            @relation(fields: [leaseId], references: [id])
-  leaseId          Int              @unique
+  leaseId          String           @unique @db.Uuid
   amount           Float
   description      String           @default("Monthly Rent")
   frequency        BillingFrequency @default(MONTHLY)
@@ -1483,7 +1293,7 @@ model PaymentPlanPayment {
 model AutopayEnrollment {
   id              Int           @id @default(autoincrement())
   lease           Lease         @relation(fields: [leaseId], references: [id])
-  leaseId         Int           @unique
+  leaseId         String        @unique @db.Uuid
   paymentMethod   PaymentMethod @relation(fields: [paymentMethodId], references: [id])
   paymentMethodId Int
   active          Boolean       @default(true)
@@ -1622,11 +1432,11 @@ enum NotificationType {
 model UnitInspection {
   id              Int                   @id @default(autoincrement())
   unit            Unit                  @relation(fields: [unitId], references: [id])
-  unitId          Int
+  unitId          String                @db.Uuid
   property        Property              @relation(fields: [propertyId], references: [id])
   propertyId      String                @db.Uuid
   lease           Lease?                @relation(fields: [leaseId], references: [id])
-  leaseId         Int?
+  leaseId         String?               @db.Uuid
   type            InspectionType
   status          InspectionStatus      @default(SCHEDULED)
   scheduledDate   DateTime
@@ -1698,20 +1508,6 @@ model InspectionRoom {
   @@index([inspectionId])
 }
 
-enum InspectionIssueType {
-  INVESTIGATE
-  REPAIR
-  REPLACE
-}
-
-enum MeasurementUnit {
-  COUNT
-  LINEAR_FT
-  SQFT
-  INCH
-  FOOT
-}
-
 model InspectionChecklistItem {
   id             Int                          @id @default(autoincrement())
   room           InspectionRoom               @relation(fields: [roomId], references: [id], onDelete: Cascade)
@@ -1722,24 +1518,12 @@ model InspectionChecklistItem {
   notes          String?
   estimatedAge   Int? // Age in years
   requiresAction Boolean                      @default(false)
-
-  // Structured action inputs (for better estimates)
-  issueType InspectionIssueType?
-  severity  SeverityLevel?
-
-  // Optional measurement to tighten bids (quantity/extent)
-  measurementValue Float?
-  measurementUnit  MeasurementUnit?
-  measurementNotes String?
-
   photos         InspectionChecklistPhoto[]
   subItems       InspectionChecklistSubItem[]
 
   @@index([roomId])
   @@index([condition])
   @@index([requiresAction])
-  @@index([issueType])
-  @@index([severity])
 }
 
 model InspectionChecklistSubItem {
@@ -1781,15 +1565,15 @@ model InspectionSignature {
 }
 
 model RepairEstimate {
-  id                   Int                 @id @default(autoincrement())
+  id                   String              @id @default(uuid()) @db.Uuid
   inspection           UnitInspection?     @relation(fields: [inspectionId], references: [id])
   inspectionId         Int?
   maintenanceRequest   MaintenanceRequest? @relation(fields: [maintenanceRequestId], references: [id])
-  maintenanceRequestId Int?
+  maintenanceRequestId String?             @db.Uuid
   property             Property?           @relation(fields: [propertyId], references: [id])
   propertyId           String?             @db.Uuid
   unit                 Unit?               @relation(fields: [unitId], references: [id])
-  unitId               Int?
+  unitId               String?             @db.Uuid
 
   // Estimate summary
   totalLaborCost    Float
@@ -1818,7 +1602,7 @@ model RepairEstimate {
 model RepairEstimateLineItem {
   id         Int            @id @default(autoincrement())
   estimate   RepairEstimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
-  estimateId Int
+  estimateId String         @db.Uuid
 
   // Item identification
   itemDescription String
@@ -1899,7 +1683,7 @@ model ScheduleEvent {
   property    Property?         @relation(fields: [propertyId], references: [id], onDelete: SetNull)
   propertyId  String?           @db.Uuid
   unit        Unit?             @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  unitId      Int?
+  unitId      String?           @db.Uuid
   tenant      User?             @relation("ScheduleEventTenant", fields: [tenantId], references: [id], onDelete: SetNull)
   tenantId    String?           @db.Uuid
   createdAt   DateTime          @default(now())
@@ -2024,9 +1808,9 @@ model AgentRun {
   initiatedById String? @db.Uuid
   tenantId      String? @db.Uuid
   propertyId    String? @db.Uuid
-  unitId        Int?
-  leaseId       Int?
-  requestId     Int? // MaintenanceRequest.id
+  unitId        String? @db.Uuid
+  leaseId       String? @db.Uuid
+  requestId     String? // MaintenanceRequest.id
 
   initiatedBy User? @relation("AgentRunInitiatedBy", fields: [initiatedById], references: [id], onDelete: SetNull)
   tenant      User? @relation("AgentRunTenant", fields: [tenantId], references: [id], onDelete: SetNull)
@@ -2048,6 +1832,7 @@ model AgentRun {
   @@index([tenantId])
   @@index([requestId])
   @@index([traceId])
+  approvalTasks ApprovalTask[]
 }
 
 model AgentToolCall {
@@ -2097,9 +1882,9 @@ model CommunicationLog {
   // Optional linking
   tenantId   String? @db.Uuid
   propertyId String? @db.Uuid
-  unitId     Int?
-  leaseId    Int?
-  requestId  Int? // MaintenanceRequest.id
+  unitId     String? @db.Uuid
+  leaseId    String? @db.Uuid
+  requestId  String? // MaintenanceRequest.id
 
   createdById String? @db.Uuid
 
@@ -2178,7 +1963,7 @@ model BankTransaction {
   confidence  Float?
 
   propertyId   String? @db.Uuid
-  unitId       Int?
+  unitId       String? @db.Uuid
   recordedById String? @db.Uuid
 
   raw Json?
@@ -2198,7 +1983,7 @@ model BankTransaction {
 
 model MaintenanceRequestDocument {
   id         Int      @id @default(autoincrement())
-  requestId  Int
+  requestId  String   @db.Uuid
   documentId Int
   createdAt  DateTime @default(now())
 
@@ -2208,4 +1993,69 @@ model MaintenanceRequestDocument {
   @@unique([requestId, documentId])
   @@index([requestId])
   @@index([documentId])
+}
+
+enum ApprovalTaskStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXECUTED
+  FAILED
+  CANCELLED
+}
+
+enum ApprovalActionType {
+  SEND_MESSAGE
+  ASSIGN_TECHNICIAN
+  CREATE_SCHEDULE_EVENT
+  UPDATE_WORK_ORDER
+}
+
+model ApprovalTask {
+  id        String            @id @default(uuid()) @db.Uuid
+  status    ApprovalTaskStatus @default(PENDING)
+
+  // optional linkage to agent observability (if you added AgentRun)
+  agentRunId String?
+
+  // common linkage for filtering/UX
+  tenantId   String? @db.Uuid
+  propertyId String? @db.Uuid
+  unitId     String? @db.Uuid
+  leaseId    String? @db.Uuid
+  workOrderId String? @db.Uuid // MaintenanceRequest.id after UUID migration
+
+  // who created/approved
+  createdById String? @db.Uuid
+  decidedById String? @db.Uuid
+  decidedAt   DateTime?
+  executedAt  DateTime?
+  executionError String?
+
+  title     String
+  summary   String?
+  // Core payload: list of actions to execute after approval
+  actions   Json
+  // Store tool outputs / execution artifacts
+  results   Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations (will work after User/Property/Unit/Lease/MaintenanceRequest move to UUID)
+  createdBy User? @relation("ApprovalCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  decidedBy User? @relation("ApprovalDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  tenant   User?     @relation("ApprovalTenant", fields: [tenantId], references: [id], onDelete: SetNull)
+  property Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  unit     Unit?     @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  lease    Lease?    @relation(fields: [leaseId], references: [id], onDelete: SetNull)
+  request  MaintenanceRequest? @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
+  agentRun AgentRun? @relation(fields: [agentRunId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([tenantId, createdAt])
+  @@index([propertyId, createdAt])
+  @@index([workOrderId])
+  @@index([agentRunId])
 }
