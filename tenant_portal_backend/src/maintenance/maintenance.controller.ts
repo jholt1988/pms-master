@@ -123,10 +123,33 @@ export class MaintenanceController {
 
   @Post(':id/notes')
   async addNote(
-      @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: AddMaintenanceNoteDto,
     @Request() req: AuthenticatedRequest,
   ) {
+    const request = await this.maintenanceService.findById(id);
+
+    if (req.user.role === Role.TENANT) {
+      const lease = await this.maintenanceService.getLeaseForTenant(req.user.userId);
+      if (!lease || request.leaseId !== lease.id) {
+        throw ApiException.forbidden(
+          ErrorCode.AUTH_FORBIDDEN,
+          'You do not have access to this maintenance request',
+          { userId: req.user.userId, requestId: id },
+        );
+      }
+      return this.maintenanceService.addNote(id, dto, req.user.userId);
+    }
+
+    const orgId = (req as any).org?.orgId as string | undefined;
+    if (!orgId || request.property?.organizationId !== orgId) {
+      throw ApiException.forbidden(
+        ErrorCode.AUTH_FORBIDDEN,
+        'You do not have access to this maintenance request',
+        { userId: req.user.userId, requestId: id, orgId },
+      );
+    }
+
     return this.maintenanceService.addNote(id, dto, req.user.userId);
   }
 
