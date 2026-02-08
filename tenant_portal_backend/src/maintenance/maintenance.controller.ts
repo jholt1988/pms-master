@@ -23,7 +23,7 @@ interface AuthenticatedRequest extends Request {
   };
 }
 
-type ManagerFilters = Parameters<MaintenanceService['findAllForOrg']>[1];
+type ManagerFilters = Parameters<MaintenanceService['findAllForOrgPaged']>[1];
 
 @Controller('maintenance')
 @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
@@ -38,13 +38,14 @@ export class MaintenanceController {
     @Request() req: AuthenticatedRequest,
     @Query() query: Record<string, string | undefined>,
   ) {
+    const filters = this.parseManagerFilters(query);
+
     if (req.user.role === Role.TENANT) {
-      return this.maintenanceService.findAllForTenant(req.user.userId);
+      return this.maintenanceService.findAllForTenantPaged(req.user.userId, filters);
     }
 
-    const filters = this.parseManagerFilters(query);
     const orgId = (req as any).org?.orgId as string | undefined;
-    return this.maintenanceService.findAllForOrg(orgId, filters);
+    return this.maintenanceService.findAllForOrgPaged(orgId, filters);
   }
 
   @Get('ai-metrics')
@@ -276,6 +277,21 @@ export class MaintenanceController {
       filters.assigneeId = assigneeId;
     }
 
+    const unassigned = this.parseOptionalBoolean(query.unassigned);
+    if (unassigned !== undefined) {
+      filters.unassigned = unassigned;
+    }
+
+    const overdue = this.parseOptionalBoolean(query.overdue);
+    if (overdue !== undefined) {
+      filters.overdue = overdue;
+    }
+
+    const dueSoonHours = this.parseOptionalNumber(query.dueSoonHours, 'dueSoonHours', { min: 1 });
+    if (dueSoonHours !== undefined) {
+      filters.dueSoonHours = dueSoonHours;
+    }
+
     const page = this.parseOptionalNumber(query.page, 'page', { min: 1 });
     if (page !== undefined) {
       filters.page = page;
@@ -316,6 +332,24 @@ export class MaintenanceController {
       ErrorCode.VALIDATION_INVALID_INPUT,
       `Unsupported priority filter: ${value}`,
       { field: 'priority', value },
+    );
+  }
+
+  private parseOptionalBoolean(value: string | undefined): boolean | undefined {
+    if (value === undefined || value === '') {
+      return undefined;
+    }
+    const normalized = value.trim().toLowerCase();
+    if (['1', 'true', 'yes', 'y', 'on'].includes(normalized)) {
+      return true;
+    }
+    if (['0', 'false', 'no', 'n', 'off'].includes(normalized)) {
+      return false;
+    }
+    throw ApiException.badRequest(
+      ErrorCode.VALIDATION_INVALID_FORMAT,
+      `Invalid boolean value: ${value}`,
+      { value },
     );
   }
 

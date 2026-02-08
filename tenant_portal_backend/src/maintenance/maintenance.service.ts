@@ -33,6 +33,9 @@ interface MaintenanceListFilters {
   propertyId?: string;
   unitId?: number;
   assigneeId?: number;
+  unassigned?: boolean;
+  overdue?: boolean;
+  dueSoonHours?: number;
   page?: number;
   pageSize?: number;
 }
@@ -277,6 +280,33 @@ export class MaintenanceService {
     });
   }
 
+  async findAllForTenantPaged(userId: string, filters: MaintenanceListFilters = {}) {
+    const lease = await this.getLeaseForTenant(userId);
+    const page = filters.page ?? 1;
+    const pageSize = filters.pageSize ?? 25;
+
+    if (!lease) {
+      return { items: [], page, pageSize, total: 0 };
+    }
+
+    const where: Prisma.MaintenanceRequestWhereInput = { leaseId: lease.id };
+
+    const total = await this.prisma.maintenanceRequest.count({ where });
+
+    const take = Math.min(Math.max(pageSize, 1), 100);
+    const skip = Math.max(page - 1, 0) * take;
+
+    const items = await this.prisma.maintenanceRequest.findMany({
+      where,
+      include: this.defaultRequestInclude,
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take,
+    });
+
+    return { items, page, pageSize, total };
+  }
+
   // Backward-compatible alias (some controllers/services may still call this)
   async findAllForUser(userId: string): Promise<MaintenanceRequest[]> {
     return this.findAllForTenant(userId);
@@ -313,6 +343,21 @@ export class MaintenanceService {
     if (assigneeId !== undefined) {
       where.assigneeId = assigneeId;
     }
+    if (unassigned === true) {
+      where.assigneeId = null;
+    }
+
+    if (overdue === true) {
+      where.dueAt = { lt: new Date() };
+      where.status = { not: Status.COMPLETED };
+    }
+
+    if (dueSoonHours !== undefined) {
+      const now = new Date();
+      const upper = new Date(now.getTime() + Math.max(dueSoonHours, 1) * 60 * 60 * 1000);
+      where.dueAt = { gte: now, lte: upper };
+      where.status = { not: Status.COMPLETED };
+    }
 
     const take = Math.min(Math.max(pageSize, 1), 100);
     const skip = Math.max(page - 1, 0) * take;
@@ -331,12 +376,21 @@ export class MaintenanceService {
   }
 
   async findAllForOrg(orgId: string | undefined, filters: MaintenanceListFilters = {}): Promise<MaintenanceRequest[]> {
+    // NOTE: legacy array-returning method. Prefer findAllForOrgPaged.
+    const { items } = await this.findAllForOrgPaged(orgId, filters);
+    return items;
+  }
+
+  async findAllForOrgPaged(orgId: string | undefined, filters: MaintenanceListFilters = {}) {
     const {
       status,
       priority,
       propertyId,
       unitId,
       assigneeId,
+      unassigned,
+      overdue,
+      dueSoonHours,
       page = 1,
       pageSize = 25,
     } = filters;
@@ -366,11 +420,28 @@ export class MaintenanceService {
     if (assigneeId !== undefined) {
       where.assigneeId = assigneeId;
     }
+    if (unassigned === true) {
+      where.assigneeId = null;
+    }
+
+    if (overdue === true) {
+      where.dueAt = { lt: new Date() };
+      where.status = { not: Status.COMPLETED };
+    }
+
+    if (dueSoonHours !== undefined) {
+      const now = new Date();
+      const upper = new Date(now.getTime() + Math.max(dueSoonHours, 1) * 60 * 60 * 1000);
+      where.dueAt = { gte: now, lte: upper };
+      where.status = { not: Status.COMPLETED };
+    }
+
+    const total = await this.prisma.maintenanceRequest.count({ where });
 
     const take = Math.min(Math.max(pageSize, 1), 100);
     const skip = Math.max(page - 1, 0) * take;
 
-    return this.prisma.maintenanceRequest.findMany({
+    const items = await this.prisma.maintenanceRequest.findMany({
       where,
       include: this.defaultRequestInclude,
       orderBy: [
@@ -381,6 +452,8 @@ export class MaintenanceService {
       skip,
       take,
     });
+
+    return { items, page, pageSize, total };
   }
 
   async updateStatus(
