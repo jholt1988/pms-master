@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Query, Request, UseGuards, P
 import { AuthGuard } from '@nestjs/passport';
 import { MaintenanceService } from './maintenance.service';
 import { AIMaintenanceMetricsService } from './ai-maintenance-metrics.service';
-import { MaintenancePriority, Role, Status } from '@prisma/client';
+import { MaintenancePriority, OrgRole, Role, Status } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CreateMaintenanceRequestDto } from './dto/create-maintenance-request.dto';
@@ -102,12 +102,14 @@ export class MaintenanceController {
     @Request() req: AuthenticatedRequest,
   ) {
     const orgId = (req as any).org?.orgId as string | undefined;
+    const orgRole = (req as any).org?.orgRole as OrgRole | undefined;
     return this.maintenanceService.updateStatusScoped(
       id,
       updateStatusDto,
       req.user.userId,
       req.user.role,
       orgId,
+      orgRole,
     );
   }
 
@@ -119,12 +121,14 @@ export class MaintenanceController {
     @Request() req: AuthenticatedRequest,
   ) {
     const orgId = (req as any).org?.orgId as string | undefined;
+    const orgRole = (req as any).org?.orgRole as OrgRole | undefined;
     return this.maintenanceService.updateStatusScoped(
       id,
       updateStatusDto,
       req.user.userId,
       req.user.role,
       orgId,
+      orgRole,
     );
   }
 
@@ -136,12 +140,14 @@ export class MaintenanceController {
     @Request() req: AuthenticatedRequest,
   ) {
     const orgId = (req as any).org?.orgId as string | undefined;
+    const orgRole = (req as any).org?.orgRole as OrgRole | undefined;
     return this.maintenanceService.assignTechnicianScoped(
       id,
       dto,
       req.user.userId,
       req.user.role,
       orgId,
+      orgRole,
     );
   }
 
@@ -171,6 +177,7 @@ export class MaintenanceController {
     }
 
     const orgId = (req as any).org?.orgId as string | undefined;
+    // Owners can add notes (read-mostly), but scoped to org.
     return this.maintenanceService.addNoteScoped(
       id,
       dto,

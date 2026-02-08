@@ -9,6 +9,7 @@ import {
   MaintenanceRequest,
   MaintenanceRequestHistory,
   MaintenanceSlaPolicy,
+  OrgRole,
   Prisma,
   Role,
   Status,
@@ -516,12 +517,21 @@ export class MaintenanceService {
     actorId: string,
     actorRole: Role,
     orgId?: string,
+    orgRole?: OrgRole,
   ): Promise<MaintenanceRequest> {
     if (actorRole === Role.TENANT) {
       throw ApiException.forbidden(
         ErrorCode.AUTH_FORBIDDEN,
         'Tenants cannot change maintenance request status',
         { userId: actorId, requestId: id },
+      );
+    }
+
+    if (orgRole === OrgRole.OWNER) {
+      throw ApiException.forbidden(
+        ErrorCode.AUTH_FORBIDDEN,
+        'Owners are read-only for maintenance status changes',
+        { userId: actorId, requestId: id, orgId },
       );
     }
 
@@ -666,12 +676,21 @@ export class MaintenanceService {
     actorId: string,
     actorRole: Role,
     orgId?: string,
+    orgRole?: OrgRole,
   ): Promise<MaintenanceRequest> {
     if (actorRole === Role.TENANT) {
       throw ApiException.forbidden(
         ErrorCode.AUTH_FORBIDDEN,
         'Tenants cannot assign technicians',
         { userId: actorId, requestId: id },
+      );
+    }
+
+    if (orgRole === OrgRole.OWNER) {
+      throw ApiException.forbidden(
+        ErrorCode.AUTH_FORBIDDEN,
+        'Owners are read-only for technician assignment',
+        { userId: actorId, requestId: id, orgId },
       );
     }
 
