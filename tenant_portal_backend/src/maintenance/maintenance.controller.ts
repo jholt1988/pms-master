@@ -93,51 +93,54 @@ export class MaintenanceController {
   }
 
   @Patch(':id/status')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
   async updateStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateStatusDto: UpdateMaintenanceStatusDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    const request = await this.maintenanceService.findById(id);
     const orgId = (req as any).org?.orgId as string | undefined;
-    if (!orgId || request.property?.organizationId !== orgId) {
-      throw ApiException.forbidden(
-        ErrorCode.AUTH_FORBIDDEN,
-        'You do not have access to this maintenance request',
-        { userId: req.user.userId, requestId: id, orgId },
-      );
-    }
-    return this.maintenanceService.updateStatus(id, updateStatusDto, req.user.userId);
+    return this.maintenanceService.updateStatusScoped(
+      id,
+      updateStatusDto,
+      req.user.userId,
+      req.user.role,
+      orgId,
+    );
   }
 
   @Put(':id/status')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
   async replaceStatus(
-      @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIntPipe) id: number,
     @Body() updateStatusDto: UpdateMaintenanceStatusDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.maintenanceService.updateStatus(id, updateStatusDto, req.user.userId);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.maintenanceService.updateStatusScoped(
+      id,
+      updateStatusDto,
+      req.user.userId,
+      req.user.role,
+      orgId,
+    );
   }
 
   @Patch(':id/assign')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
   async assignTechnician(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: AssignTechnicianDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    const request = await this.maintenanceService.findById(id);
     const orgId = (req as any).org?.orgId as string | undefined;
-    if (!orgId || request.property?.organizationId !== orgId) {
-      throw ApiException.forbidden(
-        ErrorCode.AUTH_FORBIDDEN,
-        'You do not have access to this maintenance request',
-        { userId: req.user.userId, requestId: id, orgId },
-      );
-    }
-    return this.maintenanceService.assignTechnician(id, dto, req.user.userId);
+    return this.maintenanceService.assignTechnicianScoped(
+      id,
+      dto,
+      req.user.userId,
+      req.user.role,
+      orgId,
+    );
   }
 
   @Post(':id/notes')
@@ -157,19 +160,22 @@ export class MaintenanceController {
           { userId: req.user.userId, requestId: id },
         );
       }
-      return this.maintenanceService.addNote(id, dto, req.user.userId);
-    }
-
-    const orgId = (req as any).org?.orgId as string | undefined;
-    if (!orgId || request.property?.organizationId !== orgId) {
-      throw ApiException.forbidden(
-        ErrorCode.AUTH_FORBIDDEN,
-        'You do not have access to this maintenance request',
-        { userId: req.user.userId, requestId: id, orgId },
+      return this.maintenanceService.addNoteScoped(
+        id,
+        dto,
+        req.user.userId,
+        req.user.role,
       );
     }
 
-    return this.maintenanceService.addNote(id, dto, req.user.userId);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.maintenanceService.addNoteScoped(
+      id,
+      dto,
+      req.user.userId,
+      req.user.role,
+      orgId,
+    );
   }
 
   @Post(':id/photos')
@@ -189,19 +195,22 @@ export class MaintenanceController {
           { userId: req.user.userId, requestId: id },
         );
       }
-      return this.maintenanceService.addPhoto(id, dto, req.user.userId);
-    }
-
-    const orgId = (req as any).org?.orgId as string | undefined;
-    if (!orgId || request.property?.organizationId !== orgId) {
-      throw ApiException.forbidden(
-        ErrorCode.AUTH_FORBIDDEN,
-        'You do not have access to this maintenance request',
-        { userId: req.user.userId, requestId: id, orgId },
+      return this.maintenanceService.addPhotoScoped(
+        id,
+        dto,
+        req.user.userId,
+        req.user.role,
       );
     }
 
-    return this.maintenanceService.addPhoto(id, dto, req.user.userId);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.maintenanceService.addPhotoScoped(
+      id,
+      dto,
+      req.user.userId,
+      req.user.role,
+      orgId,
+    );
   }
 
   @Get('technicians')

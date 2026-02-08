@@ -387,6 +387,9 @@ export class MaintenanceService {
     dto: UpdateMaintenanceStatusDto,
     actorId: string,
   ): Promise<MaintenanceRequest> {
+    // NOTE: This method is intentionally unscoped for legacy/background usage.
+    // Prefer updateStatusScoped from controllers.
+
     const requestNumericId = this.toRequestId(id);
     const existing = await this.prisma.maintenanceRequest.findUnique({
       where: { id: requestNumericId },
@@ -430,11 +433,40 @@ export class MaintenanceService {
     return updated;
   }
 
+  async updateStatusScoped(
+    id: string | number,
+    dto: UpdateMaintenanceStatusDto,
+    actorId: string,
+    actorRole: Role,
+    orgId?: string,
+  ): Promise<MaintenanceRequest> {
+    if (actorRole === Role.TENANT) {
+      throw ApiException.forbidden(
+        ErrorCode.AUTH_FORBIDDEN,
+        'Tenants cannot change maintenance request status',
+        { userId: actorId, requestId: id },
+      );
+    }
+
+    if (!orgId) {
+      throw ApiException.forbidden(
+        ErrorCode.AUTH_FORBIDDEN,
+        'Organization context is required',
+      );
+    }
+
+    await this.assertRequestInOrg(id, orgId);
+    return this.updateStatus(id, dto, actorId);
+  }
+
   async assignTechnician(
     id: string | number,
     dto: AssignTechnicianDto,
     actorId: string,
   ): Promise<MaintenanceRequest> {
+    // NOTE: This method is intentionally unscoped for legacy/background usage.
+    // Prefer assignTechnicianScoped from controllers.
+
     const requestNumericId = this.toRequestId(id);
     const existing = await this.prisma.maintenanceRequest.findUnique({
       where: { id: requestNumericId },
@@ -551,6 +583,32 @@ export class MaintenanceService {
     return updated;
   }
 
+  async assignTechnicianScoped(
+    id: string | number,
+    dto: AssignTechnicianDto,
+    actorId: string,
+    actorRole: Role,
+    orgId?: string,
+  ): Promise<MaintenanceRequest> {
+    if (actorRole === Role.TENANT) {
+      throw ApiException.forbidden(
+        ErrorCode.AUTH_FORBIDDEN,
+        'Tenants cannot assign technicians',
+        { userId: actorId, requestId: id },
+      );
+    }
+
+    if (!orgId) {
+      throw ApiException.forbidden(
+        ErrorCode.AUTH_FORBIDDEN,
+        'Organization context is required',
+      );
+    }
+
+    await this.assertRequestInOrg(id, orgId);
+    return this.assignTechnician(id, dto, actorId);
+  }
+
   /**
    * Escalate a maintenance request (increase priority and add escalation note)
    */
@@ -643,6 +701,47 @@ export class MaintenanceService {
     return updated;
   }
 
+  private async assertRequestInOrg(requestId: string | number, orgId: string) {
+    const numericRequestId = this.toRequestId(requestId);
+    const req = await this.prisma.maintenanceRequest.findUnique({
+      where: { id: numericRequestId },
+      select: { id: true, property: { select: { organizationId: true } } },
+    });
+
+    if (!req || req.property?.organizationId !== orgId) {
+      throw ApiException.forbidden(
+        ErrorCode.AUTH_FORBIDDEN,
+        'You do not have access to this maintenance request',
+        { requestId: numericRequestId, orgId },
+      );
+    }
+  }
+
+  private async assertRequestInTenantLease(requestId: string | number, tenantId: string) {
+    const lease = await this.getLeaseForTenant(tenantId);
+    if (!lease) {
+      throw ApiException.forbidden(
+        ErrorCode.AUTH_FORBIDDEN,
+        'You do not have access to this maintenance request',
+        { userId: tenantId, requestId },
+      );
+    }
+
+    const numericRequestId = this.toRequestId(requestId);
+    const req = await this.prisma.maintenanceRequest.findUnique({
+      where: { id: numericRequestId },
+      select: { id: true, leaseId: true },
+    });
+
+    if (!req || req.leaseId !== lease.id) {
+      throw ApiException.forbidden(
+        ErrorCode.AUTH_FORBIDDEN,
+        'You do not have access to this maintenance request',
+        { userId: tenantId, requestId: numericRequestId },
+      );
+    }
+  }
+
   async addNote(
     requestId: string | number,
     dto: AddMaintenanceNoteDto,
@@ -659,6 +758,29 @@ export class MaintenanceService {
     });
 
     return note;
+  }
+
+  async addNoteScoped(
+    requestId: string | number,
+    dto: AddMaintenanceNoteDto,
+    authorId: string,
+    authorRole: Role,
+    orgId?: string,
+  ): Promise<MaintenanceNote> {
+    if (authorRole === Role.TENANT) {
+      await this.assertRequestInTenantLease(requestId, authorId);
+      return this.addNote(requestId, dto, authorId);
+    }
+
+    if (!orgId) {
+      throw ApiException.forbidden(
+        ErrorCode.AUTH_FORBIDDEN,
+        'Organization context is required',
+      );
+    }
+
+    await this.assertRequestInOrg(requestId, orgId);
+    return this.addNote(requestId, dto, authorId);
   }
 
   async addPhoto(
@@ -678,6 +800,29 @@ export class MaintenanceService {
     });
 
     return photo;
+  }
+
+  async addPhotoScoped(
+    requestId: string | number,
+    dto: AddMaintenancePhotoDto,
+    uploadedById: string,
+    uploadedByRole: Role,
+    orgId?: string,
+  ): Promise<MaintenancePhoto> {
+    if (uploadedByRole === Role.TENANT) {
+      await this.assertRequestInTenantLease(requestId, uploadedById);
+      return this.addPhoto(requestId, dto, uploadedById);
+    }
+
+    if (!orgId) {
+      throw ApiException.forbidden(
+        ErrorCode.AUTH_FORBIDDEN,
+        'Organization context is required',
+      );
+    }
+
+    await this.assertRequestInOrg(requestId, orgId);
+    return this.addPhoto(requestId, dto, uploadedById);
   }
 
   async listTechnicians(): Promise<Technician[]> {
