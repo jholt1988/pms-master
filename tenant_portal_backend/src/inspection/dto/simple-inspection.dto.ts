@@ -88,19 +88,93 @@ export class CreateRoomDto {
 }
 
 export class CreateChecklistItemDto {
+  @IsString()
   category!: string;
+
+  @IsString()
   itemName!: string;
+
+  @IsOptional()
+  @IsEnum(InspectionCondition)
   condition?: InspectionCondition;
+
+  @IsOptional()
+  @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100)
   estimatedAge?: number;
+
+  @IsOptional()
+  @IsBoolean()
   requiresAction?: boolean;
+
+  // Structured action inputs (optional)
+  @IsOptional()
+  @IsEnum(SeverityLevel)
+  severity?: SeverityLevel;
+
+  @IsOptional()
+  @IsEnum(InspectionIssueType)
+  issueType?: InspectionIssueType;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  measurementValue?: number;
+
+  @IsOptional()
+  @IsEnum(MeasurementUnit)
+  measurementUnit?: MeasurementUnit;
+
+  @IsOptional()
+  @IsString()
+  measurementNotes?: string;
 }
 
 export class UpdateChecklistItemDto {
+  @IsOptional()
+  @IsEnum(InspectionCondition)
   condition?: InspectionCondition;
+
+  @IsOptional()
+  @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100)
   estimatedAge?: number;
+
+  @IsOptional()
+  @IsBoolean()
   requiresAction?: boolean;
+
+  // Structured action inputs (optional)
+  @IsOptional()
+  @IsEnum(SeverityLevel)
+  severity?: SeverityLevel;
+
+  @IsOptional()
+  @IsEnum(InspectionIssueType)
+  issueType?: InspectionIssueType;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  measurementValue?: number;
+
+  @IsOptional()
+  @IsEnum(MeasurementUnit)
+  measurementUnit?: MeasurementUnit;
+
+  @IsOptional()
+  @IsString()
+  measurementNotes?: string;
 }
 
 export class UpdateChecklistItemBatchEntryDto {
