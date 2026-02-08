@@ -189,7 +189,7 @@ export class MaintenanceService {
     });
   }
 
-  async findAll(filters: MaintenanceListFilters = {}): Promise<MaintenanceRequest[]> {
+  async findAllForOrg(orgId: string | undefined, filters: MaintenanceListFilters = {}): Promise<MaintenanceRequest[]> {
     const {
       status,
       priority,
@@ -200,7 +200,16 @@ export class MaintenanceService {
       pageSize = 25,
     } = filters;
 
-    const where: Prisma.MaintenanceRequestWhereInput = {};
+    if (!orgId) {
+      throw ApiException.forbidden(
+        ErrorCode.AUTH_FORBIDDEN,
+        'Organization context is required',
+      );
+    }
+
+    const where: Prisma.MaintenanceRequestWhereInput = {
+      property: { organizationId: orgId },
+    };
     if (status) {
       where.status = status;
     }

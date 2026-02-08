@@ -11,6 +11,7 @@ import { AssignTechnicianDto } from './dto/assign-technician.dto';
 import { AddMaintenanceNoteDto } from './dto/add-maintenance-note.dto';
 import { ApiException } from '../common/errors';
 import { ErrorCode } from '../common/errors/error-codes.enum';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -20,10 +21,10 @@ interface AuthenticatedRequest extends Request {
   };
 }
 
-type ManagerFilters = Parameters<MaintenanceService['findAll']>[0];
+type ManagerFilters = Parameters<MaintenanceService['findAllForOrg']>[1];
 
 @Controller('maintenance')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 export class MaintenanceController {
   constructor(
     private readonly maintenanceService: MaintenanceService,
@@ -35,11 +36,13 @@ export class MaintenanceController {
     @Request() req: AuthenticatedRequest,
     @Query() query: Record<string, string | undefined>,
   ) {
-    if (req.user.role === Role.PROPERTY_MANAGER) {
-      const filters = this.parseManagerFilters(query);
-      return this.maintenanceService.findAll(filters);
+    if (req.user.role === Role.TENANT) {
+      return this.maintenanceService.findAllForUser(req.user.userId);
     }
-    return this.maintenanceService.findAllForUser(req.user.userId);
+
+    const filters = this.parseManagerFilters(query);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.maintenanceService.findAllForOrg(orgId, filters);
   }
 
   @Get('ai-metrics')
@@ -54,16 +57,29 @@ export class MaintenanceController {
     @Request() req: AuthenticatedRequest,
   ) {
     const request = await this.maintenanceService.findById(id);
-    
-    // Verify access: tenants can only see their own requests
-    if (req.user.role === Role.TENANT && request.authorId !== req.user.userId) {
+
+    if (req.user.role === Role.TENANT) {
+      // Verify access: tenants can only see their own requests
+      if (request.authorId !== req.user.userId) {
+        throw ApiException.forbidden(
+          ErrorCode.AUTH_FORBIDDEN,
+          'You do not have access to this maintenance request',
+          { userId: req.user.userId, requestId: id },
+        );
+      }
+      return request;
+    }
+
+    // Org-scoped access for PM/Admin (single-org mode)
+    const orgId = (req as any).org?.orgId as string | undefined;
+    if (!orgId || request.property?.organizationId !== orgId) {
       throw ApiException.forbidden(
         ErrorCode.AUTH_FORBIDDEN,
         'You do not have access to this maintenance request',
-        { userId: req.user.userId, requestId: id },
+        { userId: req.user.userId, requestId: id, orgId },
       );
     }
-    
+
     return request;
   }
 

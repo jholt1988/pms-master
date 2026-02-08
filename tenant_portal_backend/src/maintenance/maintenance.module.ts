@@ -7,6 +7,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { MaintenanceLegacyController } from '../legacy/maintenance-legacy.controller';
 import { ConfigModule } from '@nestjs/config';
 import { SystemUserService } from '../shared/system-user.service';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 
 @Module({
   imports: [PrismaModule, ConfigModule],
@@ -16,6 +17,7 @@ import { SystemUserService } from '../shared/system-user.service';
     AIMaintenanceService,
     AIMaintenanceMetricsService,
     SystemUserService,
+    OrgContextGuard,
   ],
   exports: [MaintenanceService, AIMaintenanceService, AIMaintenanceMetricsService],
 })
