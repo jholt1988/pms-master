@@ -9,6 +9,7 @@ import {
   MaintenanceRequestHistory,
   MaintenanceSlaPolicy,
   Prisma,
+  Role,
   Status,
   Technician,
   TechnicianRole,
@@ -44,42 +45,52 @@ export class MaintenanceService {
     private readonly aiMetrics?: AIMaintenanceMetricsService,
   ) { }
 
-  async create(userId: string, dto: CreateMaintenanceRequestDto): Promise<MaintenanceRequest> {
-    // Resolve Property and Unit from User's Lease if not provided
-    let propertyId = dto.propertyId ?? undefined;
-    let unitId = dto.unitId ? Number(dto.unitId) : undefined;
+  async create(
+    userId: string,
+    role: Role,
+    dto: CreateMaintenanceRequestDto,
+    orgId?: string,
+  ): Promise<MaintenanceRequest> {
+    // Tenant rule: ALWAYS derive leaseId + unitId + propertyId from the tenant's current lease.
+    // PM/Admin rule: may supply propertyId/unitId; if orgId is present, enforce property org scope.
 
-    if (propertyId == null || unitId == null) {
-      // Some test doubles only provide findFirst, so guard against missing functions
-      const userLookup = this.prisma.user?.findUnique ?? this.prisma.user?.findFirst;
-      if (userLookup) {
-        type UserWithLease = Prisma.UserGetPayload<{
-          include: {
-            lease: {
-              include: {
-                unit: true;
-              };
-            };
-          };
-        } | null>;
+    let leaseId: number | undefined;
+    let propertyId: string | undefined;
+    let unitId: number | undefined;
 
-        const userWithLease = (await userLookup.call(this.prisma.user, {
-          where: { id: userId },
-          include: {
-            lease: {
-              include: { unit: true },
-            },
-          },
-        })) as UserWithLease;
+    if (role === Role.TENANT) {
+      const lease = await this.prisma.lease.findUnique({
+        where: { tenantId: userId },
+        include: { unit: { select: { id: true, propertyId: true } } },
+      });
 
-        if (userWithLease?.lease) {
-          if (unitId == null) {
-            unitId = userWithLease.lease.unitId;
-          }
-          if (propertyId == null) {
-            // Lease doesn't have direct propertyId, get it from unit
-            propertyId = userWithLease.lease.unit.propertyId;
-          }
+      if (!lease) {
+        throw ApiException.badRequest(
+          ErrorCode.VALIDATION_MISSING_REQUIRED_FIELD,
+          'Tenant does not have an active lease to attach this request to',
+          { userId },
+        );
+      }
+
+      leaseId = lease.id;
+      unitId = lease.unitId;
+      propertyId = lease.unit.propertyId;
+    } else {
+      propertyId = dto.propertyId ?? undefined;
+      unitId = dto.unitId ? Number(dto.unitId) : undefined;
+
+      if (propertyId && orgId) {
+        const property = await this.prisma.property.findFirst({
+          where: { id: propertyId, organizationId: orgId },
+          select: { id: true },
+        });
+
+        if (!property) {
+          throw ApiException.forbidden(
+            ErrorCode.AUTH_FORBIDDEN,
+            'Property does not belong to your organization',
+            { propertyId, orgId, userId },
+          );
         }
       }
     }
@@ -145,6 +156,7 @@ export class MaintenanceService {
         responseDueAt,
         slaPolicy: policyId ? { connect: { id: policyId } } : undefined,
         author: { connect: { id: userId } },
+        lease: leaseId ? { connect: { id: leaseId } } : undefined,
         property: propertyId ? { connect: { id: propertyId } } : undefined,
         unit: unitId ? { connect: { id: unitId } } : undefined,
         asset: dto.assetId ? { connect: { id: dto.assetId } } : undefined,
@@ -181,11 +193,73 @@ export class MaintenanceService {
     return request;
   }
 
-  async findAllForUser(userId: string): Promise<MaintenanceRequest[]> {
+  async findAllForTenant(userId: string): Promise<MaintenanceRequest[]> {
+    const lease = await this.prisma.lease.findUnique({
+      where: { tenantId: userId },
+      select: { id: true },
+    });
+
+    if (!lease) {
+      return [];
+    }
+
     return this.prisma.maintenanceRequest.findMany({
-      where: { authorId: userId },
+      where: { leaseId: lease.id },
       include: this.defaultRequestInclude,
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  // Backward-compatible alias (some controllers/services may still call this)
+  async findAllForUser(userId: string): Promise<MaintenanceRequest[]> {
+    return this.findAllForTenant(userId);
+  }
+
+  /**
+   * Unscoped list (used by background jobs / legacy flows).
+   * Prefer findAllForOrg for authenticated PM/Admin requests.
+   */
+  async findAll(filters: MaintenanceListFilters = {}): Promise<MaintenanceRequest[]> {
+    const {
+      status,
+      priority,
+      propertyId,
+      unitId,
+      assigneeId,
+      page = 1,
+      pageSize = 25,
+    } = filters;
+
+    const where: Prisma.MaintenanceRequestWhereInput = {};
+    if (status) {
+      where.status = status;
+    }
+    if (priority) {
+      where.priority = priority;
+    }
+    if (propertyId !== undefined) {
+      where.propertyId = propertyId;
+    }
+    if (unitId !== undefined) {
+      where.unitId = Number(unitId);
+    }
+    if (assigneeId !== undefined) {
+      where.assigneeId = assigneeId;
+    }
+
+    const take = Math.min(Math.max(pageSize, 1), 100);
+    const skip = Math.max(page - 1, 0) * take;
+
+    return this.prisma.maintenanceRequest.findMany({
+      where,
+      include: this.defaultRequestInclude,
+      orderBy: [
+        { status: 'asc' },
+        { priority: 'desc' },
+        { dueAt: 'asc' },
+      ],
+      skip,
+      take,
     });
   }
 

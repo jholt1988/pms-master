@@ -37,7 +37,7 @@ export class MaintenanceController {
     @Query() query: Record<string, string | undefined>,
   ) {
     if (req.user.role === Role.TENANT) {
-      return this.maintenanceService.findAllForUser(req.user.userId);
+      return this.maintenanceService.findAllForTenant(req.user.userId);
     }
 
     const filters = this.parseManagerFilters(query);
@@ -85,7 +85,8 @@ export class MaintenanceController {
 
   @Post()
   async create(@Request() req: AuthenticatedRequest, @Body() dto: CreateMaintenanceRequestDto) {
-    return this.maintenanceService.create(req.user.userId, dto);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.maintenanceService.create(req.user.userId, req.user.role, dto, orgId);
   }
 
   @Patch(':id/status')
