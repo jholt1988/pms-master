@@ -8,15 +8,28 @@ import { resetDatabase } from './utils/reset-database';
 jest.setTimeout(30000);
 
 process.env.DOTENV_CONFIG_PATH = join(__dirname, '..', '.env.test');
-const TEST_DB_URL =
+
+const DEFAULT_TEST_DB_URL =
   'postgresql://postgres:jordan@localhost:5432/tenant_portal_test?schema=public';
+
+const rawUrl = process.env.TEST_DATABASE_URL || DEFAULT_TEST_DB_URL;
+
+// Force tests into an isolated schema so resetDatabase can safely TRUNCATE.
+const ensureSchema = (url: string, schema: string) => {
+  if (url.includes('schema=')) return url;
+  const joinChar = url.includes('?') ? '&' : '?';
+  return `${url}${joinChar}schema=${encodeURIComponent(schema)}`;
+};
+
+const TEST_SCHEMA = process.env.TEST_DATABASE_SCHEMA || 'tenant_portal_test';
+const TEST_DB_URL = ensureSchema(rawUrl, TEST_SCHEMA);
+
 process.env.DIRECT_DATABASE_URL = TEST_DB_URL;
 process.env.DATABASE_URL = TEST_DB_URL;
 const { PrismaClient: PrismaClientFactory }: { PrismaClient: new () => PrismaClient } =
   require('@prisma/client');
-if (!process.env.SKIP_TEST_MIGRATIONS) {
-  process.env.SKIP_TEST_MIGRATIONS = 'true';
-}
+// For e2e tests, migrations should normally run once. If you need to skip,
+// set SKIP_TEST_MIGRATIONS=true in the environment.
 
 // Mock environment variables for testing
 process.env.JWT_SECRET = 'test-secret-key';
@@ -43,6 +56,12 @@ const isE2ETest = process.argv.some(arg => arg.includes('jest-e2e.json')) ||
 const shouldApplyMigrations = isE2ETest && process.env.SKIP_TEST_MIGRATIONS !== 'true';
 if (shouldApplyMigrations) {
   try {
+    // Make sure schema exists (Postgres only). Prisma will use the schema= param.
+    execSync(
+      `node -e "const {Client}=require('pg');(async()=>{const c=new Client({connectionString:process.env.DATABASE_URL});await c.connect();const schema=new URL(process.env.DATABASE_URL).searchParams.get('schema')||'public';await c.query('CREATE SCHEMA IF NOT EXISTS "'+schema.replace(/\"/g,'')+'"');await c.end();})().catch(e=>{console.error(e);process.exit(1);});"`,
+      { stdio: 'inherit', env: { ...process.env } },
+    );
+
     execSync('npx prisma migrate deploy', {
       stdio: 'inherit',
       env: { ...process.env },
