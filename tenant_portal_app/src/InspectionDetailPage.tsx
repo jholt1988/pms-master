@@ -464,8 +464,9 @@ export default function InspectionDetailPage(): React.ReactElement {
   const [inspection, setInspection] = useState<InspectionDetail | null>(null);
 
   const [draftByRoom, setDraftByRoom] = useState<DraftByRoom>({});
-  const [savingRoomId, setSavingRoomId] = useState<number | null>(null);
-  const [roomErrors, setRoomErrors] = useState<Record<number, RoomSaveError[]>>({});
+
+  // Per-item save state (row-level autosave + manual fallback)
+  const [itemMeta, setItemMeta] = useState<Record<number, { saving: boolean; lastSavedAtMs?: number; error?: string }>>({});
 
   const [estimateLoading, setEstimateLoading] = useState(false);
   const [estimateError, setEstimateError] = useState<string | null>(null);
@@ -494,11 +495,16 @@ export default function InspectionDetailPage(): React.ReactElement {
             requiresAction: !!item.requiresAction,
             condition: (item.condition ?? null) as any,
             notes: (item.notes ?? '') ?? '',
+            severity: (item.severity ?? null) as any,
+            issueType: (item.issueType ?? null) as any,
+            measurementValue: (item.measurementValue ?? null) as any,
+            measurementUnit: (item.measurementUnit ?? null) as any,
+            measurementNotes: (item.measurementNotes ?? '') ?? '',
           };
         });
       });
       setDraftByRoom(initialDraft);
-      setRoomErrors({});
+      setItemMeta({});
     } catch (err: any) {
       setError(err.message ?? 'Failed to load inspection');
       setInspection(null);
@@ -541,67 +547,59 @@ export default function InspectionDetailPage(): React.ReactElement {
 
   const roomDrafts = useMemo(() => draftByRoom ?? {}, [draftByRoom]);
 
-  const validateRoom = useCallback((room: InspectionRoom): RoomSaveError[] => {
-    const errors: RoomSaveError[] = [];
-    const drafts = roomDrafts[room.id] ?? {};
+  const validateItem = useCallback((item: ChecklistItem, draft: DraftChecklistItem): string | null => {
+    if (draft.requiresAction) {
+      if (!draft.condition) return 'Condition is required when "Requires action" is enabled.';
+      if (!draft.notes?.trim()) return 'Notes are required when "Requires action" is enabled.';
+    }
+    return null;
+  }, []);
 
-    room.checklistItems.forEach((item) => {
-      const draft = drafts[item.id];
-      if (!draft) return;
+  const saveItem = useCallback(async (room: InspectionRoom, item: ChecklistItem) => {
+    if (!inspection) return;
 
-      if (draft.requiresAction) {
-        if (!draft.condition) {
-          errors.push({
-            itemId: item.id,
-            itemLabel: itemLabel(item),
-            reason: 'Condition is required when "Requires action" is enabled.',
-          });
-        }
-        if (!draft.notes?.trim()) {
-          errors.push({
-            itemId: item.id,
-            itemLabel: itemLabel(item),
-            reason: 'Notes are required when "Requires action" is enabled.',
-          });
-        }
-      }
-    });
+    const draft = (roomDrafts?.[room.id]?.[item.id]) as DraftChecklistItem | undefined;
+    if (!draft) return;
 
-    return errors;
-  }, [roomDrafts]);
+    const baseline: DraftChecklistItem = {
+      requiresAction: !!item.requiresAction,
+      condition: (item.condition ?? null) as any,
+      notes: (item.notes ?? '') ?? '',
+      severity: (item.severity ?? null) as any,
+      issueType: (item.issueType ?? null) as any,
+      measurementValue: (item.measurementValue ?? null) as any,
+      measurementUnit: (item.measurementUnit ?? null) as any,
+      measurementNotes: (item.measurementNotes ?? '') ?? '',
+    };
 
-  const getDirtyItemPatchesForRoom = useCallback((room: InspectionRoom) => {
-    const drafts = roomDrafts[room.id] ?? {};
-    const patches: Array<{
-      itemId: number;
-      requiresAction: boolean;
-      condition?: InspectionCondition | null;
-      notes?: string;
-      severity?: SeverityLevel | null;
-      issueType?: InspectionIssueType | null;
-      measurementValue?: number | null;
-      measurementUnit?: MeasurementUnit | null;
-      measurementNotes?: string;
-    }> = [];
+    // No changes => nothing to do.
+    if (shallowEqualDraft(draft, baseline)) {
+      setItemMeta((prev) => ({
+        ...prev,
+        [item.id]: { saving: false, lastSavedAtMs: prev[item.id]?.lastSavedAtMs, error: undefined },
+      }));
+      return;
+    }
 
-    room.checklistItems.forEach((item) => {
-      const draft = drafts[item.id];
-      if (!draft) return;
+    const validationError = validateItem(item, draft);
+    if (validationError) {
+      setItemMeta((prev) => ({
+        ...prev,
+        [item.id]: { saving: false, lastSavedAtMs: prev[item.id]?.lastSavedAtMs, error: validationError },
+      }));
+      return;
+    }
 
-      const baseline: DraftChecklistItem = {
-        requiresAction: !!item.requiresAction,
-        condition: (item.condition ?? null) as any,
-        notes: (item.notes ?? '') ?? '',
-        severity: (item.severity ?? null) as any,
-        issueType: (item.issueType ?? null) as any,
-        measurementValue: (item.measurementValue ?? null) as any,
-        measurementUnit: (item.measurementUnit ?? null) as any,
-        measurementNotes: (item.measurementNotes ?? '') ?? '',
-      };
+    setItemMeta((prev) => ({
+      ...prev,
+      [item.id]: { saving: true, lastSavedAtMs: prev[item.id]?.lastSavedAtMs, error: undefined },
+    }));
 
-      if (!shallowEqualDraft(draft, baseline)) {
-        patches.push({
-          itemId: item.id,
+    try {
+      await apiFetch(`/inspections/items/${item.id}`, {
+        token: token ?? undefined,
+        method: 'PATCH',
+        body: {
           requiresAction: !!draft.requiresAction,
           condition: (draft.condition ?? null) as any,
           notes: draft.notes,
@@ -610,60 +608,23 @@ export default function InspectionDetailPage(): React.ReactElement {
           measurementValue: (draft.measurementValue ?? null) as any,
           measurementUnit: (draft.measurementUnit ?? null) as any,
           measurementNotes: draft.measurementNotes,
-        });
-      }
-    });
-
-    return patches;
-  }, [roomDrafts]);
-
-  const saveRoom = useCallback(async (room: InspectionRoom) => {
-    if (!inspection) return;
-
-    setEstimateError(null);
-
-    // Validate whole room before any network calls.
-    const validationErrors = validateRoom(room);
-    if (validationErrors.length > 0) {
-      setRoomErrors((prev) => ({ ...prev, [room.id]: validationErrors }));
-      return;
-    }
-
-    const patches = getDirtyItemPatchesForRoom(room);
-    if (patches.length === 0) {
-      setRoomErrors((prev) => ({ ...prev, [room.id]: [] }));
-      return;
-    }
-
-    setSavingRoomId(room.id);
-    setRoomErrors((prev) => ({ ...prev, [room.id]: [] }));
-
-    try {
-      // Atomic per-room save via backend transaction endpoint
-      await apiFetch(`/inspections/rooms/${room.id}/items`, {
-        token: token ?? undefined,
-        method: 'PATCH',
-        body: { items: patches },
+        },
       });
 
-      // Re-fetch inspection to sync, then preserve drafts for other rooms.
+      setItemMeta((prev) => ({
+        ...prev,
+        [item.id]: { saving: false, lastSavedAtMs: Date.now(), error: undefined },
+      }));
+
+      // Sync server truth
       await fetchInspection();
     } catch (err: any) {
-      const reason = err.message ?? 'Save failed';
-      // All-or-nothing, but show item-level failures: since backend is transactional,
-      // any failure means none saved. We still attach the server error per item patch.
-      const itemErrors: RoomSaveError[] = patches.map((p) => ({
-        itemId: p.itemId,
-        itemLabel: room.checklistItems.find((i) => i.id === p.itemId)
-          ? itemLabel(room.checklistItems.find((i) => i.id === p.itemId)!)
-          : `Item ${p.itemId}`,
-        reason,
+      setItemMeta((prev) => ({
+        ...prev,
+        [item.id]: { saving: false, lastSavedAtMs: prev[item.id]?.lastSavedAtMs, error: err?.message ?? 'Save failed' },
       }));
-      setRoomErrors((prev) => ({ ...prev, [room.id]: itemErrors }));
-    } finally {
-      setSavingRoomId(null);
     }
-  }, [estimateError, fetchInspection, getDirtyItemPatchesForRoom, inspection, token, validateRoom]);
+  }, [fetchInspection, inspection, roomDrafts, token, validateItem]);
 
   const generateEstimate = useCallback(async () => {
     if (!inspection) return;
@@ -813,8 +774,7 @@ export default function InspectionDetailPage(): React.ReactElement {
             return count + (shallowEqualDraft(d, baseline) ? 0 : 1);
           }, 0);
 
-          const errorsForRoom = roomErrors[room.id] ?? [];
-          const isSaving = savingRoomId === room.id;
+          // Any row-level save errors are shown inline per item.
 
           return (
             <Card key={room.id}>
@@ -830,29 +790,11 @@ export default function InspectionDetailPage(): React.ReactElement {
                         {dirtyCount} unsaved
                       </Chip>
                     )}
-                    <Button
-                      color="success"
-                      variant="flat"
-                      onClick={() => saveRoom(room)}
-                      isLoading={isSaving}
-                      isDisabled={dirtyCount === 0 || isSaving}
-                    >
-                      Save Room
-                    </Button>
+                    <Chip size="sm" variant="flat" color={dirtyCount > 0 ? 'warning' : 'default'}>
+                      Auto-save on row leave
+                    </Chip>
                   </div>
                 </div>
-                {errorsForRoom.length > 0 && (
-                  <div className="w-full text-sm text-rose-700">
-                    <div className="font-semibold mb-1">Save failed:</div>
-                    <ul className="list-disc pl-5">
-                      {errorsForRoom.map((e) => (
-                        <li key={`${e.itemId}-${e.reason}`}>
-                          <span className="font-medium">{e.itemLabel}</span>: {e.reason}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
               </CardHeader>
 
               <Divider />
@@ -870,14 +812,58 @@ export default function InspectionDetailPage(): React.ReactElement {
                     measurementNotes: (item.measurementNotes ?? '') ?? '',
                   };
 
+                  const meta = itemMeta[item.id];
+                  const saving = !!meta?.saving;
+                  const errorMsg = meta?.error;
+
+                  const baseline: DraftChecklistItem = {
+                    requiresAction: !!item.requiresAction,
+                    condition: (item.condition ?? null) as any,
+                    notes: (item.notes ?? '') ?? '',
+                    severity: (item.severity ?? null) as any,
+                    issueType: (item.issueType ?? null) as any,
+                    measurementValue: (item.measurementValue ?? null) as any,
+                    measurementUnit: (item.measurementUnit ?? null) as any,
+                    measurementNotes: (item.measurementNotes ?? '') ?? '',
+                  };
+                  const isDirty = !shallowEqualDraft(draft, baseline);
+
                   return (
-                    <div key={item.id} className="p-3 rounded border border-default-200">
+                    <div
+                      key={item.id}
+                      className="p-3 rounded border border-default-200"
+                      onBlurCapture={(e) => {
+                        const next = e.relatedTarget as any;
+                        if (e.currentTarget.contains(next)) return; // still inside row
+                        void saveItem(room, item);
+                      }}
+                    >
                       <div className="flex items-center gap-3">
                         <div className="flex flex-col">
                           <div className="text-sm font-semibold">{item.itemName}</div>
                           <div className="text-xs text-foreground-500">{item.category}</div>
                         </div>
                         <div className="ml-auto flex items-center gap-3">
+                          {saving ? (
+                            <Chip size="sm" variant="flat" color="primary">Saving…</Chip>
+                          ) : errorMsg ? (
+                            <Chip size="sm" variant="flat" color="danger">Error</Chip>
+                          ) : isDirty ? (
+                            <Chip size="sm" variant="flat" color="warning">Unsaved</Chip>
+                          ) : meta?.lastSavedAtMs ? (
+                            <Chip size="sm" variant="flat">Saved</Chip>
+                          ) : null}
+
+                          <Button
+                            size="sm"
+                            variant="flat"
+                            color={errorMsg ? 'danger' : 'default'}
+                            isDisabled={!isDirty || saving}
+                            onClick={() => saveItem(room, item)}
+                          >
+                            Save
+                          </Button>
+
                           <Switch
                             isSelected={draft.requiresAction}
                             onValueChange={(v) =>
@@ -895,11 +881,16 @@ export default function InspectionDetailPage(): React.ReactElement {
                                   })
                             }
                             size="sm"
+                            isDisabled={saving}
                           >
                             Requires action
                           </Switch>
                         </div>
                       </div>
+
+                      {errorMsg && (
+                        <div className="mt-2 text-xs text-rose-700">{errorMsg}</div>
+                      )}
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                         <Select
@@ -909,7 +900,7 @@ export default function InspectionDetailPage(): React.ReactElement {
                             const value = Array.from(keys)[0] as any;
                             onDraftChange(room.id, item.id, { condition: (value || null) as any });
                           }}
-                          isDisabled={!draft.requiresAction}
+                          isDisabled={!draft.requiresAction || saving}
                           placeholder="Select condition"
                         >
                           {conditionOptions.map((opt) => (
@@ -924,7 +915,7 @@ export default function InspectionDetailPage(): React.ReactElement {
                             const value = Array.from(keys)[0] as any;
                             onDraftChange(room.id, item.id, { severity: (value || null) as any });
                           }}
-                          isDisabled={!draft.requiresAction}
+                          isDisabled={!draft.requiresAction || saving}
                           placeholder="Select severity"
                         >
                           {severityOptions.map((opt) => (
@@ -939,7 +930,7 @@ export default function InspectionDetailPage(): React.ReactElement {
                             const value = Array.from(keys)[0] as any;
                             onDraftChange(room.id, item.id, { issueType: (value || null) as any });
                           }}
-                          isDisabled={!draft.requiresAction}
+                          isDisabled={!draft.requiresAction || saving}
                           placeholder="Investigate / Repair / Replace"
                         >
                           {issueTypeOptions.map((opt) => (
@@ -957,7 +948,7 @@ export default function InspectionDetailPage(): React.ReactElement {
                               const num = v === '' ? null : Number(v);
                               onDraftChange(room.id, item.id, { measurementValue: Number.isFinite(num as any) ? (num as any) : null });
                             }}
-                            isDisabled={!draft.requiresAction}
+                            isDisabled={!draft.requiresAction || saving}
                           />
                           <Select
                             aria-label="Measurement unit"
@@ -966,7 +957,7 @@ export default function InspectionDetailPage(): React.ReactElement {
                               const value = Array.from(keys)[0] as any;
                               onDraftChange(room.id, item.id, { measurementUnit: (value || null) as any });
                             }}
-                            isDisabled={!draft.requiresAction}
+                            isDisabled={!draft.requiresAction || saving}
                             placeholder="Unit"
                             className="min-w-[140px]"
                           >
@@ -982,7 +973,7 @@ export default function InspectionDetailPage(): React.ReactElement {
                             placeholder="e.g., approx 12 linear ft along baseboard"
                             value={draft.measurementNotes ?? ''}
                             onValueChange={(v) => onDraftChange(room.id, item.id, { measurementNotes: v })}
-                            isDisabled={!draft.requiresAction}
+                            isDisabled={!draft.requiresAction || saving}
                           />
                         </div>
 
@@ -992,7 +983,7 @@ export default function InspectionDetailPage(): React.ReactElement {
                             placeholder="Describe the issue, symptoms, and any context…"
                             value={draft.notes}
                             onValueChange={(v) => onDraftChange(room.id, item.id, { notes: v })}
-                            isDisabled={!draft.requiresAction}
+                            isDisabled={!draft.requiresAction || saving}
                             minRows={2}
                           />
                         </div>
