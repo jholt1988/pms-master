@@ -23,9 +23,87 @@ import {
   InventoryItem, 
   EstimateResult 
 } from './agents/estimate-tools';
+import { getLaborRateForTrade } from './pricing/labor-pricing.service';
+import { TradeCategory } from './pricing/pricing.types';
 
 function midpoint(low: number, high: number) {
   return (low + high) / 2;
+}
+
+function inferTradeFromCategory(category?: string | null): TradeCategory {
+  const c = (category || '').toLowerCase();
+  if (c.includes('plumb')) return 'plumbing';
+  if (c.includes('elect')) return 'electrical';
+  if (c.includes('hvac') || c.includes('heating') || c.includes('cooling') || c.includes('ac')) return 'hvac';
+  if (c.includes('roof')) return 'roofing';
+  if (c.includes('floor')) return 'flooring';
+  if (c.includes('paint')) return 'painter';
+  if (c.includes('lock')) return 'locksmith';
+  if (c.includes('landscap') || c.includes('lawn')) return 'landscaping';
+  if (c.includes('pest')) return 'pest_control';
+  if (c.includes('fenc')) return 'fencing';
+  if (c.includes('foundat')) return 'foundation';
+  if (c.includes('appliance')) return 'appliances';
+  if (c.includes('carpent') || c.includes('drywall') || c.includes('trim') || c.includes('door') || c.includes('window')) return 'carpentry';
+  return 'general';
+}
+
+function applyDeterministicLaborPricing(userLocation: UserLocation, estimateResult: EstimateResult) {
+  const city = userLocation.city;
+  const region = userLocation.region;
+
+  let adjustedAny = false;
+
+  // Adjust line items
+  for (const item of estimateResult.line_items ?? []) {
+    const hours = typeof item.labor_hours === 'number' ? item.labor_hours : 0;
+    if (!hours || hours <= 0) continue;
+
+    adjustedAny = true;
+
+    const trade = inferTradeFromCategory(item.category);
+    const rate = getLaborRateForTrade(trade, city, region);
+
+    const bidLowLabor = Math.round(rate.allInLow * hours * 100) / 100;
+    const bidHighLabor = Math.round(rate.allInHigh * hours * 100) / 100;
+
+    item.bid_low_labor_cost = bidLowLabor;
+    item.bid_high_labor_cost = bidHighLabor;
+
+    // Midpoint fields are what we persist.
+    const midRate = Math.round(midpoint(rate.allInLow, rate.allInHigh) * 100) / 100;
+    item.labor_rate_per_hour = midRate;
+    item.labor_cost = Math.round(midpoint(bidLowLabor, bidHighLabor) * 100) / 100;
+
+    // If we have labor + material ranges, compute total range. Otherwise, at least include labor.
+    const matLow = typeof item.bid_low_material_cost === 'number' ? item.bid_low_material_cost : (typeof item.material_cost === 'number' ? item.material_cost : 0);
+    const matHigh = typeof item.bid_high_material_cost === 'number' ? item.bid_high_material_cost : (typeof item.material_cost === 'number' ? item.material_cost : 0);
+
+    item.bid_low_total = Math.round((bidLowLabor + (matLow || 0)) * 100) / 100;
+    item.bid_high_total = Math.round((bidHighLabor + (matHigh || 0)) * 100) / 100;
+
+    item.total_cost = Math.round((item.labor_cost + (item.material_cost || 0)) * 100) / 100;
+
+    // Make confidence explainable if the agent didn't provide one.
+    if (!item.confidence_reason) {
+      item.confidence_reason = `Labor rate baseline: ${rate.regionKey} (${trade}) with ${(rate.overheadPct * 100).toFixed(0)}% overhead.`;
+    }
+  }
+
+  if (!adjustedAny) return;
+
+  // Recompute summary (midpoints + bid range) only when we actually applied labor pricing.
+  const lineItems = estimateResult.line_items ?? [];
+  estimateResult.estimate_summary.total_labor_cost = Math.round(lineItems.reduce((sum, li) => sum + (li.labor_cost || 0), 0) * 100) / 100;
+  estimateResult.estimate_summary.total_material_cost = Math.round(lineItems.reduce((sum, li) => sum + (li.material_cost || 0), 0) * 100) / 100;
+  estimateResult.estimate_summary.total_project_cost = Math.round(lineItems.reduce((sum, li) => sum + (li.total_cost || 0), 0) * 100) / 100;
+
+  estimateResult.estimate_summary.bid_low_total = Math.round(lineItems.reduce((sum, li) => sum + (li.bid_low_total || 0), 0) * 100) / 100;
+  estimateResult.estimate_summary.bid_high_total = Math.round(lineItems.reduce((sum, li) => sum + (li.bid_high_total || 0), 0) * 100) / 100;
+
+  if (!estimateResult.estimate_summary.confidence_reason) {
+    estimateResult.estimate_summary.confidence_reason = `Bid range uses labor rate baselines for ${city}, ${region}; midpoint totals are persisted.`;
+  }
 }
 
 @Injectable()
@@ -98,6 +176,9 @@ export class EstimateService {
       }
       throw error;
     }
+
+    // Normalize labor pricing so bid ranges are deterministic-ish and explainable.
+    applyDeterministicLaborPricing(userLocation, estimateResult);
 
     // Save estimate to database
     const estimate = await this.prisma.repairEstimate.create({
