@@ -160,6 +160,22 @@ export class MaintenanceService {
           );
         }
       }
+
+      // Guardrail: if unitId + propertyId provided, validate the unit belongs to the property.
+      if (propertyId && unitId) {
+        const unit = await this.prisma.unit.findFirst({
+          where: { id: unitId, propertyId },
+          select: { id: true },
+        });
+
+        if (!unit) {
+          throw ApiException.badRequest(
+            ErrorCode.VALIDATION_INVALID_INPUT,
+            'unitId does not belong to the given propertyId',
+            { unitId, propertyId },
+          );
+        }
+      }
     }
 
     // Use AI to assign priority if not provided
