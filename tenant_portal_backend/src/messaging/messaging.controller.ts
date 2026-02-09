@@ -10,7 +10,10 @@ import {
   ParseIntPipe,
   HttpCode,
   HttpStatus,
+  Req,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { MessagingService } from './messaging.service';
 import { BulkMessagingService } from './bulk-messaging.service';
@@ -49,9 +52,36 @@ export class MessagingController {
   async getConversations(
     @Request() req: AuthenticatedRequest,
     @Query() query: GetConversationsQueryDto,
+    @Req() rawReq: any,
+    @Res({ passthrough: true }) res: Response,
   ) {
+    const versionHeader = String(rawReq?.headers?.['x-api-version'] ?? '').trim();
+    const version = versionHeader === '2' ? '2' : '1';
+
+    // Ensure caches/CDNs don't mix v1 and v2 shapes.
+    res.setHeader('Vary', 'X-API-Version');
+    res.setHeader('X-API-Version', version);
+
     const result = await this.messagingService.getConversations(req.user.userId, query);
-    return result.conversations;
+
+    // v1: preserve legacy client contract (bare array)
+    if (version !== '2') {
+      return result.conversations;
+    }
+
+    // v2: envelope with pagination metadata
+    return {
+      data: result.conversations,
+      pagination: {
+        page: result.pagination.page,
+        limit: result.pagination.limit,
+        totalItems: result.pagination.total,
+        totalPages: result.pagination.pages,
+      },
+      meta: {
+        serverTime: new Date().toISOString(),
+      },
+    };
   }
 
   /**
