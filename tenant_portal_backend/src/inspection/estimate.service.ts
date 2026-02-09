@@ -32,19 +32,26 @@ function midpoint(low: number, high: number) {
 
 function inferTradeFromCategory(category?: string | null): TradeCategory {
   const c = (category || '').toLowerCase();
-  if (c.includes('plumb')) return 'plumbing';
-  if (c.includes('elect')) return 'electrical';
-  if (c.includes('hvac') || c.includes('heating') || c.includes('cooling') || c.includes('ac')) return 'hvac';
+
+  // First: explicit common PMS categories
+  if (c.includes('plumb') || c.includes('fixture') || c.includes('toilet') || c.includes('sink') || c.includes('faucet')) return 'plumbing';
+  if (c.includes('elect') || c.includes('lighting') || c.includes('outlet') || c.includes('breaker') || c.includes('switch')) return 'electrical';
+  if (c.includes('hvac') || c.includes('heating') || c.includes('cooling') || c.includes('air') || c.includes('ac') || c.includes('furnace')) return 'hvac';
+  if (c.includes('appliance') || c.includes('refrigerator') || c.includes('fridge') || c.includes('dishwasher') || c.includes('stove') || c.includes('oven') || c.includes('microwave')) return 'appliances';
+
+  // Home envelope + finishes
   if (c.includes('roof')) return 'roofing';
-  if (c.includes('floor')) return 'flooring';
-  if (c.includes('paint')) return 'painter';
+  if (c.includes('floor') || c.includes('carpet') || c.includes('tile')) return 'flooring';
+  if (c.includes('paint') || c.includes('wall')) return 'painter';
+  if (c.includes('window') || c.includes('door') || c.includes('cabinet') || c.includes('countertop') || c.includes('trim') || c.includes('drywall') || c.includes('structure') || c.includes('carpent')) return 'carpentry';
+
+  // Outside + specialty
   if (c.includes('lock')) return 'locksmith';
   if (c.includes('landscap') || c.includes('lawn')) return 'landscaping';
   if (c.includes('pest')) return 'pest_control';
   if (c.includes('fenc')) return 'fencing';
   if (c.includes('foundat')) return 'foundation';
-  if (c.includes('appliance')) return 'appliances';
-  if (c.includes('carpent') || c.includes('drywall') || c.includes('trim') || c.includes('door') || c.includes('window')) return 'carpentry';
+
   return 'general';
 }
 
