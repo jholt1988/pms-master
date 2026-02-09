@@ -86,7 +86,7 @@ function applyDeterministicLaborPricing(userLocation: UserLocation, estimateResu
 
     // Make confidence explainable if the agent didn't provide one.
     if (!item.confidence_reason) {
-      item.confidence_reason = `Labor rate baseline: ${rate.regionKey} (${trade}) with ${(rate.overheadPct * 100).toFixed(0)}% overhead.`;
+      item.confidence_reason = `Labor pricing is baseline-driven for ${rate.regionKey} (${trade}) with ${(rate.overheadPct * 100).toFixed(0)}% overhead; midpoint totals are persisted, and the bid range reflects realistic bidding variance.`;
     }
   }
 
@@ -102,7 +102,7 @@ function applyDeterministicLaborPricing(userLocation: UserLocation, estimateResu
   estimateResult.estimate_summary.bid_high_total = Math.round(lineItems.reduce((sum, li) => sum + (li.bid_high_total || 0), 0) * 100) / 100;
 
   if (!estimateResult.estimate_summary.confidence_reason) {
-    estimateResult.estimate_summary.confidence_reason = `Bid range uses labor rate baselines for ${city}, ${region}; midpoint totals are persisted.`;
+    estimateResult.estimate_summary.confidence_reason = `Bid range uses Wichita, KS labor baselines (+overhead) by trade; midpoint totals are what we persist, and the low/high range reflects common bidding variance (scope, access, material grade).`;
   }
 }
 
