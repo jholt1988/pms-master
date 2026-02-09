@@ -91,6 +91,22 @@ export class MaintenanceController {
   @Post()
   async create(@Request() req: AuthenticatedRequest, @Body() dto: CreateMaintenanceRequestDto) {
     const orgId = (req as any).org?.orgId as string | undefined;
+    const orgRole = (req as any).org?.orgRole as OrgRole | undefined;
+
+    // Tenant creates are always derived from lease/unit/property
+    if (req.user.role === Role.TENANT) {
+      return this.maintenanceService.create(req.user.userId, req.user.role, dto, orgId);
+    }
+
+    // Owner creates must be tied to a specific property in-org.
+    if (orgRole === OrgRole.OWNER && !dto.propertyId) {
+      throw ApiException.badRequest(
+        ErrorCode.VALIDATION_MISSING_REQUIRED_FIELD,
+        'propertyId is required for owners when creating a maintenance request',
+        { field: 'propertyId' },
+      );
+    }
+
     return this.maintenanceService.create(req.user.userId, req.user.role, dto, orgId);
   }
 
