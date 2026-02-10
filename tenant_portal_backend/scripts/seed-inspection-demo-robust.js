@@ -103,9 +103,13 @@ async function main() {
   try {
     property = await prisma.property.upsert({ where: propertyWhere, update: propertyUpdate, create: propertyCreateBase });
   } catch (e) {
-    // Retry without org fields and without optional address parts.
+    // Retry with minimal fields, but preserve required constraints (e.g., organizationId).
     const update2 = { name: propertyUpdate.name, address: propertyUpdate.address };
     const create2 = { id: propertyId, ...update2 };
+    if (organization) {
+      update2.organizationId = organization.id;
+      create2.organizationId = organization.id;
+    }
     property = await prisma.property.upsert({ where: propertyWhere, update: update2, create: create2 });
   }
 

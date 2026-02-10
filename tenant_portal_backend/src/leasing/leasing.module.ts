@@ -14,14 +14,13 @@ import { LeadApplicationsController } from './lead-applications.controller';
 import { LeadApplicationsService } from './lead-applications.service';
 import { LeadsLegacyController } from '../legacy/leads-legacy.controller';
 
+const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
+
 @Module({
   imports: [EmailModule],
-  controllers: [
-    LeasingController,
-    ToursController,
-    LeadApplicationsController,
-    LeadsLegacyController,
-  ],
+  controllers: legacyEnabled
+    ? [LeasingController, ToursController, LeadApplicationsController, LeadsLegacyController]
+    : [LeasingController, ToursController, LeadApplicationsController],
   providers: [
     PrismaService,
     LeasingService,

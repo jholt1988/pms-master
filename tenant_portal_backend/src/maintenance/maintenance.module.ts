@@ -9,9 +9,11 @@ import { ConfigModule } from '@nestjs/config';
 import { SystemUserService } from '../shared/system-user.service';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 
+const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
+
 @Module({
   imports: [PrismaModule, ConfigModule],
-  controllers: [MaintenanceController, MaintenanceLegacyController],
+  controllers: legacyEnabled ? [MaintenanceController, MaintenanceLegacyController] : [MaintenanceController],
   providers: [
     MaintenanceService,
     AIMaintenanceService,

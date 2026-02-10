@@ -10,6 +10,8 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { ConfigModule } from '@nestjs/config';
 import { NotificationsModule } from '../notifications/notifications.module';
 
+const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
+
 @Module({
   imports: [
     PrismaModule,
@@ -17,7 +19,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     ScheduleModule.forRoot(),
     NotificationsModule,
   ],
-  controllers: [LeaseController, LegacyLeaseController],
+  controllers: legacyEnabled ? [LeaseController, LegacyLeaseController] : [LeaseController],
   providers: [
     LeaseService,
     AILeaseRenewalService,
