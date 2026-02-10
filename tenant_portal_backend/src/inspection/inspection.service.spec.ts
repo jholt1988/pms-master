@@ -537,23 +537,19 @@ describe('InspectionService', () => {
         roomId: 1
       };
 
-      const mockFile = {
-        filename: 'photo.jpg',
-        path: '/uploads/photo.jpg'
-      } as Express.Multer.File;
+      const uploadedById = '1';
 
       mockPrismaService.inspectionChecklistItem.findUnique.mockResolvedValue(mockChecklistItem);
       mockPrismaService.inspectionChecklistPhoto.create.mockResolvedValue(mockPhoto);
 
-      const result = await service.addPhotoToChecklistItem(1, uploadDto, mockFile);
+      const result = await service.addPhotoToChecklistItem(1, uploadDto, uploadedById);
 
       expect(mockPrismaService.inspectionChecklistPhoto.create).toHaveBeenCalledWith({
         data: {
-          checklistItemId: 1,
-          imagePath: '/uploads/photo.jpg',
+          checklistItem: { connect: { id: 1 } },
+          url: (uploadDto as any).url,
           caption: 'Damaged faucet photo',
-          metadata: uploadDto.metadata,
-          uploadedAt: expect.any(Date)
+          uploadedBy: { connect: { id: uploadedById } },
         }
       });
 
@@ -561,11 +557,11 @@ describe('InspectionService', () => {
     });
 
     it('should throw NotFoundException when checklist item not found', async () => {
-      const mockFile = { filename: 'photo.jpg' } as Express.Multer.File;
+      const uploadedById = '1';
       
       mockPrismaService.inspectionChecklistItem.findUnique.mockResolvedValue(null);
 
-      await expect(service.addPhotoToChecklistItem(999, uploadDto, mockFile))
+      await expect(service.addPhotoToChecklistItem(999, uploadDto, uploadedById))
         .rejects.toThrow(NotFoundException);
     });
   });

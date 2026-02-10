@@ -29,7 +29,7 @@ describe('AILeaseRenewalMetricsService', () => {
       expect(metrics[0].operation).toBe('predictRenewalLikelihood');
       expect(metrics[0].success).toBe(true);
       expect(metrics[0].responseTime).toBe(500);
-      expect(metrics[0].leaseId).toBe(1);
+      expect(metrics[0].leaseId).toBe('1');
       expect(metrics[0].renewalProbability).toBe(0.75);
       expect(metrics[0].timestamp).toBeInstanceOf(Date);
       expect(metrics[0].timestamp.getTime()).toBeGreaterThanOrEqual(beforeTime);

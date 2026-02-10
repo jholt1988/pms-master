@@ -127,7 +127,7 @@ describe('AuthService', () => {
 
     it('should successfully login with valid credentials', async () => {
       const mockUser = {
-        id: 1,
+        id: '1',
         username: 'test@example.com',
         password: 'hashedPassword',
         role: Role.TENANT,
@@ -187,7 +187,7 @@ describe('AuthService', () => {
 
     it('should throw UnauthorizedException when account is locked', async () => {
       const lockedUser = {
-        id: 1,
+        id: '1',
         username: 'test@example.com',
         password: 'hashedPassword',
         role: Role.TENANT,
@@ -214,7 +214,7 @@ describe('AuthService', () => {
 
     it('should increment failed attempts on wrong password', async () => {
       const mockUser = {
-        id: 1,
+        id: '1',
         username: 'test@example.com',
         password: 'hashedPassword',
         role: Role.TENANT,
@@ -240,7 +240,7 @@ describe('AuthService', () => {
 
     it('should lock account after max failed attempts', async () => {
       const mockUser = {
-        id: 1,
+        id: '1',
         username: 'test@example.com',
         password: 'hashedPassword',
         role: Role.TENANT,
@@ -275,7 +275,7 @@ describe('AuthService', () => {
 
     it('should require MFA code when MFA is enabled', async () => {
       const mockUser = {
-        id: 1,
+        id: '1',
         username: 'test@example.com',
         password: 'hashedPassword',
         role: Role.TENANT,
@@ -301,7 +301,7 @@ describe('AuthService', () => {
 
     it('should successfully login with valid MFA code', async () => {
       const mockUser = {
-        id: 1,
+        id: '1',
         username: 'test@example.com',
         password: 'hashedPassword',
         role: Role.TENANT,
@@ -331,7 +331,7 @@ describe('AuthService', () => {
 
     it('should reject invalid MFA code', async () => {
       const mockUser = {
-        id: 1,
+        id: '1',
         username: 'test@example.com',
         password: 'hashedPassword',
         role: Role.TENANT,
@@ -370,7 +370,7 @@ describe('AuthService', () => {
       };
 
       const mockUser = {
-        id: 1,
+        id: '1',
         username: registerDto.username,
         role: Role.TENANT,
         password: 'hashedPassword',
@@ -442,7 +442,7 @@ describe('AuthService', () => {
 
   describe('prepareMfa', () => {
     it('should generate MFA secret and QR code URL', async () => {
-      const userId = 1;
+      const userId = '1';
       const context = {
         username: 'test@example.com',
         ipAddress: '127.0.0.1',
@@ -474,7 +474,7 @@ describe('AuthService', () => {
 
   describe('activateMfa', () => {
     it('should activate MFA with valid code', async () => {
-      const userId = 1;
+      const userId = '1';
       const code = '123456';
       const context = {
         username: 'test@example.com',
@@ -507,7 +507,7 @@ describe('AuthService', () => {
     });
 
     it('should reject invalid activation code', async () => {
-      const userId = 1;
+      const userId = '1';
       const code = '000000';
       const context = {
         username: 'test@example.com',
@@ -537,7 +537,7 @@ describe('AuthService', () => {
     });
 
     it('should throw error when no MFA enrollment in progress', async () => {
-      const userId = 1;
+      const userId = '1';
       const code = '123456';
       const context = {
         username: 'test@example.com',
@@ -555,7 +555,7 @@ describe('AuthService', () => {
 
   describe('disableMfa', () => {
     it('should disable MFA with valid code', async () => {
-      const userId = 1;
+      const userId = '1';
       const code = '123456';
       const context = {
         username: 'test@example.com',
@@ -589,7 +589,7 @@ describe('AuthService', () => {
     });
 
     it('should require verification code to disable MFA', async () => {
-      const userId = 1;
+      const userId = '1';
       const context = {
         username: 'test@example.com',
         ipAddress: '127.0.0.1',
@@ -608,7 +608,7 @@ describe('AuthService', () => {
     });
 
     it('should throw error when MFA is not enabled', async () => {
-      const userId = 1;
+      const userId = '1';
       const code = '123456';
       const context = {
         username: 'test@example.com',
@@ -633,14 +633,14 @@ describe('AuthService', () => {
       const context = { ipAddress: '127.0.0.1', userAgent: 'Jest Test' };
 
       const mockUser = {
-        id: 1,
+        id: '1',
         username,
       };
 
       mockUsersService.findOne.mockResolvedValue(mockUser);
       mockPrismaService.PasswordResetToken.updateMany.mockResolvedValue({ count: 0 });
       mockPrismaService.PasswordResetToken.create.mockResolvedValue({
-        id: 1,
+        id: '1',
         token: 'reset-token',
         userId: 1,
         expiresAt: new Date(),
@@ -687,13 +687,13 @@ describe('AuthService', () => {
       const context = { ipAddress: '127.0.0.1', userAgent: 'Jest Test' };
 
       const mockResetToken = {
-        id: 1,
+        id: '1',
         token,
         userId: 1,
         used: false,
         expiresAt: new Date(Date.now() + 86400000), // 24 hours from now
         user: {
-          id: 1,
+          id: '1',
           username: 'test@example.com',
         },
       };
@@ -731,13 +731,13 @@ describe('AuthService', () => {
       const context = { ipAddress: '127.0.0.1', userAgent: 'Jest Test' };
 
       const mockResetToken = {
-        id: 1,
+        id: '1',
         token,
         userId: 1,
         used: false,
         expiresAt: new Date(Date.now() - 1000), // Expired
         user: {
-          id: 1,
+          id: '1',
           username: 'test@example.com',
         },
       };
@@ -755,13 +755,13 @@ describe('AuthService', () => {
       const context = { ipAddress: '127.0.0.1', userAgent: 'Jest Test' };
 
       const mockResetToken = {
-        id: 1,
+        id: '1',
         token,
         userId: 1,
         used: true,
         expiresAt: new Date(Date.now() + 86400000),
         user: {
-          id: 1,
+          id: '1',
           username: 'test@example.com',
         },
       };
@@ -779,13 +779,13 @@ describe('AuthService', () => {
       const context = { ipAddress: '127.0.0.1', userAgent: 'Jest Test' };
 
       const mockResetToken = {
-        id: 1,
+        id: '1',
         token,
         userId: 1,
         used: false,
         expiresAt: new Date(Date.now() + 86400000),
         user: {
-          id: 1,
+          id: '1',
           username: 'test@example.com',
         },
       };

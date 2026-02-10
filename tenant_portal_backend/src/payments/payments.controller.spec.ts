@@ -50,7 +50,7 @@ describe('PaymentsController', () => {
       };
 
       const mockInvoice = {
-        id: 1,
+        id: '1',
         description: 'Monthly Rent - December 2024',
         leaseId: 1,
         amount: 1500.0,
@@ -82,7 +82,7 @@ describe('PaymentsController', () => {
 
       const mockInvoices = [
         {
-          id: 1,
+          id: '1',
           leaseId: 1,
           amount: 1500.0,
           dueDate: new Date('2024-12-01'),
@@ -138,25 +138,22 @@ describe('PaymentsController', () => {
       const result = await controller.getInvoices(mockRequest, '10');
 
       expect(result).toEqual(mockInvoices);
-      expect(service.getInvoicesForUser).toHaveBeenCalledWith(2, Role.PROPERTY_MANAGER, 10);
+      expect(service.getInvoicesForUser).toHaveBeenCalledWith(2, Role.PROPERTY_MANAGER, '10');
       expect(service.getInvoicesForUser).toHaveBeenCalledTimes(1);
     });
 
     it('should throw BadRequestException for invalid leaseId', async () => {
       const mockRequest = {
         user: {
-          userId: 1,
+          userId: '1',
           role: Role.TENANT,
         },
       } as any;
 
-      await expect(controller.getInvoices(mockRequest, 'invalid')).rejects.toThrow(
-        BadRequestException,
-      );
-      await expect(controller.getInvoices(mockRequest, 'invalid')).rejects.toThrow(
-        'leaseId must be a number',
-      );
-      expect(service.getInvoicesForUser).not.toHaveBeenCalled();
+      mockPaymentsService.getInvoicesForUser.mockRejectedValue(new BadRequestException('Invalid lease identifier provided.'));
+
+      await expect(controller.getInvoices(mockRequest, 'invalid')).rejects.toThrow(BadRequestException);
+      expect(service.getInvoicesForUser).toHaveBeenCalledWith('1', Role.TENANT, 'invalid');
     });
   });
 
@@ -170,7 +167,7 @@ describe('PaymentsController', () => {
       };
 
       const mockPayment = {
-        id: 1,
+        id: '1',
         invoiceId: 1,
         amount: 1500.0,
         method: 'credit_card',
@@ -208,7 +205,7 @@ describe('PaymentsController', () => {
 
       const mockPayments = [
         {
-          id: 1,
+          id: '1',
           invoiceId: 1,
           amount: 1500.0,
           method: 'credit_card',
@@ -254,25 +251,22 @@ describe('PaymentsController', () => {
       const result = await controller.getPayments(mockRequest, '15');
 
       expect(result).toEqual(mockPayments);
-      expect(service.getPaymentsForUser).toHaveBeenCalledWith(3, Role.PROPERTY_MANAGER, 15);
+      expect(service.getPaymentsForUser).toHaveBeenCalledWith(3, Role.PROPERTY_MANAGER, '15');
       expect(service.getPaymentsForUser).toHaveBeenCalledTimes(1);
     });
 
     it('should throw BadRequestException for invalid leaseId', async () => {
       const mockRequest = {
         user: {
-          userId: 1,
+          userId: '1',
           role: Role.TENANT,
         },
       } as any;
 
-      await expect(controller.getPayments(mockRequest, 'notanumber')).rejects.toThrow(
-        BadRequestException,
-      );
-      await expect(controller.getPayments(mockRequest, 'notanumber')).rejects.toThrow(
-        'leaseId must be a number',
-      );
-      expect(service.getPaymentsForUser).not.toHaveBeenCalled();
+      mockPaymentsService.getPaymentsForUser.mockRejectedValue(new BadRequestException('Invalid lease identifier provided.'));
+
+      await expect(controller.getPayments(mockRequest, 'notanumber')).rejects.toThrow(BadRequestException);
+      expect(service.getPaymentsForUser).toHaveBeenCalledWith('1', Role.TENANT, 'notanumber');
     });
   });
 

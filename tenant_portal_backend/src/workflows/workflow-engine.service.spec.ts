@@ -112,7 +112,7 @@ describe('WorkflowEngineService', () => {
       };
 
       mockPrismaService.maintenanceRequest.findUnique.mockResolvedValue({
-        id: 1,
+        id: '1',
         title: 'Test Request',
         description: 'Test Description',
       });
@@ -122,7 +122,7 @@ describe('WorkflowEngineService', () => {
       mockWorkflowCacheService.generateAIResponseKey.mockReturnValue('cache-key');
       mockWorkflowCacheService.getAIResponse.mockReturnValue(null);
 
-      mockPrismaService.maintenanceRequest.update.mockResolvedValue({ id: 1, priority: 'HIGH' });
+      mockPrismaService.maintenanceRequest.update.mockResolvedValue({ id: '1', priority: 'HIGH' });
 
       // Access private method via reflection or test through executeWorkflow
       // For now, we'll test the behavior through workflow execution
@@ -169,7 +169,7 @@ describe('WorkflowEngineService', () => {
       };
 
       mockPrismaService.maintenanceRequest.findUnique.mockResolvedValue({
-        id: 1,
+        id: '1',
         title: 'Test Request',
         description: 'Test Description',
       });
@@ -255,7 +255,7 @@ describe('WorkflowEngineService', () => {
 
       expect(result.riskLevel).toBe('HIGH');
       expect(result.riskScore).toBe(0.8);
-      expect(mockAIPaymentService.assessPaymentRisk).toHaveBeenCalledWith(1, 1);
+      expect(mockAIPaymentService.assessPaymentRisk).toHaveBeenCalledWith('1', 1);
     });
 
     it('should return fallback if AI service not available', async () => {
@@ -303,7 +303,7 @@ describe('WorkflowEngineService', () => {
       const step: WorkflowStep = {
         id: 'step1',
         type: 'PREDICT_RENEWAL_AI',
-        input: { leaseId: 1 },
+        input: { leaseId: '1' },
       };
 
       const execution: WorkflowExecution = {
@@ -319,16 +319,16 @@ describe('WorkflowEngineService', () => {
       };
 
       mockAILeaseRenewalService.predictRenewalLikelihood.mockResolvedValue({
-        probability: 0.75,
+        renewalProbability: 0.75,
         confidence: 'HIGH',
         factors: ['Good payment history'],
       });
 
-      const result = await service['executePredictRenewalAI'](step, execution, 1, 'corr1');
+      const result = await service['executePredictRenewalAI'](step, execution, '1', 'corr1');
 
       expect(result.renewalProbability).toBe(0.75);
       expect(result.confidence).toBe('HIGH');
-      expect(mockAILeaseRenewalService.predictRenewalLikelihood).toHaveBeenCalledWith(1);
+      expect(mockAILeaseRenewalService.predictRenewalLikelihood).toHaveBeenCalledWith('1');
     });
 
     it('should return fallback if AI service not available', async () => {
@@ -348,7 +348,7 @@ describe('WorkflowEngineService', () => {
       const step: WorkflowStep = {
         id: 'step1',
         type: 'PREDICT_RENEWAL_AI',
-        input: { leaseId: 1 },
+        input: { leaseId: '1' },
       };
 
       const execution: WorkflowExecution = {
@@ -363,7 +363,7 @@ describe('WorkflowEngineService', () => {
         error: null,
       };
 
-      const result = await serviceWithoutAI['executePredictRenewalAI'](step, execution, 1, 'corr1');
+      const result = await serviceWithoutAI['executePredictRenewalAI'](step, execution, '1', 'corr1');
 
       expect(result.renewalProbability).toBe(0.5);
       expect(result.confidence).toBe('LOW');
@@ -393,11 +393,11 @@ describe('WorkflowEngineService', () => {
 
       mockAINotificationService.customizeNotificationContent.mockResolvedValue('Personalized message');
 
-      const result = await service['executePersonalizeNotificationAI'](step, execution, 1, 'corr1');
+      const result = await service['executePersonalizeNotificationAI'](step, execution, '1', 'corr1');
 
       expect(result.personalizedMessage).toBe('Personalized message');
       expect(mockAINotificationService.customizeNotificationContent).toHaveBeenCalledWith(
-        1,
+        '1',
         'RENT_REMINDER',
         'Original message',
       );
@@ -435,7 +435,7 @@ describe('WorkflowEngineService', () => {
         error: null,
       };
 
-      const result = await serviceWithoutAI['executePersonalizeNotificationAI'](step, execution, 1, 'corr1');
+      const result = await serviceWithoutAI['executePersonalizeNotificationAI'](step, execution, '1', 'corr1');
 
       expect(result.personalizedMessage).toBe('Original message');
       expect(result.note).toBe('AI service not available');

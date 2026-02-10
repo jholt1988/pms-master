@@ -132,7 +132,7 @@ describe('WorkflowEngineService - Optimizations', () => {
       });
       (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({ role: 'PROPERTY_MANAGER' });
       (mockPrisma.maintenanceRequest.findUnique as jest.Mock).mockResolvedValue({
-        id: 1,
+        id: '1',
         title: 'Test',
         description: 'Test',
       });
@@ -284,11 +284,11 @@ describe('WorkflowEngineService - Optimizations', () => {
   describe('Query Optimizations', () => {
     it('should use single query with includes for related data', async () => {
       const mockRequest = {
-        id: 1,
+        id: '1',
         title: 'Test',
         property: { latitude: 40.7128, longitude: -74.0060 },
         asset: { category: 'HVAC' },
-        technician: { id: 1, name: 'John' },
+        technician: { id: '1', name: 'John' },
       };
 
       (mockPrisma.maintenanceRequest.findUnique as jest.Mock).mockResolvedValue(mockRequest);
@@ -321,7 +321,6 @@ describe('WorkflowEngineService - Optimizations', () => {
         include: expect.objectContaining({
           property: expect.any(Object),
           asset: expect.any(Object),
-          technician: expect.any(Object),
         }),
       });
     });

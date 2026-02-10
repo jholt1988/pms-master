@@ -69,7 +69,7 @@ describe('PaymentsService', () => {
 
   describe('createInvoice', () => {
     it('should create an invoice successfully', async () => {
-      const mockLease = { id: 1, tenantId: 1 };
+      const mockLease = { id: '1', tenantId: 1 };
       const invoiceDto = {
         description: 'December Rent',
         amount: 1500,
@@ -77,7 +77,7 @@ describe('PaymentsService', () => {
         leaseId: 1,
       };
       const mockInvoice = {
-        id: 1,
+        id: '1',
         ...invoiceDto,
         dueDate: new Date(invoiceDto.dueDate),
         status: 'UNPAID',
@@ -123,7 +123,7 @@ describe('PaymentsService', () => {
     // Note: Date and amount validation would be done at DTO validation layer (class-validator)
     // These tests are skipped as the service doesn't perform this validation
     it.skip('should handle invalid date format', async () => {
-      mockPrismaService.lease.findUnique.mockResolvedValue({ id: 1 });
+      mockPrismaService.lease.findUnique.mockResolvedValue({ id: '1' });
 
       await expect(
         service.createInvoice({
@@ -136,7 +136,7 @@ describe('PaymentsService', () => {
     });
 
     it.skip('should validate amount is positive', async () => {
-      mockPrismaService.lease.findUnique.mockResolvedValue({ id: 1 });
+      mockPrismaService.lease.findUnique.mockResolvedValue({ id: '1' });
 
       await expect(
         service.createInvoice({
@@ -152,9 +152,9 @@ describe('PaymentsService', () => {
   describe('createPayment', () => {
     it('should create payment and send confirmation email', async () => {
       const mockLease = {
-        id: 1,
+        id: '1',
         tenantId: 1,
-        tenant: { id: 1, username: 'tenant@test.com' },
+        tenant: { id: '1', username: 'tenant@test.com' },
         unit: { 
           unitNumber: '101', 
           property: { address: '123 Test St' } 
@@ -168,7 +168,7 @@ describe('PaymentsService', () => {
       };
 
       const mockPayment = {
-        id: 1,
+        id: '1',
         ...paymentDto,
         userId: 1,
         paymentDate: new Date(),
@@ -183,25 +183,18 @@ describe('PaymentsService', () => {
       expect(result).toEqual(mockPayment);
       expect(mockEmailService.sendRentPaymentConfirmation).toHaveBeenCalledTimes(1);
       
-      // Check the email was called with tenant info, lease, and payment data
+      // sendRentPaymentConfirmation(email, amount, paymentDate)
       const emailCall = mockEmailService.sendRentPaymentConfirmation.mock.calls[0];
-      expect(emailCall[0]).toMatchObject({
-        username: 'tenant@test.com',
-        email: 'tenant@test.com',
-        firstName: 'tenant',
-      });
-      expect(emailCall[1]).toBe(mockLease);
-      expect(emailCall[2]).toMatchObject({
-        amountPaid: 1500,
-        transactionId: '1',
-      });
+      expect(emailCall[0]).toBe('tenant@test.com');
+      expect(emailCall[1]).toBe(1500);
+      expect(emailCall[2]).toBeInstanceOf(Date);
     });
 
     it('should handle payment creation without email failure', async () => {
       const mockLease = {
-        id: 1,
+        id: '1',
         tenantId: 1,
-        tenant: { id: 1, username: 'tenant@test.com' },
+        tenant: { id: '1', username: 'tenant@test.com' },
         unit: { 
           unitNumber: '101', 
           property: { address: '123 Test St' } 
@@ -215,7 +208,7 @@ describe('PaymentsService', () => {
       };
 
       mockPrismaService.lease.findUnique.mockResolvedValue(mockLease);
-      mockPrismaService.payment.create.mockResolvedValue({ id: 1, ...paymentDto });
+      mockPrismaService.payment.create.mockResolvedValue({ id: '1', ...paymentDto });
       
       // Email service fails but payment should still succeed
       mockEmailService.sendRentPaymentConfirmation.mockRejectedValue(
@@ -225,7 +218,7 @@ describe('PaymentsService', () => {
       const result = await service.createPayment(paymentDto);
 
       expect(result).toBeDefined();
-      expect(result.id).toBe(1);
+      expect(result.id).toBe('1');
     });
 
     it('should throw BadRequestException when lease not found', async () => {
@@ -242,9 +235,9 @@ describe('PaymentsService', () => {
 
     it('should handle failed payment status', async () => {
       const mockLease = {
-        id: 1,
+        id: '1',
         tenantId: 1,
-        tenant: { id: 1, username: 'tenant@test.com' },
+        tenant: { id: '1', username: 'tenant@test.com' },
         unit: { unitNumber: '101', property: { address: '123 Test St' } },
       };
 
@@ -255,7 +248,7 @@ describe('PaymentsService', () => {
       };
 
       mockPrismaService.lease.findUnique.mockResolvedValue(mockLease);
-      mockPrismaService.payment.create.mockResolvedValue({ id: 1, ...paymentDto });
+      mockPrismaService.payment.create.mockResolvedValue({ id: '1', ...paymentDto });
 
       const result = await service.createPayment(paymentDto);
 
@@ -268,7 +261,7 @@ describe('PaymentsService', () => {
   describe('getInvoicesForUser', () => {
     it('should return invoices for tenant', async () => {
       const mockInvoices = [
-        TestDataFactory.createInvoice(1, { id: 1, amount: 1500 }),
+        TestDataFactory.createInvoice(1, { id: '1', amount: 1500 }),
         TestDataFactory.createInvoice(1, { id: 2, amount: 1600 }),
       ];
 
@@ -361,7 +354,7 @@ describe('PaymentsService', () => {
   describe('getPaymentsForUser', () => {
     it('should return payments for tenant', async () => {
       const mockPayments = [
-        TestDataFactory.createPayment(1, 1, { id: 1 }),
+        TestDataFactory.createPayment(1, 1, { id: '1' }),
         TestDataFactory.createPayment(1, 1, { id: 2 }),
       ];
 
@@ -392,12 +385,12 @@ describe('PaymentsService', () => {
     it('should send reminders for upcoming invoices', async () => {
       const mockInvoices = [
         {
-          id: 1,
+          id: '1',
           amount: 1500,
           dueDate: new Date(),
           status: 'UNPAID',
           lease: {
-            tenant: { id: 1, username: 'tenant1@test.com' },
+            tenant: { id: '1', username: 'tenant1@test.com' },
             unit: { unitNumber: '101', property: { address: '123 Test St' } },
           },
         },
@@ -433,7 +426,7 @@ describe('PaymentsService', () => {
     it('should continue on email error', async () => {
       const mockInvoices = [
         {
-          id: 1,
+          id: '1',
           amount: 1500,
           dueDate: new Date(),
           lease: {
@@ -468,7 +461,7 @@ describe('PaymentsService', () => {
     it('should send late notices for overdue invoices', async () => {
       const mockInvoices = [
         {
-          id: 1,
+          id: '1',
           amount: 1500,
           dueDate: new Date('2025-11-01'),
           status: 'UNPAID',
@@ -508,7 +501,7 @@ describe('PaymentsService', () => {
     it('should use default late fee when none exist', async () => {
       const mockInvoices = [
         {
-          id: 1,
+          id: '1',
           amount: 1500,
           dueDate: new Date('2025-11-01'),
           lease: {
@@ -534,7 +527,7 @@ describe('PaymentsService', () => {
   describe.skip('testRentDueReminder', () => {
     it('should send test reminder for specific invoice', async () => {
       const mockInvoice = {
-        id: 1,
+        id: '1',
         amount: 1500,
         dueDate: new Date('2025-12-01'),
         lease: {
@@ -562,7 +555,7 @@ describe('PaymentsService', () => {
 
     it('should throw error when tenant has no username', async () => {
       const mockInvoice = {
-        id: 1,
+        id: '1',
         amount: 1500,
         dueDate: new Date(),
         lease: {
@@ -580,7 +573,7 @@ describe('PaymentsService', () => {
   describe.skip('testLateRentNotification', () => {
     it('should send test late notice', async () => {
       const mockInvoice = {
-        id: 1,
+        id: '1',
         amount: 1500,
         dueDate: new Date('2025-11-01'),
         lease: {
@@ -633,7 +626,7 @@ describe('PaymentsService', () => {
       };
 
       const mockPaymentPlan = {
-        id: 1,
+        id: '1',
         invoiceId,
         installments: 3,
         amountPerInstallment: 500,
@@ -687,7 +680,7 @@ describe('PaymentsService', () => {
       const mockInvoice = {
         id: invoiceId,
         paymentPlan: {
-          id: 1,
+          id: '1',
           status: 'PENDING',
         },
         lease: {
@@ -751,7 +744,7 @@ describe('PaymentsService', () => {
       };
 
       const mockPaymentPlan = {
-        id: 1,
+        id: '1',
         invoiceId,
         installments: 3,
         amountPerInstallment: 500,
