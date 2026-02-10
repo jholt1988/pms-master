@@ -1021,8 +1021,8 @@ model LeadApplication {
   creditScore           Int?
   backgroundCheckStatus String?
   creditCheckStatus     String?
-  reviewedById          String?
-  reviewedBy            User?                 @relation("LeadApplicationReviewers", fields: [reviewedById], references: [id])
+  reviewedById String? @db.Uuid
+  reviewedBy   User?   @relation("LeadApplicationReviewers", fields: [reviewedById], references: [id])
   reviewedAt            DateTime?
   reviewNotes           String?
   approvedAt            DateTime?

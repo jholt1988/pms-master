@@ -215,7 +215,9 @@ ALTER TABLE "AgentRun" DROP COLUMN "unitId",
 ADD COLUMN     "unitId" UUID,
 DROP COLUMN "leaseId",
 ADD COLUMN     "leaseId" UUID,
-ALTER COLUMN "requestId" SET DATA TYPE TEXT;
+DROP COLUMN "requestId",  
+ADD COLUMN     "requestId" UUID;
+
 
 -- AlterTable
 ALTER TABLE "AutopayEnrollment" DROP COLUMN "leaseId",
@@ -230,7 +232,9 @@ ALTER TABLE "CommunicationLog" DROP COLUMN "unitId",
 ADD COLUMN     "unitId" UUID,
 DROP COLUMN "leaseId",
 ADD COLUMN     "leaseId" UUID,
-ALTER COLUMN "requestId" SET DATA TYPE TEXT;
+DROP COLUMN "requestId",
+ADD COLUMN     "requestId" UUID;
+
 
 -- AlterTable
 ALTER TABLE "Document" DROP COLUMN "leaseId",
@@ -258,7 +262,8 @@ ADD COLUMN     "leaseId" UUID NOT NULL;
 -- AlterTable
 ALTER TABLE "LeadApplication" DROP COLUMN "unitId",
 ADD COLUMN     "unitId" UUID,
-ALTER COLUMN "reviewedById" SET DATA TYPE TEXT;
+dROP COLUMN "reviewedById",
+ADD COLUMN     "reviewedById" UUID;
 
 -- AlterTable
 ALTER TABLE "Lease" DROP CONSTRAINT "Lease_pkey",
