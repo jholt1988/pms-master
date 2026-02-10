@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
  * Demo seed focused on the Inspection → Estimate workflow.
  *
  * Creates:
- * - Org + PM user + Tenant user
+ * - PM user + Tenant user
  * - Wichita, KS property + 1 unit + active lease
  * - One inspection with 3 rooms and multiple action items across trades
  */
@@ -20,14 +20,9 @@ async function main() {
 
   console.log('🌱 Inspection demo seed starting...');
 
-  const ORG_ID = '11111111-1111-4111-8111-111111111111';
   const PROPERTY_ID = '22222222-2222-4222-8222-222222222222';
-
-  const organization = await prisma.organization.upsert({
-    where: { id: ORG_ID },
-    update: { name: 'Default Organization' },
-    create: { id: ORG_ID, name: 'Default Organization' },
-  });
+  const UNIT_ID = '33333333-3333-4333-8333-333333333333';
+  const LEASE_ID = '44444444-4444-4444-8444-444444444444';
 
   const admin = await prisma.user.upsert({
     where: { username: adminUsername },
@@ -42,35 +37,18 @@ async function main() {
     },
   });
 
-  await prisma.userOrganization.upsert({
-    where: {
-      userId_organizationId: {
-        userId: admin.id,
-        organizationId: organization.id,
-      },
-    },
-    update: {},
-    create: {
-      userId: admin.id,
-      organizationId: organization.id,
-      role: 'OWNER',
-    },
-  });
-
   const property = await prisma.property.upsert({
     where: { id: PROPERTY_ID },
     update: {
       name: 'Riverside Flats',
       // IMPORTANT: address parsing in EstimateService expects City, ST, Country at the end.
       address: '123 N Main St, Wichita, KS, USA',
-      organizationId: organization.id,
       city: 'Wichita',
       state: 'KS',
       zipCode: '67202',
     },
     create: {
       id: PROPERTY_ID,
-      organizationId: organization.id,
       name: 'Riverside Flats',
       address: '123 N Main St, Wichita, KS, USA',
       city: 'Wichita',
@@ -80,10 +58,10 @@ async function main() {
   });
 
   const unit = await prisma.unit.upsert({
-    where: { id: 101 },
+    where: { id: UNIT_ID },
     update: { name: 'Unit 101', propertyId: property.id, bedrooms: 2, bathrooms: 1 },
     create: {
-      id: 101,
+      id: UNIT_ID,
       name: 'Unit 101',
       propertyId: property.id,
       bedrooms: 2,
@@ -105,7 +83,7 @@ async function main() {
   });
 
   const lease = await prisma.lease.upsert({
-    where: { id: 1 },
+    where: { id: LEASE_ID },
     update: {
       status: LeaseStatus.ACTIVE,
       unitId: unit.id,
@@ -113,7 +91,7 @@ async function main() {
       rentAmount: 1350,
     },
     create: {
-      id: 1,
+      id: LEASE_ID,
       status: LeaseStatus.ACTIVE,
       unitId: unit.id,
       tenantId: tenant.id,
@@ -159,10 +137,6 @@ async function main() {
                   itemName: 'Kitchen faucet',
                   condition: 'DAMAGED',
                   requiresAction: true,
-                  issueType: 'REPAIR',
-                  severity: 'MED',
-                  measurementValue: 1,
-                  measurementUnit: 'COUNT',
                   notes: 'Leak under the sink; tighten/replace supply line as needed.',
                   estimatedAge: 8,
                 },
@@ -171,10 +145,6 @@ async function main() {
                   itemName: 'Dishwasher',
                   condition: 'NON_FUNCTIONAL',
                   requiresAction: true,
-                  issueType: 'REPLACE',
-                  severity: 'HIGH',
-                  measurementValue: 1,
-                  measurementUnit: 'COUNT',
                   notes: 'Does not drain; likely pump failure. Replace if repair exceeds threshold.',
                   estimatedAge: 12,
                 },
@@ -191,10 +161,6 @@ async function main() {
                   itemName: 'Toilet',
                   condition: 'FAIR',
                   requiresAction: true,
-                  issueType: 'REPAIR',
-                  severity: 'LOW',
-                  measurementValue: 1,
-                  measurementUnit: 'COUNT',
                   notes: 'Runs intermittently; likely flapper/valve replacement.',
                   estimatedAge: 10,
                 },
@@ -203,10 +169,6 @@ async function main() {
                   itemName: 'GFCI outlet',
                   condition: 'DAMAGED',
                   requiresAction: true,
-                  issueType: 'REPLACE',
-                  severity: 'MED',
-                  measurementValue: 1,
-                  measurementUnit: 'COUNT',
                   notes: 'Trips frequently; replace GFCI and verify circuit.',
                   estimatedAge: 6,
                 },
@@ -223,10 +185,6 @@ async function main() {
                   itemName: 'Return air filter',
                   condition: 'POOR',
                   requiresAction: true,
-                  issueType: 'REPAIR',
-                  severity: 'LOW',
-                  measurementValue: 1,
-                  measurementUnit: 'COUNT',
                   notes: 'Filter is clogged; replace and inspect for airflow issues.',
                   estimatedAge: 1,
                 },
@@ -235,10 +193,6 @@ async function main() {
                   itemName: 'Carpet seam',
                   condition: 'DAMAGED',
                   requiresAction: true,
-                  issueType: 'REPAIR',
-                  severity: 'MED',
-                  measurementValue: 6,
-                  measurementUnit: 'LINEAR_FT',
                   notes: 'Seam separating near entry; re-stretch and secure.',
                   estimatedAge: 7,
                 },
