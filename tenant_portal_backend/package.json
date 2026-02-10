@@ -9,6 +9,7 @@
     "seed:check": "ts-node scripts/check-seed-coverage.ts",
     "seed:missing": "ts-node scripts/seed-missing.ts",
     "seed:inspection-demo": "ts-node scripts/dev-seed-inspection-demo.ts",
+    "seed:inspection-demo:robust": "node scripts/seed-inspection-demo-robust.js",
     "build": "tsc --ignoreDeprecations 6.0",
     "db:seed": "ts-node prisma/seed.ts",
     "db:seed:admin": "node prisma/seedAdmin.js",
