@@ -17,5 +17,4 @@ echo "Running Prisma migrations (deploy)..."
 
 echo "Generating Prisma Client..."
 ./node_modules/.bin/prisma generate
-
 echo "Prisma setup complete."
