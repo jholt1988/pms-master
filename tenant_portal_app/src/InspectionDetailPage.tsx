@@ -216,7 +216,14 @@ function EstimatePanel({ estimate, embedded = false }: { estimate: any; embedded
     <div className={embedded ? 'flex flex-col gap-4' : 'flex flex-col gap-4'}>
       {(hasRange || e.confidenceLevel || e.confidenceReason) && (
         <div className="border border-default-200 rounded p-3">
-          <div className="text-xs text-foreground-500 font-semibold mb-1">Bid explanation</div>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="text-xs text-foreground-500 font-semibold">Bid explanation</div>
+            {e.confidenceLevel && (
+              <Chip size="sm" variant="flat" color="secondary">
+                Confidence: {e.confidenceLevel.replaceAll('_', ' ')}
+              </Chip>
+            )}
+          </div>
           <div className="text-sm">
             {e.confidenceReason ? e.confidenceReason : 'Bid range reflects uncertainty in labor/materials and scope based on the inspection notes.'}
           </div>
@@ -243,7 +250,16 @@ function EstimatePanel({ estimate, embedded = false }: { estimate: any; embedded
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+        <Stat label="Total (expected)" value={formatCurrency(e.totalProjectCost ?? 0, currency)} />
+        {hasRange ? (
+          <Stat
+            label="Bid range"
+            value={`${formatCurrency(e.bidLowTotal as number, currency)} – ${formatCurrency(e.bidHighTotal as number, currency)}`}
+          />
+        ) : (
+          <Stat label="Bid range" value="—" />
+        )}
         <Stat label="Labor" value={formatCurrency(e.totalLaborCost ?? 0, currency)} />
         <Stat label="Materials" value={formatCurrency(e.totalMaterialCost ?? 0, currency)} />
         <Stat label="Items to repair" value={String(e.itemsToRepair ?? 0)} />
