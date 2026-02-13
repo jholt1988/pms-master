@@ -656,6 +656,18 @@ export default function InspectionDetailPage(): React.ReactElement {
     return `${prop}${unit}`;
   }, [inspection]);
 
+  const actionableCount = useMemo(() => {
+    if (!inspection) return 0;
+    const rooms = (inspection as any).rooms ?? [];
+    let count = 0;
+    for (const room of rooms) {
+      for (const item of room?.checklistItems ?? []) {
+        if (item?.requiresAction) count += 1;
+      }
+    }
+    return count;
+  }, [inspection]);
+
   if (loading) {
     return (
       <div className="p-6 flex items-center gap-3">
@@ -717,13 +729,21 @@ export default function InspectionDetailPage(): React.ReactElement {
           </div>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <Button
-            color="primary"
-            onClick={generateEstimate}
-            isLoading={estimateLoading}
-          >
-            Generate Estimate
-          </Button>
+          <div className="flex flex-col items-end">
+            <Button
+              color="primary"
+              onClick={generateEstimate}
+              isLoading={estimateLoading}
+              isDisabled={estimateLoading || actionableCount === 0}
+            >
+              Generate Estimate
+            </Button>
+            {actionableCount === 0 && (
+              <span className="text-xs text-foreground-500 mt-1">
+                No checklist items marked “Requires action”.
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
