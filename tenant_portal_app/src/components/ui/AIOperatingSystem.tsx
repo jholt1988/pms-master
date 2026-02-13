@@ -46,10 +46,10 @@ export const AIOperatingSystem: React.FC = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
       setVoiceSupported(true);
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = false;
-      recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
+      const recognition: SpeechRecognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
         const transcript = event.results[0][0].transcript;
         setInputValue(transcript);
         setIsListening(false);
@@ -58,13 +58,15 @@ export const AIOperatingSystem: React.FC = () => {
           handleSendMessage();
         }, 100);
       };
-      recognitionRef.current.onerror = (event: any) => {
+      recognition.onerror = (event: any) => {
         console.error('Speech recognition error:', event.error);
         setIsListening(false);
       };
-      recognitionRef.current.onend = () => {
+      recognition.onend = () => {
         setIsListening(false);
       };
+
+      recognitionRef.current = recognition;
     }
   }, []);
 
@@ -102,9 +104,9 @@ export const AIOperatingSystem: React.FC = () => {
     if (!user || !token) return;
     try {
       const context = {
-        userId: user.sub || user.id || '',
-        username: user.username || '',
-        role: (user.role as 'TENANT' | 'PROPERTY_MANAGER' | 'ADMIN') || 'TENANT',
+        userId: String((user as any).sub ?? (user as any).id ?? ''),
+        username: (user as any).username || '',
+        role: ((user as any).role as 'TENANT' | 'PROPERTY_MANAGER' | 'ADMIN') || 'TENANT',
         currentPage: location.pathname,
         currentRoute: location.pathname,
       };
@@ -145,7 +147,7 @@ export const AIOperatingSystem: React.FC = () => {
 
     try {
       // Get user context (handle unauthenticated users)
-      const userId = user?.sub || user?.id || `guest-${Date.now()}`;
+      const userId = String((user as any)?.sub ?? (user as any)?.id ?? `guest-${Date.now()}`);
       const context = {
         userId: userId,
         username: user?.username || 'Guest',

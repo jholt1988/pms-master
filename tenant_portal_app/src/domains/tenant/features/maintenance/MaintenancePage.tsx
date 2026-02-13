@@ -441,12 +441,7 @@ const MaintenancePage: React.FC = () => {
         aria-labelledby="submit-maintenance-request-title"
         aria-describedby="submit-maintenance-request-description"
       >
-        <ModalContent
-          classNames={{
-            base: "bg-deep-900 border border-white/10",
-            backdrop: "bg-black/80 backdrop-blur-sm",
-          }}
-        >
+        <ModalContent className="bg-deep-900 border border-white/10">
           <ModalHeader>
             <h2 id="submit-maintenance-request-title" className="text-xl font-semibold">Submit Maintenance Request</h2>
           </ModalHeader>

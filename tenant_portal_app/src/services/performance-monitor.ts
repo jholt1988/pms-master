@@ -17,7 +17,8 @@ export interface WebVitals {
 export const PERFORMANCE_BUDGETS = {
   FCP: 1800, // First Contentful Paint: < 1.8s
   LCP: 2500, // Largest Contentful Paint: < 2.5s
-  FID: 100,  // First Input Delay: < 100ms
+  FID: 100,  // First Input Delay (deprecated; INP is preferred)
+  INP: 200,  // Interaction to Next Paint: < 200ms
   CLS: 0.1,  // Cumulative Layout Shift: < 0.1
   TTFB: 600, // Time to First Byte: < 600ms
 } as const;
@@ -103,9 +104,9 @@ export function initWebVitals() {
 
   // Use web-vitals library if available, otherwise use manual tracking
   import('web-vitals')
-    .then(({ onCLS, onFID, onFCP, onLCP, onTTFB }) => {
+    .then(({ onCLS, onFCP, onLCP, onTTFB, onINP }) => {
       onCLS(reportWebVital);
-      onFID(reportWebVital);
+      onINP(reportWebVital);
       onFCP(reportWebVital);
       onLCP(reportWebVital);
       onTTFB(reportWebVital);

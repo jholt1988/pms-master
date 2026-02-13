@@ -88,7 +88,7 @@ export const LeasingAgentBot: React.FC<LeasingAgentBotProps> = ({
 
     try {
       console.log('Calling leasingAgentService.sendMessage...');
-      const response = await leasingAgentService.sendMessage(sessionId, userMessage, token);
+      const response = await leasingAgentService.sendMessage(sessionId, userMessage, token ?? undefined);
       console.log('Response received:', response);
       setMessages(prev => [...prev, response]);
       
@@ -126,7 +126,7 @@ export const LeasingAgentBot: React.FC<LeasingAgentBotProps> = ({
     setMessages(prev => [...prev, userMsg]);
 
     try {
-      const response = await leasingAgentService.sendMessage(sessionId, action, token);
+      const response = await leasingAgentService.sendMessage(sessionId, action, token ?? undefined);
       setMessages(prev => [...prev, response]);
       
       // Update lead info

@@ -230,13 +230,7 @@ export const PropertyForm: React.FC<PropertyFormProps> = ({
       scrollBehavior="inside"
       className="max-h-[90vh]"
     >
-      <ModalContent 
-        className="bg-deep-900"
-        classNames={{
-          base: "bg-deep-900 border border-white/10",
-          backdrop: "bg-black/80 backdrop-blur-sm",
-        }}
-      >
+      <ModalContent className="bg-deep-900 border border-white/10">
         <ModalHeader className="text-xl font-bold text-white">
           {initialData?.name ? 'Edit Property' : 'Create New Property'}
         </ModalHeader>

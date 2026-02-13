@@ -64,7 +64,7 @@ const SchedulePage: React.FC = () => {
         ? `${API_BASE}/schedule/weekly?startDate=${dateStr}`
         : `${API_BASE}/schedule/monthly?month=${selectedDate.getMonth() + 1}&year=${selectedDate.getFullYear()}`;
 
-      const data = await apiFetch(endpoint, { token });
+      const data = await apiFetch(endpoint, { token: token ?? undefined });
       setEvents(data);
     } catch (error) {
       console.error('Error fetching events:', error);
@@ -75,7 +75,7 @@ const SchedulePage: React.FC = () => {
 
   const fetchSummary = async () => {
     try {
-      const data = await apiFetch(`${API_BASE}/schedule/summary`, { token });
+      const data = await apiFetch(`${API_BASE}/schedule/summary`, { token: token ?? undefined });
       setSummary(data);
     } catch (error) {
       console.error('Error fetching summary:', error);
@@ -86,7 +86,7 @@ const SchedulePage: React.FC = () => {
     try {
       await apiFetch(`${API_BASE}/schedule`, {
         method: 'POST',
-        token,
+        token: token ?? undefined,
         body: {
           type: eventForm.type,
           title: eventForm.title,

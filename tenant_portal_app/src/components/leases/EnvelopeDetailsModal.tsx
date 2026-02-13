@@ -146,12 +146,7 @@ export const EnvelopeDetailsModal: React.FC<EnvelopeDetailsModalProps> = ({
   return (
     <>
       <Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside">
-        <ModalContent
-          classNames={{
-            base: "bg-deep-900 border border-white/10",
-            backdrop: "bg-black/80 backdrop-blur-sm",
-          }}
-        >
+        <ModalContent className="bg-deep-900 border border-white/10">
           {(onClose) => (
             <>
               <ModalHeader className="flex flex-col gap-1">
@@ -313,12 +308,12 @@ export const EnvelopeDetailsModal: React.FC<EnvelopeDetailsModalProps> = ({
                     )}
 
                     {/* Metadata */}
-                    {envelope.providerMetadata && (
+                    {(envelope as any).providerMetadata && (
                       <div>
                         <h3 className="text-sm font-semibold text-foreground mb-2">Additional Information</h3>
                         <div className="rounded border border-default-200 p-3 bg-default-50">
                           <pre className="text-xs text-foreground-600 overflow-auto max-h-32">
-                            {JSON.stringify(envelope.providerMetadata, null, 2)}
+                            {JSON.stringify((envelope as any).providerMetadata, null, 2)}
                           </pre>
                         </div>
                       </div>

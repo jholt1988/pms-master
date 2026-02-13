@@ -52,18 +52,13 @@ export const FilterBar: React.FC<FilterBarProps> = ({ title, description, filter
                     isDisabled={filter.disabled}
                     className="w-40"
                     aria-label={`Filter by ${filter.label.toLowerCase()}`}
-                    aria-describedby={filter.disabled ? `${filterId}-disabled` : undefined}
+                    aria-describedby={undefined}
                   >
-                    {filter.disabled && (
-                      <span id={`${filterId}-disabled`} className="sr-only">
-                        This filter is currently disabled
-                      </span>
-                    )}
                     {[
                       { value: '', label: filter.label === 'Status' || filter.label === 'Priority' ? 'All' : 'Any' },
                       ...filter.options
                     ].map((option) => (
-                      <SelectItem key={option.value || 'empty'} value={option.value}>
+                      <SelectItem key={option.value || 'empty'}>
                         {option.label}
                       </SelectItem>
                     ))}

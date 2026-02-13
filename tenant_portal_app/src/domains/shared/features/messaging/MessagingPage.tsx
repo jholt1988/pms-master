@@ -40,7 +40,7 @@ const MessagingPage = () => {
   const fetchMessages = useCallback(
     async (conversationId: number) => {
       try {
-        const data = await apiFetch(`/messaging/conversations/${conversationId}`, { token });
+        const data = await apiFetch(`/messaging/conversations/${conversationId}`, { token: token ?? undefined });
         setMessages(data.messages || data || []);
       } catch (error: any) {
         setError(error.message || 'Failed to fetch messages');
@@ -52,7 +52,7 @@ const MessagingPage = () => {
   useEffect(() => {
     const fetchConversations = async () => {
       try {
-        const data = await apiFetch('/messaging/conversations', { token });
+        const data = await apiFetch('/messaging/conversations', { token: token ?? undefined });
         setConversations(Array.isArray(data) ? data : []);
         if (Array.isArray(data) && data.length > 0) {
           let shouldFetchFirst = false;

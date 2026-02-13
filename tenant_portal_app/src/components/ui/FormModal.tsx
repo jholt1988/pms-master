@@ -47,13 +47,7 @@ export const FormModal: React.FC<FormModalProps> = ({
       aria-labelledby={titleId}
       aria-describedby={`${modalId}-description`}
     >
-      <ModalContent 
-        className="bg-deep-900"
-        classNames={{
-          base: "bg-deep-900 border border-white/10",
-          backdrop: "bg-black/80 backdrop-blur-sm",
-        }}
-      >
+      <ModalContent className="bg-deep-900 border border-white/10">
         {(onClose) => (
           <>
             <ModalHeader id={titleId} className="text-xl font-bold text-white">

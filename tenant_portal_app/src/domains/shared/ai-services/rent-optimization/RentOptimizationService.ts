@@ -372,6 +372,7 @@ class RentOptimizationService {
         metadata: {
           requestId: `stats-${Date.now()}`,
           timestamp: new Date().toISOString(),
+          processingTime: 0,
         },
       };
     } catch (error: any) {
@@ -385,6 +386,7 @@ class RentOptimizationService {
         metadata: {
           requestId: `stats-${Date.now()}`,
           timestamp: new Date().toISOString(),
+          processingTime: 0,
         },
       };
     }
@@ -411,6 +413,7 @@ class RentOptimizationService {
         metadata: {
           requestId: `recent-${Date.now()}`,
           timestamp: new Date().toISOString(),
+          processingTime: 0,
         },
       };
     } catch (error: any) {
@@ -424,6 +427,7 @@ class RentOptimizationService {
         metadata: {
           requestId: `recent-${Date.now()}`,
           timestamp: new Date().toISOString(),
+          processingTime: 0,
         },
       };
     }
@@ -450,6 +454,7 @@ class RentOptimizationService {
         metadata: {
           requestId: `status-${status}-${Date.now()}`,
           timestamp: new Date().toISOString(),
+          processingTime: 0,
         },
       };
     } catch (error: any) {
@@ -463,6 +468,7 @@ class RentOptimizationService {
         metadata: {
           requestId: `status-${status}-${Date.now()}`,
           timestamp: new Date().toISOString(),
+          processingTime: 0,
         },
       };
     }
@@ -489,6 +495,7 @@ class RentOptimizationService {
         metadata: {
           requestId: `property-${propertyId}-${Date.now()}`,
           timestamp: new Date().toISOString(),
+          processingTime: 0,
         },
       };
     } catch (error: any) {
@@ -502,6 +509,7 @@ class RentOptimizationService {
         metadata: {
           requestId: `property-${propertyId}-${Date.now()}`,
           timestamp: new Date().toISOString(),
+          processingTime: 0,
         },
       };
     }
@@ -533,6 +541,7 @@ class RentOptimizationService {
         metadata: {
           requestId: `generate-${Date.now()}`,
           timestamp: new Date().toISOString(),
+          processingTime: 0,
         },
       };
     } catch (error: any) {
@@ -546,6 +555,7 @@ class RentOptimizationService {
         metadata: {
           requestId: `generate-${Date.now()}`,
           timestamp: new Date().toISOString(),
+          processingTime: 0,
         },
       };
     }
@@ -572,6 +582,7 @@ class RentOptimizationService {
         metadata: {
           requestId: `accept-${recommendationId}-${Date.now()}`,
           timestamp: new Date().toISOString(),
+          processingTime: 0,
         },
       };
     } catch (error: any) {
@@ -585,6 +596,7 @@ class RentOptimizationService {
         metadata: {
           requestId: `accept-${recommendationId}-${Date.now()}`,
           timestamp: new Date().toISOString(),
+          processingTime: 0,
         },
       };
     }
@@ -611,6 +623,7 @@ class RentOptimizationService {
         metadata: {
           requestId: `reject-${recommendationId}-${Date.now()}`,
           timestamp: new Date().toISOString(),
+          processingTime: 0,
         },
       };
     } catch (error: any) {
@@ -624,6 +637,7 @@ class RentOptimizationService {
         metadata: {
           requestId: `reject-${recommendationId}-${Date.now()}`,
           timestamp: new Date().toISOString(),
+          processingTime: 0,
         },
       };
     }
@@ -650,6 +664,7 @@ class RentOptimizationService {
         metadata: {
           requestId: `apply-${recommendationId}-${Date.now()}`,
           timestamp: new Date().toISOString(),
+          processingTime: 0,
         },
       };
     } catch (error: any) {
@@ -663,6 +678,7 @@ class RentOptimizationService {
         metadata: {
           requestId: `apply-${recommendationId}-${Date.now()}`,
           timestamp: new Date().toISOString(),
+          processingTime: 0,
         },
       };
     }
@@ -696,6 +712,7 @@ class RentOptimizationService {
         metadata: {
           requestId: `update-${recommendationId}-${Date.now()}`,
           timestamp: new Date().toISOString(),
+          processingTime: 0,
         },
       };
     } catch (error: any) {
@@ -709,6 +726,7 @@ class RentOptimizationService {
         metadata: {
           requestId: `update-${recommendationId}-${Date.now()}`,
           timestamp: new Date().toISOString(),
+          processingTime: 0,
         },
       };
     }
@@ -735,6 +753,7 @@ class RentOptimizationService {
         metadata: {
           requestId: `delete-${recommendationId}-${Date.now()}`,
           timestamp: new Date().toISOString(),
+          processingTime: 0,
         },
       };
     } catch (error: any) {
@@ -748,6 +767,7 @@ class RentOptimizationService {
         metadata: {
           requestId: `delete-${recommendationId}-${Date.now()}`,
           timestamp: new Date().toISOString(),
+          processingTime: 0,
         },
       };
     }

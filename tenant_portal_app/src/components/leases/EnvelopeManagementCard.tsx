@@ -60,12 +60,12 @@ export const EnvelopeManagementCard: React.FC<EnvelopeManagementCardProps> = ({
 
   const handleAction = async (
     envelopeId: number,
-    action: () => Promise<void>,
+    action: () => void | Promise<void>,
     actionName: string,
   ) => {
     setLoadingEnvelopes((prev) => new Set(prev).add(envelopeId));
     try {
-      await action();
+      await Promise.resolve(action());
     } catch (error) {
       console.error(`Failed to ${actionName}:`, error);
     } finally {

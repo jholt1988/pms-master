@@ -10,8 +10,8 @@ import {
   Phone, Mail, DollarSign, Home, Clock, CheckCircle, XCircle,
   AlertCircle, TrendingUp, Eye, ChevronRight, Download
 } from 'lucide-react';
-import { useAuth } from '../../AuthContext';
-import { apiFetch } from '../../services/apiClient';
+import { useAuth } from '../AuthContext';
+import { apiFetch } from '../services/apiClient';
 
 interface Lead {
   id: string;

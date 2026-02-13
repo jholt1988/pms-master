@@ -56,7 +56,7 @@ export const FormField: React.FC<FormFieldProps> = ({
       )}
 
       <div className="relative">
-        {React.cloneElement(children as React.ReactElement, {
+        {React.cloneElement(children as React.ReactElement<any>, {
           id: fieldId,
           'aria-describedby': describedBy,
           'aria-invalid': errors.length > 0,
