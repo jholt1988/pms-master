@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Button, Card, CardBody } from '@nextui-org/react';
+import { Button, Card, CardBody, Checkbox, Divider, Textarea } from '@nextui-org/react';
 import { useAuth } from '../../../../AuthContext';
 import { apiFetch } from '../../../../services/apiClient';
 
@@ -24,6 +24,8 @@ export default function TenantInspectionDetailPage(): React.ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [inspection, setInspection] = useState<any | null>(null);
   const [completeLoading, setCompleteLoading] = useState(false);
+  const [saveLoadingByRoomId, setSaveLoadingByRoomId] = useState<Record<number, boolean>>({});
+  const [draftByItemId, setDraftByItemId] = useState<Record<number, { requiresAction: boolean; notes: string }>>({});
 
   const status = String(inspection?.status ?? '');
   const isCompleted = status === 'COMPLETED';
@@ -55,6 +57,58 @@ export default function TenantInspectionDetailPage(): React.ReactElement {
   useEffect(() => {
     fetchInspection();
   }, [fetchInspection]);
+
+  // Initialize draft map when inspection loads/changes
+  useEffect(() => {
+    const rooms = inspection?.rooms;
+    if (!Array.isArray(rooms)) return;
+
+    const next: Record<number, { requiresAction: boolean; notes: string }> = {};
+    for (const r of rooms) {
+      for (const it of (r?.checklistItems ?? [])) {
+        if (!it?.id) continue;
+        next[Number(it.id)] = {
+          requiresAction: !!it.requiresAction,
+          notes: String(it.notes ?? ''),
+        };
+      }
+    }
+    setDraftByItemId(next);
+  }, [inspection?.id]);
+
+  const handleSaveRoom = async (roomId: number) => {
+    if (!token) return;
+    if (isCompleted) return;
+
+    const room = (inspection?.rooms ?? []).find((r: any) => Number(r.id) === Number(roomId));
+    if (!room) return;
+
+    setSaveLoadingByRoomId((s) => ({ ...s, [roomId]: true }));
+    setError(null);
+
+    try {
+      const items = (room.checklistItems ?? []).map((it: any) => {
+        const d = draftByItemId[Number(it.id)] ?? { requiresAction: !!it.requiresAction, notes: String(it.notes ?? '') };
+        return {
+          itemId: Number(it.id),
+          requiresAction: !!d.requiresAction,
+          notes: String(d.notes ?? ''),
+        };
+      });
+
+      await apiFetch(`/inspections/rooms/${roomId}/items`, {
+        token,
+        method: 'PATCH',
+        body: { items },
+      });
+
+      await fetchInspection();
+    } catch (e: any) {
+      setError(e?.message || 'Failed to save room');
+    } finally {
+      setSaveLoadingByRoomId((s) => ({ ...s, [roomId]: false }));
+    }
+  };
 
   const handleMarkCompleted = async () => {
     if (!token) return;
@@ -98,10 +152,17 @@ export default function TenantInspectionDetailPage(): React.ReactElement {
 
       {!loading && inspection && (
         <Card>
-          <CardBody className="flex flex-col gap-3">
-            <div>
-              <div className="text-xs text-foreground-500">Type</div>
-              <div className="text-lg font-semibold">{typeLabel(inspection.type)}</div>
+          <CardBody className="flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-xs text-foreground-500">Type</div>
+                <div className="text-lg font-semibold">{typeLabel(inspection.type)}</div>
+              </div>
+              {canComplete && (
+                <Button color="success" variant="flat" isLoading={completeLoading} onClick={handleMarkCompleted}>
+                  Mark Completed
+                </Button>
+              )}
             </div>
 
             <div>
@@ -116,18 +177,82 @@ export default function TenantInspectionDetailPage(): React.ReactElement {
               </div>
             )}
 
-            {canComplete && (
-              <Button color="success" variant="flat" isLoading={completeLoading} onClick={handleMarkCompleted}>
-                Mark Completed
-              </Button>
-            )}
-
             {isCompleted && (
               <Card className="border border-emerald-200 bg-emerald-50/40">
                 <CardBody>
                   <p className="text-sm text-emerald-800 font-semibold">Inspection completed and locked.</p>
                 </CardBody>
               </Card>
+            )}
+
+            <Divider />
+
+            {Array.isArray(inspection.rooms) && inspection.rooms.length > 0 ? (
+              <div className="flex flex-col gap-4">
+                {inspection.rooms.map((room: any) => (
+                  <Card key={room.id} className="border border-white/10">
+                    <CardBody className="flex flex-col gap-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="font-semibold">{room.name}</p>
+                          <p className="text-xs text-foreground-500">{room.roomType}</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="flat"
+                          color="primary"
+                          isDisabled={isCompleted}
+                          isLoading={!!saveLoadingByRoomId[Number(room.id)]}
+                          onClick={() => handleSaveRoom(Number(room.id))}
+                        >
+                          Save
+                        </Button>
+                      </div>
+
+                      <div className="flex flex-col gap-3">
+                        {(room.checklistItems ?? []).map((it: any) => {
+                          const d = draftByItemId[Number(it.id)] ?? { requiresAction: !!it.requiresAction, notes: String(it.notes ?? '') };
+                          return (
+                            <div key={it.id} className="border border-white/10 rounded-lg p-3">
+                              <div className="flex items-center justify-between gap-3">
+                                <p className="text-sm font-semibold">{it.itemName}</p>
+                                <Checkbox
+                                  isSelected={!!d.requiresAction}
+                                  isDisabled={isCompleted}
+                                  onValueChange={(v) =>
+                                    setDraftByItemId((s) => ({
+                                      ...s,
+                                      [Number(it.id)]: { ...d, requiresAction: !!v },
+                                    }))
+                                  }
+                                >
+                                  Needs attention
+                                </Checkbox>
+                              </div>
+                              <Textarea
+                                label="Notes"
+                                placeholder="Add notes…"
+                                value={String(d.notes ?? '')}
+                                isDisabled={isCompleted}
+                                onValueChange={(v) =>
+                                  setDraftByItemId((s) => ({
+                                    ...s,
+                                    [Number(it.id)]: { ...d, notes: v },
+                                  }))
+                                }
+                                minRows={2}
+                                className="mt-2"
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardBody>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-foreground-500">No rooms found for this inspection.</p>
             )}
           </CardBody>
         </Card>

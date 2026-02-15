@@ -158,12 +158,13 @@ export class InspectionController {
   }
 
   @Patch('rooms/:roomId/items')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
   async updateRoomChecklistItems(
     @Param('roomId', ParseIntPipe) roomId: number,
     @Body() dto: UpdateRoomChecklistItemsDto,
+    @Request() req: any,
   ) {
-    return this.inspectionService.updateRoomChecklistItems(roomId, dto.items ?? []);
+    return this.inspectionService.updateRoomChecklistItems(roomId, dto.items ?? [], req.user);
   }
 
   @Post('items/:itemId/photos')

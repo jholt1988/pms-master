@@ -390,6 +390,7 @@ export class InspectionService {
       measurementUnit?: any;
       measurementNotes?: string;
     }>,
+    viewer?: { userId?: string; role?: string },
   ): Promise<{ roomId: number; updatedCount: number }> {
     if (!items?.length) {
       return { roomId, updatedCount: 0 };
@@ -398,11 +399,20 @@ export class InspectionService {
     // Ensure the room exists and all itemIds belong to this room.
     const room = await this.prisma.inspectionRoom.findUnique({
       where: { id: roomId },
-      include: { checklistItems: true },
+      include: { checklistItems: true, inspection: true },
     });
 
     if (!room) {
       throw new NotFoundException(`Room with ID ${roomId} not found`);
+    }
+
+    // Tenant access enforcement for edits
+    if (viewer?.role === 'TENANT') {
+      // Load inspection details and enforce same rules as view + lock.
+      const inspection = await this.getInspectionById(room.inspectionId, viewer);
+      if (String(inspection.status) === 'COMPLETED') {
+        throw new BadRequestException('Inspection is completed and locked');
+      }
     }
 
     const allowed = new Set(room.checklistItems.map((i: any) => i.id));
@@ -413,19 +423,27 @@ export class InspectionService {
       );
     }
 
+    const isTenant = viewer?.role === 'TENANT';
+
     await this.prisma.$transaction(
       items.map((i) =>
         this.prisma.inspectionChecklistItem.update({
           where: { id: i.itemId },
           data: {
             ...(typeof i.requiresAction === 'boolean' ? { requiresAction: i.requiresAction } : {}),
-            ...(('condition' in i) ? { condition: i.condition } : {}),
             ...(('notes' in i) ? { notes: i.notes } : {}),
-            ...(('severity' in i) ? { severity: i.severity } : {}),
-            ...(('issueType' in i) ? { issueType: i.issueType } : {}),
-            ...(('measurementValue' in i) ? { measurementValue: i.measurementValue } : {}),
-            ...(('measurementUnit' in i) ? { measurementUnit: i.measurementUnit } : {}),
-            ...(('measurementNotes' in i) ? { measurementNotes: i.measurementNotes } : {}),
+
+            // For MVP tenant flow, tenants may only edit requiresAction + notes.
+            ...(isTenant
+              ? {}
+              : {
+                  ...(('condition' in i) ? { condition: i.condition } : {}),
+                  ...(('severity' in i) ? { severity: i.severity } : {}),
+                  ...(('issueType' in i) ? { issueType: i.issueType } : {}),
+                  ...(('measurementValue' in i) ? { measurementValue: i.measurementValue } : {}),
+                  ...(('measurementUnit' in i) ? { measurementUnit: i.measurementUnit } : {}),
+                  ...(('measurementNotes' in i) ? { measurementNotes: i.measurementNotes } : {}),
+                }),
           },
         }),
       ),
