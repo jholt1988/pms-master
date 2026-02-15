@@ -375,6 +375,36 @@ function EstimatePanel({ estimate, embedded = false }: { estimate: any; embedded
 
   if (embedded) return body;
 
+  const buildCopySummary = () => {
+    const lines: string[] = [];
+    lines.push(`Estimate #${e.id}`);
+    if (e.generatedAt) lines.push(`Generated: ${new Date(e.generatedAt).toLocaleString()}`);
+    lines.push(`Total (expected): ${formatCurrency(e.totalProjectCost ?? 0, currency)}`);
+    if (hasRange) {
+      lines.push(`Bid range: ${formatCurrency(e.bidLowTotal as number, currency)} – ${formatCurrency(e.bidHighTotal as number, currency)}`);
+    }
+    lines.push(`Labor: ${formatCurrency(e.totalLaborCost ?? 0, currency)} | Materials: ${formatCurrency(e.totalMaterialCost ?? 0, currency)}`);
+    lines.push(`Items: repair ${e.itemsToRepair ?? 0} | replace ${e.itemsToReplace ?? 0}`);
+    lines.push('');
+    lines.push('Line items:');
+    for (const li of (e.lineItems ?? []).slice(0, 12)) {
+      const cost = formatCurrency(li.totalCost ?? 0, currency);
+      lines.push(`- ${li.itemDescription} (${li.location}) — ${cost}`);
+    }
+    if ((e.lineItems?.length ?? 0) > 12) lines.push(`…plus ${(e.lineItems!.length - 12)} more`);
+    return lines.join('\n');
+  };
+
+  const handleCopySummary = async () => {
+    const text = buildCopySummary();
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // fallback
+      window.prompt('Copy estimate summary:', text);
+    }
+  };
+
   return (
     <Card className="mb-4">
       <CardHeader className="flex items-center gap-3">
@@ -391,23 +421,28 @@ function EstimatePanel({ estimate, embedded = false }: { estimate: any; embedded
           )}
         </div>
 
-        <div className="ml-auto text-right">
-          {hasRange ? (
-            <>
-              <div className="text-xs text-foreground-500">Bid range</div>
-              <div className="text-lg font-bold">
-                {formatCurrency(e.bidLowTotal!, currency)} – {formatCurrency(e.bidHighTotal!, currency)}
-              </div>
-              <div className="text-xs text-foreground-500">
-                Expected (midpoint): {formatCurrency(e.totalProjectCost ?? 0, currency)}
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="text-xs text-foreground-500">Expected (midpoint)</div>
-              <div className="text-lg font-bold">{formatCurrency(e.totalProjectCost ?? 0, currency)}</div>
-            </>
-          )}
+        <div className="ml-auto flex items-start gap-3">
+          <Button size="sm" variant="flat" onClick={handleCopySummary}>
+            Copy Summary
+          </Button>
+          <div className="text-right">
+            {hasRange ? (
+              <>
+                <div className="text-xs text-foreground-500">Bid range</div>
+                <div className="text-lg font-bold">
+                  {formatCurrency(e.bidLowTotal!, currency)} – {formatCurrency(e.bidHighTotal!, currency)}
+                </div>
+                <div className="text-xs text-foreground-500">
+                  Expected (midpoint): {formatCurrency(e.totalProjectCost ?? 0, currency)}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-xs text-foreground-500">Expected (midpoint)</div>
+                <div className="text-lg font-bold">{formatCurrency(e.totalProjectCost ?? 0, currency)}</div>
+              </>
+            )}
+          </div>
         </div>
       </CardHeader>
       <Divider />
@@ -470,7 +505,7 @@ function EstimateHistoryList({ estimates }: { estimates: any[] }) {
 }
 
 export default function InspectionDetailPage(): React.ReactElement {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const navigate = useNavigate();
   const params = useParams();
   const inspectionId = Number(params.id);
@@ -487,6 +522,8 @@ export default function InspectionDetailPage(): React.ReactElement {
   const [estimateLoading, setEstimateLoading] = useState(false);
   const [estimateError, setEstimateError] = useState<string | null>(null);
   const [estimateResult, setEstimateResult] = useState<any | null>(null);
+
+  const isPropertyManager = (user as { role?: string } | null)?.role === 'PROPERTY_MANAGER';
 
   const fetchInspection = useCallback(async (signal?: AbortSignal) => {
     if (!inspectionId || Number.isNaN(inspectionId)) {
@@ -745,21 +782,23 @@ export default function InspectionDetailPage(): React.ReactElement {
           </div>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <div className="flex flex-col items-end">
-            <Button
-              color="primary"
-              onClick={generateEstimate}
-              isLoading={estimateLoading}
-              isDisabled={estimateLoading || actionableCount === 0}
-            >
-              Generate Estimate
-            </Button>
-            {actionableCount === 0 && (
-              <span className="text-xs text-foreground-500 mt-1">
-                No checklist items marked “Requires action”.
-              </span>
-            )}
-          </div>
+          {isPropertyManager && (
+            <div className="flex flex-col items-end">
+              <Button
+                color="primary"
+                onClick={generateEstimate}
+                isLoading={estimateLoading}
+                isDisabled={estimateLoading || actionableCount === 0}
+              >
+                Generate Estimate
+              </Button>
+              {actionableCount === 0 && (
+                <span className="text-xs text-foreground-500 mt-1">
+                  No checklist items marked “Requires action”.
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
