@@ -242,6 +242,10 @@ export default function App({className}: {className: string}): React.ReactElemen
                 <Route path="documents" element={<DocumentManagementPage />} />
                 <Route path="reporting" element={<ReportingPage />} />
                 <Route path="inspection-management" element={<InspectionManagementPage />} />
+
+                {/* Convenience: PMs often try /inspections expecting a list */}
+                <Route path="inspections" element={<Navigate to="/inspection-management" replace />} />
+
                 <Route path="inspections/:id" element={<InspectionDetailPage />} />
                 <Route path="maintenance-management" element={<MaintenanceManagementPage />} />
                 <Route path="quickbooks" element={<QuickBooksPage />} />
