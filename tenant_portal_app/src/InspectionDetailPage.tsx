@@ -17,6 +17,7 @@ import {
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { apiFetch } from './services/apiClient';
+import { ConfirmDialog } from './components/ui/ConfirmDialog';
 
 type InspectionStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 type InspectionCondition = 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED' | 'NON_FUNCTIONAL';
@@ -248,6 +249,36 @@ function EstimatePanel({ estimate, embedded = false }: { estimate: any; embedded
             </div>
           ) : null}
         </div>
+      )}
+
+      {!embedded && (
+        <Card className="border border-default-200 bg-default-50">
+          <CardBody className="p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-xs text-foreground-500 font-semibold">Estimate Summary</div>
+                <div className="text-sm">
+                  Expected total: <span className="font-semibold">{formatCurrency(e.totalProjectCost ?? 0, currency)}</span>
+                  {hasRange ? (
+                    <span className="text-foreground-500"> · Range {formatCurrency(e.bidLowTotal as number, currency)}–{formatCurrency(e.bidHighTotal as number, currency)}</span>
+                  ) : null}
+                </div>
+                <div className="text-xs text-foreground-500 mt-1">
+                  Labor {formatCurrency(e.totalLaborCost ?? 0, currency)} · Materials {formatCurrency(e.totalMaterialCost ?? 0, currency)}
+                  {' · '}Repair {e.itemsToRepair ?? 0} · Replace {e.itemsToReplace ?? 0}
+                </div>
+              </div>
+              {e.confidenceLevel && (
+                <Chip size="sm" variant="flat" color="secondary">
+                  Confidence: {e.confidenceLevel.replaceAll('_', ' ')}
+                </Chip>
+              )}
+            </div>
+            {e.confidenceReason && (
+              <div className="mt-2 text-xs text-foreground-500 whitespace-pre-wrap">{e.confidenceReason}</div>
+            )}
+          </CardBody>
+        </Card>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
@@ -522,6 +553,7 @@ export default function InspectionDetailPage(): React.ReactElement {
   const [estimateLoading, setEstimateLoading] = useState(false);
   const [estimateError, setEstimateError] = useState<string | null>(null);
   const [estimateResult, setEstimateResult] = useState<any | null>(null);
+  const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
 
   const isPropertyManager = (user as { role?: string } | null)?.role === 'PROPERTY_MANAGER';
 
@@ -702,6 +734,22 @@ export default function InspectionDetailPage(): React.ReactElement {
     }
   }, [fetchInspection, inspection, token]);
 
+  const hasAnyEstimate = useMemo(() => {
+    return !!estimateResult || ((inspection as any)?.repairEstimates?.length ?? 0) > 0;
+  }, [estimateResult, inspection]);
+
+  const lastGeneratedAt = useMemo(() => {
+    const gen = (estimateResult as any)?.generatedAt;
+    if (gen) return gen;
+    const arr = (inspection as any)?.repairEstimates ?? [];
+    const sorted = [...arr].sort((a: any, b: any) => {
+      const ad = a?.generatedAt ? new Date(a.generatedAt).getTime() : 0;
+      const bd = b?.generatedAt ? new Date(b.generatedAt).getTime() : 0;
+      return bd - ad;
+    });
+    return sorted[0]?.generatedAt ?? null;
+  }, [estimateResult, inspection]);
+
   const headerTitle = useMemo(() => {
     if (!inspection) return 'Inspection';
     const prop = inspection.property?.name ?? 'Property';
@@ -784,14 +832,31 @@ export default function InspectionDetailPage(): React.ReactElement {
         <div className="ml-auto flex items-center gap-2">
           {isPropertyManager && (
             <div className="flex flex-col items-end">
-              <Button
-                color="primary"
-                onClick={generateEstimate}
-                isLoading={estimateLoading}
-                isDisabled={estimateLoading || actionableCount === 0}
-              >
-                Generate Estimate
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  color="primary"
+                  onClick={generateEstimate}
+                  isLoading={estimateLoading}
+                  isDisabled={estimateLoading || actionableCount === 0}
+                >
+                  {hasAnyEstimate ? 'Regenerate Estimate' : 'Generate Estimate'}
+                </Button>
+                {hasAnyEstimate && (
+                  <Button
+                    variant="flat"
+                    color="warning"
+                    onClick={() => setShowRegenerateDialog(true)}
+                    isDisabled={estimateLoading}
+                  >
+                    Regenerate
+                  </Button>
+                )}
+              </div>
+              {lastGeneratedAt && (
+                <span className="text-xs text-foreground-500 mt-1">
+                  Last generated {new Date(lastGeneratedAt).toLocaleString()}
+                </span>
+              )}
               {actionableCount === 0 && (
                 <span className="text-xs text-foreground-500 mt-1">
                   No checklist items marked “Requires action”.
@@ -801,6 +866,20 @@ export default function InspectionDetailPage(): React.ReactElement {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={showRegenerateDialog}
+        onOpenChange={() => setShowRegenerateDialog(false)}
+        title="Regenerate estimate?"
+        message="This will run estimation again and may change totals and line items. Your previous estimates will remain in history."
+        confirmLabel="Regenerate"
+        confirmColor="warning"
+        isLoading={estimateLoading}
+        onConfirm={() => {
+          setShowRegenerateDialog(false);
+          generateEstimate();
+        }}
+      />
 
       {estimateError && (
         <Card className="mb-4 border border-rose-200">
