@@ -12,6 +12,10 @@ import {
   HttpStatus,
   HttpCode,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { Role } from '@prisma/client';
 import { EstimateService } from './estimate.service';
 import {
   CreateEstimateDto,
@@ -21,6 +25,7 @@ import {
 } from './dto/simple-inspection.dto';
 
 @Controller('api/estimates')
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class EstimateController {
   constructor(private readonly estimateService: EstimateService) {}
 
@@ -87,6 +92,7 @@ export class EstimateController {
   }
 
   @Post(':id/convert-to-maintenance')
+  @Roles(Role.PROPERTY_MANAGER)
   @HttpCode(HttpStatus.CREATED)
   async convertToMaintenanceRequests(
     @Param('id', ParseUUIDPipe) id: string,

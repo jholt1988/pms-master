@@ -207,7 +207,7 @@ type Estimate = {
   }>;
 };
 
-function EstimatePanel({ estimate, embedded = false }: { estimate: any; embedded?: boolean }) {
+function EstimatePanel({ estimate, embedded = false, token, canManage = false }: { estimate: any; embedded?: boolean; token?: string; canManage?: boolean }) {
   const e = estimate as Estimate;
   const currency = e.currency ?? 'USD';
 
@@ -436,6 +436,30 @@ function EstimatePanel({ estimate, embedded = false }: { estimate: any; embedded
     }
   };
 
+
+  const [convertLoading, setConvertLoading] = useState(false);
+  const [convertError, setConvertError] = useState<string | null>(null);
+  const [showConvertDialog, setShowConvertDialog] = useState(false);
+
+  const handleConvertToMaintenance = async () => {
+    if (!token) {
+      setConvertError('Missing auth token');
+      return;
+    }
+    setConvertLoading(true);
+    setConvertError(null);
+    try {
+      await apiFetch('/estimates/' + String((e).id) + '/convert-to-maintenance', {
+        token: token ?? undefined,
+        method: 'POST',
+      });
+    } catch (err) {
+      setConvertError(err instanceof Error ? err.message : 'Conversion failed');
+    } finally {
+      setConvertLoading(false);
+    }
+  };
+
   return (
     <Card className="mb-4">
       <CardHeader className="flex items-center gap-3">
@@ -453,9 +477,22 @@ function EstimatePanel({ estimate, embedded = false }: { estimate: any; embedded
         </div>
 
         <div className="ml-auto flex items-start gap-3">
-          <Button size="sm" variant="flat" onClick={handleCopySummary}>
-            Copy Summary
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="flat" onClick={handleCopySummary}>
+              Copy Summary
+            </Button>
+            {canManage && (
+              <Button
+                size="sm"
+                variant="flat"
+                color="warning"
+                onClick={() => setShowConvertDialog(true)}
+                isLoading={convertLoading}
+              >
+                Convert → Maintenance
+              </Button>
+            )}
+          </div>
           <div className="text-right">
             {hasRange ? (
               <>
@@ -477,7 +514,33 @@ function EstimatePanel({ estimate, embedded = false }: { estimate: any; embedded
         </div>
       </CardHeader>
       <Divider />
-      <CardBody className="flex flex-col gap-4">{body}</CardBody>
+      <CardBody className="flex flex-col gap-4">
+        {canManage && (
+          <>
+            <ConfirmDialog
+              isOpen={showConvertDialog}
+              onOpenChange={() => setShowConvertDialog(false)}
+              title="Convert estimate to maintenance requests?"
+              message="This will create maintenance requests from the estimate line items. Existing requests won’t be deleted."
+              confirmLabel="Convert"
+              confirmColor="warning"
+              isLoading={convertLoading}
+              onConfirm={() => {
+                setShowConvertDialog(false);
+                handleConvertToMaintenance();
+              }}
+            />
+            {convertError && (
+              <Card className="border border-rose-200">
+                <CardBody>
+                  <p className="text-sm text-rose-700">{convertError}</p>
+                </CardBody>
+              </Card>
+            )}
+          </>
+        )}
+        {body}
+      </CardBody>
     </Card>
   );
 }
@@ -526,7 +589,7 @@ function EstimateHistoryList({ estimates }: { estimates: any[] }) {
               </div>
             </summary>
             <div className="mt-3">
-              <EstimatePanel estimate={e} embedded />
+              <EstimatePanel estimate={e} embedded token={token ?? undefined} canManage={isPropertyManager} />
             </div>
           </details>
         ))}
@@ -891,7 +954,7 @@ export default function InspectionDetailPage(): React.ReactElement {
 
       {/* If we just generated an estimate this session, show it first */}
       {estimateResult && (
-        <EstimatePanel estimate={estimateResult} />
+        <EstimatePanel estimate={estimateResult} token={token ?? undefined} canManage={isPropertyManager} />
       )}
 
       {/* Full history list from inspection.repairEstimates */}
