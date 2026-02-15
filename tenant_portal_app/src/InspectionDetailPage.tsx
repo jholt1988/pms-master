@@ -437,8 +437,11 @@ function EstimatePanel({ estimate, embedded = false, token, canManage = false }:
   };
 
 
+  const navigate = useNavigate();
+
   const [convertLoading, setConvertLoading] = useState(false);
   const [convertError, setConvertError] = useState<string | null>(null);
+  const [convertResult, setConvertResult] = useState<any[] | null>(null);
   const [showConvertDialog, setShowConvertDialog] = useState(false);
 
   const handleConvertToMaintenance = async () => {
@@ -448,11 +451,14 @@ function EstimatePanel({ estimate, embedded = false, token, canManage = false }:
     }
     setConvertLoading(true);
     setConvertError(null);
+    setConvertResult(null);
     try {
-      await apiFetch('/estimates/' + String((e).id) + '/convert-to-maintenance', {
+      const resp = await apiFetch('/estimates/' + String(e.id) + '/convert-to-maintenance', {
         token: token ?? undefined,
         method: 'POST',
       });
+      const data = unwrapApi<any[]>(resp);
+      setConvertResult(Array.isArray(data) ? data : []);
     } catch (err) {
       setConvertError(err instanceof Error ? err.message : 'Conversion failed');
     } finally {
@@ -488,6 +494,7 @@ function EstimatePanel({ estimate, embedded = false, token, canManage = false }:
                 color="warning"
                 onClick={() => setShowConvertDialog(true)}
                 isLoading={convertLoading}
+                isDisabled={convertLoading || e.status !== 'APPROVED'}
               >
                 Convert → Maintenance
               </Button>
@@ -521,15 +528,50 @@ function EstimatePanel({ estimate, embedded = false, token, canManage = false }:
               isOpen={showConvertDialog}
               onOpenChange={() => setShowConvertDialog(false)}
               title="Convert estimate to maintenance requests?"
-              message="This will create maintenance requests from the estimate line items. Existing requests won’t be deleted."
-              confirmLabel="Convert"
-              confirmColor="warning"
+              message={
+                e.status !== 'APPROVED'
+                  ? 'This estimate must be approved before converting to maintenance requests.'
+                  : 'This will create maintenance requests from the estimate line items. Existing requests won’t be deleted.'
+              }
+              confirmLabel={e.status !== 'APPROVED' ? 'OK' : 'Convert'}
+              cancelLabel="Cancel"
+              confirmColor={e.status !== 'APPROVED' ? 'default' : 'warning'}
               isLoading={convertLoading}
               onConfirm={() => {
+                if (e.status !== 'APPROVED') {
+                  setShowConvertDialog(false);
+                  return;
+                }
                 setShowConvertDialog(false);
                 handleConvertToMaintenance();
               }}
             />
+            {convertResult && (
+              <Card className="border border-emerald-200 bg-emerald-50/40">
+                <CardBody className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm text-emerald-800 font-semibold">
+                      Created {convertResult.length} maintenance request{convertResult.length === 1 ? '' : 's'}
+                    </p>
+                    <Button size="sm" variant="flat" color="success" onClick={() => navigate('/maintenance')}>
+                      View Maintenance
+                    </Button>
+                  </div>
+                  {convertResult.length > 0 && (
+                    <ul className="text-xs text-emerald-900/80 list-disc pl-5">
+                      {convertResult.slice(0, 5).map((r: any) => (
+                        <li key={r.id} className="whitespace-pre-wrap">
+                          #{r.id}{r.title ? ` — ${r.title}` : ''}
+                        </li>
+                      ))}
+                      {convertResult.length > 5 && (
+                        <li>…plus {convertResult.length - 5} more</li>
+                      )}
+                    </ul>
+                  )}
+                </CardBody>
+              </Card>
+            )}
             {convertError && (
               <Card className="border border-rose-200">
                 <CardBody>
