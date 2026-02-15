@@ -114,7 +114,7 @@ export default function TenantInspectionPage(): React.ReactElement {
                     </span>
                   </div>
                   <p className="text-sm text-gray-600">
-                    {inspection.unit.property.name} - {inspection.unit.name}
+                    {(inspection.unit?.property?.name ?? 'Property')} - {(inspection.unit?.name ?? 'Unit')}
                   </p>
                   <p className="text-sm text-gray-600">
                     Scheduled: {new Date(inspection.scheduledDate).toLocaleDateString()}
