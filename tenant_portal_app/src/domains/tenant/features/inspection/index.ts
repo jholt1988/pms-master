@@ -4,3 +4,5 @@
  */
 
 export { default as InspectionPage } from './InspectionPage';
+export { default as TenantInspectionsListPage } from './TenantInspectionsListPage';
+export { default as TenantInspectionDetailPage } from './TenantInspectionDetailPage';

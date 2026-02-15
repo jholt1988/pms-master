@@ -117,7 +117,7 @@ export const DockNavigation: React.FC = () => {
         { label: 'Payments', path: '/payments', icon: Wallet },
         { label: 'Messages', path: '/messaging', icon: MessageSquare },
         { label: 'My Lease', path: '/my-lease', icon: FileSignature },
-        { label: 'Inspections', path: '/inspections', icon: FileText },
+        { label: 'Inspections', path: '/tenant/inspections', icon: FileText },
       ];
     } else {
       // Property Manager / Admin navigation items
@@ -141,7 +141,7 @@ export const DockNavigation: React.FC = () => {
         { label: 'Payments', path: '/payments', icon: Wallet, category: 'Core' },
         { label: 'Messages', path: '/messaging', icon: MessageSquare, category: 'Core' },
         { label: 'My Lease', path: '/my-lease', icon: FileSignature, category: 'Core' },
-        { label: 'Inspections', path: '/inspections', icon: FileText, category: 'Core' },
+        { label: 'Inspections', path: '/tenant/inspections', icon: FileText, category: 'Core' },
       ];
     } else {
       return [

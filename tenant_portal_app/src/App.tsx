@@ -44,6 +44,8 @@ const TenantDashboard = lazy(() => import('./domains/tenant/features/dashboard/T
 const MyLeasePage = lazy(() => import('./domains/tenant/features/lease').then(m => ({ default: m.MyLeasePage })));
 const PaymentsPage = lazy(() => import('./domains/tenant/features/payments').then(m => ({ default: m.PaymentsPage })));
 const TenantInspectionPage = lazy(() => import('./domains/tenant/features/inspection').then(m => ({ default: m.InspectionPage })));
+const TenantInspectionsListPage = lazy(() => import('./domains/tenant/features/inspection').then(m => ({ default: (m as any).TenantInspectionsListPage })));
+const TenantInspectionDetailPage = lazy(() => import('./domains/tenant/features/inspection').then(m => ({ default: (m as any).TenantInspectionDetailPage })));
 const RentalApplicationFormPage = lazy(() => import('./domains/tenant/features/application').then(m => ({ default: m.ApplicationPage })));
 const ApplicationLandingPage = lazy(() => import('./domains/shared/application/ApplicationLandingPage'));
 const ApplicationConfirmationPage = lazy(() => import('./domains/shared/application/ApplicationConfirmationPage'));
@@ -251,9 +253,18 @@ export default function App({className}: {className: string}): React.ReactElemen
                     <MyLeasePage />
                   </PageErrorBoundaryWithNav>
                 } />
-                <Route path="inspections" element={
+
+                {/* Back-compat: keep /inspections for tenants but redirect into tenant-friendly routes */}
+                <Route path="inspections" element={<Navigate to="/tenant/inspections" replace />} />
+
+                <Route path="tenant/inspections" element={
                   <PageErrorBoundaryWithNav pageName="Inspections">
-                    <TenantInspectionPage />
+                    <TenantInspectionsListPage />
+                  </PageErrorBoundaryWithNav>
+                } />
+                <Route path="tenant/inspections/:id" element={
+                  <PageErrorBoundaryWithNav pageName="Inspection">
+                    <TenantInspectionDetailPage />
                   </PageErrorBoundaryWithNav>
                 } />
               </Route>
