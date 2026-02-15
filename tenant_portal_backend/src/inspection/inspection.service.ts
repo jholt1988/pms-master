@@ -189,13 +189,18 @@ export class InspectionService {
       throw new NotFoundException(`Inspection with ID ${id} not found`);
     }
 
+    // Tenant access enforcement
+    if (viewer?.role === 'TENANT') {
+      await this.assertTenantCanViewInspection(inspection, viewer.userId);
+    }
+
     return inspection;
   }
 
   /**
    * Get inspections with filtering and pagination
    */
-  async getInspections(query: InspectionQueryDto): Promise<{
+  async getInspections(query: InspectionQueryDto, viewer?: { userId?: string; role?: string }): Promise<{
     inspections: UnitInspection[];
     total: number;
     page: number;
@@ -210,7 +215,7 @@ export class InspectionService {
     const unitId = query.unitId ? this.parseNumericId(query.unitId, 'unit') : undefined;
     const leaseId = query.leaseId ? this.parseNumericId(query.leaseId, 'lease') : undefined;
 
-    const where = {
+    const where: any = {
       ...(propertyId && { propertyId }),
       ...(unitId && { unitId }),
       ...(leaseId && { leaseId }),
@@ -219,6 +224,13 @@ export class InspectionService {
       ...(query.inspectorId && { inspectorId: query.inspectorId }),
       ...(query.tenantId && { tenantId: query.tenantId }),
     };
+
+    // Tenant scoping: only their unit's MOVE_IN / MOVE_OUT inspections
+    if (viewer?.role === 'TENANT') {
+      const tenantUnitId = await this.resolveActiveLeaseUnitId(viewer.userId);
+      where.unitId = tenantUnitId;
+      where.type = { in: ['MOVE_IN', 'MOVE_OUT'] };
+    }
 
     const [inspections, total] = await Promise.all([
       this.prisma.unitInspection.findMany({
@@ -528,6 +540,62 @@ export class InspectionService {
   }
 
   /**
+   * Set inspection status with role-aware enforcement.
+   * Tenants may only set status to COMPLETED, and only for their unit's MOVE_IN/MOVE_OUT inspections.
+   */
+  async setInspectionStatus(
+    id: number,
+    nextStatus: string,
+    viewer?: { userId?: string; role?: string },
+  ): Promise<UnitInspection> {
+    if (!nextStatus) {
+      throw new BadRequestException('Missing status');
+    }
+
+    const inspection = await this.getInspectionById(id, viewer);
+
+    if (viewer?.role === 'TENANT') {
+      if (nextStatus !== 'COMPLETED') {
+        throw new BadRequestException('Tenants may only mark inspections as COMPLETED');
+      }
+      if (inspection.status === 'COMPLETED') {
+        throw new BadRequestException('Inspection is already completed');
+      }
+      return this.completeInspection(id);
+    }
+
+    // PM/Admin: allow setting status directly (minimal MVP behavior)
+    if (nextStatus === 'COMPLETED') {
+      return this.completeInspection(id);
+    }
+
+    const updated = await this.prisma.unitInspection.update({
+      where: { id },
+      data: { status: nextStatus as any },
+      include: {
+        property: true,
+        unit: true,
+        lease: { include: { tenant: true } },
+        inspector: true,
+        tenant: true,
+        rooms: {
+          include: {
+            checklistItems: {
+              include: {
+                photos: { include: { uploadedBy: true } },
+                subItems: true,
+              },
+            },
+          },
+        },
+        signatures: { include: { user: true } },
+      },
+    });
+
+    return updated;
+  }
+
+  /**
    * Get inspection statistics
    */
   async getInspectionStats(propertyId?: string): Promise<any> {
@@ -665,6 +733,39 @@ export class InspectionService {
       }
     } catch (error) {
       console.error('Failed to send inspection completed email:', error);
+    }
+  }
+
+  private async resolveActiveLeaseUnitId(userId?: string): Promise<string> {
+    if (!userId) throw new BadRequestException('Missing user id');
+
+    // MVP: user has exactly one lease (schema enforces unique tenantId).
+    const lease = await this.prisma.lease.findUnique({
+      where: { tenantId: userId as any },
+      select: { unitId: true, status: true },
+    });
+
+    if (!lease || lease.status !== 'ACTIVE') {
+      throw new NotFoundException('No active lease found for tenant');
+    }
+
+    return String(lease.unitId);
+  }
+
+  private async assertTenantCanViewInspection(inspection: any, userId?: string): Promise<void> {
+    const tenantUnitId = await this.resolveActiveLeaseUnitId(userId);
+
+    if (!inspection.unitId) {
+      throw new NotFoundException('Inspection not found');
+    }
+
+    if (String(inspection.unitId) !== tenantUnitId) {
+      throw new NotFoundException('Inspection not found');
+    }
+
+    const allowedTypes = new Set(['MOVE_IN', 'MOVE_OUT']);
+    if (!allowedTypes.has(String(inspection.type))) {
+      throw new NotFoundException('Inspection not found');
     }
   }
 
