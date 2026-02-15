@@ -280,6 +280,11 @@ export class UpdateInspectionDto {
   completedDate?: string;
 }
 
+export class UpdateInspectionStatusDto {
+  @IsEnum(InspectionStatus)
+  status!: InspectionStatus;
+}
+
 export class InspectionQueryDto {
   propertyId?: string;
   unitId?: string;

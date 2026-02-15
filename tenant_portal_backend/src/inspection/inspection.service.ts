@@ -147,7 +147,7 @@ export class InspectionService {
   /**
    * Get inspection by ID with full details
    */
-  async getInspectionById(id: number): Promise<UnitInspection> {
+  async getInspectionById(id: number, viewer?: { userId?: string; role?: string }): Promise<UnitInspection> {
     const inspection = await this.prisma.unitInspection.findUnique({
       where: { id },
       include: {

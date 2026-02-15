@@ -34,6 +34,7 @@ import {
   InspectionQueryDto,
   CreateInspectionWithRoomsDto,
   UpdateRoomChecklistItemsDto,
+  UpdateInspectionStatusDto,
 } from './dto/simple-inspection.dto';
 
 // Blessed inspections API surface (v2). Served under /api/inspections via global prefix.
@@ -69,10 +70,10 @@ export class InspectionController {
 
   @Get()
   @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
-  async getInspections(@Query() query: InspectionQueryDto) {
+  async getInspections(@Query() query: InspectionQueryDto, @Request() req: any) {
     // Back-compat: some clients expect `{ data: [...] }`, others expect `{ inspections, total, ... }`.
     // Return both shapes until we finish contract normalization.
-    const result = await this.inspectionService.getInspections(query);
+    const result = await this.inspectionService.getInspections(query, req.user);
     return {
       ...result,
       data: result.inspections,
@@ -95,8 +96,8 @@ export class InspectionController {
 
   @Get(':id')
   @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
-  async getInspection(@Param('id', ParseIntPipe) id: number) {
-    return this.inspectionService.getInspectionById(id);
+  async getInspection(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    return this.inspectionService.getInspectionById(id, req.user);
   }
 
   @Patch(':id')
@@ -113,6 +114,17 @@ export class InspectionController {
   @HttpCode(HttpStatus.OK)
   async completeInspection(@Param('id', ParseIntPipe) id: number) {
     return this.inspectionService.completeInspection(id);
+  }
+
+  @Patch(':id/status')
+  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  @HttpCode(HttpStatus.OK)
+  async updateInspectionStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateInspectionStatusDto,
+    @Request() req: any,
+  ) {
+    return this.inspectionService.setInspectionStatus(id, dto.status, req.user);
   }
 
   @Delete(':id')
