@@ -589,7 +589,7 @@ function EstimateHistoryList({ estimates }: { estimates: any[] }) {
               </div>
             </summary>
             <div className="mt-3">
-              <EstimatePanel estimate={e} embedded token={token ?? undefined} canManage={isPropertyManager} />
+              <EstimatePanel estimate={e} embedded />
             </div>
           </details>
         ))}
