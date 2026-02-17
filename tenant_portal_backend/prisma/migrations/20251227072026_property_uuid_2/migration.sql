@@ -1,6 +1,6 @@
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
-ALTER TABLE "Property" ADD COLUMN "id_new" UUID NOT NULL DEFAULT uuid_generate_v4();
+ALTER TABLE "Property" ADD COLUMN "id_new" UUID NOT NULL DEFAULT gen_random_uuid();
 
 ALTER TABLE "PropertyMarketingProfile" ADD COLUMN "propertyId_new" UUID;
 ALTER TABLE "PropertyPhoto" ADD COLUMN "propertyId_new" UUID;
@@ -24,7 +24,7 @@ ALTER TABLE "AgentRun" ADD COLUMN "propertyId_new" UUID;
 ALTER TABLE "CommunicationLog" ADD COLUMN "propertyId_new" UUID;
 ALTER TABLE "BankTransaction" ADD COLUMN "propertyId_new" UUID;
 
-UPDATE "Property" SET "id_new" = uuid_generate_v4() WHERE "id_new" IS NULL;
+UPDATE "Property" SET "id_new" = gen_random_uuid() WHERE "id_new" IS NULL;
 
 UPDATE "PropertyMarketingProfile" SET "propertyId_new" = p."id_new" FROM "Property" p WHERE "PropertyMarketingProfile"."propertyId" = p."id";
 UPDATE "PropertyPhoto" SET "propertyId_new" = p."id_new" FROM "Property" p WHERE "PropertyPhoto"."propertyId" = p."id";
@@ -132,7 +132,7 @@ ALTER TABLE "Property" DROP CONSTRAINT IF EXISTS "Property_pkey";
 ALTER TABLE "Property" DROP COLUMN "id";
 ALTER TABLE "Property" RENAME COLUMN "id_new" TO "id";
 ALTER TABLE "Property" ADD CONSTRAINT "Property_pkey" PRIMARY KEY ("id");
-ALTER TABLE "Property" ALTER COLUMN "id" SET DEFAULT uuid_generate_v4();
+ALTER TABLE "Property" ALTER COLUMN "id" SET DEFAULT gen_random_uuid();
 DROP SEQUENCE IF EXISTS "Property_id_seq";
 
 CREATE UNIQUE INDEX "PropertyMarketingProfile_propertyId_key" ON "PropertyMarketingProfile"("propertyId");
