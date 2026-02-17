@@ -266,7 +266,9 @@ export default function InspectionManagementPage(): React.ReactElement {
                   className="cursor-pointer hover:bg-gray-50"
                 >
                   <td className="px-4 py-3 text-sm">
-                    <p className="font-semibold text-foreground">{inspection.unit.property.name}</p>
+                      <p className="font-semibold text-foreground">
+                      {properties.find((p) => p.id === inspection.unit.property.id)?.name}
+                    </p>
                     <p className="text-xs text-foreground-500">{inspection.unit.name}</p>
                   </td>
                   <td className="px-4 py-3 text-sm">{getTypeLabel(inspection.type)}</td>
