@@ -100,7 +100,12 @@ async function ensurePropertyWithUnits() {
   return property;
 }
 
-async function ensureAsset(propertyId: number, unitId: number | null, name: string, category: MaintenanceAssetCategory) {
+async function ensureAsset(
+  propertyId: string,
+  unitId: string | null,
+  name: string,
+  category: MaintenanceAssetCategory,
+) {
   const existing = await prisma.maintenanceAsset.findFirst({
     where: {
       name,
