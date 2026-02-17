@@ -11,8 +11,19 @@
    };
 
    export async function apiFetch(path: string, options: ApiOptions = {}) {
-     const base = getApiBase();
-     const url = path.startsWith('http') ? path : `${base.replace(/\/$/, '')}${path.startsWith('/') ? '' : '/'}${path}`;
+     const base = getApiBase().replace(/\/$/, '');
+
+     // Normalize to avoid accidental duplication like `${base}/api` + `/api/...` → `/api/api/...`
+     // Common in tests or env configs where VITE_API_URL already includes `/api`.
+     let normalizedPath = path;
+     if (!path.startsWith('http')) {
+       normalizedPath = path.startsWith('/') ? path : `/${path}`;
+       if (base.endsWith('/api') && normalizedPath.startsWith('/api/')) {
+         normalizedPath = normalizedPath.slice('/api'.length);
+       }
+     }
+
+     const url = path.startsWith('http') ? path : `${base}${normalizedPath}`;
      const headers: Record<string, string> = {
        'Content-Type': 'application/json',
        ...(options.headers || {}),
