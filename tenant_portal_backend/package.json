@@ -41,6 +41,8 @@
     "@nestjs/schedule": "^6.0.1",
     "@nestjs/swagger": "^11.2.1",
     "@nestjs/throttler": "^6.4.0",
+    "@nestjs/terminus": "^11.0.0",
+    "@nestjs/axios": "^3.0.0",
     "@prisma/client": "^6.19.0",
     "@sentry/nestjs": "^10.25.0",
     "@sentry/node": "^10.25.0",

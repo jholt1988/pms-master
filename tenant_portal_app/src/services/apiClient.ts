@@ -23,7 +23,12 @@
        }
      }
 
-     const url = path.startsWith('http') ? path : `${base}${normalizedPath}`;
+     const rawUrl = path.startsWith('http') ? path : `${base}${normalizedPath}`;
+
+     // In browser, `fetch('/api/...')` is fine. In Node (Vitest/undici), relative URLs throw.
+     const origin = (typeof window !== 'undefined' && window.location?.origin) ? window.location.origin : 'http://localhost';
+     const url = rawUrl.startsWith('http') ? rawUrl : new URL(rawUrl, origin).toString();
+
      const headers: Record<string, string> = {
        'Content-Type': 'application/json',
        ...(options.headers || {}),

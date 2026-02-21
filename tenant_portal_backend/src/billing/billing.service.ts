@@ -4,6 +4,7 @@ import { PaymentsService } from '../payments/payments.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { BillingFrequency, Role, SecurityEventType } from '@prisma/client';
 import { addDays, addMonths, isBefore, nextDay, set } from 'date-fns';
+import { isUUID } from 'class-validator';
 import { UpsertScheduleDto } from './dto/upsert-schedule.dto';
 import { ConfigureAutopayDto } from './dto/configure-autopay.dto';
 import { SecurityEventsService } from '../security-events/security-events.service';
@@ -255,10 +256,10 @@ export class BillingService {
     return schedule;
   }
 
-  async deactivateSchedule(actor: { userId: string; username: string; role: Role }, leaseId: string | number) {
-    const leaseIdNum = this.parseLeaseId(leaseId);
+  async deactivateSchedule(actor: { userId: string; username: string; role: Role }, leaseId: string) {
+    const normalizedLeaseId = this.parseLeaseId(leaseId);
     await this.prisma.recurringInvoiceSchedule.updateMany({
-      where: { leaseId: leaseIdNum },
+      where: { leaseId: normalizedLeaseId },
       data: { active: false },
     });
 
@@ -267,10 +268,10 @@ export class BillingService {
       success: true,
       userId: actor.userId,
       username: actor.username,
-      metadata: { leaseId: leaseIdNum, action: 'DEACTIVATE_SCHEDULE' },
+      metadata: { leaseId: normalizedLeaseId, action: 'DEACTIVATE_SCHEDULE' },
     });
 
-    return { leaseId, active: false };
+    return { leaseId: normalizedLeaseId, active: false };
   }
 
   async getAutopayForTenant(userId: string) {
@@ -293,10 +294,10 @@ export class BillingService {
     };
   }
 
-  async getAutopayForLease(leaseId: string | number) {
-    const leaseIdNum = this.parseLeaseId(leaseId);
+  async getAutopayForLease(leaseId: string) {
+    const normalizedLeaseId = this.parseLeaseId(leaseId);
     const lease = await this.prisma.lease.findUnique({
-      where: { id: leaseIdNum },
+      where: { id: normalizedLeaseId },
       include: {
         autopayEnrollment: {
           include: { paymentMethod: true },
@@ -380,11 +381,11 @@ export class BillingService {
 
   async disableAutopay(
     actor: { userId: string; username: string; role: Role },
-    leaseId: string | number,
+    leaseId: string,
   ) {
-    const leaseIdNum = this.parseLeaseId(leaseId);
+    const normalizedLeaseId = this.parseLeaseId(leaseId);
     const lease = await this.prisma.lease.findUnique({
-      where: { id: leaseIdNum },
+      where: { id: normalizedLeaseId },
     });
 
     if (!lease) {
@@ -396,7 +397,7 @@ export class BillingService {
     }
 
     const result = await this.prisma.autopayEnrollment.updateMany({
-      where: { leaseId: leaseIdNum },
+      where: { leaseId: normalizedLeaseId },
       data: { active: false },
     });
 
@@ -406,11 +407,11 @@ export class BillingService {
         success: true,
         userId: actor.userId,
         username: actor.username,
-        metadata: { leaseId: leaseIdNum },
+        metadata: { leaseId: normalizedLeaseId },
       });
     }
 
-    return { leaseId: leaseIdNum, active: false };
+    return { leaseId: normalizedLeaseId, active: false };
   }
 
   private computeInitialRun(dto: UpsertScheduleDto, leaseStart: Date): Date {
@@ -434,11 +435,13 @@ export class BillingService {
     return addMonths(now, 1);
   }
 
-  private parseLeaseId(value: string | number): number {
-    const normalized = typeof value === 'string' ? Number(value) : value;
-    if (!Number.isFinite(normalized) || !Number.isInteger(normalized)) {
+  private parseLeaseId(value: string | number): string {
+    if (typeof value !== 'string') {
       throw new BadRequestException('Invalid lease identifier provided.');
     }
-    return normalized;
+    if (!isUUID(value)) {
+      throw new BadRequestException('Invalid lease identifier provided.');
+    }
+    return value;
   }
 }

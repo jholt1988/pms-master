@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { isUUID } from 'class-validator';
 import { EmailService } from '../email/email.service';
 import { 
   CreateEstimateDto,
@@ -125,7 +126,7 @@ export class EstimateService {
    */
   async generateEstimateFromInspection(
     inspectionId: number, 
-    userId: string | number
+    userId: string
   ): Promise<RepairEstimate> {
     const inspection = await this.prisma.unitInspection.findUniqueOrThrow({
       where: { id: inspectionId },
@@ -436,9 +437,9 @@ export class EstimateService {
   }> {
     const inspectionId = query.inspectionId ? this.parseNumericId(query.inspectionId, 'inspection') : undefined;
     const maintenanceRequestId = query.maintenanceRequestId
-      ? this.parseNumericId(query.maintenanceRequestId, 'maintenance request')
+      ? this.parseUuidId(query.maintenanceRequestId, 'maintenance request')
       : undefined;
-    const propertyId = query.propertyId ? this.parseNumericId(query.propertyId, 'property') : undefined;
+    const propertyId = query.propertyId ? this.parseUuidId(query.propertyId, 'property') : undefined;
     const where = {
       ...(inspectionId && { inspectionId }),
       ...(maintenanceRequestId && { maintenanceRequestId }),
@@ -481,7 +482,7 @@ export class EstimateService {
   /**
    * Update estimate status
    */
-  async updateEstimate(id: string | number, dto: UpdateEstimateDto, userId: string | number): Promise<RepairEstimate> {
+  async updateEstimate(id: string, dto: UpdateEstimateDto, userId: string): Promise<RepairEstimate> {
     const estimate = await this.getEstimateById(id);
 
     const updateData: any = { ...dto };
@@ -525,8 +526,8 @@ export class EstimateService {
    * Convert estimate to maintenance requests
    */
   async convertEstimateToMaintenanceRequests(
-    estimateId: string | number,
-    userId: string | number
+    estimateId: string,
+    userId: string
   ): Promise<MaintenanceRequest[]> {
     const estimate = await this.getEstimateById(estimateId);
 
@@ -584,9 +585,9 @@ export class EstimateService {
   /**
    * Get estimate statistics
    */
-  async getEstimateStats(propertyId?: string | number): Promise<any> {
+  async getEstimateStats(propertyId?: string): Promise<any> {
     const parsedPropertyId =
-      propertyId !== undefined ? this.parseNumericId(propertyId, 'property') : undefined;
+      propertyId !== undefined ? this.parseUuidId(propertyId, 'property') : undefined;
     const where = parsedPropertyId !== undefined ? { propertyId: parsedPropertyId } : {};
 
     const [
@@ -808,5 +809,12 @@ export class EstimateService {
       throw new BadRequestException(`Invalid ${field} identifier provided.`);
     }
     return normalized;
+  }
+
+  private parseUuidId(value: string, field: string): string {
+    if (!isUUID(value)) {
+      throw new BadRequestException(`Invalid ${field} identifier provided.`);
+    }
+    return value;
   }
 }
