@@ -12,6 +12,7 @@
     "seed:inspection-demo:robust": "node scripts/seed-inspection-demo-robust.js",
     "build": "tsc --ignoreDeprecations 6.0",
     "db:seed": "ts-node prisma/seed.ts",
+    "db:seed:demo": "ts-node prisma/seed-demo.ts",
     "db:seed:admin": "node prisma/seedAdmin.js",
     "db:seed:real-data": "node prisma/seed-real-data.js",
     "test": "jest",
