@@ -3,7 +3,7 @@
  * Handles rental application submission and processing for leads
  */
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { LeadApplicationStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
@@ -20,11 +20,29 @@ export class LeadApplicationsService {
    */
   async submitApplication(data: any) {
     const normalizedStatus = this.normalizeLeadApplicationStatus(data?.status);
+    const {
+      termsAccepted,
+      privacyAccepted,
+      termsVersion,
+      privacyVersion,
+      ...rest
+    } = data ?? {};
+
+    if (!termsAccepted || !privacyAccepted) {
+      throw new BadRequestException('Terms of Service and Privacy Policy must be accepted');
+    }
+
+    const acceptanceTimestamp = new Date();
+
     const application = await this.prisma.leadApplication.create({
       data: {
-        ...data,
+        ...rest,
         status: normalizedStatus,
         submittedAt: new Date(),
+        termsAcceptedAt: acceptanceTimestamp,
+        termsVersion: termsVersion ?? 'unknown',
+        privacyAcceptedAt: acceptanceTimestamp,
+        privacyVersion: privacyVersion ?? 'unknown',
       },
       include: {
         lead: true,

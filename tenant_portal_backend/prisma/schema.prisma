@@ -935,6 +935,10 @@ model RentalApplication {
   screenedAt            DateTime?
   screenedBy            User?                       @relation("ScreenedApplications", fields: [screenedById], references: [id])
   screenedById          String?                     @db.Uuid
+  termsAcceptedAt       DateTime?
+  termsVersion          String?
+  privacyAcceptedAt     DateTime?
+  privacyVersion        String?
   manualNotes           RentalApplicationNote[]
   lifecycleEvents       ApplicationLifecycleEvent[]
   createdAt             DateTime                    @default(now())
@@ -1077,6 +1081,10 @@ model LeadApplication {
   applicationFee        Float?
   feePaid               Boolean               @default(false)
   feePaidAt             DateTime?
+  termsAcceptedAt       DateTime?
+  termsVersion          String?
+  privacyAcceptedAt     DateTime?
+  privacyVersion        String?
   createdAt             DateTime              @default(now())
   updatedAt             DateTime              @updatedAt
 

@@ -23,6 +23,10 @@ export class RentalApplicationService {
   
   async submitApplication(data: SubmitApplicationDto, applicantId?: string) {
     const propertyId = data.propertyId
+    if (!data.termsAccepted || !data.privacyAccepted) {
+      throw new BadRequestException('Terms of Service and Privacy Policy must be accepted');
+    }
+    const acceptanceTimestamp = new Date();
     const unitId = this.parseNumericId(data.unitId, 'unit');
     const references = this.buildReferences(data.references);
     const pastLandlords = this.buildPastLandlords(data.pastLandlords);
@@ -52,6 +56,10 @@ export class RentalApplicationService {
         dlIdUploaded: data.dlIdUploaded,
         bankruptcyFiledYear: data.bankruptcyFiledYear,
         rentalHistoryComments: data.rentalHistoryComments,
+        termsAcceptedAt: acceptanceTimestamp,
+        termsVersion: data.termsVersion,
+        privacyAcceptedAt: acceptanceTimestamp,
+        privacyVersion: data.privacyVersion,
         references: { create: references },
         pastLandlords: { create: pastLandlords },
         employments: { create: employments },

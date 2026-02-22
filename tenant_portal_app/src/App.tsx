@@ -32,6 +32,8 @@ const MaintenanceManagementPage = lazy(() => import('./MaintenanceManagementPage
 const QuickBooksPage = lazy(() => import('./QuickBooksPage'));
 const RentOptimizationDashboard = lazy(() => import('./domains/property-manager/features/rent-optimization/RentOptimizationDashboard'));
 const PropertySearchPage = lazy(() => import('./pages/properties/PropertySearchPage').then(m => ({ default: m.PropertySearchPage })));
+const TermsPage = lazy(() => import('./pages/legal/TermsPage'));
+const PrivacyPage = lazy(() => import('./pages/legal/PrivacyPage'));
 
 // Shared domain imports - lazy loaded
 const LoginPage = lazy(() => import('./domains/shared/auth/features/login').then(m => ({ default: m.LoginPage })));
@@ -192,6 +194,10 @@ export default function App({className}: {className: string}): React.ReactElemen
           <Route path="/rental-application" element={<ApplicationLandingPage />} />
           <Route path="/rental-application/form" element={<RentalApplicationFormPage />} />
           <Route path="/rental-application/confirmation" element={<ApplicationConfirmationPage />} />
+
+          {/* Legal (public) */}
+          <Route path="/legal/terms" element={<TermsPage />} />
+          <Route path="/legal/privacy" element={<PrivacyPage />} />
 
           {/* Unauthorized page - accessible to logged in users */}
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
