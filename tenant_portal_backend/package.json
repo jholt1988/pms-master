@@ -47,6 +47,7 @@
     "@sentry/profiling-node": "^10.25.0",
     "@types/docusign-esign": "^5.19.9",
     "@types/nodemailer": "^7.0.3",
+    "@nestjs/axios": "^4.0.0",
     "axios": "^1.13.2",
     "bcrypt": "^6.0.0",
     "bull": "^4.16.5",
