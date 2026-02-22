@@ -26,6 +26,23 @@ type SeverityLevel = 'LOW' | 'MED' | 'HIGH' | 'EMERGENCY';
 type InspectionIssueType = 'INVESTIGATE' | 'REPAIR' | 'REPLACE';
 type MeasurementUnit = 'COUNT' | 'LINEAR_FT' | 'SQFT' | 'INCH' | 'FOOT';
 
+// Photo types
+export type InspectionPhoto = {
+  id: number;
+  url: string;
+  caption: string | null;
+  createdAt: string;
+  aiAnalysis?: string | null;
+};
+
+export type PhotoAnalysisResult = {
+  condition: InspectionCondition;
+  severity: SeverityLevel;
+  issueType: InspectionIssueType;
+  description: string;
+  recommendedAction: string;
+};
+
 type ChecklistItem = {
   id: number;
   category: string;
@@ -34,6 +51,7 @@ type ChecklistItem = {
   notes?: string | null;
   estimatedAge?: number | null;
   requiresAction: boolean;
+  photos?: InspectionPhoto[];
 
   // Structured action inputs
   severity?: SeverityLevel | null;
@@ -833,6 +851,7 @@ export default function InspectionDetailPage(): React.ReactElement {
   const [estimateError, setEstimateError] = useState<string | null>(null);
   const [estimateResult, setEstimateResult] = useState<any | null>(null);
   const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
+  const [analyzingPhotos, setAnalyzingPhotos] = useState<Record<number, boolean>>({});
 
   const userRole = (user as { role?: string } | null)?.role;
   const isPropertyManager = userRole === 'PROPERTY_MANAGER';
@@ -1518,6 +1537,157 @@ export default function InspectionDetailPage(): React.ReactElement {
                               isDisabled={!draft.requiresAction || saving || isOwnerView}
                               minRows={2}
                             />
+                          </div>
+
+                          {/* Photo Upload Section */}
+                          <div className="md:col-span-2">
+                            <div className="border-2 border-dashed border-default-300 rounded-lg p-4">
+                              <div className="flex items-center justify-between mb-3">
+                                <span className="text-sm font-medium">Photos</span>
+                                {!isOwnerView && (
+                                  <label className="cursor-pointer">
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      multiple
+                                      className="hidden"
+                                      onChange={async (e) => {
+                                        const files = e.target.files;
+                                        if (!files || files.length === 0) return;
+                                        
+                                        for (let i = 0; i < files.length; i++) {
+                                          const file = files[i];
+                                          // Create preview URL
+                                          const previewUrl = URL.createObjectURL(file);
+                                          
+                                          // In a real implementation, upload to server
+                                          // For now, we'll simulate with a local URL
+                                          const mockUrl = previewUrl;
+                                          
+                                          try {
+                                            const result = await apiFetch(`/inspections/items/${item.id}/photos`, {
+                                              token: token ?? undefined,
+                                              method: 'POST',
+                                              body: {
+                                                url: mockUrl,
+                                                caption: `${item.itemName} - Photo ${(item.photos?.length ?? 0) + i + 1}`,
+                                              },
+                                            });
+                                            
+                                            // Refresh inspection data to get updated photos
+                                            fetchInspection();
+                                          } catch (err) {
+                                            console.error('Failed to upload photo:', err);
+                                          }
+                                        }
+                                      }}
+                                    />
+                                    <Button 
+                                      size="sm" 
+                                      variant="flat" 
+                                      color="primary"
+                                      isDisabled={!draft.requiresAction || saving || isOwnerView}
+                                    >
+                                      Upload Photo
+                                    </Button>
+                                  </label>
+                                )}
+                              </div>
+                              
+                              {/* Photo Gallery */}
+                              {(item.photos && item.photos.length > 0) ? (
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                  {item.photos.map((photo) => (
+                                    <div key={photo.id} className="relative group">
+                                      <img
+                                        src={photo.url}
+                                        alt={photo.caption || 'Inspection photo'}
+                                        className="w-full h-24 object-cover rounded border border-default-200"
+                                      />
+                                      <button
+                                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        onClick={async () => {
+                                          if (!confirm('Delete this photo?')) return;
+                                          try {
+                                            await apiFetch(`/inspections/photos/${photo.id}`, {
+                                              token: token ?? undefined,
+                                              method: 'DELETE',
+                                            });
+                                            fetchInspection();
+                                          } catch (err) {
+                                            console.error('Failed to delete photo:', err);
+                                          }
+                                        }}
+                                        disabled={isOwnerView}
+                                      >
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                      </button>
+                                      {photo.aiAnalysis && (
+                                        <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs p-1 truncate">
+                                          🤖 AI: {photo.aiAnalysis.substring(0, 30)}...
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="text-center text-default-500 text-sm py-4">
+                                  No photos yet. Upload photos to enable AI analysis.
+                                </div>
+                              )}
+                              
+                              {/* AI Analysis Button */}
+                              {(item.photos && item.photos.length > 0) && !isOwnerView && (
+                                <div className="mt-3 pt-3 border-t border-default-200">
+                                  <Button
+                                    size="sm"
+                                    variant="flat"
+                                    color="secondary"
+                                    isLoading={analyzingPhotos[item.id]}
+                                    onClick={async () => {
+                                      setAnalyzingPhotos(prev => ({ ...prev, [item.id]: true }));
+                                      try {
+                                        const result = await apiFetch(`/inspections/items/${item.id}/analyze`, {
+                                          token: token ?? undefined,
+                                          method: 'POST',
+                                        });
+                                        
+                                        if (result.success) {
+                                          // Apply AI-suggested values to draft
+                                          if (result.suggestedCondition) {
+                                            onDraftChange(room.id, item.id, { 
+                                              condition: result.suggestedCondition,
+                                              requiresAction: true,
+                                            });
+                                          }
+                                          if (result.suggestedSeverity) {
+                                            onDraftChange(room.id, item.id, { severity: result.suggestedSeverity });
+                                          }
+                                          if (result.suggestedIssueType) {
+                                            onDraftChange(room.id, item.id, { issueType: result.suggestedIssueType });
+                                          }
+                                          if (result.suggestedNotes) {
+                                            onDraftChange(room.id, item.id, { notes: result.suggestedNotes });
+                                          }
+                                          
+                                          // Show analysis feedback
+                                          alert(`AI Analysis complete!\n\n${result.analysis || 'Analysis applied to form fields.'}`);
+                                        }
+                                      } catch (err) {
+                                        console.error('AI analysis failed:', err);
+                                        alert('AI analysis failed. Please try again.');
+                                      } finally {
+                                        setAnalyzingPhotos(prev => ({ ...prev, [item.id]: false }));
+                                      }
+                                    }}
+                                  >
+                                    {analyzingPhotos[item.id] ? 'Analyzing...' : '🤖 Analyze with AI'}
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>

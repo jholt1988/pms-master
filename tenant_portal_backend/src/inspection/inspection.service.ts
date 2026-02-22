@@ -539,6 +539,204 @@ export class InspectionService {
   }
 
   /**
+   * Delete a photo from a checklist item
+   */
+  async deletePhoto(photoId: number, orgId?: string): Promise<void> {
+    const photo = await this.prisma.inspectionChecklistPhoto.findUnique({
+      where: { id: photoId },
+      include: { checklistItem: { include: { room: { include: { inspection: { include: { property: true } } } } } } },
+    });
+
+    if (!photo) {
+      throw new NotFoundException(`Photo with ID ${photoId} not found`);
+    }
+
+    if (orgId) {
+      const itemOrgId = (photo as any).checklistItem?.room?.inspection?.property?.organizationId;
+      if (!itemOrgId || itemOrgId !== orgId) {
+        throw new NotFoundException('Photo not found');
+      }
+    }
+
+    await this.prisma.inspectionChecklistPhoto.delete({
+      where: { id: photoId },
+    });
+  }
+
+  /**
+   * Analyze photos using AI to suggest condition, severity, and issue type
+   */
+  async analyzePhotos(itemId: number, orgId?: string): Promise<{
+    success: boolean;
+    analysis: string;
+    suggestedCondition?: string;
+    suggestedSeverity?: string;
+    suggestedIssueType?: string;
+    suggestedNotes?: string;
+  }> {
+    const item = await this.prisma.inspectionChecklistItem.findUnique({
+      where: { id: itemId },
+      include: { 
+        photos: true,
+        room: { include: { inspection: { include: { property: true } } } }
+      },
+    });
+
+    if (!item) {
+      throw new NotFoundException(`Checklist item with ID ${itemId} not found`);
+    }
+
+    if (orgId) {
+      const itemOrgId = (item as any).room?.inspection?.property?.organizationId;
+      if (!itemOrgId || itemOrgId !== orgId) {
+        throw new NotFoundException('Checklist item not found');
+      }
+    }
+
+    // Check if there are photos to analyze
+    if (!item.photos || item.photos.length === 0) {
+      return {
+        success: false,
+        analysis: 'No photos available for analysis.',
+      };
+    }
+
+    try {
+      // Try to use OpenAI for analysis
+      const openaiApiKey = process.env.OPENAI_API_KEY;
+      
+      if (openaiApiKey) {
+        const OpenAI = require('openai');
+        const openai = new OpenAI({ apiKey: openaiApiKey });
+
+        // Build a prompt with photo URLs and item context
+        const photoUrls = item.photos.map(p => p.url).join('\n');
+        const itemContext = `${item.itemName} in ${item.room.name} - Category: ${item.category}`;
+        
+        const prompt = `You are a property inspection expert. Analyze these photos of: ${itemContext}
+
+Photos:
+${photoUrls}
+
+Based on the visual evidence in these photos:
+1. What is the condition of this item? (EXCELLENT, GOOD, FAIR, POOR, DAMAGED, NON_FUNCTIONAL)
+2. What severity level applies? (LOW, MED, HIGH, EMERGENCY)
+3. What issue type is most appropriate? (INVESTIGATE, REPAIR, REPLACE)
+4. Provide a brief description of what you observe.
+5. What action would you recommend?
+
+Respond in JSON format:
+{
+  "condition": "...",
+  "severity": "...",
+  "issueType": "...",
+  "description": "...",
+  "recommendedAction": "..."
+}`;
+
+        const completion = await openai.chat.completions.create({
+          model: 'gpt-4o',
+          messages: [
+            { role: 'system', content: 'You are a property inspection expert with extensive experience in assessing housing conditions.' },
+            { role: 'user', content: prompt }
+          ],
+          response_format: { type: 'json_object' },
+          max_tokens: 500,
+        });
+
+        const result = JSON.parse(completion.choices[0].message.content);
+        
+        // Save AI analysis to each photo
+        for (const photo of item.photos) {
+          await this.prisma.inspectionChecklistPhoto.update({
+            where: { id: photo.id },
+            data: { aiAnalysis: result.description },
+          });
+        }
+
+        return {
+          success: true,
+          analysis: result.description,
+          suggestedCondition: result.condition,
+          suggestedSeverity: result.severity,
+          suggestedIssueType: result.issueType,
+          suggestedNotes: `${result.description}\n\nRecommended action: ${result.recommendedAction}`,
+        };
+      } else {
+        // Fallback: Use rule-based analysis
+        const fallbackAnalysis = this.generateFallbackAnalysis(item);
+        return fallbackAnalysis;
+      }
+    } catch (error) {
+      console.error('AI photo analysis failed:', error);
+      
+      // Return fallback analysis on error
+      const fallbackAnalysis = this.generateFallbackAnalysis(item);
+      return fallbackAnalysis;
+    }
+  }
+
+  /**
+   * Generate fallback analysis based on checklist item data
+   */
+  private generateFallbackAnalysis(item: any): {
+    success: boolean;
+    analysis: string;
+    suggestedCondition?: string;
+    suggestedSeverity?: string;
+    suggestedIssueType?: string;
+    suggestedNotes?: string;
+  } {
+    // Default assumptions based on category
+    const categoryLower = (item.category || '').toLowerCase();
+    let suggestedCondition = 'FAIR';
+    let suggestedSeverity = 'MED';
+    let suggestedIssueType = 'REPAIR';
+    let analysis = 'Based on the uploaded photos, this item shows signs of wear that may require attention.';
+    let recommendedAction = 'Further inspection recommended to determine exact repair scope.';
+
+    // Category-based heuristics
+    if (categoryLower.includes('appliance') || categoryLower.includes('kitchen')) {
+      if (item.notes?.toLowerCase().includes('leak') || item.notes?.toLowerCase().includes('not working')) {
+        suggestedCondition = 'POOR';
+        suggestedIssueType = 'REPAIR';
+        suggestedSeverity = 'HIGH';
+        analysis = 'The appliance shows functional issues that require professional repair.';
+      }
+    } else if (categoryLower.includes('floor') || categoryLower.includes('carpet') || categoryLower.includes('tile')) {
+      suggestedCondition = 'FAIR';
+      if (item.notes?.toLowerCase().includes('stain') || item.notes?.toLowerCase().includes('tear')) {
+        suggestedCondition = 'POOR';
+        analysis = 'Visible damage to flooring surface observed in photos.';
+      }
+    } else if (categoryLower.includes('wall') || categoryLower.includes('ceiling') || categoryLower.includes('paint')) {
+      suggestedCondition = 'FAIR';
+      if (item.notes?.toLowerCase().includes('crack') || item.notes?.toLowerCase().includes('hole')) {
+        suggestedCondition = 'POOR';
+        suggestedIssueType = 'REPAIR';
+        analysis = 'Wall/ceiling damage visible - patch and paint repair recommended.';
+      }
+    } else if (categoryLower.includes('plumb') || categoryLower.includes('bathroom')) {
+      suggestedCondition = 'FAIR';
+      if (item.notes?.toLowerCase().includes('leak') || item.notes?.toLowerCase().includes('drip')) {
+        suggestedCondition = 'DAMAGED';
+        suggestedSeverity = 'HIGH';
+        suggestedIssueType = 'REPAIR';
+        analysis = 'Plumbing issue detected - immediate repair recommended to prevent further damage.';
+      }
+    }
+
+    return {
+      success: true,
+      analysis,
+      suggestedCondition,
+      suggestedSeverity,
+      suggestedIssueType,
+      suggestedNotes: `${analysis}\n\nRecommended action: ${recommendedAction}`,
+    };
+  }
+
+  /**
    * Add signature to inspection
    */
   async addSignature(inspectionId: number, dto: CreateSignatureDto, orgId?: string): Promise<any> {

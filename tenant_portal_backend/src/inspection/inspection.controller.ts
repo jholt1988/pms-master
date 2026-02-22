@@ -223,6 +223,29 @@ export class InspectionController {
     return this.inspectionService.addPhotoToChecklistItem(itemId, dto, req.user.userId, orgId);
   }
 
+  // Delete photo endpoint
+  @Delete('photos/:photoId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Roles(Role.PROPERTY_MANAGER)
+  async deletePhoto(
+    @Param('photoId', ParseIntPipe) photoId: number,
+    @OrgId() orgId: string,
+  ) {
+    await this.inspectionService.deletePhoto(photoId, orgId);
+  }
+
+  // AI Photo Analysis endpoint
+  @Post('items/:itemId/analyze')
+  @HttpCode(HttpStatus.OK)
+  @Roles(Role.PROPERTY_MANAGER)
+  async analyzePhotos(
+    @Param('itemId', ParseIntPipe) itemId: number,
+    @Request() req: any,
+  ) {
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.inspectionService.analyzePhotos(itemId, orgId);
+  }
+
   // Signature operations
 
   @Post(':id/signatures')
