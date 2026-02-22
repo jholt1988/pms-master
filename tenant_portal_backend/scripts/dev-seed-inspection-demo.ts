@@ -82,6 +82,9 @@ async function main() {
     },
   });
 
+  // Remove any existing lease for this tenant to satisfy unique tenantId constraint
+  await prisma.lease.deleteMany({ where: { tenantId: tenant.id } });
+
   const lease = await prisma.lease.upsert({
     where: { id: LEASE_ID },
     update: {
