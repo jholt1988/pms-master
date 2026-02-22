@@ -64,12 +64,12 @@ const normalizeTags = (tags?: string[] | null): string[] =>
 export class PropertyService {
   constructor(private prisma: PrismaService) {}
 
-  async createProperty(dto: CreatePropertyDto) {
+  async createProperty(dto: CreatePropertyDto, organizationId: string) {
     try {
       return await this.prisma.property.create({
         data: {
           // Multi-tenant scope
-          organization: { connect: { id: dto.organizationId } },
+          organization: { connect: { id: organizationId } },
           name: dto.name,
           address: normalizeAddressField(dto.address),
           city: normalizeAddressField(dto.city),

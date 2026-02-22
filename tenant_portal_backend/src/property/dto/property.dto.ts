@@ -48,9 +48,6 @@ const transformToNumber = ({ value }: TransformFnParams) => {
 export class CreatePropertyDto {
   @IsString()
   @IsNotEmpty()
-  organizationId: string;
-  @IsString()
-  @IsNotEmpty()
   @MinLength(1)
   name: string;
 

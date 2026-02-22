@@ -15,12 +15,14 @@ import {
   UsePipes,
   Query,
   Delete,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { PropertyService } from './property.service';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import {
   CreatePropertyDto,
   CreateUnitDto,
@@ -45,11 +47,15 @@ export class PropertyController {
   constructor(private readonly propertyService: PropertyService) {}
 
   @Post()
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles(Role.PROPERTY_MANAGER)
   @HttpCode(HttpStatus.CREATED)
-  createProperty(@Body() dto: CreatePropertyDto) {
-    return this.propertyService.createProperty(dto);
+  createProperty(@Body() dto: CreatePropertyDto, @Request() req: any) {
+    const orgId = req?.org?.orgId as string | undefined;
+    if (!orgId) {
+      throw new BadRequestException('Organization context is required to create a property.');
+    }
+    return this.propertyService.createProperty(dto, orgId);
   }
 
   @Post(':id/units')
