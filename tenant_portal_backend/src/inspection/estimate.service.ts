@@ -125,10 +125,14 @@ export class EstimateService {
    */
   async generateEstimateFromInspection(
     inspectionId: number, 
-    userId: string | number
+    userId: string | number,
+    orgId?: string
   ): Promise<RepairEstimate> {
-    const inspection = await this.prisma.unitInspection.findUniqueOrThrow({
-      where: { id: inspectionId },
+    const inspection = await this.prisma.unitInspection.findFirst({
+      where: {
+        id: inspectionId,
+        ...(orgId ? { property: { organizationId: orgId } } : {}),
+      },
       include: {
         property: true,
         unit: true,
@@ -430,7 +434,7 @@ export class EstimateService {
   /**
    * Get estimates with filtering
    */
-  async getEstimates(query: EstimateQueryDto): Promise<{
+  async getEstimates(query: EstimateQueryDto & { orgId?: string }): Promise<{
     estimates: RepairEstimate[];
     total: number;
   }> {
@@ -444,6 +448,7 @@ export class EstimateService {
       ...(maintenanceRequestId && { maintenanceRequestId }),
       ...(propertyId && { propertyId }),
       ...(query.status && { status: query.status }),
+      ...(query.orgId ? { property: { organizationId: query.orgId } } : {}),
     };
 
     const [estimates, total] = await Promise.all([
