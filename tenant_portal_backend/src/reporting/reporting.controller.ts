@@ -18,7 +18,7 @@ interface AuthenticatedRequest extends Request {
 
 @Controller('reporting')
 @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-@Roles(Role.PROPERTY_MANAGER)
+@Roles(Role.PROPERTY_MANAGER, Role.OWNER)
 export class ReportingController {
   constructor(private readonly reportingService: ReportingService) {}
 

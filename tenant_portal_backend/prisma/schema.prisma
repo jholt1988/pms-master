@@ -1193,6 +1193,7 @@ enum TechnicianRole {
 enum Role {
   TENANT
   PROPERTY_MANAGER
+  OWNER
   ADMIN
 }
 

@@ -119,17 +119,27 @@ export const DockNavigation: React.FC = () => {
         { label: 'My Lease', path: '/my-lease', icon: FileSignature },
         { label: 'Inspections', path: '/tenant/inspections', icon: FileText },
       ];
-    } else {
-      // Property Manager / Admin navigation items
+    }
+
+    if (userRole === 'OWNER') {
       return [
         { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
         { label: 'Maintenance', path: '/maintenance-management', icon: Wrench },
-        { label: 'Payments', path: '/payments', icon: Wallet },
         { label: 'Messages', path: '/messaging', icon: MessageSquare },
-        { label: 'Leases', path: '/lease-management', icon: FileSignature },
+        { label: 'Reporting', path: '/reporting', icon: BarChart3 },
         { label: 'Properties', path: '/properties', icon: Building2 },
       ];
     }
+
+    // Property Manager / Admin navigation items
+    return [
+      { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+      { label: 'Maintenance', path: '/maintenance-management', icon: Wrench },
+      { label: 'Payments', path: '/payments', icon: Wallet },
+      { label: 'Messages', path: '/messaging', icon: MessageSquare },
+      { label: 'Leases', path: '/lease-management', icon: FileSignature },
+      { label: 'Properties', path: '/properties', icon: Building2 },
+    ];
   };
   
   // Get all available apps for the All Apps menu
@@ -143,28 +153,39 @@ export const DockNavigation: React.FC = () => {
         { label: 'My Lease', path: '/my-lease', icon: FileSignature, category: 'Core' },
         { label: 'Inspections', path: '/tenant/inspections', icon: FileText, category: 'Core' },
       ];
-    } else {
+    }
+
+    if (userRole === 'OWNER') {
       return [
         { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, category: 'Core' },
         { label: 'Properties', path: '/properties', icon: Building2, category: 'Core' },
-        { label: 'Leases', path: '/lease-management', icon: FileSignature, category: 'Core' },
         { label: 'Maintenance', path: '/maintenance-management', icon: Wrench, category: 'Core' },
-        { label: 'Payments', path: '/payments', icon: Wallet, category: 'Core' },
         { label: 'Messages', path: '/messaging', icon: MessageSquare, category: 'Core' },
-        { label: 'Applications', path: '/rental-applications-management', icon: ClipboardList, category: 'Management' },
-        { label: 'Schedule', path: '/schedule', icon: Calendar, category: 'Management' },
-        { label: 'Documents', path: '/documents', icon: Files, category: 'Management' },
-        { label: 'Expenses', path: '/expense-tracker', icon: DollarSign, category: 'Financial' },
-        { label: 'Rent Estimator', path: '/rent-estimator', icon: ScanLine, category: 'Financial' },
-        { label: 'Rent Optimization', path: '/rent-optimization', icon: TrendingUp, category: 'Financial' },
         { label: 'Reporting', path: '/reporting', icon: BarChart3, category: 'Analytics' },
-        { label: 'QuickBooks', path: '/quickbooks', icon: DollarSign, category: 'Financial' },
-        ...(userRole === 'ADMIN' ? [
-          { label: 'User Management', path: '/user-management', icon: Users, category: 'Admin' },
-          { label: 'Audit Log', path: '/security-events', icon: Shield, category: 'Admin' },
-        ] : []),
+        { label: 'Inspections', path: '/inspection-management', icon: ClipboardList, category: 'Core' },
       ];
     }
+
+    return [
+      { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, category: 'Core' },
+      { label: 'Properties', path: '/properties', icon: Building2, category: 'Core' },
+      { label: 'Leases', path: '/lease-management', icon: FileSignature, category: 'Core' },
+      { label: 'Maintenance', path: '/maintenance-management', icon: Wrench, category: 'Core' },
+      { label: 'Payments', path: '/payments', icon: Wallet, category: 'Core' },
+      { label: 'Messages', path: '/messaging', icon: MessageSquare, category: 'Core' },
+      { label: 'Applications', path: '/rental-applications-management', icon: ClipboardList, category: 'Management' },
+      { label: 'Schedule', path: '/schedule', icon: Calendar, category: 'Management' },
+      { label: 'Documents', path: '/documents', icon: Files, category: 'Management' },
+      { label: 'Expenses', path: '/expense-tracker', icon: DollarSign, category: 'Financial' },
+      { label: 'Rent Estimator', path: '/rent-estimator', icon: ScanLine, category: 'Financial' },
+      { label: 'Rent Optimization', path: '/rent-optimization', icon: TrendingUp, category: 'Financial' },
+      { label: 'Reporting', path: '/reporting', icon: BarChart3, category: 'Analytics' },
+      { label: 'QuickBooks', path: '/quickbooks', icon: DollarSign, category: 'Financial' },
+      ...(userRole === 'ADMIN' ? [
+        { label: 'User Management', path: '/user-management', icon: Users, category: 'Admin' },
+        { label: 'Audit Log', path: '/security-events', icon: Shield, category: 'Admin' },
+      ] : []),
+    ];
   };
   
   const dockItems = getDockItems();

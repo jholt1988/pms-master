@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useId } from 'react';
+import { useFocusTrap } from '../../utils/focus-trap';
 import { 
   User, 
   Settings, 
@@ -6,12 +7,9 @@ import {
   Edit3, 
   Mail, 
   Phone, 
-  MapPin,
   CreditCard,
   Shield,
-  Bell,
   X,
-  Camera,
   Save
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -39,7 +37,8 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
 }) => {
   const navigate = useNavigate();
   const { logout } = useAuth();
-  const menuRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const menuRef = useFocusTrap(isOpen);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     username: user?.username || '',
@@ -83,6 +82,13 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
     setIsEditing(false);
   };
 
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      onClose();
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -96,11 +102,13 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
       
       {/* Menu */}
       <div 
-        ref={menuRef}
+        ref={menuRef as React.RefObject<HTMLDivElement>}
         className="fixed top-20 right-6 z-[100] w-96 bg-deep-900 border border-white/10 rounded-lg shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200"
         role="dialog"
         aria-modal="true"
-        aria-label="User profile menu"
+        aria-labelledby={titleId}
+        onKeyDown={handleKeyDown}
+        tabIndex={-1}
       >
         <div className="relative overflow-hidden rounded-2xl bg-deep-900 border border-white/15 shadow-2xl">
           {/* Grid pattern overlay */}
@@ -124,7 +132,7 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
                   </div>
                 </div>
                 <div>
-                  <h3 className="text-white font-sans text-sm font-semibold">
+                  <h3 id={titleId} className="text-white font-sans text-sm font-semibold">
                     {user?.username || 'User'}
                   </h3>
                   <p className="text-[10px] text-neon-blue font-mono uppercase">
@@ -185,7 +193,7 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
                       onClick={handleSave}
                       className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-neon-blue/20 border border-neon-blue/50 text-neon-blue rounded-lg hover:bg-neon-blue/30 transition-colors text-sm font-semibold"
                     >
-                      <Save size={14} />
+                      <Save size={14} aria-hidden="true" />
                       Save Changes
                     </button>
                     <button

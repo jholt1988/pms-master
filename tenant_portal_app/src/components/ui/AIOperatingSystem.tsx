@@ -106,7 +106,7 @@ export const AIOperatingSystem: React.FC = () => {
       const context = {
         userId: String((user as any).sub ?? (user as any).id ?? ''),
         username: (user as any).username || '',
-        role: ((user as any).role as 'TENANT' | 'PROPERTY_MANAGER' | 'ADMIN') || 'TENANT',
+        role: ((user as any).role as 'TENANT' | 'PROPERTY_MANAGER' | 'OWNER' | 'ADMIN') || 'TENANT',
         currentPage: location.pathname,
         currentRoute: location.pathname,
       };
@@ -151,7 +151,7 @@ export const AIOperatingSystem: React.FC = () => {
       const context = {
         userId: userId,
         username: user?.username || 'Guest',
-        role: (user?.role as 'TENANT' | 'PROPERTY_MANAGER' | 'ADMIN') || undefined,
+        role: (user?.role as 'TENANT' | 'PROPERTY_MANAGER' | 'OWNER' | 'ADMIN') || undefined,
         currentPage: location.pathname,
         currentRoute: location.pathname,
       };

@@ -4,7 +4,7 @@ import { jwtDecode } from 'jwt-decode';
 type JwtPayload = {
   sub?: number;
   username?: string;
-  role?: 'TENANT' | 'PROPERTY_MANAGER' | 'ADMIN' | string;
+  role?: 'TENANT' | 'PROPERTY_MANAGER' | 'OWNER' | 'ADMIN' | string;
   exp?: number;
   iat?: number;
   [key: string]: unknown;

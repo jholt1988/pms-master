@@ -150,7 +150,7 @@ const RoleBasedShell = () => {
   
   // Render the same AppShell for all roles (twin layout)
   // DockNavigation will show role-appropriate items
-  if (user.role === 'PROPERTY_MANAGER' || user.role === 'ADMIN' || user.role === 'TENANT') {
+  if (user.role === 'PROPERTY_MANAGER' || user.role === 'OWNER' || user.role === 'ADMIN' || user.role === 'TENANT') {
     return <AppShell />;
   }
   
@@ -168,7 +168,7 @@ const DashboardRouter = () => {
     return <TenantDashboard />;
   }
   
-  if (user?.role === 'PROPERTY_MANAGER' || user?.role === 'ADMIN') {
+  if (user?.role === 'PROPERTY_MANAGER' || user?.role === 'OWNER' || user?.role === 'ADMIN') {
     return <MainDashboard />;
   }
   
@@ -234,7 +234,7 @@ export default function App({className}: {className: string}): React.ReactElemen
                 </PageErrorBoundaryWithNav>
               } />
 
-              <Route element={<RequireRole allowedRoles={['PROPERTY_MANAGER']} />}>
+              <Route element={<RequireRole allowedRoles={['PROPERTY_MANAGER', 'ADMIN']} />}>
                 <Route path="properties" element={<PropertyManagementPage />} />
                 <Route path="properties/search" element={<PropertySearchPage />} />
                 <Route path="schedule" element={<SchedulePage />} />
@@ -255,6 +255,16 @@ export default function App({className}: {className: string}): React.ReactElemen
                 <Route path="inspections/:id" element={<InspectionDetailPage />} />
                 <Route path="maintenance-management" element={<MaintenanceManagementPage />} />
                 <Route path="quickbooks" element={<QuickBooksPage />} />
+              </Route>
+
+              <Route element={<RequireRole allowedRoles={['OWNER']} />}>
+                <Route path="properties" element={<PropertyManagementPage />} />
+                <Route path="properties/search" element={<PropertySearchPage />} />
+                <Route path="maintenance-management" element={<MaintenanceManagementPage />} />
+                <Route path="reporting" element={<ReportingPage />} />
+                <Route path="inspection-management" element={<InspectionManagementPage />} />
+                <Route path="inspections" element={<Navigate to="/inspection-management" replace />} />
+                <Route path="inspections/:id" element={<InspectionDetailPage />} />
               </Route>
 
               <Route element={<RequireRole allowedRoles={['TENANT']} />}>

@@ -20,7 +20,7 @@ export class DashboardController {
 
   @Get('metrics')
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles(Role.PROPERTY_MANAGER, Role.OWNER)
   getPropertyManagerDashboardMetrics(@OrgId() orgId?: string) {
     return this.dashboardService.getPropertyManagerDashboardMetrics(orgId);
   }
