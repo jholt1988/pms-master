@@ -660,7 +660,9 @@ export default function InspectionDetailPage(): React.ReactElement {
   const [estimateResult, setEstimateResult] = useState<any | null>(null);
   const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
 
-  const isPropertyManager = (user as { role?: string } | null)?.role === 'PROPERTY_MANAGER';
+  const userRole = (user as { role?: string } | null)?.role;
+  const isPropertyManager = userRole === 'PROPERTY_MANAGER';
+  const isOwnerView = userRole === 'OWNER';
 
   const fetchInspection = useCallback(async (signal?: AbortSignal) => {
     if (!inspectionId || Number.isNaN(inspectionId)) {
@@ -984,6 +986,14 @@ export default function InspectionDetailPage(): React.ReactElement {
         </div>
       </div>
 
+      {isOwnerView && (
+        <Card className="mb-4 border border-amber-200 bg-amber-50">
+          <CardBody className="text-xs text-amber-700">
+            <span className="font-semibold">Owner view:</span> inspection checklists and estimates are read-only. Requests for updates go through your property manager.
+          </CardBody>
+        </Card>
+      )}
+
       <ConfirmDialog
         isOpen={showRegenerateDialog}
         onOpenChange={() => setShowRegenerateDialog(false)}
@@ -1158,6 +1168,7 @@ export default function InspectionDetailPage(): React.ReactElement {
                         key={item.id}
                         className="p-3 rounded border border-default-200"
                         onBlurCapture={(e) => {
+                          if (isOwnerView) return;
                           const next = e.relatedTarget as any;
                           if (e.currentTarget.contains(next)) return; // still inside row
                           void saveItem(room, item);
@@ -1183,8 +1194,11 @@ export default function InspectionDetailPage(): React.ReactElement {
                               size="sm"
                               variant="flat"
                               color={errorMsg ? 'danger' : 'default'}
-                              isDisabled={!isDirty || saving}
-                              onClick={() => saveItem(room, item)}
+                              isDisabled={!isDirty || saving || isOwnerView}
+                              onClick={() => {
+                                if (isOwnerView) return;
+                                saveItem(room, item);
+                              }}
                             >
                               Save
                             </Button>
@@ -1206,7 +1220,7 @@ export default function InspectionDetailPage(): React.ReactElement {
                                     })
                               }
                               size="sm"
-                              isDisabled={saving}
+                              isDisabled={saving || isOwnerView}
                             >
                               Requires action
                             </Switch>
@@ -1225,7 +1239,7 @@ export default function InspectionDetailPage(): React.ReactElement {
                               const value = Array.from(keys)[0] as any;
                               onDraftChange(room.id, item.id, { condition: (value || null) as any });
                             }}
-                            isDisabled={!draft.requiresAction || saving}
+                            isDisabled={!draft.requiresAction || saving || isOwnerView}
                             placeholder="Select condition"
                           >
                             {conditionOptions.map((opt) => (
@@ -1240,7 +1254,7 @@ export default function InspectionDetailPage(): React.ReactElement {
                               const value = Array.from(keys)[0] as any;
                               onDraftChange(room.id, item.id, { severity: (value || null) as any });
                             }}
-                            isDisabled={!draft.requiresAction || saving}
+                            isDisabled={!draft.requiresAction || saving || isOwnerView}
                             placeholder="Select severity"
                           >
                             {severityOptions.map((opt) => (
@@ -1255,7 +1269,7 @@ export default function InspectionDetailPage(): React.ReactElement {
                               const value = Array.from(keys)[0] as any;
                               onDraftChange(room.id, item.id, { issueType: (value || null) as any });
                             }}
-                            isDisabled={!draft.requiresAction || saving}
+                            isDisabled={!draft.requiresAction || saving || isOwnerView}
                             placeholder="Investigate / Repair / Replace"
                           >
                             {issueTypeOptions.map((opt) => (
@@ -1273,7 +1287,7 @@ export default function InspectionDetailPage(): React.ReactElement {
                                 const num = v === '' ? null : Number(v);
                                 onDraftChange(room.id, item.id, { measurementValue: Number.isFinite(num as any) ? (num as any) : null });
                               }}
-                              isDisabled={!draft.requiresAction || saving}
+                              isDisabled={!draft.requiresAction || saving || isOwnerView}
                             />
                             <Select
                               aria-label="Measurement unit"
@@ -1282,7 +1296,7 @@ export default function InspectionDetailPage(): React.ReactElement {
                                 const value = Array.from(keys)[0] as any;
                                 onDraftChange(room.id, item.id, { measurementUnit: (value || null) as any });
                               }}
-                              isDisabled={!draft.requiresAction || saving}
+                              isDisabled={!draft.requiresAction || saving || isOwnerView}
                               placeholder="Unit"
                               className="min-w-[140px]"
                             >
@@ -1298,7 +1312,7 @@ export default function InspectionDetailPage(): React.ReactElement {
                               placeholder="e.g., approx 12 linear ft along baseboard"
                               value={draft.measurementNotes ?? ''}
                               onValueChange={(v) => onDraftChange(room.id, item.id, { measurementNotes: v })}
-                              isDisabled={!draft.requiresAction || saving}
+                              isDisabled={!draft.requiresAction || saving || isOwnerView}
                             />
                           </div>
 
@@ -1308,7 +1322,7 @@ export default function InspectionDetailPage(): React.ReactElement {
                               placeholder="Describe the issue, symptoms, and any context…"
                               value={draft.notes}
                               onValueChange={(v) => onDraftChange(room.id, item.id, { notes: v })}
-                              isDisabled={!draft.requiresAction || saving}
+                              isDisabled={!draft.requiresAction || saving || isOwnerView}
                               minRows={2}
                             />
                           </div>

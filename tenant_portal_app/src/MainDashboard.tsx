@@ -56,7 +56,17 @@ const formatCurrency = (amount: number) => {
   return `$${amount.toFixed(0)}`;
 };
 
-const KPITicker = ({ metrics, loading, navigate }: { metrics: DashboardMetrics | null; loading: boolean; navigate: (path: string) => void }) => {
+const KPITicker = ({
+  metrics,
+  loading,
+  navigate,
+  isOwnerView,
+}: {
+  metrics: DashboardMetrics | null;
+  loading: boolean;
+  navigate: (path: string) => void;
+  isOwnerView: boolean;
+}) => {
   if (loading || !metrics) {
     return (
       <div className="flex gap-6 mb-8 overflow-x-auto pb-2 no-scrollbar">
@@ -78,43 +88,57 @@ const KPITicker = ({ metrics, loading, navigate }: { metrics: DashboardMetrics |
   const pendingApps = metrics.applications?.pending || 0;
 
   const kpiItems = [
-    { 
-      label: 'Portfolio Occ.', 
-      value: `${metrics.occupancy?.percentage || 0}%`, 
-      change: occupancyChange, 
+    {
+      label: 'Portfolio Occ.',
+      value: `${metrics.occupancy?.percentage || 0}%`,
+      change: occupancyChange,
       color: 'text-neon-blue',
-      path: '/properties'
+      path: '/properties',
     },
-    { 
-      label: 'MoM Revenue', 
-      value: formatCurrency(metrics.financials?.collectedThisMonth || 0), 
-      change: revenueChange, 
+    {
+      label: 'MoM Revenue',
+      value: formatCurrency(metrics.financials?.collectedThisMonth || 0),
+      change: revenueChange,
       color: 'text-green-400',
-      path: '/payments'
+      path: '/payments',
+      disabled: isOwnerView,
+      hint: 'Manager access only in owner view',
     },
-    { 
-      label: 'Open Tickets', 
-      value: `${openTickets}`, 
-      change: `-${Math.max(0, openTickets - 6)}`, 
+    {
+      label: 'Open Tickets',
+      value: `${openTickets}`,
+      change: `-${Math.max(0, openTickets - 6)}`,
       color: 'text-neon-purple',
-      path: '/maintenance-management'
+      path: '/maintenance-management',
     },
-    { 
-      label: 'Pending Apps', 
-      value: `${pendingApps}`, 
-      change: `+${Math.max(0, pendingApps - 2)}`, 
+    {
+      label: 'Pending Apps',
+      value: `${pendingApps}`,
+      change: `+${Math.max(0, pendingApps - 2)}`,
       color: 'text-white',
-      path: '/rental-applications-management'
+      path: '/rental-applications-management',
+      disabled: isOwnerView,
+      hint: 'Manager access only in owner view',
     },
   ];
 
   return (
     <div className="flex gap-6 mb-8 overflow-x-auto pb-2 no-scrollbar">
       {kpiItems.map((stat, i) => (
-        <div 
-          key={i} 
-          onClick={() => navigate(stat.path)}
-          className="flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 min-w-fit cursor-pointer hover:bg-white/10 hover:border-neon-blue/50 transition-all"
+        <div
+          key={i}
+          onClick={() => {
+            if (!stat.disabled) {
+              navigate(stat.path);
+            }
+          }}
+          title={stat.disabled ? stat.hint : undefined}
+          aria-disabled={stat.disabled}
+          className={`flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 min-w-fit transition-all ${
+            stat.disabled
+              ? 'cursor-not-allowed opacity-60'
+              : 'cursor-pointer hover:bg-white/10 hover:border-neon-blue/50'
+          }`}
         >
           <div className="text-xs text-gray-400 uppercase tracking-wider">{stat.label}</div>
           <div className="text-sm font-mono font-bold text-white">{stat.value}</div>
@@ -128,10 +152,11 @@ const KPITicker = ({ metrics, loading, navigate }: { metrics: DashboardMetrics |
 };
 
 const MainDashboard = () => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const navigate = useNavigate();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
+  const isOwnerView = user?.role === 'OWNER';
 
   useEffect(() => {
     const fetchMetrics = async () => {
@@ -177,7 +202,16 @@ const MainDashboard = () => {
         </div>
       </div>
 
-      <KPITicker metrics={metrics} loading={loading} navigate={navigate} />
+      {isOwnerView && (
+        <div className="mb-6 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-gray-300">
+          <span className="font-mono text-neon-blue uppercase tracking-wider">Owner view</span>
+          <span className="ml-2">
+            Read-only portfolio insights. Financial and leasing actions are managed by your property manager. Data refreshes nightly.
+          </span>
+        </div>
+      )}
+
+      <KPITicker metrics={metrics} loading={loading} navigate={navigate} isOwnerView={isOwnerView} />
 
       {/* --- SECTION 2: BENTO GRID LAYOUT --- */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
@@ -226,10 +260,20 @@ const MainDashboard = () => {
                 <TrendingUp className="text-neon-purple" size={18} />
                 Market Intelligence
               </h3>
-              <button 
-                onClick={() => navigate('/rent-estimator')}
-                className="text-xs text-neon-purple hover:text-white transition-colors font-mono uppercase tracking-wider"
+              <button
+                onClick={() => {
+                  if (!isOwnerView) {
+                    navigate('/rent-estimator');
+                  }
+                }}
+                className={`text-xs font-mono uppercase tracking-wider transition-colors ${
+                  isOwnerView
+                    ? 'text-gray-500 cursor-not-allowed'
+                    : 'text-neon-purple hover:text-white'
+                }`}
                 aria-label="Analyze market intelligence"
+                aria-disabled={isOwnerView}
+                title={isOwnerView ? 'Manager access only in owner view' : undefined}
               >
                 Analyze
               </button>

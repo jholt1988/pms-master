@@ -77,7 +77,8 @@ const getTypeLabel = (type: string) => {
 };
 
 export default function InspectionManagementPage(): React.ReactElement {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isOwnerView = user?.role === 'OWNER';
   const navigate = useNavigate();
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
@@ -173,10 +174,23 @@ export default function InspectionManagementPage(): React.ReactElement {
           <h1 className="text-3xl font-bold">Inspection Management</h1>
           <p className="text-sm text-foreground-500">Monitor upcoming, in-progress, and completed inspections.</p>
         </div>
-        <Button color="primary" onClick={() => setShowCreateModal(true)}>
+        <Button
+          color="primary"
+          isDisabled={isOwnerView}
+          onClick={() => {
+            if (isOwnerView) return;
+            setShowCreateModal(true);
+          }}
+        >
           Schedule Inspection
         </Button>
       </div>
+
+      {isOwnerView && (
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
+          <span className="font-semibold">Owner view:</span> inspection scheduling is managed by your property manager. Data refreshes nightly.
+        </div>
+      )}
 
       <div className="bg-white p-4 rounded-lg shadow mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4">
