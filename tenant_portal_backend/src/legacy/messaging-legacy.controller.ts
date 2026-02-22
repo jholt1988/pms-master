@@ -42,7 +42,8 @@ export class MessagingLegacyController {
     @Request() req: AuthenticatedRequest,
     @Query() query: GetConversationsQueryDto,
   ) {
-    return this.messagingService.getConversations(req.user.userId, query);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.messagingService.getConversations(req.user.userId, query, orgId);
   }
 
   @Get('conversations/:id')
@@ -50,7 +51,8 @@ export class MessagingLegacyController {
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.messagingService.getConversationById(Number(id), req.user.userId);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.messagingService.getConversationById(Number(id), req.user.userId, orgId);
   }
 
   @Get('conversations/:id/messages')
@@ -59,7 +61,8 @@ export class MessagingLegacyController {
     @Request() req: AuthenticatedRequest,
     @Query() query: GetMessagesQueryDto,
   ) {
-    return this.messagingService.getConversationMessages(Number(id), req.user.userId, query);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.messagingService.getConversationMessages(Number(id), req.user.userId, query, orgId);
   }
 
   @Post('conversations')
@@ -68,7 +71,8 @@ export class MessagingLegacyController {
     @Body() dto: CreateConversationDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.messagingService.createConversation(dto, req.user.userId);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.messagingService.createConversation(dto, req.user.userId, orgId);
   }
 
   @Post('messages')
@@ -77,7 +81,8 @@ export class MessagingLegacyController {
     @Body() dto: CreateMessageDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.messagingService.sendMessage(dto, req.user.userId);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.messagingService.sendMessage(dto, req.user.userId, orgId);
   }
 
   @Post('bulk')
@@ -86,7 +91,8 @@ export class MessagingLegacyController {
     @Body() dto: CreateBulkMessageDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.bulkMessagingService.queueBulkMessage(dto, req.user.userId);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.bulkMessagingService.queueBulkMessage(dto, req.user.userId, orgId);
   }
 
   @Post('bulk/preview')
@@ -94,6 +100,7 @@ export class MessagingLegacyController {
     @Body() dto: CreateBulkMessageDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.bulkMessagingService.previewBulkMessage(dto, req.user.userId);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.bulkMessagingService.previewBulkMessage(dto, req.user.userId, orgId);
   }
 }
