@@ -6,6 +6,7 @@ import { Roles } from '../auth/roles.decorator';
 import { Role } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
+import { OrgId } from '../common/org-context/org-id.decorator';
 import { CreateLeaseDto } from './dto/create-lease.dto';
 import { UpdateLeaseDto } from './dto/update-lease.dto';
 import { UpdateLeaseStatusDto } from './dto/update-lease-status.dto';
@@ -33,14 +34,14 @@ export class LeaseController {
 
   @Post()
   @Roles(Role.PROPERTY_MANAGER)
-  createLease(@Body() data: CreateLeaseDto) {
-    return this.leaseService.createLease(data);
+  createLease(@Body() data: CreateLeaseDto, @OrgId() orgId: string) {
+    return this.leaseService.createLease(data, orgId);
   }
 
   @Get()
   @Roles(Role.PROPERTY_MANAGER)
-  getAllLeases() {
-    return this.leaseService.getAllLeases();
+  getAllLeases(@OrgId() orgId?: string) {
+    return this.leaseService.getAllLeases(orgId);
   }
 
   @Get('my-lease')
@@ -71,14 +72,14 @@ export class LeaseController {
 
   @Get(':id')
   @Roles(Role.PROPERTY_MANAGER)
-  getLeaseById(@Param('id') id: string) {
-    return this.leaseService.getLeaseById(Number(id));
+  getLeaseById(@Param('id') id: string, @OrgId() orgId?: string) {
+    return this.leaseService.getLeaseById(Number(id), orgId);
   }
 
   @Get(':id/history')
   @Roles(Role.PROPERTY_MANAGER)
-  getLeaseHistory(@Param('id') id: string) {
-    return this.leaseService.getLeaseHistory(Number(id));
+  getLeaseHistory(@Param('id') id: string, @OrgId() orgId?: string) {
+    return this.leaseService.getLeaseHistory(Number(id), orgId);
   }
 
   @Put(':id')
@@ -87,8 +88,9 @@ export class LeaseController {
     @Param('id') id: string,
     @Body() data: UpdateLeaseDto,
     @Request() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
   ) {
-    return this.leaseService.updateLease(Number(id), data, req.user.userId);
+    return this.leaseService.updateLease(Number(id), data, req.user.userId, orgId);
   }
 
   @Put(':id/status')
@@ -97,8 +99,9 @@ export class LeaseController {
     @Param('id') id: string,
     @Body() data: UpdateLeaseStatusDto,
     @Request() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
   ) {
-    return this.leaseService.updateLeaseStatus(Number(id), data, req.user.userId);
+    return this.leaseService.updateLeaseStatus(Number(id), data, req.user.userId, orgId);
   }
 
   @Post(':id/renewal-offers')
@@ -107,8 +110,9 @@ export class LeaseController {
     @Param('id') id: string,
     @Body() dto: CreateRenewalOfferDto,
     @Request() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
   ) {
-    return this.leaseService.createRenewalOffer(Number(id), dto, req.user.userId);
+    return this.leaseService.createRenewalOffer(Number(id), dto, req.user.userId, orgId);
   }
 
   @Post(':id/notices')
@@ -117,8 +121,9 @@ export class LeaseController {
     @Param('id') id: string,
     @Body() dto: RecordLeaseNoticeDto,
     @Request() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
   ) {
-    return this.leaseService.recordLeaseNotice(Number(id), dto, req.user.userId);
+    return this.leaseService.recordLeaseNotice(Number(id), dto, req.user.userId, orgId);
   }
 
   @Post(':id/renewal-offers/:offerId/respond')
@@ -128,12 +133,14 @@ export class LeaseController {
     @Param('offerId') offerId: string,
     @Body() dto: RespondRenewalOfferDto,
     @Request() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
   ) {
     return this.leaseService.respondToRenewalOffer(
       Number(id),
       Number(offerId),
       dto,
       req.user.userId,
+      orgId,
     );
   }
 
@@ -143,8 +150,9 @@ export class LeaseController {
     @Param('id') id: string,
     @Body() dto: TenantSubmitNoticeDto,
     @Request() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
   ) {
-    return this.leaseService.submitTenantNotice(Number(id), dto, req.user.userId);
+    return this.leaseService.submitTenantNotice(Number(id), dto, req.user.userId, orgId);
   }
 
   @Get('ai-metrics')

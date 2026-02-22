@@ -6,6 +6,7 @@ import { Roles } from '../auth/roles.decorator';
 import { Role, ApplicationStatus } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
+import { OrgId } from '../common/org-context/org-id.decorator';
 import { SubmitApplicationDto } from './dto/submit-application.dto';
 import { AddRentalApplicationNoteDto } from './dto/add-note.dto';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt.guard';
@@ -32,8 +33,8 @@ export class RentalApplicationController {
   @Get()
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles(Role.PROPERTY_MANAGER)
-  getAllApplications() {
-    return this.rentalApplicationService.getAllApplications();
+  getAllApplications(@OrgId() orgId?: string) {
+    return this.rentalApplicationService.getAllApplications(orgId);
   }
 
   @Get('my-applications')
@@ -46,8 +47,8 @@ export class RentalApplicationController {
   @Get(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles(Role.PROPERTY_MANAGER)
-  getApplicationById(@Param('id') id: string) {
-    return this.rentalApplicationService.getApplicationById(Number(id));
+  getApplicationById(@Param('id') id: string, @OrgId() orgId?: string) {
+    return this.rentalApplicationService.getApplicationById(Number(id), orgId);
   }
 
   @Put(':id/status')
@@ -57,11 +58,13 @@ export class RentalApplicationController {
     @Param('id') id: string,
     @Body() data: { status: ApplicationStatus },
     @Request() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
   ) {
     return this.rentalApplicationService.updateApplicationStatus(
       Number(id),
       data.status,
       req.user,
+      orgId,
     );
   }
 
@@ -69,8 +72,8 @@ export class RentalApplicationController {
   @HttpCode(200)
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles(Role.PROPERTY_MANAGER)
-  screenApplication(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
-    return this.rentalApplicationService.screenApplication(Number(id), req.user);
+  screenApplication(@Param('id') id: string, @Request() req: AuthenticatedRequest, @OrgId() orgId?: string) {
+    return this.rentalApplicationService.screenApplication(Number(id), req.user, orgId);
   }
 
   @Post(':id/notes')
@@ -80,26 +83,27 @@ export class RentalApplicationController {
     @Param('id') id: string,
     @Body() dto: AddRentalApplicationNoteDto,
     @Request() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
   ) {
     return this.rentalApplicationService.addNote(Number(id), dto, {
       userId: req.user.userId,
       username: req.user.username,
       role: req.user.role,
-    });
+    }, orgId);
   }
 
   @Get(':id/timeline')
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
-  getApplicationTimeline(@Param('id') id: string) {
-    return this.rentalApplicationService.getApplicationTimeline(Number(id));
+  getApplicationTimeline(@Param('id') id: string, @OrgId() orgId?: string) {
+    return this.rentalApplicationService.getApplicationTimeline(Number(id), orgId);
   }
 
   @Get(':id/lifecycle')
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
-  getApplicationLifecycle(@Param('id') id: string) {
-    return this.rentalApplicationService.getApplicationLifecycleStage(Number(id));
+  getApplicationLifecycle(@Param('id') id: string, @OrgId() orgId?: string) {
+    return this.rentalApplicationService.getApplicationLifecycleStage(Number(id), orgId);
   }
 
   @Get(':id/transitions')
@@ -108,10 +112,12 @@ export class RentalApplicationController {
   getAvailableTransitions(
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
   ) {
     return this.rentalApplicationService.getAvailableTransitions(
       Number(id),
       req.user.role,
+      orgId,
     );
   }
 }
