@@ -3,6 +3,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
+import { OrgId } from '../common/org-context/org-id.decorator';
 import { Role, LeaseStatus } from '@prisma/client';
 import { ReportingService } from './reporting.service';
 import { Request } from 'express';
@@ -25,10 +26,12 @@ export class ReportingController {
   async getRentRoll(
     @Query('propertyId') propertyId?: string,
     @Query('status') status?: LeaseStatus,
+    @OrgId() orgId?: string,
   ) {
     return this.reportingService.getRentRoll({
       propertyId: propertyId && propertyId.trim() ? propertyId.trim() : undefined,
       status,
+      orgId,
     });
   }
 
@@ -37,11 +40,13 @@ export class ReportingController {
     @Query('propertyId') propertyId?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @OrgId() orgId?: string,
   ) {
     return this.reportingService.getProfitAndLoss({
       propertyId: propertyId && propertyId.trim() ? propertyId.trim() : undefined,
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
+      orgId,
     });
   }
 
@@ -50,18 +55,21 @@ export class ReportingController {
     @Query('propertyId') propertyId?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @OrgId() orgId?: string,
   ) {
     return this.reportingService.getMaintenanceResolutionAnalytics({
       propertyId: propertyId && propertyId.trim() ? propertyId.trim() : undefined,
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
+      orgId,
     });
   }
 
   @Get('vacancy-rate')
-  async getVacancyRate(@Query('propertyId') propertyId?: string) {
+  async getVacancyRate(@Query('propertyId') propertyId?: string, @OrgId() orgId?: string) {
     return this.reportingService.getVacancyRate({
       propertyId: propertyId && propertyId.trim() ? propertyId.trim() : undefined,
+      orgId,
     });
   }
 
@@ -71,12 +79,14 @@ export class ReportingController {
     @Query('propertyId') propertyId?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @OrgId() orgId?: string,
   ) {
     return this.reportingService.getPaymentHistory({
       userId: userId && userId.trim() ? userId.trim() : undefined,
       propertyId: propertyId && propertyId.trim() ? propertyId.trim() : undefined,
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
+      orgId,
     });
   }
 }

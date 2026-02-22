@@ -24,9 +24,9 @@ export class BulkMessagingService {
     });
   }
 
-  async previewBulkMessage(dto: CreateBulkMessageDto, creatorId: string | number) {
+  async previewBulkMessage(dto: CreateBulkMessageDto, creatorId: string | number, orgId?: string) {
     const creatorIdStr = String(creatorId);
-    const recipients = await this.resolveRecipients(dto.filters, dto.recipientIds, creatorIdStr);
+    const recipients = await this.resolveRecipients(dto.filters, dto.recipientIds, creatorIdStr, orgId);
     if (!recipients.length) {
       throw new BadRequestException('No recipients match the selected filters');
     }
@@ -42,9 +42,9 @@ export class BulkMessagingService {
     };
   }
 
-  async queueBulkMessage(dto: CreateBulkMessageDto, creatorId: string | number) {
+  async queueBulkMessage(dto: CreateBulkMessageDto, creatorId: string | number, orgId?: string) {
     const creatorIdStr = String(creatorId);
-    const recipients = await this.resolveRecipients(dto.filters, dto.recipientIds, creatorIdStr);
+    const recipients = await this.resolveRecipients(dto.filters, dto.recipientIds, creatorIdStr, orgId);
     if (!recipients.length) {
       throw new BadRequestException('No recipients match the selected filters');
     }
@@ -83,11 +83,12 @@ export class BulkMessagingService {
       })),
     });
 
-    return this.getBatchById(batch.id);
+    return this.getBatchById(batch.id, orgId);
   }
 
-  async listBatches() {
+  async listBatches(orgId?: string) {
     const batches = await this.prisma.bulkMessageBatch.findMany({
+      where: orgId ? { creator: { organizations: { some: { id: orgId } } } } : undefined,
       orderBy: { createdAt: 'desc' },
       include: {
         template: true,
@@ -108,9 +109,12 @@ export class BulkMessagingService {
     });
   }
 
-  async getBatchById(id: number) {
-    const batch = await this.prisma.bulkMessageBatch.findUnique({
-      where: { id },
+  async getBatchById(id: number, orgId?: string) {
+    const batch = await this.prisma.bulkMessageBatch.findFirst({
+      where: {
+        id,
+        ...(orgId ? { creator: { organizations: { some: { id: orgId } } } } : {}),
+      },
       include: {
         template: true,
         creator: { select: { id: true, username: true, role: true } },
@@ -134,10 +138,13 @@ export class BulkMessagingService {
     };
   }
 
-  async getRecipientStatuses(batchId: number) {
-    await this.ensureBatchExists(batchId);
+  async getRecipientStatuses(batchId: number, orgId?: string) {
+    await this.ensureBatchExists(batchId, orgId);
     return this.prisma.bulkMessageRecipient.findMany({
-      where: { batchId },
+      where: {
+        batchId,
+        ...(orgId ? { batch: { creator: { organizations: { some: { id: orgId } } } } } : {}),
+      },
       include: {
         user: { select: { id: true, username: true, role: true } },
       },
@@ -145,16 +152,23 @@ export class BulkMessagingService {
     });
   }
 
-  async getDeliveryReport(batchId: number) {
-    await this.ensureBatchExists(batchId);
+  async getDeliveryReport(batchId: number, orgId?: string) {
+    await this.ensureBatchExists(batchId, orgId);
     const summary = await this.prisma.bulkMessageRecipient.groupBy({
       by: ['status'],
-      where: { batchId },
+      where: {
+        batchId,
+        ...(orgId ? { batch: { creator: { organizations: { some: { id: orgId } } } } } : {}),
+      },
       _count: { _all: true },
     });
 
     const failures = await this.prisma.bulkMessageRecipient.findMany({
-      where: { batchId, status: BulkRecipientStatus.FAILED },
+      where: {
+        batchId,
+        status: BulkRecipientStatus.FAILED,
+        ...(orgId ? { batch: { creator: { organizations: { some: { id: orgId } } } } } : {}),
+      },
       select: { userId: true, errorMessage: true },
       take: 10,
     });
@@ -283,8 +297,14 @@ export class BulkMessagingService {
     }
   }
 
-  private async ensureBatchExists(batchId: number) {
-    const batch = await this.prisma.bulkMessageBatch.findUnique({ where: { id: batchId } });
+  private async ensureBatchExists(batchId: number, orgId?: string) {
+    const batch = await this.prisma.bulkMessageBatch.findFirst({
+      where: {
+        id: batchId,
+        ...(orgId ? { creator: { organizations: { some: { id: orgId } } } } : {}),
+      },
+      select: { id: true },
+    });
     if (!batch) {
       throw new BadRequestException('Bulk message batch not found');
     }
@@ -352,9 +372,12 @@ export class BulkMessagingService {
     filters: RecipientFilterDto | undefined,
     recipientIds: string[] | undefined,
     creatorId: string,
+    orgId?: string,
   ) {
     const ids = new Set<string>(recipientIds ?? []);
-    const where: Prisma.UserWhereInput = {};
+    const where: Prisma.UserWhereInput = {
+      ...(orgId ? { organizations: { some: { id: orgId } } } : {}),
+    };
 
     if (filters?.roles?.length) {
       where.role = { in: filters.roles };
@@ -397,7 +420,10 @@ export class BulkMessagingService {
 
     const directRecipients = ids.size
       ? await this.prisma.user.findMany({
-          where: { id: { in: Array.from(ids) } },
+          where: {
+            id: { in: Array.from(ids) },
+            ...(orgId ? { organizations: { some: { id: orgId } } } : {}),
+          },
           include: {
             lease: {
               include: { unit: { include: { property: true } } },

@@ -26,6 +26,7 @@ import {
 } from './dto/messaging.dto';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
+import { OrgId } from '../common/org-context/org-id.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '@prisma/client';
 
@@ -63,7 +64,8 @@ export class MessagingController {
     res.setHeader('Vary', 'X-API-Version');
     res.setHeader('X-API-Version', version);
 
-    const result = await this.messagingService.getConversations(req.user.userId, query);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    const result = await this.messagingService.getConversations(req.user.userId, query, orgId);
 
     // v1: preserve legacy client contract (bare array)
     if (version !== '2') {
@@ -95,16 +97,18 @@ export class MessagingController {
   async createConversation(
     @Body() dto: CreateConversationDto,
     @Request() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
   ) {
-    return this.messagingService.createConversation(dto, req.user.userId);
+    return this.messagingService.createConversation(dto, req.user.userId, orgId);
   }
 
   @Get('conversations/:id')
   async getConversation(
     @Param('id', ParseIntPipe) conversationId: number,
     @Request() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
   ) {
-    return this.messagingService.getConversationById(conversationId, req.user.userId);
+    return this.messagingService.getConversationById(conversationId, req.user.userId, orgId);
   }
 
   /**
@@ -116,11 +120,13 @@ export class MessagingController {
     @Param('id', ParseIntPipe) conversationId: number,
     @Request() req: AuthenticatedRequest,
     @Query() query: GetMessagesQueryDto,
+    @OrgId() orgId?: string,
   ) {
     const result = await this.messagingService.getConversationMessages(
       conversationId,
       req.user.userId,
       query,
+      orgId,
     );
     return result.messages;
   }
@@ -134,10 +140,12 @@ export class MessagingController {
     @Param('id', ParseIntPipe) conversationId: number,
     @Request() req: AuthenticatedRequest,
     @Body() dto: CreateMessageDto,
+    @OrgId() orgId?: string,
   ) {
     return this.messagingService.sendMessage(
       { ...dto, conversationId },
       req.user.userId,
+      orgId,
     );
   }
 
@@ -151,8 +159,9 @@ export class MessagingController {
   async sendMessage(
     @Body() dto: CreateMessageDto,
     @Request() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
   ) {
-    return this.messagingService.sendMessage(dto, req.user.userId);
+    return this.messagingService.sendMessage(dto, req.user.userId, orgId);
   }
 
   /**
@@ -160,8 +169,8 @@ export class MessagingController {
    * GET /api/messaging/property-managers
    */
   @Get('property-managers')
-  async getPropertyManagers() {
-    return this.messagingService.findPropertyManagers();
+  async getPropertyManagers(@OrgId() orgId?: string) {
+    return this.messagingService.findPropertyManagers(orgId);
   }
 
   /**
@@ -171,8 +180,8 @@ export class MessagingController {
   @Get('tenants')
   @UseGuards(RolesGuard)
   @Roles(Role.PROPERTY_MANAGER)
-  async getTenants() {
-    return this.messagingService.findAllTenants();
+  async getTenants(@OrgId() orgId?: string) {
+    return this.messagingService.findAllTenants(orgId);
   }
 
   /**
@@ -182,8 +191,8 @@ export class MessagingController {
   @Get('users')
   @UseGuards(RolesGuard)
   @Roles(Role.PROPERTY_MANAGER)
-  async getAllUsers() {
-    return this.messagingService.findAllUsers();
+  async getAllUsers(@OrgId() orgId?: string) {
+    return this.messagingService.findAllUsers(orgId);
   }
 
   /**
@@ -205,8 +214,9 @@ export class MessagingController {
   async previewBulk(
     @Body() dto: CreateBulkMessageDto,
     @Request() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
   ) {
-    return this.bulkMessagingService.previewBulkMessage(dto, req.user.userId);
+    return this.bulkMessagingService.previewBulkMessage(dto, req.user.userId, orgId);
   }
 
   /**
@@ -219,8 +229,9 @@ export class MessagingController {
   async queueBulk(
     @Body() dto: CreateBulkMessageDto,
     @Request() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
   ) {
-    return this.bulkMessagingService.queueBulkMessage(dto, req.user.userId);
+    return this.bulkMessagingService.queueBulkMessage(dto, req.user.userId, orgId);
   }
 
   /**
@@ -229,8 +240,8 @@ export class MessagingController {
   @Get('bulk')
   @UseGuards(RolesGuard)
   @Roles(Role.PROPERTY_MANAGER)
-  async listBulkBatches() {
-    return this.bulkMessagingService.listBatches();
+  async listBulkBatches(@OrgId() orgId?: string) {
+    return this.bulkMessagingService.listBatches(orgId);
   }
 
   /**
@@ -239,8 +250,8 @@ export class MessagingController {
   @Get('bulk/:id')
   @UseGuards(RolesGuard)
   @Roles(Role.PROPERTY_MANAGER)
-  async getBulkBatch(@Param('id', ParseIntPipe) id: number) {
-    return this.bulkMessagingService.getBatchById(id);
+  async getBulkBatch(@Param('id', ParseIntPipe) id: number, @OrgId() orgId?: string) {
+    return this.bulkMessagingService.getBatchById(id, orgId);
   }
 
   /**
@@ -249,8 +260,8 @@ export class MessagingController {
   @Get('bulk/:id/recipients')
   @UseGuards(RolesGuard)
   @Roles(Role.PROPERTY_MANAGER)
-  async getBulkRecipients(@Param('id', ParseIntPipe) id: number) {
-    return this.bulkMessagingService.getRecipientStatuses(id);
+  async getBulkRecipients(@Param('id', ParseIntPipe) id: number, @OrgId() orgId?: string) {
+    return this.bulkMessagingService.getRecipientStatuses(id, orgId);
   }
 
   /**
@@ -259,8 +270,8 @@ export class MessagingController {
   @Get('bulk/:id/report')
   @UseGuards(RolesGuard)
   @Roles(Role.PROPERTY_MANAGER)
-  async getBulkReport(@Param('id', ParseIntPipe) id: number) {
-    return this.bulkMessagingService.getDeliveryReport(id);
+  async getBulkReport(@Param('id', ParseIntPipe) id: number, @OrgId() orgId?: string) {
+    return this.bulkMessagingService.getDeliveryReport(id, orgId);
   }
 
   /**
@@ -270,8 +281,8 @@ export class MessagingController {
   @Get('admin/conversations')
   @UseGuards(RolesGuard)
   @Roles(Role.PROPERTY_MANAGER)
-  async getAllConversations(@Query() query: GetConversationsQueryDto) {
-    return this.messagingService.getAllConversations(query);
+  async getAllConversations(@Query() query: GetConversationsQueryDto, @OrgId() orgId?: string) {
+    return this.messagingService.getAllConversations(query, orgId);
   }
 
   /**
@@ -282,10 +293,11 @@ export class MessagingController {
   async searchConversations(
     @Query('q') searchTerm: string,
     @Request() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
   ) {
     // Property managers can search all, tenants only their own
     const userId = req.user.role === 'PROPERTY_MANAGER' ? undefined : req.user.userId;
-    return this.messagingService.searchConversations(searchTerm, userId);
+    return this.messagingService.searchConversations(searchTerm, userId, orgId);
   }
 
   /**
@@ -295,7 +307,7 @@ export class MessagingController {
   @Get('stats')
   @UseGuards(RolesGuard)
   @Roles(Role.PROPERTY_MANAGER)
-  async getStats() {
-    return this.messagingService.getConversationStats();
+  async getStats(@OrgId() orgId?: string) {
+    return this.messagingService.getConversationStats(orgId);
   }
 }
