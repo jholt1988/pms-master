@@ -25,11 +25,40 @@ interface CompleteInspectionDto {
 export class InspectionsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: CreateInspectionDto, userId: string) {
+  private async assertInspectionInOrg(id: number, orgId?: string) {
+    if (!orgId) return;
+    const inspection = await this.prisma.unitInspection.findFirst({
+      where: { id, property: { organizationId: orgId } },
+      select: { id: true },
+    });
+    if (!inspection) {
+      throw new NotFoundException('Inspection not found');
+    }
+  }
+
+  async create(data: CreateInspectionDto, userId: string, orgId?: string) {
     // Verify user is a property manager
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (user?.role !== Role.PROPERTY_MANAGER) {
       throw new ForbiddenException('Only property managers can schedule inspections');
+    }
+
+    if (orgId) {
+      const property = await this.prisma.property.findFirst({
+        where: { id: data.propertyId, organizationId: orgId },
+        select: { id: true },
+      });
+      if (!property) {
+        throw new NotFoundException('Property not found');
+      }
+
+      const unit = await this.prisma.unit.findFirst({
+        where: { id: data.unitId, property: { organizationId: orgId } },
+        select: { id: true },
+      });
+      if (!unit) {
+        throw new NotFoundException('Unit not found');
+      }
     }
 
     return this.prisma.unitInspection.create({
@@ -75,8 +104,13 @@ export class InspectionsService {
     endDate?: Date;
     skip?: number;
     take?: number;
+    orgId?: string;
   }) {
     let where: Prisma.UnitInspectionWhereInput = {};
+
+    if (filters.orgId) {
+      where.property = { organizationId: filters.orgId };
+    }
 
     // Tenants can only see inspections for their unit
     if (filters.userRole === Role.TENANT && filters.userId) {
@@ -149,9 +183,9 @@ export class InspectionsService {
     return { data: inspections, total };
   }
 
-  async findOne(id: number, userId: string, userRole: Role) {
-    const inspection = await this.prisma.unitInspection.findUnique({
-      where: { id },
+  async findOne(id: number, userId: string, userRole: Role, orgId?: string) {
+    const inspection = await this.prisma.unitInspection.findFirst({
+      where: { id, ...(orgId ? { property: { organizationId: orgId } } : {}) },
       include: {
         unit: {
           include: {
@@ -201,15 +235,15 @@ export class InspectionsService {
     return inspection;
   }
 
-  async update(id: number, data: UpdateInspectionDto, userId: string) {
+  async update(id: number, data: UpdateInspectionDto, userId: string, orgId?: string) {
     // Only property managers can update
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (user?.role !== Role.PROPERTY_MANAGER) {
       throw new ForbiddenException('Only property managers can update inspections');
     }
 
-    const inspection = await this.prisma.unitInspection.findUnique({
-      where: { id },
+    const inspection = await this.prisma.unitInspection.findFirst({
+      where: { id, ...(orgId ? { property: { organizationId: orgId } } : {}) },
     });
 
     if (!inspection) {
@@ -239,14 +273,14 @@ export class InspectionsService {
     });
   }
 
-  async complete(id: number, data: CompleteInspectionDto, userId: string) {
+  async complete(id: number, data: CompleteInspectionDto, userId: string, orgId?: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (user?.role !== Role.PROPERTY_MANAGER) {
       throw new ForbiddenException('Only property managers can complete inspections');
     }
 
-    const inspection = await this.prisma.unitInspection.findUnique({
-      where: { id },
+    const inspection = await this.prisma.unitInspection.findFirst({
+      where: { id, ...(orgId ? { property: { organizationId: orgId } } : {}) },
     });
 
     if (!inspection) {
@@ -278,14 +312,14 @@ export class InspectionsService {
     });
   }
 
-  async delete(id: number, userId: string) {
+  async delete(id: number, userId: string, orgId?: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (user?.role !== Role.PROPERTY_MANAGER) {
       throw new ForbiddenException('Only property managers can delete inspections');
     }
 
-    const inspection = await this.prisma.unitInspection.findUnique({
-      where: { id },
+    const inspection = await this.prisma.unitInspection.findFirst({
+      where: { id, ...(orgId ? { property: { organizationId: orgId } } : {}) },
     });
 
     if (!inspection) {
@@ -299,9 +333,9 @@ export class InspectionsService {
     return { success: true };
   }
 
-  async addPhoto(inspectionId: number, url: string, caption: string | undefined, userId: string) {
-    const inspection = await this.prisma.unitInspection.findUnique({
-      where: { id: inspectionId },
+  async addPhoto(inspectionId: number, url: string, caption: string | undefined, userId: string, orgId?: string) {
+    const inspection = await this.prisma.unitInspection.findFirst({
+      where: { id: inspectionId, ...(orgId ? { property: { organizationId: orgId } } : {}) },
     });
 
     if (!inspection) {

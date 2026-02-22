@@ -6,6 +6,7 @@ import { Roles } from '../auth/roles.decorator';
 import { Role } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
+import { OrgId } from '../common/org-context/org-id.decorator';
 
 @Controller('rent-estimator')
 @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
@@ -17,8 +18,9 @@ export class RentEstimatorController {
   estimateRent(
     @Query('propertyId') propertyId: string,
     @Query('unitId') unitId: string,
+    @OrgId() orgId?: string,
     // Add more query parameters for other factors like bedrooms, bathrooms, etc.
   ) {
-    return this.rentEstimatorService.estimateRent(propertyId, unitId);
+    return this.rentEstimatorService.estimateRent(propertyId, unitId, orgId);
   }
 }

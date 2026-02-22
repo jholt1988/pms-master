@@ -232,14 +232,17 @@ export class MaintenanceController {
 
   @Get('technicians')
   @Roles(Role.PROPERTY_MANAGER)
-  listTechnicians() {
-    return this.maintenanceService.listTechnicians();
+  listTechnicians(@OrgId() orgId?: string) {
+    return this.maintenanceService.listTechnicians(orgId);
   }
 
   @Post('technicians')
   @Roles(Role.PROPERTY_MANAGER)
-  createTechnician(@Body() body: { name: string; phone?: string; email?: string; userId?: string; role?: string }) {
-    return this.maintenanceService.createTechnician(body);
+  createTechnician(
+    @Body() body: { name: string; phone?: string; email?: string; userId?: string; role?: string },
+    @OrgId() orgId?: string,
+  ) {
+    return this.maintenanceService.createTechnician(body, orgId);
   }
 
   @Get('assets')

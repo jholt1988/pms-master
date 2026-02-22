@@ -27,8 +27,9 @@ export class MaintenanceLegacyController {
   }
 
   @Get('users/technicians')
-  async listTechnicians() {
-    return this.maintenanceService.listTechnicians();
+  async listTechnicians(@Request() req: AuthenticatedRequest) {
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.maintenanceService.listTechnicians(orgId);
   }
 
   @Put('maintenance/:requestId/assignee')

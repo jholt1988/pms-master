@@ -604,7 +604,7 @@ export class MaintenanceService {
     if (!technicianId) {
       try {
         const startTime = Date.now();
-        const aiMatch = await this.aiMaintenanceService.assignTechnician(existing);
+        const aiMatch = await this.aiMaintenanceService.assignTechnician(existing, orgId);
         const responseTime = Date.now() - startTime;
 
         if (aiMatch) {
@@ -983,15 +983,21 @@ export class MaintenanceService {
     return this.findById(numericRequestId);
   }
 
-  async listTechnicians(): Promise<Technician[]> {
+  async listTechnicians(orgId?: string): Promise<Technician[]> {
     return this.prisma.technician.findMany({
-      where: { active: true },
+      where: {
+        active: true,
+        ...(orgId ? { organizationId: orgId } : {}),
+      },
       orderBy: { name: 'asc' },
     });
   }
 
-  async createTechnician(data: { name: string; phone?: string; email?: string; userId?: string; role?: string }): Promise<Technician> {
+  async createTechnician(data: { name: string; phone?: string; email?: string; userId?: string; role?: string }, orgId?: string): Promise<Technician> {
     const role = this.parseTechnicianRole(data.role);
+    if (!orgId) {
+      throw new BadRequestException('Organization context is required');
+    }
     return this.prisma.technician.create({
       data: {
         name: data.name,
@@ -999,6 +1005,7 @@ export class MaintenanceService {
         email: data.email,
         user: data.userId ? { connect: { id: data.userId } } : undefined,
         role,
+        organization: { connect: { id: orgId } },
       },
     });
   }

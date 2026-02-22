@@ -9,6 +9,7 @@ export class RentEstimatorService {
   async estimateRent(
     propertyId: string | number,
     unitId: string | number,
+    orgId?: string,
   ): Promise<{ estimatedRent: number; details: string }> {
     const normalizedUnitId = this.parseNumericId(unitId, 'unit');
     this.parseNumericId(propertyId, 'property');
@@ -17,8 +18,11 @@ export class RentEstimatorService {
     // - Using external data sources (e.g., Zillow API, local market data).
     // - Applying algorithms based on square footage, number of bedrooms/bathrooms, amenities, location, etc.
 
-    const unit = await this.prisma.unit.findUnique({
-      where: { id: normalizedUnitId },
+    const unit = await this.prisma.unit.findFirst({
+      where: {
+        id: normalizedUnitId,
+        ...(orgId ? { property: { organizationId: orgId } } : {}),
+      },
       include: { property: true },
     });
 
