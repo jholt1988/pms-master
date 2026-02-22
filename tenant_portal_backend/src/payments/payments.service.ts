@@ -16,10 +16,10 @@ export class PaymentsService {
     private readonly emailService: EmailService,
   ) { }
 
-  async createInvoice(dto: CreateInvoiceDto): Promise<Invoice> {
+  async createInvoice(dto: CreateInvoiceDto, orgId: string): Promise<Invoice> {
     const leaseId = this.parseLeaseId(dto.leaseId);
-    const lease = await this.prisma.lease.findUnique({
-      where: { id: leaseId },
+    const lease = await this.prisma.lease.findFirst({
+      where: { id: leaseId, unit: { property: { organizationId: orgId } } },
     });
 
     if (!lease) {
@@ -41,11 +41,14 @@ export class PaymentsService {
     });
   }
 
-  async getInvoicesForUser(userId: string, role: Role, leaseId?: string | number): Promise<Invoice[]> {
+  async getInvoicesForUser(userId: string, role: Role, leaseId?: string | number, orgId?: string): Promise<Invoice[]> {
     const leaseIdNum = leaseId !== undefined ? this.parseLeaseId(leaseId) : undefined;
     if (role === Role.PROPERTY_MANAGER) {
       return this.prisma.invoice.findMany({
-        where: leaseIdNum ? { leaseId: leaseIdNum } : undefined,
+        where: {
+          ...(leaseIdNum ? { leaseId: leaseIdNum } : {}),
+          ...(orgId ? { lease: { unit: { property: { organizationId: orgId } } } } : {}),
+        },
         include: {
           lease: { include: { tenant: true, unit: { include: { property: true } } } },
           payments: true,
@@ -76,11 +79,12 @@ export class PaymentsService {
   async createPayment(
     dto: CreatePaymentDto,
     authUser?: { userId: string; role: Role },
+    orgId?: string,
   ): Promise<Payment> {
     const leaseId = this.parseLeaseId(dto.leaseId);
     const lease = await this.prisma.lease.findUnique({
       where: { id: leaseId },
-      include: { tenant: true },
+      include: { tenant: true, unit: { include: { property: true } } },
     });
 
     if (!lease || !lease.tenantId) {
@@ -89,6 +93,13 @@ export class PaymentsService {
 
     if (authUser?.role === Role.TENANT && lease.tenantId !== authUser.userId) {
       throw new ForbiddenException('You can only submit payments for your own lease');
+    }
+
+    if (authUser?.role === Role.PROPERTY_MANAGER && orgId) {
+      const leaseOrgId = lease.unit?.property?.organizationId;
+      if (!leaseOrgId || leaseOrgId !== orgId) {
+        throw new ForbiddenException('You do not have access to this lease');
+      }
     }
 
     if (dto.invoiceId) {
@@ -143,11 +154,14 @@ export class PaymentsService {
     return payment;
   }
 
-  async getPaymentsForUser(userId: string, role: Role, leaseId?: string | number): Promise<Payment[]> {
+  async getPaymentsForUser(userId: string, role: Role, leaseId?: string | number, orgId?: string): Promise<Payment[]> {
     const leaseIdNum = leaseId !== undefined ? this.parseLeaseId(leaseId) : undefined;
     if (role === Role.PROPERTY_MANAGER) {
       return this.prisma.payment.findMany({
-        where: leaseIdNum ? { leaseId: leaseIdNum } : undefined,
+        where: {
+          ...(leaseIdNum ? { leaseId: leaseIdNum } : {}),
+          ...(orgId ? { lease: { unit: { property: { organizationId: orgId } } } } : {}),
+        },
         include: {
           invoice: true,
           lease: { include: { tenant: true, unit: { include: { property: true } } } },
@@ -321,6 +335,7 @@ export class PaymentsService {
       amountPerInstallment: number;
       totalAmount: number;
     },
+    orgId?: string,
   ): Promise<{ id: number; status: string }> {
     const invoice = await this.prisma.invoice.findUnique({
       where: { id: invoiceId },
@@ -329,6 +344,7 @@ export class PaymentsService {
         lease: {
           include: {
             tenant: true,
+            unit: { include: { property: true } },
           },
         },
       },
@@ -336,6 +352,14 @@ export class PaymentsService {
 
     if (!invoice) {
       throw new NotFoundException('Invoice not found');
+    }
+
+    // Check org scope (PM only)
+    if (orgId) {
+      const invoiceOrgId = invoice.lease?.unit?.property?.organizationId;
+      if (!invoiceOrgId || invoiceOrgId !== orgId) {
+        throw new ForbiddenException('You do not have access to this invoice');
+      }
     }
 
     // Check if payment plan already exists
@@ -392,7 +416,7 @@ export class PaymentsService {
     };
   }
 
-  async getPaymentById(paymentId: number, userId: string, role: Role): Promise<Payment> {
+  async getPaymentById(paymentId: number, userId: string, role: Role, orgId?: string): Promise<Payment> {
     const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
       include: {
@@ -420,10 +444,17 @@ export class PaymentsService {
       throw new ForbiddenException('You do not have access to this payment');
     }
 
+    if (role === Role.PROPERTY_MANAGER && orgId) {
+      const paymentOrgId = payment.invoice?.lease?.unit?.property?.organizationId;
+      if (!paymentOrgId || paymentOrgId !== orgId) {
+        throw new ForbiddenException('You do not have access to this payment');
+      }
+    }
+
     return payment;
   }
 
-  async getInvoiceById(invoiceId: number, userId: string, role: Role): Promise<Invoice> {
+  async getInvoiceById(invoiceId: number, userId: string, role: Role, orgId?: string): Promise<Invoice> {
     const invoice = await this.prisma.invoice.findUnique({
       where: { id: invoiceId },
       include: {
@@ -457,13 +488,23 @@ export class PaymentsService {
       throw new ForbiddenException('You do not have access to this invoice');
     }
 
+    if (role === Role.PROPERTY_MANAGER && orgId) {
+      const invoiceOrgId = invoice.lease?.unit?.property?.organizationId;
+      if (!invoiceOrgId || invoiceOrgId !== orgId) {
+        throw new ForbiddenException('You do not have access to this invoice');
+      }
+    }
+
     return invoice;
   }
 
-  async getPaymentPlans(userId: string, role: Role, invoiceId?: number) {
+  async getPaymentPlans(userId: string, role: Role, invoiceId?: number, orgId?: string) {
     if (role === Role.PROPERTY_MANAGER) {
       return this.prisma.paymentPlan.findMany({
-        where: invoiceId ? { invoiceId } : undefined,
+        where: {
+          ...(invoiceId ? { invoiceId } : {}),
+          ...(orgId ? { invoice: { lease: { unit: { property: { organizationId: orgId } } } } } : {}),
+        },
         include: {
           invoice: {
             include: {
@@ -516,7 +557,7 @@ export class PaymentsService {
     });
   }
 
-  async getPaymentPlanById(paymentPlanId: number, userId: string, role: Role) {
+  async getPaymentPlanById(paymentPlanId: number, userId: string, role: Role, orgId?: string) {
     const paymentPlan = await this.prisma.paymentPlan.findUnique({
       where: { id: paymentPlanId },
       include: {
@@ -545,6 +586,13 @@ export class PaymentsService {
     // Verify access: tenants can only see their own payment plans
     if (role === Role.TENANT && paymentPlan.invoice.lease.tenantId !== userId) {
       throw new ForbiddenException('You do not have access to this payment plan');
+    }
+
+    if (role === Role.PROPERTY_MANAGER && orgId) {
+      const planOrgId = paymentPlan.invoice?.lease?.unit?.property?.organizationId;
+      if (!planOrgId || planOrgId !== orgId) {
+        throw new ForbiddenException('You do not have access to this payment plan');
+      }
     }
 
     return paymentPlan;

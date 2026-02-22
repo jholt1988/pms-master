@@ -5,6 +5,7 @@ import { AIPaymentMetricsService } from './ai-payment-metrics.service';
 import { Invoice, Payment, Role } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
+import { OrgId } from '../common/org-context/org-id.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
@@ -28,8 +29,8 @@ export class PaymentsController {
 
   @Post('invoices')
   @Roles(Role.PROPERTY_MANAGER)
-  async createInvoice(@Body() body: CreateInvoiceDto): Promise<Invoice> {
-    return this.paymentsService.createInvoice(body);
+  async createInvoice(@Body() body: CreateInvoiceDto, @OrgId() orgId: string): Promise<Invoice> {
+    return this.paymentsService.createInvoice(body, orgId);
   }
 
   @Get('invoices')
@@ -38,7 +39,8 @@ export class PaymentsController {
     @Request() req: AuthenticatedRequest,
     @Query('leaseId') leaseId?: string,
   ): Promise<Invoice[]> {
-    return this.paymentsService.getInvoicesForUser(req.user.userId, req.user.role, leaseId);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.paymentsService.getInvoicesForUser(req.user.userId, req.user.role, leaseId, orgId);
   }
 
   @Post()
@@ -47,7 +49,8 @@ export class PaymentsController {
     @Body() body: CreatePaymentDto,
     @Request() req: AuthenticatedRequest,
   ): Promise<Payment> {
-    return this.paymentsService.createPayment(body, req.user);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.paymentsService.createPayment(body, req.user, orgId);
   }
 
   @Get()
@@ -56,7 +59,8 @@ export class PaymentsController {
     @Request() req: AuthenticatedRequest,
     @Query('leaseId') leaseId?: string,
   ): Promise<Payment[]> {
-    return this.paymentsService.getPaymentsForUser(req.user.userId, req.user.role, leaseId);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.paymentsService.getPaymentsForUser(req.user.userId, req.user.role, leaseId, orgId);
   }
 
   // Back-compat alias for older UIs
@@ -66,7 +70,8 @@ export class PaymentsController {
     @Request() req: AuthenticatedRequest,
     @Query('leaseId') leaseId?: string,
   ): Promise<Payment[]> {
-    return this.paymentsService.getPaymentsForUser(req.user.userId, req.user.role, leaseId);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.paymentsService.getPaymentsForUser(req.user.userId, req.user.role, leaseId, orgId);
   }
 
   @Get('ai-metrics')
@@ -81,19 +86,21 @@ export class PaymentsController {
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
   ): Promise<Invoice> {
-    return this.paymentsService.getInvoiceById(Number(id), req.user.userId, req.user.role);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.paymentsService.getInvoiceById(Number(id), req.user.userId, req.user.role, orgId);
   }
 
   @Post('payment-plans')
   @Roles(Role.PROPERTY_MANAGER)
   async createPaymentPlan(
     @Body() dto: CreatePaymentPlanDto,
+    @OrgId() orgId: string,
   ) {
     return this.paymentsService.createPaymentPlan(dto.invoiceId, {
       installments: dto.installments,
       amountPerInstallment: dto.amountPerInstallment,
       totalAmount: dto.totalAmount,
-    });
+    }, orgId);
   }
 
   @Get('payment-plans')
@@ -103,7 +110,8 @@ export class PaymentsController {
     @Query('invoiceId') invoiceId?: string,
   ) {
     const parsedInvoiceId = invoiceId ? Number(invoiceId) : undefined;
-    return this.paymentsService.getPaymentPlans(req.user.userId, req.user.role, parsedInvoiceId);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.paymentsService.getPaymentPlans(req.user.userId, req.user.role, parsedInvoiceId, orgId);
   }
 
   @Get('payment-plans/:id')
@@ -112,7 +120,8 @@ export class PaymentsController {
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.paymentsService.getPaymentPlanById(Number(id), req.user.userId, req.user.role);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.paymentsService.getPaymentPlanById(Number(id), req.user.userId, req.user.role, orgId);
   }
 
   @Get(':id')
@@ -121,6 +130,7 @@ export class PaymentsController {
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
   ): Promise<Payment> {
-    return this.paymentsService.getPaymentById(Number(id), req.user.userId, req.user.role);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.paymentsService.getPaymentById(Number(id), req.user.userId, req.user.role, orgId);
   }
 }

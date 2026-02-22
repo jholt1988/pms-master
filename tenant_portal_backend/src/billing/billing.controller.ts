@@ -5,6 +5,7 @@ import { ConfigureAutopayDto } from './dto/configure-autopay.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
+import { OrgId } from '../common/org-context/org-id.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '@prisma/client';
 import { Request } from 'express';
@@ -24,27 +25,29 @@ export class BillingController {
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles(Role.PROPERTY_MANAGER)
   @Get('schedules')
-  async listSchedules() {
-    return this.billingService.listSchedules();
+  async listSchedules(@OrgId() orgId: string) {
+    return this.billingService.listSchedules(orgId);
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles(Role.PROPERTY_MANAGER)
   @Post('schedules')
-  async upsertSchedule(@Body() dto: UpsertScheduleDto, @Req() req: AuthenticatedRequest) {
+  async upsertSchedule(@Body() dto: UpsertScheduleDto, @Req() req: AuthenticatedRequest, @OrgId() orgId: string) {
     return this.billingService.upsertSchedule(
       { userId: req.user.userId, username: req.user.username, role: req.user.role },
       dto,
+      orgId,
     );
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles(Role.PROPERTY_MANAGER)
   @Patch('schedules/:leaseId/deactivate')
-  async deactivate(@Param('leaseId') leaseId: string, @Req() req: AuthenticatedRequest) {
+  async deactivate(@Param('leaseId') leaseId: string, @Req() req: AuthenticatedRequest, @OrgId() orgId: string) {
     return this.billingService.deactivateSchedule(
       { userId: req.user.userId, username: req.user.username, role: req.user.role },
       leaseId,
+      orgId,
     );
   }
 
@@ -60,7 +63,8 @@ export class BillingController {
       throw new BadRequestException('leaseId query param required for property manager');
     }
 
-    const lease = await this.billingService.getAutopayForLease(leaseId);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    const lease = await this.billingService.getAutopayForLease(leaseId, orgId);
     return {
       leaseId: lease.id,
       autopayEnrollment: lease.autopayEnrollment,
@@ -73,9 +77,11 @@ export class BillingController {
   @Roles(Role.TENANT, Role.PROPERTY_MANAGER)
   @Post('autopay')
   async configureAutopay(@Body() dto: ConfigureAutopayDto, @Req() req: AuthenticatedRequest) {
+    const orgId = (req as any).org?.orgId as string | undefined;
     return this.billingService.configureAutopay(
       { userId: req.user.userId, username: req.user.username, role: req.user.role },
       dto,
+      orgId,
     );
   }
 
@@ -83,9 +89,11 @@ export class BillingController {
   @Roles(Role.TENANT, Role.PROPERTY_MANAGER)
   @Patch('autopay/:leaseId/disable')
   async disableAutopay(@Param('leaseId') leaseId: string, @Req() req: AuthenticatedRequest) {
+    const orgId = (req as any).org?.orgId as string | undefined;
     return this.billingService.disableAutopay(
       { userId: req.user.userId, username: req.user.username, role: req.user.role },
       leaseId,
+      orgId,
     );
   }
 
