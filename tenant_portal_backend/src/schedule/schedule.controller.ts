@@ -1,13 +1,14 @@
 import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '@prisma/client';
 import { ScheduleService } from './schedule.service';
 import { CreateScheduleEventDto } from './dto/create-schedule-event.dto';
 
 @Controller('schedule')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 export class ScheduleController {
   constructor(private readonly scheduleService: ScheduleService) {}
 

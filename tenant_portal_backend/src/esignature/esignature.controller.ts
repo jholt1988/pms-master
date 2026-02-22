@@ -4,6 +4,7 @@ import { Role } from '@prisma/client';
 import { Request as ExpressRequest, Response } from 'express';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { EsignatureService } from './esignature.service';
 import { CreateEnvelopeDto } from './dto/create-envelope.dto';
 import { RecipientViewDto } from './dto/recipient-view.dto';
@@ -18,7 +19,7 @@ interface AuthenticatedRequest extends ExpressRequest {
 }
 
 @Controller(['esignature','api/esignature'])
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 export class EsignatureController {
   constructor(private readonly esignatureService: EsignatureService) {}
 

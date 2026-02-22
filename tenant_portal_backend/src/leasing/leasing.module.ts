@@ -13,6 +13,7 @@ import { ToursService } from './tours.service';
 import { LeadApplicationsController } from './lead-applications.controller';
 import { LeadApplicationsService } from './lead-applications.service';
 import { LeadsLegacyController } from '../legacy/leads-legacy.controller';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 
 const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
 
@@ -26,6 +27,7 @@ const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
     LeasingService,
     ToursService,
     LeadApplicationsService,
+    OrgContextGuard,
   ],
   exports: [
     LeasingService,

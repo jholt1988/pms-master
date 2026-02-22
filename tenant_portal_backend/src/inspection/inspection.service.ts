@@ -30,25 +30,47 @@ export class InspectionService {
     private emailService: EmailService,
   ) {}
 
+  private async assertInspectionInOrg(inspectionId: number, orgId?: string) {
+    if (!orgId) return;
+    const inspection = await this.prisma.unitInspection.findFirst({
+      where: { id: inspectionId, property: { organizationId: orgId } },
+      select: { id: true },
+    });
+    if (!inspection) {
+      throw new NotFoundException('Inspection not found');
+    }
+  }
+
+  private async assertPropertyInOrg(propertyId: string, orgId?: string) {
+    if (!orgId) return;
+    const property = await this.prisma.property.findFirst({
+      where: { id: propertyId, organizationId: orgId },
+      select: { id: true },
+    });
+    if (!property) {
+      throw new NotFoundException('Property not found');
+    }
+  }
+
   /**
    * Create a new inspection
    */
-  async createInspection(dto: CreateInspectionDto, createdById: string): Promise<UnitInspection> {
+  async createInspection(dto: CreateInspectionDto, createdById: string, orgId?: string): Promise<UnitInspection> {
     // Validate property and unit exist
     const propertyId = this.parseUuidId(dto.propertyId, 'property');
     const unitId = dto.unitId ? this.parseUuidId(dto.unitId, 'unit') : undefined;
     const leaseId = dto.leaseId ? this.parseUuidId(dto.leaseId, 'lease') : undefined;
 
-    const property = await this.prisma.property.findUnique({
-      where: { id: propertyId },
+    const property = await this.prisma.property.findFirst({
+      where: { id: propertyId, ...(orgId ? { organizationId: orgId } : {}) },
     });
     if (!property) {
       throw new NotFoundException(`Property with ID ${dto.propertyId} not found`);
     }
 
     if (dto.unitId) {
-      const unit = await this.prisma.unit.findUnique({
-        where: { id: unitId },
+      const unit = await this.prisma.unit.findFirst({
+        where: { id: unitId, ...(orgId ? { property: { organizationId: orgId } } : {}) },
       });
       if (!unit || unit.propertyId !== propertyId) {
         throw new NotFoundException(`Unit with ID ${dto.unitId} not found in property ${dto.propertyId}`);
@@ -57,8 +79,11 @@ export class InspectionService {
 
     // Validate lease exists if provided
     if (dto.leaseId) {
-      const lease = await this.prisma.lease.findUnique({
-        where: { id: leaseId },
+      const lease = await this.prisma.lease.findFirst({
+        where: {
+          id: leaseId,
+          ...(orgId ? { unit: { property: { organizationId: orgId } } } : {}),
+        },
       });
       if (!lease || (unitId && lease.unitId !== unitId)) {
         throw new NotFoundException(`Lease with ID ${dto.leaseId} not found or doesn't match unit`);
@@ -114,7 +139,8 @@ export class InspectionService {
    */
   async createInspectionWithRooms(
     dto: CreateInspectionWithRoomsDto, 
-    createdById: string
+    createdById: string,
+    orgId?: string
   ): Promise<UnitInspection> {
     const inspectionDto = (dto as any).inspection ?? {
       propertyId: (dto as any).propertyId,
@@ -132,13 +158,13 @@ export class InspectionService {
       throw new BadRequestException('At least one room must be provided');
     }
 
-    const inspection = await this.createInspection(inspectionDto, createdById);
+    const inspection = await this.createInspection(inspectionDto, createdById, orgId);
 
     // Create rooms - either custom or default based on property type
     if (dto.rooms && dto.rooms.length > 0) {
       // Create custom rooms
       for (const roomDto of dto.rooms) {
-        await this.createRoomWithDefaultChecklist(inspection.id, roomDto);
+        await this.createRoomWithDefaultChecklist(inspection.id, roomDto, orgId);
       }
     }
 
@@ -148,9 +174,12 @@ export class InspectionService {
   /**
    * Get inspection by ID with full details
    */
-  async getInspectionById(id: number, viewer?: { userId?: string; role?: string }): Promise<UnitInspection> {
-    const inspection = await this.prisma.unitInspection.findUnique({
-      where: { id },
+  async getInspectionById(id: number, viewer?: { userId?: string; role?: string }, orgId?: string): Promise<UnitInspection> {
+    const inspection = await this.prisma.unitInspection.findFirst({
+      where: {
+        id,
+        ...(orgId ? { property: { organizationId: orgId } } : {}),
+      },
       include: {
         property: true,
         unit: true,
@@ -201,7 +230,7 @@ export class InspectionService {
   /**
    * Get inspections with filtering and pagination
    */
-  async getInspections(query: InspectionQueryDto, viewer?: { userId?: string; role?: string }): Promise<{
+  async getInspections(query: InspectionQueryDto, viewer?: { userId?: string; role?: string }, orgId?: string): Promise<{
     inspections: UnitInspection[];
     total: number;
     page: number;
@@ -224,6 +253,7 @@ export class InspectionService {
       ...(query.type && { type: query.type }),
       ...(query.inspectorId && { inspectorId: query.inspectorId }),
       ...(query.tenantId && { tenantId: query.tenantId }),
+      ...(orgId && { property: { organizationId: orgId } }),
     };
 
     // Tenant scoping: only their unit's MOVE_IN / MOVE_OUT inspections
@@ -270,7 +300,8 @@ export class InspectionService {
   /**
    * Update inspection
    */
-  async updateInspection(id: number, dto: UpdateInspectionDto): Promise<UnitInspection> {
+  async updateInspection(id: number, dto: UpdateInspectionDto, orgId?: string): Promise<UnitInspection> {
+    await this.assertInspectionInOrg(id, orgId);
     const existingInspection = await this.prisma.unitInspection.findUniqueOrThrow({
       where: { id },
     });
@@ -324,8 +355,11 @@ export class InspectionService {
    */
   async createRoomWithDefaultChecklist(
     inspectionId: number, 
-    dto: CreateRoomDto
+    dto: CreateRoomDto,
+    orgId?: string
   ): Promise<InspectionRoom> {
+    await this.assertInspectionInOrg(inspectionId, orgId);
+
     // Get checklist template for room type
     const template = getChecklistTemplate(dto.roomType as RoomType);
 
@@ -355,14 +389,23 @@ export class InspectionService {
    */
   async updateChecklistItem(
     itemId: number, 
-    dto: UpdateChecklistItemDto
+    dto: UpdateChecklistItemDto,
+    orgId?: string
   ): Promise<InspectionChecklistItem> {
     const item = await this.prisma.inspectionChecklistItem.findUnique({
       where: { id: itemId },
+      include: { room: { include: { inspection: { include: { property: true } } } } },
     });
 
     if (!item) {
       throw new NotFoundException(`Checklist item with ID ${itemId} not found`);
+    }
+
+    if (orgId) {
+      const itemOrgId = (item as any).room?.inspection?.property?.organizationId;
+      if (!itemOrgId || itemOrgId !== orgId) {
+        throw new NotFoundException('Checklist item not found');
+      }
     }
 
     return this.prisma.inspectionChecklistItem.update({
@@ -392,6 +435,7 @@ export class InspectionService {
       measurementNotes?: string;
     }>,
     viewer?: { userId?: string; role?: string },
+    orgId?: string,
   ): Promise<{ roomId: number; updatedCount: number }> {
     if (!items?.length) {
       return { roomId, updatedCount: 0 };
@@ -407,10 +451,17 @@ export class InspectionService {
       throw new NotFoundException(`Room with ID ${roomId} not found`);
     }
 
+    if (orgId) {
+      const inspection = await this.getInspectionById(room.inspectionId, viewer, orgId);
+      if (!inspection) {
+        throw new NotFoundException(`Room with ID ${roomId} not found`);
+      }
+    }
+
     // Tenant access enforcement for edits
     if (viewer?.role === 'TENANT') {
       // Load inspection details and enforce same rules as view + lock.
-      const inspection = await this.getInspectionById(room.inspectionId, viewer);
+      const inspection = await this.getInspectionById(room.inspectionId, viewer, orgId);
       if (String(inspection.status) === 'COMPLETED') {
         throw new BadRequestException('Inspection is completed and locked');
       }
@@ -459,14 +510,23 @@ export class InspectionService {
   async addPhotoToChecklistItem(
     itemId: number, 
     dto: UploadPhotoDto, 
-    uploadedById: string
+    uploadedById: string,
+    orgId?: string
   ): Promise<any> {
     const item = await this.prisma.inspectionChecklistItem.findUnique({
       where: { id: itemId },
+      include: { room: { include: { inspection: { include: { property: true } } } } },
     });
 
     if (!item) {
       throw new NotFoundException(`Checklist item with ID ${itemId} not found`);
+    }
+
+    if (orgId) {
+      const itemOrgId = (item as any).room?.inspection?.property?.organizationId;
+      if (!itemOrgId || itemOrgId !== orgId) {
+        throw new NotFoundException('Checklist item not found');
+      }
     }
 
     return this.prisma.inspectionChecklistPhoto.create({
@@ -482,9 +542,12 @@ export class InspectionService {
   /**
    * Add signature to inspection
    */
-  async addSignature(inspectionId: number, dto: CreateSignatureDto): Promise<any> {
-    const inspection = await this.prisma.unitInspection.findUnique({
-      where: { id: inspectionId },
+  async addSignature(inspectionId: number, dto: CreateSignatureDto, orgId?: string): Promise<any> {
+    const inspection = await this.prisma.unitInspection.findFirst({
+      where: {
+        id: inspectionId,
+        ...(orgId ? { property: { organizationId: orgId } } : {}),
+      },
     });
 
     if (!inspection) {
@@ -519,8 +582,8 @@ export class InspectionService {
   /**
    * Complete inspection
    */
-  async completeInspection(id: number): Promise<UnitInspection> {
-    const inspection = await this.getInspectionById(id);
+  async completeInspection(id: number, orgId?: string): Promise<UnitInspection> {
+    const inspection = await this.getInspectionById(id, undefined, orgId);
 
     if (inspection.status === 'COMPLETED') {
       throw new BadRequestException('Inspection is already completed');
@@ -566,12 +629,13 @@ export class InspectionService {
     id: number,
     nextStatus: string,
     viewer?: { userId?: string; role?: string },
+    orgId?: string,
   ): Promise<UnitInspection> {
     if (!nextStatus) {
       throw new BadRequestException('Missing status');
     }
 
-    const inspection = await this.getInspectionById(id, viewer);
+    const inspection = await this.getInspectionById(id, viewer, orgId);
 
     if (viewer?.role === 'TENANT') {
       if (nextStatus !== 'COMPLETED') {
@@ -580,12 +644,12 @@ export class InspectionService {
       if (inspection.status === 'COMPLETED') {
         throw new BadRequestException('Inspection is already completed');
       }
-      return this.completeInspection(id);
+      return this.completeInspection(id, orgId);
     }
 
     // PM/Admin: allow setting status directly (minimal MVP behavior)
     if (nextStatus === 'COMPLETED') {
-      return this.completeInspection(id);
+      return this.completeInspection(id, orgId);
     }
 
     const updated = await this.prisma.unitInspection.update({
@@ -617,9 +681,12 @@ export class InspectionService {
   /**
    * Get inspection statistics
    */
-  async getInspectionStats(propertyId?: string): Promise<any> {
-    const parsedPropertyId = propertyId ? this.parseUuidId(propertyId, 'property') : undefined;
-    const where = parsedPropertyId ? { propertyId: parsedPropertyId } : {};
+  async getInspectionStats(propertyId?: string, orgId?: string): Promise<any> {
+    const parsedPropertyId = propertyId ? this.parseNumericId(propertyId, 'property') : undefined;
+    const where = {
+      ...(parsedPropertyId ? { propertyId: parsedPropertyId } : {}),
+      ...(orgId ? { property: { organizationId: orgId } } : {}),
+    };
 
     const [
       total,
@@ -660,7 +727,8 @@ export class InspectionService {
   /**
    * Delete inspection
    */
-  async deleteInspection(id: number): Promise<void> {
+  async deleteInspection(id: number, orgId?: string): Promise<void> {
+    await this.assertInspectionInOrg(id, orgId);
     let inspection: UnitInspection;
     try {
       inspection = await this.prisma.unitInspection.findUniqueOrThrow({

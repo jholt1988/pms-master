@@ -5,6 +5,7 @@ import { AILeaseRenewalMetricsService } from './ai-lease-renewal-metrics.service
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { CreateLeaseDto } from './dto/create-lease.dto';
 import { UpdateLeaseDto } from './dto/update-lease.dto';
 import { UpdateLeaseStatusDto } from './dto/update-lease-status.dto';
@@ -21,7 +22,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('leases')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 export class LeaseController {
   private readonly logger = new Logger(LeaseController.name);
 

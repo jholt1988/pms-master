@@ -18,6 +18,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { Role, InspectionType, InspectionStatus } from '@prisma/client';
 import { InspectionsService } from './inspections.service';
 import { CreateInspectionDto } from './dto/create-inspection.dto';
@@ -41,7 +42,7 @@ interface AuthenticatedRequest extends Request {
 // Legacy inspections API (v1). Kept for backwards compatibility during consolidation.
 // Prefer /api/inspections from src/inspection/* going forward.
 @Controller('inspections-legacy')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 export class InspectionsController {
   private readonly uploadDir = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads', 'inspections');
 

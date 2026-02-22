@@ -87,7 +87,7 @@ export class LeasingController {
    * Get all leads with filtering
    * GET /leasing/leads?status=NEW&search=john&limit=20&offset=0
    */
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), OrgContextGuard)
   @Get('leads')
   async getLeads(
     @Query('status') status?: string,
@@ -260,7 +260,7 @@ export class LeasingController {
    * Update lead status
    * PATCH /leasing/leads/:id/status
    */
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), OrgContextGuard)
   @Patch('leads/:id/status')
   async updateStatus(
     @Param('id') leadId: string,
@@ -289,7 +289,7 @@ export class LeasingController {
    * Get leasing statistics
    * GET /leasing/statistics
    */
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), OrgContextGuard)
   @Get('statistics')
   async getStatistics(
     @Query('dateFrom') dateFrom?: string,

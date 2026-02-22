@@ -1,12 +1,13 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role, SecurityEventType } from '@prisma/client';
 import { SecurityEventsService } from './security-events.service';
 
 @Controller('security-events')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 @Roles(Role.PROPERTY_MANAGER)
 export class SecurityEventsController {
   constructor(private readonly securityEventsService: SecurityEventsService) {}

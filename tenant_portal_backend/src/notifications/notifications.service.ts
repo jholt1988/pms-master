@@ -228,11 +228,12 @@ export class NotificationsService {
     }
   }
 
-  async findAll(userId: string, filters?: { read?: boolean; type?: NotificationType; skip?: number; take?: number }) {
+  async findAll(userId: string, filters?: { read?: boolean; type?: NotificationType; skip?: number; take?: number; orgId?: string }) {
     const where: Prisma.NotificationWhereInput = {
       userId,
       ...(filters?.read !== undefined && { read: filters.read }),
       ...(filters?.type && { type: filters.type }),
+      ...(filters?.orgId ? { user: { organizations: { some: { id: filters.orgId } } } } : {}),
     };
 
     const [notifications, total] = await Promise.all([
@@ -253,21 +254,26 @@ export class NotificationsService {
     };
   }
 
-  async getUnreadCount(userId: string): Promise<number> {
+  async getUnreadCount(userId: string, orgId?: string): Promise<number> {
     return this.prisma.notification.count({
       where: {
         userId,
         read: false,
+        ...(orgId ? { user: { organizations: { some: { id: orgId } } } } : {}),
       },
     });
   }
 
-  async markAsRead(userId: string, notificationId: number) {
-    const notification = await this.prisma.notification.findUnique({
-      where: { id: notificationId },
+  async markAsRead(userId: string, notificationId: number, orgId?: string) {
+    const notification = await this.prisma.notification.findFirst({
+      where: {
+        id: notificationId,
+        userId,
+        ...(orgId ? { user: { organizations: { some: { id: orgId } } } } : {}),
+      },
     });
 
-    if (!notification || notification.userId !== userId) {
+    if (!notification) {
       throw new NotFoundException('Notification not found');
     }
 
@@ -280,11 +286,12 @@ export class NotificationsService {
     });
   }
 
-  async markAllAsRead(userId: string): Promise<void> {
+  async markAllAsRead(userId: string, orgId?: string): Promise<void> {
     await this.prisma.notification.updateMany({
       where: {
         userId,
         read: false,
+        ...(orgId ? { user: { organizations: { some: { id: orgId } } } } : {}),
       },
       data: {
         read: true,
@@ -293,11 +300,12 @@ export class NotificationsService {
     });
   }
 
-  async delete(userId: string, notificationId: number): Promise<void> {
+  async delete(userId: string, notificationId: number, orgId?: string): Promise<void> {
     await this.prisma.notification.deleteMany({
       where: {
         id: notificationId,
         userId, // Ensure user can only delete their own notifications
+        ...(orgId ? { user: { organizations: { some: { id: orgId } } } } : {}),
       },
     });
   }

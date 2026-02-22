@@ -8,6 +8,7 @@ import { ZillowSyndicationAdapter } from './providers/zillow.adapter';
 import { ApartmentsComSyndicationAdapter } from './providers/apartments-com.adapter';
 import { ListingSyndicationProcessor } from '../jobs/listing-syndication.processor';
 import { ListingSyndicationScheduler } from '../jobs/listing-syndication.scheduler';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { ListingSyndicationScheduler } from '../jobs/listing-syndication.schedul
     ApartmentsComSyndicationAdapter,
     ListingSyndicationProcessor,
     ListingSyndicationScheduler,
+    OrgContextGuard,
   ],
   exports: [ListingSyndicationService],
 })

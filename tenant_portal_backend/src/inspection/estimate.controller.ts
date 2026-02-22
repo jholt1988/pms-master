@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '@prisma/client';
 import { EstimateService } from './estimate.service';
@@ -25,7 +26,7 @@ import {
 } from './dto/simple-inspection.dto';
 
 @Controller('api/estimates')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 export class EstimateController {
   constructor(private readonly estimateService: EstimateService) {}
 

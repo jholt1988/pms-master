@@ -9,14 +9,27 @@ export class MessagingService {
   /**
    * Get all conversations for a user with pagination
    */
-  async getConversations(userId: string, query?: GetConversationsQueryDto) {
+  async getConversations(userId: string, query?: GetConversationsQueryDto, orgId?: string) {
     const page = query?.page || 1;
     const limit = query?.limit || 20;
     const skip = (page - 1) * limit;
 
+    const orgScope = orgId
+      ? {
+          participants: {
+            some: {
+              user: { organizations: { some: { id: orgId } } },
+            },
+          },
+        }
+      : undefined;
+
     const [conversations, total] = await Promise.all([
       this.prisma.conversation.findMany({
-        where: { participants: { some: { userId } } },
+        where: {
+          participants: { some: { userId } },
+          ...(orgScope ?? {}),
+        },
         include: {
           participants: {
             include: {
@@ -47,7 +60,10 @@ export class MessagingService {
         take: limit,
       }),
       this.prisma.conversation.count({
-        where: { participants: { some: { userId } } },
+        where: {
+          participants: { some: { userId } },
+          ...(orgScope ?? {}),
+        },
       }),
     ]);
 
@@ -65,8 +81,8 @@ export class MessagingService {
   /**
    * Get a single conversation by ID
    */
-  async getConversationById(conversationId: number, userId: string) {
-    await this.ensureConversationParticipant(conversationId, userId);
+  async getConversationById(conversationId: number, userId: string, orgId?: string) {
+    await this.ensureConversationParticipant(conversationId, userId, orgId);
 
     return this.prisma.conversation.findUnique({
       where: { id: conversationId },
@@ -101,8 +117,8 @@ export class MessagingService {
   /**
    * Get messages in a conversation with pagination
    */
-  async getConversationMessages(conversationId: number, userId: string, query?: GetMessagesQueryDto) {
-    await this.ensureConversationParticipant(conversationId, userId);
+  async getConversationMessages(conversationId: number, userId: string, query?: GetMessagesQueryDto, orgId?: string) {
+    await this.ensureConversationParticipant(conversationId, userId, orgId);
 
     const page = query?.page || 1;
     const limit = query?.limit || 50;
@@ -143,16 +159,19 @@ export class MessagingService {
   /**
    * Create a new conversation with initial participants
    */
-  async createConversation(dto: CreateConversationDto, creatorId: string | number) {
+  async createConversation(dto: CreateConversationDto, creatorId: string | number, orgId?: string) {
     const creatorIdStr = String(creatorId);
     // Add creator to participants if not already included
     const participantIds = dto.participantIds.includes(creatorIdStr)
       ? dto.participantIds
       : [...dto.participantIds, creatorIdStr];
 
-    // Verify all participants exist
+    // Verify all participants exist (and org scope if provided)
     const users = await this.prisma.user.findMany({
-      where: { id: { in: participantIds } },
+      where: {
+        id: { in: participantIds },
+        ...(orgId ? { organizations: { some: { id: orgId } } } : {}),
+      },
     });
 
     if (users.length !== participantIds.length) {
@@ -199,10 +218,10 @@ export class MessagingService {
   /**
    * Send a message (create new conversation if needed)
    */
-  async sendMessage(dto: CreateMessageDto, senderId: string) {
+  async sendMessage(dto: CreateMessageDto, senderId: string, orgId?: string) {
     // If conversationId provided, use existing conversation
     if (dto.conversationId) {
-      await this.ensureConversationParticipant(dto.conversationId, senderId);
+      await this.ensureConversationParticipant(dto.conversationId, senderId, orgId);
       
       return this.prisma.message.create({
         data: {
@@ -232,6 +251,18 @@ export class MessagingService {
       const recipient = await this.prisma.user.findUnique({
         where: { id: dto.recipientId },
       });
+
+      if (orgId) {
+        const orgUsers = await this.prisma.user.count({
+          where: {
+            id: { in: [senderId, dto.recipientId] },
+            organizations: { some: { id: orgId } },
+          },
+        });
+        if (orgUsers !== 2) {
+          throw new ForbiddenException('You do not have access to this recipient');
+        }
+      }
 
       if (!recipient) {
         throw new NotFoundException('Recipient not found');
@@ -294,9 +325,12 @@ export class MessagingService {
   /**
    * Find property managers (users with PROPERTY_MANAGER role)
    */
-  async findPropertyManagers() {
+  async findPropertyManagers(orgId?: string) {
     return this.prisma.user.findMany({
-      where: { role: 'PROPERTY_MANAGER' },
+      where: {
+        role: 'PROPERTY_MANAGER',
+        ...(orgId ? { organizations: { some: { id: orgId } } } : {}),
+      },
       select: {
         id: true,
         username: true,
@@ -308,9 +342,12 @@ export class MessagingService {
   /**
    * Get all tenants (for property managers to initiate conversations)
    */
-  async findAllTenants() {
+  async findAllTenants(orgId?: string) {
     return this.prisma.user.findMany({
-      where: { role: 'TENANT' },
+      where: {
+        role: 'TENANT',
+        ...(orgId ? { organizations: { some: { id: orgId } } } : {}),
+      },
       select: {
         id: true,
         username: true,
@@ -339,8 +376,9 @@ export class MessagingService {
   /**
    * Get all users (admin only - for viewing all conversations)
    */
-  async findAllUsers() {
+  async findAllUsers(orgId?: string) {
     return this.prisma.user.findMany({
+      where: orgId ? { organizations: { some: { id: orgId } } } : undefined,
       select: {
         id: true,
         username: true,
@@ -353,13 +391,24 @@ export class MessagingService {
   /**
    * Get all conversations (admin only - for monitoring)
    */
-  async getAllConversations(query?: GetConversationsQueryDto) {
+  async getAllConversations(query?: GetConversationsQueryDto, orgId?: string) {
     const page = query?.page || 1;
     const limit = query?.limit || 20;
     const skip = (page - 1) * limit;
 
+    const orgScope = orgId
+      ? {
+          participants: {
+            some: {
+              user: { organizations: { some: { id: orgId } } },
+            },
+          },
+        }
+      : undefined;
+
     const [conversations, total] = await Promise.all([
       this.prisma.conversation.findMany({
+        where: orgScope ?? undefined,
         include: {
           participants: {
             include: {
@@ -390,7 +439,7 @@ export class MessagingService {
         skip,
         take: limit,
       }),
-      this.prisma.conversation.count(),
+      this.prisma.conversation.count({ where: orgScope ?? undefined }),
     ]);
 
     return {
@@ -407,7 +456,7 @@ export class MessagingService {
   /**
    * Search conversations by username (for property managers/admins)
    */
-  async searchConversations(searchTerm: string, userId?: string) {
+  async searchConversations(searchTerm: string, userId?: string, orgId?: string) {
     const whereClause: any = {
       participants: {
         some: {
@@ -424,6 +473,13 @@ export class MessagingService {
     // If userId provided, filter to only user's conversations
     if (userId) {
       whereClause.participants.some.userId = userId;
+    }
+
+    if (orgId) {
+      whereClause.participants.some.user = {
+        ...(whereClause.participants.some.user ?? {}),
+        organizations: { some: { id: orgId } },
+      };
     }
 
     return this.prisma.conversation.findMany({
@@ -461,17 +517,32 @@ export class MessagingService {
   /**
    * Get conversation statistics (admin only)
    */
-  async getConversationStats() {
+  async getConversationStats(orgId?: string) {
+    const orgScope = orgId
+      ? {
+          participants: {
+            some: {
+              user: { organizations: { some: { id: orgId } } },
+            },
+          },
+        }
+      : undefined;
+
     const [
       totalConversations,
       totalMessages,
       activeConversations,
       conversationsByRole,
     ] = await Promise.all([
-      this.prisma.conversation.count(),
-      this.prisma.message.count(),
+      this.prisma.conversation.count({ where: orgScope ?? undefined }),
+      this.prisma.message.count({
+        where: orgScope
+          ? { conversation: orgScope }
+          : undefined,
+      }),
       this.prisma.conversation.count({
         where: {
+          ...(orgScope ?? {}),
           messages: {
             some: {
               createdAt: {
@@ -483,6 +554,7 @@ export class MessagingService {
       }),
       this.prisma.user.groupBy({
         by: ['role'],
+        where: orgId ? { organizations: { some: { id: orgId } } } : undefined,
         _count: {
           id: true,
         },
@@ -526,13 +598,16 @@ export class MessagingService {
     );
   }
 
-  private async ensureConversationParticipant(conversationId: number, userId: string) {
+  private async ensureConversationParticipant(conversationId: number, userId: string, orgId?: string) {
     const conversation = await this.prisma.conversation.findFirst({
       where: {
         id: conversationId,
-        participants: {
-          some: { userId },
-        },
+        AND: [
+          { participants: { some: { userId } } },
+          ...(orgId
+            ? [{ participants: { some: { user: { organizations: { some: { id: orgId } } } } } }]
+            : []),
+        ],
       },
     });
 

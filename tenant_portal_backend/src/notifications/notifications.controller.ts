@@ -4,6 +4,7 @@ import { NotificationsService } from './notifications.service';
 import { NotificationPreferencesService, NotificationPreferencesDto } from './notification-preferences.service';
 import { NotificationType } from '@prisma/client';
 import { Request } from 'express';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -14,7 +15,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('notifications')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), OrgContextGuard)
 export class NotificationsController {
   constructor(
     private readonly notificationsService: NotificationsService,
@@ -30,11 +31,13 @@ export class NotificationsController {
     @Query('take') take?: string,
   ) {
     const userId = req.user.sub;
+    const orgId = (req as any).org?.orgId as string | undefined;
     const result = await this.notificationsService.findAll(userId, {
       read: read === 'true' ? true : read === 'false' ? false : undefined,
       type,
       skip: skip ? parseInt(skip, 10) : undefined,
       take: take ? parseInt(take, 10) : undefined,
+      orgId,
     });
 
     return result.data;
@@ -43,28 +46,32 @@ export class NotificationsController {
   @Get('unread-count')
   async getUnreadCount(@Req() req: AuthenticatedRequest) {
     const userId = req.user.sub;
-    const count = await this.notificationsService.getUnreadCount(userId);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    const count = await this.notificationsService.getUnreadCount(userId, orgId);
     return { count };
   }
 
   @Put(':id/read')
   async markAsRead(@Req() req: AuthenticatedRequest, @Param('id', ParseIntPipe) id: number) {
     const userId = req.user.sub;
-    const notification = await this.notificationsService.markAsRead(userId, id);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    const notification = await this.notificationsService.markAsRead(userId, id, orgId);
     return notification;
   }
 
   @Post('read-all')
   async markAllAsRead(@Req() req: AuthenticatedRequest) {
     const userId = req.user.sub;
-    await this.notificationsService.markAllAsRead(userId);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    await this.notificationsService.markAllAsRead(userId, orgId);
     return { success: true };
   }
 
   @Delete(':id')
   async deleteNotification(@Req() req: AuthenticatedRequest, @Param('id', ParseIntPipe) id: number) {
     const userId = req.user.sub;
-    await this.notificationsService.delete(userId, id);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    await this.notificationsService.delete(userId, id, orgId);
     return { success: true };
   }
 
