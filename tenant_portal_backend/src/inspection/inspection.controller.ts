@@ -19,6 +19,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '@prisma/client';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -39,7 +40,7 @@ import {
 
 // Blessed inspections API surface (v2). Served under /api/inspections via global prefix.
 @Controller('inspections')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 export class InspectionController {
   constructor(
     private readonly inspectionService: InspectionService,

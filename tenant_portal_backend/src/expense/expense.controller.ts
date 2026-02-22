@@ -5,6 +5,7 @@ import { ExpenseService } from './expense.service';
 import { Roles } from '../auth/roles.decorator';
 import { Role, ExpenseCategory } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -14,7 +15,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('expenses')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 @Roles(Role.PROPERTY_MANAGER)
 export class ExpenseController {
   constructor(private readonly expenseService: ExpenseService) {}
