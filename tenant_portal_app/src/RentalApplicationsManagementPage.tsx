@@ -122,6 +122,8 @@ const RentalApplicationsManagementPage = () => {
   const [savingNoteId, setSavingNoteId] = useState<number | null>(null);
   const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
   const [screeningId, setScreeningId] = useState<number | null>(null);
+  const [termsFilter, setTermsFilter] = useState<'all' | 'accepted' | 'missing'>('all');
+  const [privacyFilter, setPrivacyFilter] = useState<'all' | 'accepted' | 'missing'>('all');
   const { token } = useAuth();
 
   useEffect(() => {
@@ -256,7 +258,7 @@ const RentalApplicationsManagementPage = () => {
         'Privacy Accepted At',
         'Privacy Version',
       ],
-      ...applications.map((application) => [
+      ...filteredApplications.map((application) => [
         String(application.id ?? ''),
         application.fullName ?? '',
         application.email ?? '',
@@ -303,26 +305,68 @@ const RentalApplicationsManagementPage = () => {
     };
   }, [applications]);
 
+  const filteredApplications = useMemo(() => {
+    return applications.filter((application) => {
+      const termsAccepted = Boolean(application.termsAcceptedAt);
+      const privacyAccepted = Boolean(application.privacyAcceptedAt);
+
+      if (termsFilter === 'accepted' && !termsAccepted) return false;
+      if (termsFilter === 'missing' && termsAccepted) return false;
+      if (privacyFilter === 'accepted' && !privacyAccepted) return false;
+      if (privacyFilter === 'missing' && privacyAccepted) return false;
+      return true;
+    });
+  }, [applications, termsFilter, privacyFilter]);
+
   if (loading) {
     return <div className="p-4 text-sm text-gray-600">Loading rental applications…</div>;
   }
 
   return (
     <div className="space-y-8">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-2">
-          <h1 className="text-2xl font-semibold text-gray-900">Rental applications</h1>
-          <p className="text-sm text-gray-600">
-            Compare applicant profiles, run screening, and document decisions for every unit.
-          </p>
+      <header className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-2">
+            <h1 className="text-2xl font-semibold text-gray-900">Rental applications</h1>
+            <p className="text-sm text-gray-600">
+              Compare applicant profiles, run screening, and document decisions for every unit.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
+          >
+            Export CSV
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={handleExportCsv}
-          className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
-        >
-          Export CSV
-        </button>
+        <div className="flex flex-wrap gap-3 text-sm">
+          <label className="flex items-center gap-2">
+            <span className="text-xs font-medium text-gray-600">Terms</span>
+            <select
+              value={termsFilter}
+              onChange={(event) => setTermsFilter(event.target.value as 'all' | 'accepted' | 'missing')}
+              className="rounded-md border border-gray-300 px-2 py-1 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="all">All</option>
+              <option value="accepted">Accepted</option>
+              <option value="missing">Missing</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-2">
+            <span className="text-xs font-medium text-gray-600">Privacy</span>
+            <select
+              value={privacyFilter}
+              onChange={(event) => setPrivacyFilter(event.target.value as 'all' | 'accepted' | 'missing')}
+              className="rounded-md border border-gray-300 px-2 py-1 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="all">All</option>
+              <option value="accepted">Accepted</option>
+              <option value="missing">Missing</option>
+            </select>
+          </label>
+          <span className="text-xs text-gray-500 self-center">Showing {filteredApplications.length} of {applications.length}</span>
+        </div>
       </header>
 
       {error && (
@@ -357,12 +401,12 @@ const RentalApplicationsManagementPage = () => {
       </section>
 
       <section className="space-y-4">
-        {applications.length === 0 ? (
+        {filteredApplications.length === 0 ? (
           <div className="rounded-lg border border-dashed border-gray-300 bg-white py-12 text-center text-sm text-gray-500">
             No applications submitted yet.
           </div>
         ) : (
-          applications.map((application) => {
+          filteredApplications.map((application) => {
             const isExpanded = expanded === application.id;
             const noteDraft = noteDrafts[application.id] ?? '';
             const screeningReasons: string[] = Array.isArray(application.screeningReasons)

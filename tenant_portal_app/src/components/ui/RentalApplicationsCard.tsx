@@ -24,6 +24,10 @@ export const RentalApplicationsCard = () => {
                             <span className="bg-white/10 px-1.5 rounded">Unit 2A</span>
                             <span className="text-neon-blue font-mono">Score: 726</span>
                         </div>
+                        <div className="mt-1 flex items-center gap-2 text-[10px] text-gray-400">
+                            <span className="rounded bg-emerald-500/20 px-1.5 text-emerald-300">Terms ✓</span>
+                            <span className="rounded bg-emerald-500/20 px-1.5 text-emerald-300">Privacy ✓</span>
+                        </div>
                     </div>
                 </div>
                 
@@ -66,6 +70,10 @@ export const RentalApplicationsCard = () => {
                         <div className="flex items-center gap-2 text-[10px] text-gray-400">
                             <span className="bg-white/10 px-1.5 rounded">Unit 5B</span>
                             <span className="text-yellow-400 font-mono">Score: 688</span>
+                        </div>
+                        <div className="mt-1 flex items-center gap-2 text-[10px] text-gray-400">
+                            <span className="rounded bg-rose-500/20 px-1.5 text-rose-300">Terms —</span>
+                            <span className="rounded bg-rose-500/20 px-1.5 text-rose-300">Privacy —</span>
                         </div>
                     </div>
                 </div>
