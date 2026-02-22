@@ -24,7 +24,7 @@ import {
   EstimateStatus,
 } from './dto/simple-inspection.dto';
 
-@Controller('api/estimates')
+@Controller('estimates')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class EstimateController {
   constructor(private readonly estimateService: EstimateService) {}
@@ -65,6 +65,7 @@ export class EstimateController {
     return this.estimateService.updateEstimate(id, dto, req.user.id);
   }
 
+  // Legacy: POST approve (kept for backward compatibility)
   @Post(':id/approve')
   @HttpCode(HttpStatus.OK)
   async approveEstimate(
@@ -78,9 +79,38 @@ export class EstimateController {
     );
   }
 
+  // Preferred: PATCH approve
+  @Patch(':id/approve')
+  @HttpCode(HttpStatus.OK)
+  async approveEstimatePatch(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: any,
+  ) {
+    return this.estimateService.updateEstimate(
+      id,
+      { status: EstimateStatus.APPROVED },
+      req.user.id,
+    );
+  }
+
+  // Legacy: POST reject (kept for backward compatibility)
   @Post(':id/reject')
   @HttpCode(HttpStatus.OK)
   async rejectEstimate(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: any,
+  ) {
+    return this.estimateService.updateEstimate(
+      id,
+      { status: EstimateStatus.REJECTED },
+      req.user.id,
+    );
+  }
+
+  // Preferred: PATCH reject
+  @Patch(':id/reject')
+  @HttpCode(HttpStatus.OK)
+  async rejectEstimatePatch(
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: any,
   ) {

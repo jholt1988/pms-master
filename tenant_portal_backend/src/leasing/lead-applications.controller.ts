@@ -18,7 +18,7 @@ import {
 import { LeadApplicationsService } from './lead-applications.service';
 import { isUUID } from 'class-validator';
 
-@Controller('api/applications')
+@Controller('applications')
 export class LeadApplicationsController {
   constructor(
     private readonly leadApplicationsService: LeadApplicationsService,
