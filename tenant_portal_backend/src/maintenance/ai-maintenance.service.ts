@@ -212,6 +212,7 @@ Respond with ONLY one word: HIGH, MEDIUM, or LOW`;
         asset?: { category?: string | null } | null;
       }
     ) | number | string,
+    orgId?: string,
   ): Promise<TechnicianMatch | null> {
     const request =
       typeof requestOrId === 'object'
@@ -230,7 +231,7 @@ Respond with ONLY one word: HIGH, MEDIUM, or LOW`;
 
     // Get all active technicians
     const technicians = await this.prisma.technician.findMany({
-      where: { active: true },
+      where: { active: true, ...(orgId ? { organizationId: orgId } : {}) },
       include: {
         assignments: {
           where: {

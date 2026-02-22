@@ -92,10 +92,16 @@ model User {
   approvalTaskCreatedBy ApprovalTask[] @relation("ApprovalCreatedBy")
 
   approvalTasks ApprovalTask[] @relation("ApprovalTenant")
+
+  organizationMemberships UserOrganization[]
 }
 
 model Property {
   id                   String                    @id @default(uuid()) @db.Uuid
+
+  // Multi-tenant scope
+  organizationId       String                    @db.Uuid
+  organization         Organization              @relation(fields: [organizationId], references: [id])
   name                 String
   address              String
   city                 String?
@@ -125,6 +131,8 @@ model Property {
   repairEstimates      RepairEstimate[]
   scheduleEvents       ScheduleEvent[]
   propertyInquiries    PropertyInquiry[]
+
+  @@index([organizationId])
   tours                Tour[]
   leadApplications     LeadApplication[]
   marketingProfile     PropertyMarketingProfile?
@@ -457,6 +465,8 @@ model MaintenanceAsset {
 
 model Technician {
   id               Int                         @id @default(autoincrement())
+  organizationId   String                      @db.Uuid
+  organization     Organization                @relation(fields: [organizationId], references: [id])
   name             String
   phone            String?
   email            String?
@@ -478,6 +488,7 @@ model Technician {
 
   @@index([userId])
   @@index([role, active])
+  @@index([organizationId])
 }
 
 model MaintenanceSlaPolicy {
@@ -1713,6 +1724,7 @@ enum EventPriority {
 model QuickBooksConnection {
   id                    Int      @id @default(autoincrement())
   userId                String   @db.Uuid
+  organizationId        String   @db.Uuid
   companyId             String
   accessToken           String
   refreshToken          String
@@ -1723,8 +1735,11 @@ model QuickBooksConnection {
   updatedAt             DateTime @updatedAt
 
   user User @relation("UserQuickBooksConnections", fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id])
 
-  @@unique([userId, companyId])
+  @@unique([organizationId, companyId])
+  @@index([organizationId])
+  @@index([organizationId, isActive])
   @@map("quickbooks_connections")
 }
 

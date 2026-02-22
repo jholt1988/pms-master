@@ -43,10 +43,10 @@ export class QuickBooksService {
   /**
    * Generate OAuth authorization URL for QuickBooks connection
    */
-  getAuthorizationUrl(userId: string): string {
+  getAuthorizationUrl(userId: string, orgId: string): string {
     const authUri = this.oauthClient.authorizeUri({
       scope: [OAuthClient.scopes.Accounting],
-      state: `user_${userId}`, // Pass user ID in state for callback handling
+      state: JSON.stringify({ userId, orgId }),
     });
     this.logger.log(`Generated auth URL for user ${userId}`);
     return authUri;
@@ -61,9 +61,10 @@ export class QuickBooksService {
     realmId: string,
   ): Promise<QuickBooksConnection> {
     try {
-      // Extract user ID from state
-      const userId = parseInt(state.replace('user_', ''));
-      if (isNaN(userId)) {
+      // Extract user + org from state
+      const parsedState = JSON.parse(state);
+      const { userId, orgId } = parsedState || {};
+      if (!userId || !orgId) {
         throw new Error('Invalid state parameter');
       }
 
@@ -78,12 +79,13 @@ export class QuickBooksService {
       // Store connection in database
       const connection = await this.prisma.quickBooksConnection.upsert({
         where: {
-          userId_companyId: {
-            userId,
+          organizationId_companyId: {
+            organizationId: orgId,
             companyId: realmId,
           },
         },
         update: {
+          organizationId: orgId,
           accessToken: token.access_token,
           refreshToken: token.refresh_token,
           tokenExpiresAt,
@@ -92,6 +94,7 @@ export class QuickBooksService {
         },
         create: {
           userId,
+          organizationId: orgId,
           companyId: realmId,
           accessToken: token.access_token,
           refreshToken: token.refresh_token,
@@ -155,10 +158,10 @@ export class QuickBooksService {
   /**
    * Get active QuickBooks connection for user
    */
-  async getConnectionForUser(userId: string): Promise<QuickBooksConnection | null> {
+  async getConnectionForOrg(orgId: string): Promise<QuickBooksConnection | null> {
     const connection = await this.prisma.quickBooksConnection.findFirst({
       where: {
-        userId,
+        organizationId: orgId,
         isActive: true,
       },
       orderBy: { createdAt: 'desc' },
@@ -193,8 +196,8 @@ export class QuickBooksService {
   /**
    * Sync property management data to QuickBooks
    */
-  async syncToQuickBooks(userId: string): Promise<SyncResult> {
-    const connection = await this.getConnectionForUser(userId);
+  async syncToQuickBooks(userId: string, orgId: string): Promise<SyncResult> {
+    const connection = await this.getConnectionForOrg(orgId);
     if (!connection) {
       throw new Error('No active QuickBooks connection found');
     }
@@ -205,16 +208,16 @@ export class QuickBooksService {
 
     try {
       // 1. Sync Properties as Items/Services
-      await this.syncProperties(qbo, userId, errors, syncedItems);
+      await this.syncProperties(qbo, orgId, errors, syncedItems);
 
       // 2. Sync Tenants as Customers
-      await this.syncTenants(qbo, userId, errors, syncedItems);
+      await this.syncTenants(qbo, orgId, errors, syncedItems);
 
       // 3. Sync Rent Payments as Invoices and Payments
-      await this.syncRentPayments(qbo, userId, errors, syncedItems);
+      await this.syncRentPayments(qbo, orgId, errors, syncedItems);
 
       // 4. Sync Expenses (Maintenance, etc.)
-      await this.syncExpenses(qbo, userId, errors, syncedItems);
+      await this.syncExpenses(qbo, orgId, errors, syncedItems);
 
       // Update last sync time
       await this.prisma.quickBooksConnection.update({
@@ -244,9 +247,9 @@ export class QuickBooksService {
   /**
    * Sync Properties to QuickBooks as Items/Services
    */
-  private async syncProperties(qbo: any, userId: string, errors: string[], syncedCount: number): Promise<void> {
+  private async syncProperties(qbo: any, orgId: string, errors: string[], syncedCount: number): Promise<void> {
     const properties = await this.prisma.property.findMany({
-      where: { userId },
+      where: { organizationId: orgId },
       include: { units: true },
     });
 
@@ -302,7 +305,7 @@ export class QuickBooksService {
   /**
    * Sync Tenants to QuickBooks as Customers
    */
-  private async syncTenants(qbo: any, userId: string, errors: string[], syncedCount: number): Promise<void> {
+  private async syncTenants(qbo: any, orgId: string, errors: string[], syncedCount: number): Promise<void> {
     const leases = await this.prisma.lease.findMany({
       where: {
         property: { userId },
@@ -376,7 +379,7 @@ export class QuickBooksService {
   /**
    * Sync Rent Payments to QuickBooks as Invoices and Payments
    */
-  private async syncRentPayments(qbo: any, userId: string, errors: string[], syncedCount: number): Promise<void> {
+  private async syncRentPayments(qbo: any, orgId: string, errors: string[], syncedCount: number): Promise<void> {
     const payments = await this.prisma.payment.findMany({
       where: {
         lease: {
@@ -472,7 +475,7 @@ export class QuickBooksService {
   /**
    * Sync Expenses to QuickBooks
    */
-  private async syncExpenses(qbo: any, userId: string, errors: string[], syncedCount: number): Promise<void> {
+  private async syncExpenses(qbo: any, orgId: string, errors: string[], syncedCount: number): Promise<void> {
     const expenses = await this.prisma.expense.findMany({
       where: {
         property: { userId },
@@ -527,9 +530,9 @@ export class QuickBooksService {
   /**
    * Disconnect QuickBooks integration
    */
-  async disconnect(userId: string): Promise<void> {
+  async disconnect(userId: string, orgId: string): Promise<void> {
     await this.prisma.quickBooksConnection.updateMany({
-      where: { userId },
+      where: { organizationId: orgId },
       data: { isActive: false },
     });
 
@@ -539,12 +542,12 @@ export class QuickBooksService {
   /**
    * Get sync status and last sync time
    */
-  async getSyncStatus(userId: string): Promise<{
+  async getSyncStatus(userId: string, orgId: string): Promise<{
     isConnected: boolean;
     lastSyncAt: Date | null;
     companyName?: string;
   }> {
-    const connection = await this.getConnectionForUser(userId);
+    const connection = await this.getConnectionForOrg(orgId);
     
     return {
       isConnected: !!connection,

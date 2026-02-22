@@ -42,7 +42,11 @@ export class QuickBooksController {
   async getAuthUrl(@Request() req: any) {
     try {
       const userId = req.user.id;
-      const authUrl = this.quickBooksService.getAuthorizationUrl(userId);
+      const orgId = req.org?.orgId as string | undefined;
+      if (!orgId) {
+        throw new HttpException('Missing organization context', HttpStatus.BAD_REQUEST);
+      }
+      const authUrl = this.quickBooksService.getAuthorizationUrl(userId, orgId);
       return { authUrl };
     } catch (error: any) {
       this.logger.error('Failed to generate QuickBooks auth URL:', error);
@@ -122,7 +126,11 @@ export class QuickBooksController {
   async getStatus(@Request() req: any) {
     try {
       const userId = req.user.id;
-      const status = await this.quickBooksService.getSyncStatus(userId);
+      const orgId = req.org?.orgId as string | undefined;
+      if (!orgId) {
+        throw new HttpException('Missing organization context', HttpStatus.BAD_REQUEST);
+      }
+      const status = await this.quickBooksService.getSyncStatus(userId, orgId);
       return status;
     } catch (error: any) {
       this.logger.error('Failed to get QuickBooks status:', error);
@@ -154,8 +162,12 @@ export class QuickBooksController {
   async syncData(@Request() req: any): Promise<SyncResult> {
     try {
       const userId = req.user.id;
+      const orgId = req.org?.orgId as string | undefined;
       this.logger.log(`Starting QuickBooks sync for user ${userId}`);
-      const result = await this.quickBooksService.syncToQuickBooks(userId);
+      if (!orgId) {
+        throw new HttpException('Missing organization context', HttpStatus.BAD_REQUEST);
+      }
+      const result = await this.quickBooksService.syncToQuickBooks(userId, orgId);
       
       if (result.success) {
         this.logger.log(`QuickBooks sync completed successfully: ${result.syncedItems} items synced`);
@@ -198,7 +210,11 @@ export class QuickBooksController {
   async disconnect(@Request() req: any) {
     try {
       const userId = req.user.id;
-      await this.quickBooksService.disconnect(userId);
+      const orgId = req.org?.orgId as string | undefined;
+      if (!orgId) {
+        throw new HttpException('Missing organization context', HttpStatus.BAD_REQUEST);
+      }
+      await this.quickBooksService.disconnect(userId, orgId);
       
       this.logger.log(`QuickBooks disconnected for user ${userId}`);
       
@@ -232,7 +248,11 @@ export class QuickBooksController {
   async testConnection(@Request() req: any) {
     try {
       const userId = req.user.id;
-      const result = await this.quickBooksService.testConnection(userId);
+      const orgId = req.org?.orgId as string | undefined;
+      if (!orgId) {
+        throw new HttpException('Missing organization context', HttpStatus.BAD_REQUEST);
+      }
+      const result = await this.quickBooksService.testConnection(userId, orgId);
       
       this.logger.log(`QuickBooks connection test for user ${userId}: ${result.success ? 'SUCCESS' : 'FAILED'}`);
       

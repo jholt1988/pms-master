@@ -19,6 +19,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
+import { OrgId } from '../common/org-context/org-id.decorator';
 import { Role, InspectionType, InspectionStatus } from '@prisma/client';
 import { InspectionsService } from './inspections.service';
 import { CreateInspectionDto } from './dto/create-inspection.dto';
@@ -60,13 +61,18 @@ export class InspectionsController {
 
   @Post()
   @Roles(Role.PROPERTY_MANAGER)
-  async create(@Body() dto: CreateInspectionDto, @Req() req: AuthenticatedRequest) {
+  async create(
+    @Body() dto: CreateInspectionDto,
+    @Req() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
+  ) {
     return this.inspectionsService.create(
       {
         ...dto,
         scheduledDate: new Date(dto.scheduledDate),
       },
       req.user.sub,
+      orgId,
     );
   }
 
@@ -81,6 +87,7 @@ export class InspectionsController {
     @Query('endDate') endDate?: string,
     @Query('skip') skip?: string,
     @Query('take') take?: string,
+    @OrgId() orgId?: string,
   ) {
     return this.inspectionsService.findAll({
       userId: req.user.sub,
@@ -93,12 +100,13 @@ export class InspectionsController {
       endDate: endDate ? new Date(endDate) : undefined,
       skip: skip ? parseInt(skip, 10) : undefined,
       take: take ? parseInt(take, 10) : undefined,
+      orgId,
     });
   }
 
   @Get(':id')
-  async findOne(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest) {
-    return this.inspectionsService.findOne(id, req.user.sub, req.user.role);
+  async findOne(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest, @OrgId() orgId?: string) {
+    return this.inspectionsService.findOne(id, req.user.sub, req.user.role, orgId);
   }
 
   @Put(':id')
@@ -107,6 +115,7 @@ export class InspectionsController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateInspectionDto,
     @Req() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
   ) {
     return this.inspectionsService.update(
       id,
@@ -115,6 +124,7 @@ export class InspectionsController {
         scheduledDate: dto.scheduledDate ? new Date(dto.scheduledDate) : undefined,
       },
       req.user.sub,
+      orgId,
     );
   }
 
@@ -124,8 +134,9 @@ export class InspectionsController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: CompleteInspectionDto,
     @Req() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
   ) {
-    return this.inspectionsService.complete(id, dto, req.user.sub);
+    return this.inspectionsService.complete(id, dto, req.user.sub, orgId);
   }
 
   @Post(':id/photos')
@@ -143,6 +154,7 @@ export class InspectionsController {
     @UploadedFile() file: Express.Multer.File,
     @Body('caption') caption: string,
     @Req() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
   ) {
     if (!file) {
       throw new Error('No file provided');
@@ -157,13 +169,13 @@ export class InspectionsController {
     // Get base URL for serving files (in production, use CDN or proper file serving)
     const url = `/uploads/inspections/${fileName}`;
 
-    return this.inspectionsService.addPhoto(id, url, caption, req.user.sub);
+    return this.inspectionsService.addPhoto(id, url, caption, req.user.sub, orgId);
   }
 
   @Delete(':id')
   @Roles(Role.PROPERTY_MANAGER)
-  async delete(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest) {
-    return this.inspectionsService.delete(id, req.user.sub);
+  async delete(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest, @OrgId() orgId?: string) {
+    return this.inspectionsService.delete(id, req.user.sub, orgId);
   }
 
   private parseOptionalUuid(value: string | undefined, field: string): string | undefined {

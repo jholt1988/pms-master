@@ -6,9 +6,15 @@ import { LeadApplicationStatus, MaintenancePriority, Status } from '@prisma/clie
 export class DashboardService {
   constructor(private prisma: PrismaService) {}
 
-  async getPropertyManagerDashboardMetrics() {
+  async getPropertyManagerDashboardMetrics(orgId?: string) {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const orgPropertyWhere = orgId ? { organizationId: orgId } : undefined;
+    const orgUnitWhere = orgId ? { property: { organizationId: orgId } } : undefined;
+    const orgLeaseWhere = orgId ? { unit: { property: { organizationId: orgId } } } : undefined;
+    const orgMaintenanceWhere = orgId ? { property: { organizationId: orgId } } : undefined;
+    const orgLeadAppWhere = orgId ? { property: { organizationId: orgId } } : undefined;
 
 const [
   totalProperties,
@@ -24,29 +30,41 @@ const [
   recentPayments,
   recentLeaks,
 ] = await Promise.all([
-  this.prisma.property.count(),
-  this.prisma.unit.count(),
-  this.prisma.unit.count({ where: { lease: { isNot: null } } }),
-  this.prisma.user.count({ where: { role: 'TENANT' } }),
-  this.prisma.maintenanceRequest.count(),
-  this.prisma.leadApplication.count(),
+  this.prisma.property.count({ where: orgPropertyWhere }),
+  this.prisma.unit.count({ where: orgUnitWhere }),
+  this.prisma.unit.count({ where: { lease: { isNot: null }, ...(orgUnitWhere ?? {}) } }),
+  this.prisma.user.count({
+    where: {
+      role: 'TENANT',
+      ...(orgId ? { lease: { is: { unit: { property: { organizationId: orgId } } } } } : {}),
+    },
+  }),
+  this.prisma.maintenanceRequest.count({ where: orgMaintenanceWhere }),
+  this.prisma.leadApplication.count({ where: orgLeadAppWhere }),
   this.prisma.payment.count({
     where: {
       paymentDate: {
         gte: startOfMonth,
         lte: now,
       },
+      ...(orgLeaseWhere ?? {}),
     },
   }),
   this.prisma.invoice.aggregate({
     _sum: { amount: true },
-    where: { status: 'PENDING', dueDate: { lt: now } },
+    where: {
+      status: 'PENDING',
+      dueDate: { lt: now },
+      ...(orgLeaseWhere ? { lease: orgLeaseWhere } : {}),
+    },
   }),
   this.prisma.maintenanceRequest.findMany({
+    where: orgMaintenanceWhere ?? undefined,
     orderBy: { createdAt: 'desc' },
     take: 3,
   }),
   this.prisma.leadApplication.findMany({
+    where: orgLeadAppWhere ?? undefined,
     orderBy: { submittedAt: 'desc' },
     take: 3,
     include: {
@@ -54,10 +72,12 @@ const [
     },
   }),
   this.prisma.payment.findMany({
+    where: orgLeaseWhere ?? undefined,
     orderBy: { paymentDate: 'desc' },
     take: 3,
   }),
   this.prisma.lease.findMany({
+    where: orgLeaseWhere ?? undefined,
     orderBy: { updatedAt: 'desc' },
     take: 2,
   }),
@@ -84,9 +104,15 @@ const [
     ];
 
     const [pendingApplications, approvedApplications, rejectedApplications] = await Promise.all([
-      this.prisma.leadApplication.count({ where: { status: { in: pendingStatuses } } }),
-      this.prisma.leadApplication.count({ where: { status: { in: approvedStatuses } } }),
-      this.prisma.leadApplication.count({ where: { status: { in: rejectedStatuses } } }),
+      this.prisma.leadApplication.count({
+        where: { status: { in: pendingStatuses }, ...(orgLeadAppWhere ?? {}) },
+      }),
+      this.prisma.leadApplication.count({
+        where: { status: { in: approvedStatuses }, ...(orgLeadAppWhere ?? {}) },
+      }),
+      this.prisma.leadApplication.count({
+        where: { status: { in: rejectedStatuses }, ...(orgLeadAppWhere ?? {}) },
+      }),
     ]);
 
     const recentActivity = [
@@ -134,10 +160,23 @@ const [
       },
       maintenance: {
         total: maintenanceRequests,
-        pending: await this.prisma.maintenanceRequest.count({ where: { status: Status.PENDING } }),
-        inProgress: await this.prisma.maintenanceRequest.count({ where: { status: Status.IN_PROGRESS } }),
+        pending: await this.prisma.maintenanceRequest.count({
+          where: {
+            status: Status.PENDING,
+            ...(orgMaintenanceWhere ?? {}),
+          },
+        }),
+        inProgress: await this.prisma.maintenanceRequest.count({
+          where: {
+            status: Status.IN_PROGRESS,
+            ...(orgMaintenanceWhere ?? {}),
+          },
+        }),
         overdue: await this.prisma.maintenanceRequest.count({
-          where: { createdAt: { lt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000) } },
+          where: {
+            createdAt: { lt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000) },
+            ...(orgMaintenanceWhere ?? {}),
+          },
         }),
       },
       applications: {

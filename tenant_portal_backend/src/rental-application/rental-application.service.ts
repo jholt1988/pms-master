@@ -89,8 +89,9 @@ export class RentalApplicationService {
     return application;
   }
 
-  async getAllApplications() {
+  async getAllApplications(orgId?: string) {
     return this.prisma.rentalApplication.findMany({
+      where: orgId ? { property: { organizationId: orgId } } : undefined,
       include: {
         applicant: true,
         property: true,
@@ -125,9 +126,9 @@ export class RentalApplicationService {
     });
   }
 
-  async getApplicationById(id: number) {
-    return this.prisma.rentalApplication.findUnique({
-      where: { id },
+  async getApplicationById(id: number, orgId?: string) {
+    return this.prisma.rentalApplication.findFirst({
+      where: { id, ...(orgId ? { property: { organizationId: orgId } } : {}) },
       include: {
         applicant: true,
         property: true,
@@ -147,9 +148,10 @@ export class RentalApplicationService {
     id: number,
     status: ApplicationStatus,
     actor?: { userId: string; username: string; role: Role },
+    orgId?: string,
   ) {
-    const application = await this.prisma.rentalApplication.findUnique({
-      where: { id },
+    const application = await this.prisma.rentalApplication.findFirst({
+      where: { id, ...(orgId ? { property: { organizationId: orgId } } : {}) },
     });
 
     if (!application) {
@@ -189,9 +191,10 @@ export class RentalApplicationService {
   async screenApplication(
     id: number,
     actor: { userId: string; username: string; role: Role },
+    orgId?: string,
   ) {
-    const application = await this.prisma.rentalApplication.findUnique({
-      where: { id },
+    const application = await this.prisma.rentalApplication.findFirst({
+      where: { id, ...(orgId ? { property: { organizationId: orgId } } : {}) },
       include: {
         unit: {
           include: {
@@ -361,9 +364,10 @@ export class RentalApplicationService {
     applicationId: number,
     dto: AddRentalApplicationNoteDto,
     actor: { userId: string; username: string; role: Role },
+    orgId?: string,
   ) {
-    const application = await this.prisma.rentalApplication.findUnique({
-      where: { id: applicationId },
+    const application = await this.prisma.rentalApplication.findFirst({
+      where: { id: applicationId, ...(orgId ? { property: { organizationId: orgId } } : {}) },
     });
 
     if (!application) {
@@ -406,15 +410,24 @@ export class RentalApplicationService {
   /**
    * Get application lifecycle timeline
    */
-  async getApplicationTimeline(applicationId: number) {
+  async getApplicationTimeline(applicationId: number, orgId?: string) {
+    if (orgId) {
+      const exists = await this.prisma.rentalApplication.findFirst({
+        where: { id: applicationId, property: { organizationId: orgId } },
+        select: { id: true },
+      });
+      if (!exists) {
+        throw new BadRequestException('Application not found');
+      }
+    }
     return this.lifecycleService.getApplicationTimeline(applicationId);
   }
 
   /**
    * Get application lifecycle stage information
    */
-  async getApplicationLifecycleStage(applicationId: number) {
-    const application = await this.getApplicationById(applicationId);
+  async getApplicationLifecycleStage(applicationId: number, orgId?: string) {
+    const application = await this.getApplicationById(applicationId, orgId);
     if (!application) {
       throw new BadRequestException('Application not found');
     }
@@ -424,8 +437,8 @@ export class RentalApplicationService {
   /**
    * Get available status transitions for an application
    */
-  async getAvailableTransitions(applicationId: number, userRole: Role) {
-    const application = await this.getApplicationById(applicationId);
+  async getAvailableTransitions(applicationId: number, userRole: Role, orgId?: string) {
+    const application = await this.getApplicationById(applicationId, orgId);
     if (!application) {
       throw new BadRequestException('Application not found');
     }
