@@ -22,6 +22,7 @@ import { Roles } from '../auth/roles.decorator';
 import { Role } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
+import { OrgId } from '../common/org-context/org-id.decorator';
 import {
   CreatePropertyDto,
   CreateUnitDto,
@@ -49,8 +50,8 @@ export class PropertyController {
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles(Role.PROPERTY_MANAGER)
   @HttpCode(HttpStatus.CREATED)
-  createProperty(@Body() dto: CreatePropertyDto) {
-    return this.propertyService.createProperty(dto);
+  createProperty(@Body() dto: CreatePropertyDto, @OrgId() orgId: string) {
+    return this.propertyService.createProperty(dto, orgId);
   }
 
   @Post(':id/units')
@@ -60,15 +61,16 @@ export class PropertyController {
   createUnit(
     @Param('id', ParseUUIDPipe) propertyId: string,
     @Body() dto: CreateUnitDto,
+    @OrgId() orgId: string,
   ) {
-    return this.propertyService.createUnit(propertyId, dto.name);
+    return this.propertyService.createUnit(propertyId, dto.name, orgId);
   }
 
   @Get()
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles(Role.PROPERTY_MANAGER)
-  getAllProperties() {
-    return this.propertyService.getAllProperties();
+  getAllProperties(@OrgId() orgId: string) {
+    return this.propertyService.getAllProperties(orgId);
   }
 
   @Get('public')
@@ -79,8 +81,8 @@ export class PropertyController {
   @Get('search')
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles(Role.PROPERTY_MANAGER)
-  searchProperties(@Query() query: PropertySearchQueryDto) {
-    return this.propertyService.searchProperties(query);
+  searchProperties(@Query() query: PropertySearchQueryDto, @OrgId() orgId: string) {
+    return this.propertyService.searchProperties(query, orgId);
   }
 
   @Get('public/search')
@@ -113,15 +115,15 @@ export class PropertyController {
   @Get(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles(Role.PROPERTY_MANAGER)
-  getPropertyById(@Param('id', ParseUUIDPipe) id: string) {
-    return this.propertyService.getPropertyById(id);
+  getPropertyById(@Param('id', ParseUUIDPipe) id: string, @OrgId() orgId: string) {
+    return this.propertyService.getPropertyById(id, orgId);
   }
 
   @Get(':id/marketing')
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles(Role.PROPERTY_MANAGER)
-  getMarketingProfile(@Param('id', ParseUUIDPipe) id: string) {
-    return this.propertyService.getMarketingProfile(id);
+  getMarketingProfile(@Param('id', ParseUUIDPipe) id: string, @OrgId() orgId: string) {
+    return this.propertyService.getMarketingProfile(id, orgId);
   }
 
   @Post(':id/marketing')
@@ -130,8 +132,9 @@ export class PropertyController {
   updateMarketingProfile(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdatePropertyMarketingDto,
+    @OrgId() orgId: string,
   ) {
-    return this.propertyService.updateMarketingProfile(id, dto);
+    return this.propertyService.updateMarketingProfile(id, dto, orgId);
   }
 
   @Patch(':id')
@@ -140,8 +143,9 @@ export class PropertyController {
   updateProperty(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdatePropertyDto,
+    @OrgId() orgId: string,
   ) {
-    return this.propertyService.updateProperty(id, dto);
+    return this.propertyService.updateProperty(id, dto, orgId);
   }
 
   @Patch(':id/units/:unitId')
@@ -151,7 +155,8 @@ export class PropertyController {
     @Param('id', ParseUUIDPipe) propertyId: string,
     @Param('unitId', ParseUUIDPipe) unitId: string,
     @Body() dto: UpdateUnitDto,
+    @OrgId() orgId: string,
   ) {
-    return this.propertyService.updateUnit(propertyId, unitId, dto);
+    return this.propertyService.updateUnit(propertyId, unitId, dto, orgId);
   }
 }
