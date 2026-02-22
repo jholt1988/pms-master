@@ -138,6 +138,87 @@ function unwrapApi<T>(resp: any): T {
   return resp as T;
 }
 
+const normalizeConfidenceLevel = (level?: string | null) => {
+  if (!level) return undefined;
+  const normalized = String(level).trim().toUpperCase().replace(/[\s-]+/g, '_');
+  if (['VERY_HIGH', 'HIGH', 'MEDIUM', 'LOW', 'VERY_LOW'].includes(normalized)) {
+    return normalized as Estimate['confidenceLevel'];
+  }
+  return undefined;
+};
+
+const toTitleCase = (value?: string | null) => {
+  if (!value) return '—';
+  return String(value)
+    .trim()
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+};
+
+const parseNumber = (value: any) => {
+  if (value === null || value === undefined || value === '') return undefined;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const normalizeLineItems = (items: any[] | undefined) => {
+  return (items ?? []).map((item, index) => {
+    const repairInstructions = Array.isArray(item.repairInstructions)
+      ? item.repairInstructions.join('\n')
+      : Array.isArray(item.repair_instructions)
+        ? item.repair_instructions.join('\n')
+        : item.repairInstructions ?? item.repair_instructions ?? null;
+
+    return {
+      id: item.id ?? item.item_id ?? index,
+      itemDescription: item.itemDescription ?? item.item_description ?? item.description ?? item.name ?? 'Unknown item',
+      location: item.location ?? item.room ?? item.area ?? '—',
+      category: item.category ?? item.trade ?? item.system ?? '—',
+      issueType: toTitleCase(item.issueType ?? item.issue_type ?? item.actionType ?? item.action_type ?? item.action_needed ?? ''),
+      laborHours: parseNumber(item.laborHours ?? item.labor_hours) ?? null,
+      laborRate: parseNumber(item.laborRate ?? item.labor_rate_per_hour) ?? null,
+      laborCost: parseNumber(item.laborCost ?? item.labor_cost) ?? 0,
+      materialCost: parseNumber(item.materialCost ?? item.material_cost) ?? 0,
+      totalCost: parseNumber(item.totalCost ?? item.total_cost) ?? 0,
+      bidLowTotal: parseNumber(item.bidLowTotal ?? item.bid_low_total),
+      bidHighTotal: parseNumber(item.bidHighTotal ?? item.bid_high_total),
+      bidLowLaborCost: parseNumber(item.bidLowLaborCost ?? item.bid_low_labor_cost),
+      bidHighLaborCost: parseNumber(item.bidHighLaborCost ?? item.bid_high_labor_cost),
+      bidLowMaterialCost: parseNumber(item.bidLowMaterialCost ?? item.bid_low_material_cost),
+      bidHighMaterialCost: parseNumber(item.bidHighMaterialCost ?? item.bid_high_material_cost),
+      confidenceLevel: normalizeConfidenceLevel(item.confidenceLevel ?? item.confidence_level ?? item.confidence),
+      confidenceReason: item.confidenceReason ?? item.confidence_reason ?? item.confidence_explanation ?? undefined,
+      assumptions: item.assumptions ?? item.assumptions_list ?? [],
+      questionsToReduceUncertainty:
+        item.questionsToReduceUncertainty ?? item.questions_to_reduce_uncertainty ?? item.clarifying_questions ?? [],
+      repairInstructions,
+      notes: item.notes ?? item.note ?? null,
+    };
+  });
+};
+
+const normalizeEstimate = (estimate: any): Estimate => {
+  const normalized = estimate ?? {};
+  return {
+    id: normalized.id ?? normalized.estimate_id ?? 0,
+    currency: normalized.currency ?? normalized.currency_code ?? 'USD',
+    generatedAt: normalized.generatedAt ?? normalized.generated_at,
+    status: normalized.status,
+    totalLaborCost: parseNumber(normalized.totalLaborCost ?? normalized.total_labor_cost) ?? 0,
+    totalMaterialCost: parseNumber(normalized.totalMaterialCost ?? normalized.total_material_cost) ?? 0,
+    totalProjectCost: parseNumber(normalized.totalProjectCost ?? normalized.total_project_cost) ?? 0,
+    itemsToRepair: parseNumber(normalized.itemsToRepair ?? normalized.items_to_repair) ?? 0,
+    itemsToReplace: parseNumber(normalized.itemsToReplace ?? normalized.items_to_replace) ?? 0,
+    bidLowTotal: parseNumber(normalized.bidLowTotal ?? normalized.bid_low_total),
+    bidHighTotal: parseNumber(normalized.bidHighTotal ?? normalized.bid_high_total),
+    confidenceLevel: normalizeConfidenceLevel(normalized.confidenceLevel ?? normalized.confidence_level ?? normalized.confidence),
+    confidenceReason: normalized.confidenceReason ?? normalized.confidence_reason ?? normalized.confidence_explanation,
+    lineItems: normalizeLineItems(normalized.lineItems ?? normalized.line_items ?? normalized.items ?? []),
+  };
+};
+
 function itemLabel(item: ChecklistItem) {
   return `${item.category}: ${item.itemName}`;
 }
@@ -213,7 +294,7 @@ type Estimate = {
 };
 
 function EstimatePanel({ estimate, embedded = false, token, canManage = false }: { estimate: any; embedded?: boolean; token?: string; canManage?: boolean }) {
-  const e = estimate as Estimate;
+  const e = normalizeEstimate(estimate);
   const currency = e.currency ?? 'USD';
 
   const hasRange = typeof e.bidLowTotal === 'number' && typeof e.bidHighTotal === 'number';
@@ -357,7 +438,7 @@ function EstimatePanel({ estimate, embedded = false, token, canManage = false }:
                   </div>
                   {li.confidenceLevel && (
                     <div className="md:col-span-3">
-                      Confidence: <span className="font-semibold">{li.confidenceLevel.replace('_', ' ')}</span>
+                      Confidence: <span className="font-semibold">{li.confidenceLevel.replaceAll('_', ' ')}</span>
                       {li.confidenceReason ? ` — ${li.confidenceReason}` : ''}
                     </div>
                   )}
@@ -602,11 +683,13 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 function EstimateHistoryList({ estimates }: { estimates: any[] }) {
-  const sorted = [...(estimates ?? [])].sort((a, b) => {
-    const ad = a?.generatedAt ? new Date(a.generatedAt).getTime() : 0;
-    const bd = b?.generatedAt ? new Date(b.generatedAt).getTime() : 0;
-    return bd - ad;
-  });
+  const sorted = [...(estimates ?? [])]
+    .map((estimate) => normalizeEstimate(estimate))
+    .sort((a, b) => {
+      const ad = a?.generatedAt ? new Date(a.generatedAt).getTime() : 0;
+      const bd = b?.generatedAt ? new Date(b.generatedAt).getTime() : 0;
+      return bd - ad;
+    });
 
   if (sorted.length === 0) return null;
 
@@ -850,6 +933,10 @@ export default function InspectionDetailPage(): React.ReactElement {
     return !!estimateResult || ((inspection as any)?.repairEstimates?.length ?? 0) > 0;
   }, [estimateResult, inspection]);
 
+  const normalizedEstimateResult = useMemo(() => {
+    return estimateResult ? normalizeEstimate(estimateResult) : null;
+  }, [estimateResult]);
+
   const lastGeneratedAt = useMemo(() => {
     const gen = (estimateResult as any)?.generatedAt;
     if (gen) return gen;
@@ -863,14 +950,14 @@ export default function InspectionDetailPage(): React.ReactElement {
   }, [estimateResult, inspection]);
 
   const latestEstimate = useMemo(() => {
-    if (estimateResult) return estimateResult as any;
+    if (estimateResult) return normalizeEstimate(estimateResult);
     const arr = (inspection as any)?.repairEstimates ?? [];
     const sorted = [...arr].sort((a: any, b: any) => {
       const ad = a?.generatedAt ? new Date(a.generatedAt).getTime() : 0;
       const bd = b?.generatedAt ? new Date(b.generatedAt).getTime() : 0;
       return bd - ad;
     });
-    return sorted[0] ?? null;
+    return sorted[0] ? normalizeEstimate(sorted[0]) : null;
   }, [estimateResult, inspection]);
 
   const headerTitle = useMemo(() => {
@@ -905,7 +992,7 @@ export default function InspectionDetailPage(): React.ReactElement {
     return (
       <div className="p-6">
         <div className="flex items-center gap-3 mb-4">
-          <Button isIconOnly variant="light" onClick={() => navigate(-1)}>
+          <Button isIconOnly variant="light" onClick={() => navigate(-1)} aria-label="Go back">
             <ArrowLeft size={20} />
           </Button>
           <h1 className="text-2xl font-bold">Inspection</h1>
@@ -946,7 +1033,7 @@ export default function InspectionDetailPage(): React.ReactElement {
     <>
       <div className="p-6 max-w-6xl mx-auto print-hidden">
       <div className="flex items-center gap-3 mb-4">
-        <Button isIconOnly variant="light" onClick={() => navigate(-1)}>
+        <Button isIconOnly variant="light" onClick={() => navigate(-1)} aria-label="Go back">
           <ArrowLeft size={20} />
         </Button>
         <div className="flex flex-col">
@@ -1049,8 +1136,8 @@ export default function InspectionDetailPage(): React.ReactElement {
       )}
 
       {/* If we just generated an estimate this session, show it first */}
-      {estimateResult && (
-        <EstimatePanel estimate={estimateResult} token={token ?? undefined} canManage={isPropertyManager} />
+      {normalizedEstimateResult && (
+        <EstimatePanel estimate={normalizedEstimateResult} token={token ?? undefined} canManage={isPropertyManager} />
       )}
 
       {/* Full history list from inspection.repairEstimates */}
@@ -1382,6 +1469,9 @@ export default function InspectionDetailPage(): React.ReactElement {
                 <div><strong>Total project:</strong> {formatCurrency(latestEstimate.totalProjectCost ?? 0, latestEstimate.currency ?? 'USD')}</div>
                 {(typeof latestEstimate.bidLowTotal === 'number' || typeof latestEstimate.bidHighTotal === 'number') && (
                   <div><strong>Bid range:</strong> {formatCurrency(latestEstimate.bidLowTotal ?? 0, latestEstimate.currency ?? 'USD')} - {formatCurrency(latestEstimate.bidHighTotal ?? 0, latestEstimate.currency ?? 'USD')}</div>
+                )}
+                {latestEstimate.confidenceLevel && (
+                  <div><strong>Confidence:</strong> {latestEstimate.confidenceLevel.replaceAll('_', ' ')}{latestEstimate.confidenceReason ? ` — ${latestEstimate.confidenceReason}` : ''}</div>
                 )}
                 {latestEstimate.generatedAt && (
                   <div><strong>Generated:</strong> {new Date(latestEstimate.generatedAt).toLocaleString()}</div>
