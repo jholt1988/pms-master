@@ -43,13 +43,19 @@ async function ensureGlobalSla(priority: MaintenancePriority, resolution: number
   });
 }
 
-async function ensureTechnician(name: string, role: TechnicianRole, contact: { phone?: string; email?: string }) {
+async function ensureTechnician(
+  organizationId: string,
+  name: string,
+  role: TechnicianRole,
+  contact: { phone?: string; email?: string }
+) {
   const existing = await prisma.technician.findFirst({ where: { name } });
   if (existing) {
     return existing;
   }
   return prisma.technician.create({
     data: {
+      organization: { connect: { id: organizationId } },
       name,
       role,
       phone: contact.phone,
@@ -58,7 +64,7 @@ async function ensureTechnician(name: string, role: TechnicianRole, contact: { p
   });
 }
 
-async function ensurePropertyWithUnits() {
+async function ensurePropertyWithUnits(organizationId: string) {
   let property = await prisma.property.findFirst({
     where: { name: 'Central Plaza' },
     include: { units: true },
@@ -67,6 +73,7 @@ async function ensurePropertyWithUnits() {
   if (!property) {
     property = await prisma.property.create({
       data: {
+        organization: { connect: { id: organizationId } },
         name: 'Central Plaza',
         address: '500 Market Street, Springfield',
         units: {
@@ -100,7 +107,12 @@ async function ensurePropertyWithUnits() {
   return property;
 }
 
-async function ensureAsset(propertyId: number, unitId: number | null, name: string, category: MaintenanceAssetCategory) {
+async function ensureAsset(
+  propertyId: string,
+  unitId: string | null,
+  name: string,
+  category: MaintenanceAssetCategory
+) {
   const existing = await prisma.maintenanceAsset.findFirst({
     where: {
       name,
@@ -121,6 +133,15 @@ async function ensureAsset(propertyId: number, unitId: number | null, name: stri
   });
 }
 
+async function ensureOrganization() {
+  const ORG_ID = '11111111-1111-4111-8111-111111111111';
+  return prisma.organization.upsert({
+    where: { id: ORG_ID },
+    update: { name: 'Default Organization' },
+    create: { id: ORG_ID, name: 'Default Organization' },
+  });
+}
+
 async function main() {
   // Check if seeding is disabled via environment variable
   if (process.env.DISABLE_AUTO_SEED === 'true' || process.env.SKIP_SEED === 'true') {
@@ -130,6 +151,9 @@ async function main() {
   }
 
   console.info('🌱 Seeding comprehensive test data...');
+
+  console.info('🏢 Ensuring organization...');
+  const organization = await ensureOrganization();
 
   // 0. Create initial Property Manager account
   console.info('👤 Creating initial property manager account...');
@@ -162,7 +186,7 @@ async function main() {
 
   // 2. Create Properties and Units
   console.info('🏢 Creating properties and units...');
-  const property = await ensurePropertyWithUnits();
+  const property = await ensurePropertyWithUnits(organization.id);
   const units = property.units;
 
   // Add more units if needed
@@ -182,15 +206,15 @@ async function main() {
   // 3. Create Technicians
   console.info('👷 Creating technicians...');
   const technicians = await Promise.all([
-    ensureTechnician('Alex Rivera', TechnicianRole.IN_HOUSE, {
+    ensureTechnician(organization.id, 'Alex Rivera', TechnicianRole.IN_HOUSE, {
       phone: '+1-555-0100',
       email: 'alex.rivera@example.com',
     }),
-    ensureTechnician('Skyline HVAC Services', TechnicianRole.VENDOR, {
+    ensureTechnician(organization.id, 'Skyline HVAC Services', TechnicianRole.VENDOR, {
       phone: '+1-555-0155',
       email: 'dispatch@skyline-hvac.example',
     }),
-    ensureTechnician('PlumbPro Solutions', TechnicianRole.VENDOR, {
+    ensureTechnician(organization.id, 'PlumbPro Solutions', TechnicianRole.VENDOR, {
       phone: '+1-555-0200',
       email: 'service@plumbpro.example',
     }),
