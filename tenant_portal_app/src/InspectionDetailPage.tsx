@@ -907,7 +907,19 @@ export default function InspectionDetailPage(): React.ReactElement {
   if (!inspection) {
     return (
       <div className="p-6">
-        <p className="text-sm text-foreground-500">No inspection found.</p>
+        <Card className="max-w-lg">
+          <CardBody className="flex flex-col gap-2">
+            <p className="text-sm text-foreground-500">No inspection found.</p>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="flat" onClick={() => fetchInspection()}>
+                Retry
+              </Button>
+              <Button size="sm" variant="light" onClick={() => navigate(-1)}>
+                Go back
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
       </div>
     );
   }
@@ -988,8 +1000,20 @@ export default function InspectionDetailPage(): React.ReactElement {
 
       {estimateError && (
         <Card className="mb-4 border border-rose-200">
-          <CardBody>
+          <CardBody className="flex flex-col gap-2">
             <p className="text-sm text-rose-700">{estimateError}</p>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="flat"
+                color="danger"
+                onClick={generateEstimate}
+                isLoading={estimateLoading}
+                isDisabled={estimateLoading || actionableCount === 0}
+              >
+                Retry estimate
+              </Button>
+            </div>
           </CardBody>
         </Card>
       )}
@@ -1001,6 +1025,33 @@ export default function InspectionDetailPage(): React.ReactElement {
 
       {/* Full history list from inspection.repairEstimates */}
       <EstimateHistoryList estimates={(inspection.repairEstimates ?? []) as any[]} />
+
+      {!hasAnyEstimate && !estimateLoading && !estimateError && (
+        <Card className="mb-4 border border-default-200">
+          <CardBody className="flex flex-col gap-2">
+            <p className="text-sm font-semibold">No estimates yet</p>
+            <p className="text-xs text-foreground-500">
+              Mark checklist items as “Requires action” to enable estimates, then generate a repair estimate for this inspection.
+            </p>
+            {isPropertyManager && (
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  color="primary"
+                  onClick={generateEstimate}
+                  isLoading={estimateLoading}
+                  isDisabled={estimateLoading || actionableCount === 0}
+                >
+                  Generate Estimate
+                </Button>
+                {actionableCount === 0 && (
+                  <span className="text-xs text-foreground-500">No action items yet.</span>
+                )}
+              </div>
+            )}
+          </CardBody>
+        </Card>
+      )}
 
       {inspection.notes && (
         <Card className="mb-4">
@@ -1015,245 +1066,261 @@ export default function InspectionDetailPage(): React.ReactElement {
       )}
 
       <div className="flex flex-col gap-4">
-        {(inspection.rooms ?? []).map((room) => {
-          const drafts = roomDrafts[room.id] ?? {};
-          const dirtyCount = room.checklistItems.reduce((count, item) => {
-            const d = drafts[item.id];
-            if (!d) return count;
-            const baseline: DraftChecklistItem = {
-              requiresAction: !!item.requiresAction,
-              condition: (item.condition ?? null) as any,
-              notes: (item.notes ?? '') ?? '',
-              severity: (item.severity ?? null) as any,
-              issueType: (item.issueType ?? null) as any,
-              measurementValue: (item.measurementValue ?? null) as any,
-              measurementUnit: (item.measurementUnit ?? null) as any,
-              measurementNotes: (item.measurementNotes ?? '') ?? '',
-            };
-            return count + (shallowEqualDraft(d, baseline) ? 0 : 1);
-          }, 0);
+        {(inspection.rooms ?? []).length === 0 ? (
+          <Card className="border border-default-200">
+            <CardBody className="flex flex-col gap-2">
+              <p className="text-sm font-semibold">No rooms on this inspection</p>
+              <p className="text-xs text-foreground-500">
+                Rooms and checklist items will appear here once they are added to the inspection.
+              </p>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="flat" onClick={() => fetchInspection()}>
+                  Refresh
+                </Button>
+              </div>
+            </CardBody>
+          </Card>
+        ) : (
+          (inspection.rooms ?? []).map((room) => {
+            const drafts = roomDrafts[room.id] ?? {};
+            const dirtyCount = room.checklistItems.reduce((count, item) => {
+              const d = drafts[item.id];
+              if (!d) return count;
+              const baseline: DraftChecklistItem = {
+                requiresAction: !!item.requiresAction,
+                condition: (item.condition ?? null) as any,
+                notes: (item.notes ?? '') ?? '',
+                severity: (item.severity ?? null) as any,
+                issueType: (item.issueType ?? null) as any,
+                measurementValue: (item.measurementValue ?? null) as any,
+                measurementUnit: (item.measurementUnit ?? null) as any,
+                measurementNotes: (item.measurementNotes ?? '') ?? '',
+              };
+              return count + (shallowEqualDraft(d, baseline) ? 0 : 1);
+            }, 0);
 
-          // Any row-level save errors are shown inline per item.
+            // Any row-level save errors are shown inline per item.
 
-          return (
-            <Card key={room.id}>
-              <CardHeader className="flex flex-col items-start gap-2">
-                <div className="flex items-center w-full gap-3">
-                  <div className="flex flex-col">
-                    <h2 className="text-lg font-semibold">{room.name}</h2>
-                    <span className="text-xs text-foreground-500">{room.roomType}</span>
-                  </div>
-                  <div className="ml-auto flex items-center gap-2">
-                    {dirtyCount > 0 && (
-                      <Chip size="sm" variant="flat" color="warning">
-                        {dirtyCount} unsaved
-                      </Chip>
-                    )}
-                    <Chip size="sm" variant="flat" color={dirtyCount > 0 ? 'warning' : 'default'}>
-                      Auto-save on row leave
-                    </Chip>
-                  </div>
-                </div>
-              </CardHeader>
-
-              <Divider />
-
-              <CardBody className="flex flex-col gap-4">
-                {(room.checklistItems ?? []).map((item) => {
-                  const draft = drafts[item.id] ?? {
-                    requiresAction: !!item.requiresAction,
-                    condition: (item.condition ?? null) as any,
-                    notes: (item.notes ?? '') ?? '',
-                    severity: (item.severity ?? null) as any,
-                    issueType: (item.issueType ?? null) as any,
-                    measurementValue: (item.measurementValue ?? null) as any,
-                    measurementUnit: (item.measurementUnit ?? null) as any,
-                    measurementNotes: (item.measurementNotes ?? '') ?? '',
-                  };
-
-                  const meta = itemMeta[item.id];
-                  const saving = !!meta?.saving;
-                  const errorMsg = meta?.error;
-
-                  const baseline: DraftChecklistItem = {
-                    requiresAction: !!item.requiresAction,
-                    condition: (item.condition ?? null) as any,
-                    notes: (item.notes ?? '') ?? '',
-                    severity: (item.severity ?? null) as any,
-                    issueType: (item.issueType ?? null) as any,
-                    measurementValue: (item.measurementValue ?? null) as any,
-                    measurementUnit: (item.measurementUnit ?? null) as any,
-                    measurementNotes: (item.measurementNotes ?? '') ?? '',
-                  };
-                  const isDirty = !shallowEqualDraft(draft, baseline);
-
-                  return (
-                    <div
-                      key={item.id}
-                      className="p-3 rounded border border-default-200"
-                      onBlurCapture={(e) => {
-                        const next = e.relatedTarget as any;
-                        if (e.currentTarget.contains(next)) return; // still inside row
-                        void saveItem(room, item);
-                      }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex flex-col">
-                          <div className="text-sm font-semibold">{item.itemName}</div>
-                          <div className="text-xs text-foreground-500">{item.category}</div>
-                        </div>
-                        <div className="ml-auto flex items-center gap-3">
-                          {saving ? (
-                            <Chip size="sm" variant="flat" color="primary">Saving…</Chip>
-                          ) : errorMsg ? (
-                            <Chip size="sm" variant="flat" color="danger">Error</Chip>
-                          ) : isDirty ? (
-                            <Chip size="sm" variant="flat" color="warning">Unsaved</Chip>
-                          ) : meta?.lastSavedAtMs ? (
-                            <Chip size="sm" variant="flat">Saved</Chip>
-                          ) : null}
-
-                          <Button
-                            size="sm"
-                            variant="flat"
-                            color={errorMsg ? 'danger' : 'default'}
-                            isDisabled={!isDirty || saving}
-                            onClick={() => saveItem(room, item)}
-                          >
-                            Save
-                          </Button>
-
-                          <Switch
-                            isSelected={draft.requiresAction}
-                            onValueChange={(v) =>
-                              onDraftChange(room.id, item.id, v
-                                ? { requiresAction: true }
-                                : {
-                                    requiresAction: false,
-                                    condition: null,
-                                    notes: '',
-                                    severity: null,
-                                    issueType: null,
-                                    measurementValue: null,
-                                    measurementUnit: null,
-                                    measurementNotes: '',
-                                  })
-                            }
-                            size="sm"
-                            isDisabled={saving}
-                          >
-                            Requires action
-                          </Switch>
-                        </div>
-                      </div>
-
-                      {errorMsg && (
-                        <div className="mt-2 text-xs text-rose-700">{errorMsg}</div>
+            return (
+              <Card key={room.id}>
+                <CardHeader className="flex flex-col items-start gap-2">
+                  <div className="flex items-center w-full gap-3">
+                    <div className="flex flex-col">
+                      <h2 className="text-lg font-semibold">{room.name}</h2>
+                      <span className="text-xs text-foreground-500">{room.roomType}</span>
+                    </div>
+                    <div className="ml-auto flex items-center gap-2">
+                      {dirtyCount > 0 && (
+                        <Chip size="sm" variant="flat" color="warning">
+                          {dirtyCount} unsaved
+                        </Chip>
                       )}
+                      <Chip size="sm" variant="flat" color={dirtyCount > 0 ? 'warning' : 'default'}>
+                        Auto-save on row leave
+                      </Chip>
+                    </div>
+                  </div>
+                </CardHeader>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-                        <Select
-                          label="Condition"
-                          selectedKeys={draft.condition ? new Set([draft.condition]) : new Set()}
-                          onSelectionChange={(keys) => {
-                            const value = Array.from(keys)[0] as any;
-                            onDraftChange(room.id, item.id, { condition: (value || null) as any });
-                          }}
-                          isDisabled={!draft.requiresAction || saving}
-                          placeholder="Select condition"
-                        >
-                          {conditionOptions.map((opt) => (
-                            <SelectItem key={opt.key}>{opt.label}</SelectItem>
-                          ))}
-                        </Select>
+                <Divider />
 
-                        <Select
-                          label="Severity (optional)"
-                          selectedKeys={draft.severity ? new Set([draft.severity]) : new Set()}
-                          onSelectionChange={(keys) => {
-                            const value = Array.from(keys)[0] as any;
-                            onDraftChange(room.id, item.id, { severity: (value || null) as any });
-                          }}
-                          isDisabled={!draft.requiresAction || saving}
-                          placeholder="Select severity"
-                        >
-                          {severityOptions.map((opt) => (
-                            <SelectItem key={opt.key}>{opt.label}</SelectItem>
-                          ))}
-                        </Select>
+                <CardBody className="flex flex-col gap-4">
+                  {(room.checklistItems ?? []).map((item) => {
+                    const draft = drafts[item.id] ?? {
+                      requiresAction: !!item.requiresAction,
+                      condition: (item.condition ?? null) as any,
+                      notes: (item.notes ?? '') ?? '',
+                      severity: (item.severity ?? null) as any,
+                      issueType: (item.issueType ?? null) as any,
+                      measurementValue: (item.measurementValue ?? null) as any,
+                      measurementUnit: (item.measurementUnit ?? null) as any,
+                      measurementNotes: (item.measurementNotes ?? '') ?? '',
+                    };
 
-                        <Select
-                          label="Issue type (optional)"
-                          selectedKeys={draft.issueType ? new Set([draft.issueType]) : new Set()}
-                          onSelectionChange={(keys) => {
-                            const value = Array.from(keys)[0] as any;
-                            onDraftChange(room.id, item.id, { issueType: (value || null) as any });
-                          }}
-                          isDisabled={!draft.requiresAction || saving}
-                          placeholder="Investigate / Repair / Replace"
-                        >
-                          {issueTypeOptions.map((opt) => (
-                            <SelectItem key={opt.key}>{opt.label}</SelectItem>
-                          ))}
-                        </Select>
+                    const meta = itemMeta[item.id];
+                    const saving = !!meta?.saving;
+                    const errorMsg = meta?.error;
 
-                        <div className="flex gap-2 items-end">
-                          <Input
-                            type="number"
-                            label="Measurement (optional)"
-                            placeholder="0"
-                            value={typeof draft.measurementValue === 'number' ? String(draft.measurementValue) : ''}
-                            onValueChange={(v) => {
-                              const num = v === '' ? null : Number(v);
-                              onDraftChange(room.id, item.id, { measurementValue: Number.isFinite(num as any) ? (num as any) : null });
-                            }}
-                            isDisabled={!draft.requiresAction || saving}
-                          />
+                    const baseline: DraftChecklistItem = {
+                      requiresAction: !!item.requiresAction,
+                      condition: (item.condition ?? null) as any,
+                      notes: (item.notes ?? '') ?? '',
+                      severity: (item.severity ?? null) as any,
+                      issueType: (item.issueType ?? null) as any,
+                      measurementValue: (item.measurementValue ?? null) as any,
+                      measurementUnit: (item.measurementUnit ?? null) as any,
+                      measurementNotes: (item.measurementNotes ?? '') ?? '',
+                    };
+                    const isDirty = !shallowEqualDraft(draft, baseline);
+
+                    return (
+                      <div
+                        key={item.id}
+                        className="p-3 rounded border border-default-200"
+                        onBlurCapture={(e) => {
+                          const next = e.relatedTarget as any;
+                          if (e.currentTarget.contains(next)) return; // still inside row
+                          void saveItem(room, item);
+                        }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex flex-col">
+                            <div className="text-sm font-semibold">{item.itemName}</div>
+                            <div className="text-xs text-foreground-500">{item.category}</div>
+                          </div>
+                          <div className="ml-auto flex items-center gap-3">
+                            {saving ? (
+                              <Chip size="sm" variant="flat" color="primary">Saving…</Chip>
+                            ) : errorMsg ? (
+                              <Chip size="sm" variant="flat" color="danger">Error</Chip>
+                            ) : isDirty ? (
+                              <Chip size="sm" variant="flat" color="warning">Unsaved</Chip>
+                            ) : meta?.lastSavedAtMs ? (
+                              <Chip size="sm" variant="flat">Saved</Chip>
+                            ) : null}
+
+                            <Button
+                              size="sm"
+                              variant="flat"
+                              color={errorMsg ? 'danger' : 'default'}
+                              isDisabled={!isDirty || saving}
+                              onClick={() => saveItem(room, item)}
+                            >
+                              Save
+                            </Button>
+
+                            <Switch
+                              isSelected={draft.requiresAction}
+                              onValueChange={(v) =>
+                                onDraftChange(room.id, item.id, v
+                                  ? { requiresAction: true }
+                                  : {
+                                      requiresAction: false,
+                                      condition: null,
+                                      notes: '',
+                                      severity: null,
+                                      issueType: null,
+                                      measurementValue: null,
+                                      measurementUnit: null,
+                                      measurementNotes: '',
+                                    })
+                              }
+                              size="sm"
+                              isDisabled={saving}
+                            >
+                              Requires action
+                            </Switch>
+                          </div>
+                        </div>
+
+                        {errorMsg && (
+                          <div className="mt-2 text-xs text-rose-700">{errorMsg}</div>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                           <Select
-                            aria-label="Measurement unit"
-                            selectedKeys={draft.measurementUnit ? new Set([draft.measurementUnit]) : new Set()}
+                            label="Condition"
+                            selectedKeys={draft.condition ? new Set([draft.condition]) : new Set()}
                             onSelectionChange={(keys) => {
                               const value = Array.from(keys)[0] as any;
-                              onDraftChange(room.id, item.id, { measurementUnit: (value || null) as any });
+                              onDraftChange(room.id, item.id, { condition: (value || null) as any });
                             }}
                             isDisabled={!draft.requiresAction || saving}
-                            placeholder="Unit"
-                            className="min-w-[140px]"
+                            placeholder="Select condition"
                           >
-                            {measurementUnitOptions.map((opt) => (
+                            {conditionOptions.map((opt) => (
                               <SelectItem key={opt.key}>{opt.label}</SelectItem>
                             ))}
                           </Select>
-                        </div>
 
-                        <div className="md:col-span-2">
-                          <Input
-                            label="Measurement notes (optional)"
-                            placeholder="e.g., approx 12 linear ft along baseboard"
-                            value={draft.measurementNotes ?? ''}
-                            onValueChange={(v) => onDraftChange(room.id, item.id, { measurementNotes: v })}
+                          <Select
+                            label="Severity (optional)"
+                            selectedKeys={draft.severity ? new Set([draft.severity]) : new Set()}
+                            onSelectionChange={(keys) => {
+                              const value = Array.from(keys)[0] as any;
+                              onDraftChange(room.id, item.id, { severity: (value || null) as any });
+                            }}
                             isDisabled={!draft.requiresAction || saving}
-                          />
-                        </div>
+                            placeholder="Select severity"
+                          >
+                            {severityOptions.map((opt) => (
+                              <SelectItem key={opt.key}>{opt.label}</SelectItem>
+                            ))}
+                          </Select>
 
-                        <div className="md:col-span-2">
-                          <Textarea
-                            label="Notes"
-                            placeholder="Describe the issue, symptoms, and any context…"
-                            value={draft.notes}
-                            onValueChange={(v) => onDraftChange(room.id, item.id, { notes: v })}
+                          <Select
+                            label="Issue type (optional)"
+                            selectedKeys={draft.issueType ? new Set([draft.issueType]) : new Set()}
+                            onSelectionChange={(keys) => {
+                              const value = Array.from(keys)[0] as any;
+                              onDraftChange(room.id, item.id, { issueType: (value || null) as any });
+                            }}
                             isDisabled={!draft.requiresAction || saving}
-                            minRows={2}
-                          />
+                            placeholder="Investigate / Repair / Replace"
+                          >
+                            {issueTypeOptions.map((opt) => (
+                              <SelectItem key={opt.key}>{opt.label}</SelectItem>
+                            ))}
+                          </Select>
+
+                          <div className="flex gap-2 items-end">
+                            <Input
+                              type="number"
+                              label="Measurement (optional)"
+                              placeholder="0"
+                              value={typeof draft.measurementValue === 'number' ? String(draft.measurementValue) : ''}
+                              onValueChange={(v) => {
+                                const num = v === '' ? null : Number(v);
+                                onDraftChange(room.id, item.id, { measurementValue: Number.isFinite(num as any) ? (num as any) : null });
+                              }}
+                              isDisabled={!draft.requiresAction || saving}
+                            />
+                            <Select
+                              aria-label="Measurement unit"
+                              selectedKeys={draft.measurementUnit ? new Set([draft.measurementUnit]) : new Set()}
+                              onSelectionChange={(keys) => {
+                                const value = Array.from(keys)[0] as any;
+                                onDraftChange(room.id, item.id, { measurementUnit: (value || null) as any });
+                              }}
+                              isDisabled={!draft.requiresAction || saving}
+                              placeholder="Unit"
+                              className="min-w-[140px]"
+                            >
+                              {measurementUnitOptions.map((opt) => (
+                                <SelectItem key={opt.key}>{opt.label}</SelectItem>
+                              ))}
+                            </Select>
+                          </div>
+
+                          <div className="md:col-span-2">
+                            <Input
+                              label="Measurement notes (optional)"
+                              placeholder="e.g., approx 12 linear ft along baseboard"
+                              value={draft.measurementNotes ?? ''}
+                              onValueChange={(v) => onDraftChange(room.id, item.id, { measurementNotes: v })}
+                              isDisabled={!draft.requiresAction || saving}
+                            />
+                          </div>
+
+                          <div className="md:col-span-2">
+                            <Textarea
+                              label="Notes"
+                              placeholder="Describe the issue, symptoms, and any context…"
+                              value={draft.notes}
+                              onValueChange={(v) => onDraftChange(room.id, item.id, { notes: v })}
+                              isDisabled={!draft.requiresAction || saving}
+                              minRows={2}
+                            />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </CardBody>
-            </Card>
-          );
-        })}
+                    );
+                  })}
+                </CardBody>
+              </Card>
+            );
+          })
+        )}
       </div>
     </div>
   );
