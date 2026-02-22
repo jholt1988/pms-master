@@ -13,8 +13,9 @@ import {
   Switch,
   Textarea,
   Input,
+  Tooltip,
 } from '@nextui-org/react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Info } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { apiFetch } from './services/apiClient';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
@@ -293,11 +294,35 @@ type Estimate = {
   }>;
 };
 
+function InfoTip({ label, content }: { label: string; content: string }) {
+  return (
+    <Tooltip
+      content={<div className="max-w-xs text-xs text-foreground-600">{content}</div>}
+      placement="top"
+      showArrow
+    >
+      <span className="inline-flex items-center gap-1 text-xs text-foreground-500">
+        {label}
+        <Info size={12} className="text-foreground-400" />
+      </span>
+    </Tooltip>
+  );
+}
+
 function EstimatePanel({ estimate, embedded = false, token, canManage = false }: { estimate: any; embedded?: boolean; token?: string; canManage?: boolean }) {
   const e = normalizeEstimate(estimate);
   const currency = e.currency ?? 'USD';
 
   const hasRange = typeof e.bidLowTotal === 'number' && typeof e.bidHighTotal === 'number';
+  const lineItemCount = e.lineItems?.length ?? 0;
+  const assumptions = (e as any).assumptions as string[] | undefined;
+  const questions = (e as any).questionsToReduceUncertainty as string[] | undefined;
+  const whySummary = [
+    e.confidenceReason,
+    lineItemCount > 0 ? `Derived from ${lineItemCount} line item${lineItemCount === 1 ? '' : 's'} (${e.itemsToRepair ?? 0} repair, ${e.itemsToReplace ?? 0} replace).` : null,
+    assumptions?.[0] ? `Key assumption: ${assumptions[0]}` : null,
+    questions?.[0] ? `To tighten the bid: ${questions[0]}` : null,
+  ].filter(Boolean) as string[];
 
   const body = (
     <div className={embedded ? 'flex flex-col gap-4' : 'flex flex-col gap-4'}>
@@ -367,20 +392,44 @@ function EstimatePanel({ estimate, embedded = false, token, canManage = false }:
         </Card>
       )}
 
+      {whySummary.length > 0 && (
+        <Card className="border border-default-200 bg-default-50/60">
+          <CardBody className="p-3">
+            <div className="flex items-center gap-2">
+              <div className="text-xs text-foreground-500 font-semibold">Why this estimate?</div>
+              <InfoTip
+                label="How we explain"
+                content="Summaries are derived from inspection notes, line item counts, and the AI confidence metadata provided at generation time."
+              />
+            </div>
+            <ul className="mt-2 text-xs text-foreground-600 list-disc pl-5">
+              {whySummary.slice(0, 3).map((line, idx) => (
+                <li key={idx} className="whitespace-pre-wrap">{line}</li>
+              ))}
+            </ul>
+          </CardBody>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
-        <Stat label="Total (expected)" value={formatCurrency(e.totalProjectCost ?? 0, currency)} />
+        <Stat
+          label="Total (expected)"
+          value={formatCurrency(e.totalProjectCost ?? 0, currency)}
+          helpText="Expected midpoint based on the AI estimate summary and line items."
+        />
         {hasRange ? (
           <Stat
             label="Bid range"
             value={`${formatCurrency(e.bidLowTotal as number, currency)} – ${formatCurrency(e.bidHighTotal as number, currency)}`}
+            helpText="Low/high bounds reflect uncertainty in scope, labor, and materials."
           />
         ) : (
-          <Stat label="Bid range" value="—" />
+          <Stat label="Bid range" value="—" helpText="No range available for this estimate." />
         )}
-        <Stat label="Labor" value={formatCurrency(e.totalLaborCost ?? 0, currency)} />
-        <Stat label="Materials" value={formatCurrency(e.totalMaterialCost ?? 0, currency)} />
-        <Stat label="Items to repair" value={String(e.itemsToRepair ?? 0)} />
-        <Stat label="Items to replace" value={String(e.itemsToReplace ?? 0)} />
+        <Stat label="Labor" value={formatCurrency(e.totalLaborCost ?? 0, currency)} helpText="Labor cost derived from estimated hours and rate by line item." />
+        <Stat label="Materials" value={formatCurrency(e.totalMaterialCost ?? 0, currency)} helpText="Material cost derived from parts and supplies per line item." />
+        <Stat label="Items to repair" value={String(e.itemsToRepair ?? 0)} helpText="Count of line items marked as repair." />
+        <Stat label="Items to replace" value={String(e.itemsToReplace ?? 0)} helpText="Count of line items marked as replacement." />
       </div>
 
       <Divider />
@@ -443,6 +492,13 @@ function EstimatePanel({ estimate, embedded = false, token, canManage = false }:
                     </div>
                   )}
                 </div>
+
+                {(li.confidenceReason || (li.assumptions?.length ?? 0) > 0) && (
+                  <div className="mt-2 text-xs text-foreground-600">
+                    <span className="font-semibold text-foreground-500">Why:</span>{' '}
+                    {li.confidenceReason ? li.confidenceReason : `Assumption: ${li.assumptions?.[0]}`}
+                  </div>
+                )}
 
                 {((li.repairInstructions || li.notes) || (li.assumptions?.length || li.questionsToReduceUncertainty?.length)) && (
                   <div className="mt-2 text-xs">
@@ -673,10 +729,12 @@ function EstimatePanel({ estimate, embedded = false, token, canManage = false }:
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, helpText }: { label: string; value: string; helpText?: string }) {
   return (
     <div className="border border-default-200 rounded p-3">
-      <div className="text-xs text-foreground-500">{label}</div>
+      <div className="text-xs text-foreground-500">
+        {helpText ? <InfoTip label={label} content={helpText} /> : label}
+      </div>
       <div className="text-sm font-semibold">{value}</div>
     </div>
   );
