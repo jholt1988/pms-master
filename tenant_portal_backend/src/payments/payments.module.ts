@@ -9,6 +9,7 @@ import { PaymentMethodsController } from './payment-methods.controller';
 import { PaymentMethodsService } from './payment-methods.service';
 import { StripeService } from './stripe.service';
 import { EmailModule } from '../email/email.module';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 
 @Module({
   imports: [PrismaModule, ConfigModule, EmailModule],
@@ -19,6 +20,7 @@ import { EmailModule } from '../email/email.module';
     AIPaymentService,
     AIPaymentMetricsService,
     StripeService,
+    OrgContextGuard,
   ],
   exports: [
     PaymentsService,

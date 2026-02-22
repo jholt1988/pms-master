@@ -2,11 +2,12 @@ import { Module } from '@nestjs/common';
 import { ScheduleController } from './schedule.controller';
 import { ScheduleService } from './schedule.service';
 import { PrismaModule } from '../prisma/prisma.module';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 
 @Module({
   imports: [PrismaModule],
   controllers: [ScheduleController],
-  providers: [ScheduleService],
+  providers: [ScheduleService, OrgContextGuard],
   exports: [ScheduleService],
 })
 export class EventScheduleModule {}

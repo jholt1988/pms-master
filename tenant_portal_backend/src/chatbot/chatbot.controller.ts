@@ -11,7 +11,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('chatbot')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), OrgContextGuard)
 export class ChatbotController {
   constructor(private readonly chatbotService: ChatbotService) {}
 

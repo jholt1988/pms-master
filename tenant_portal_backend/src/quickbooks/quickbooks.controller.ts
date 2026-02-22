@@ -14,11 +14,12 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { QuickBooksMinimalService } from './quickbooks-minimal.service';
 
 @ApiTags('quickbooks')
 @ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 @Controller('quickbooks')
 export class QuickBooksController {
   private readonly logger = new Logger(QuickBooksController.name);

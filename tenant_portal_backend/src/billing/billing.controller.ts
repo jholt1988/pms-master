@@ -4,6 +4,7 @@ import { UpsertScheduleDto } from './dto/upsert-schedule.dto';
 import { ConfigureAutopayDto } from './dto/configure-autopay.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '@prisma/client';
 import { Request } from 'express';
@@ -20,14 +21,14 @@ interface AuthenticatedRequest extends Request {
 export class BillingController {
   constructor(private readonly billingService: BillingService) {}
 
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles(Role.PROPERTY_MANAGER)
   @Get('schedules')
   async listSchedules() {
     return this.billingService.listSchedules();
   }
 
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles(Role.PROPERTY_MANAGER)
   @Post('schedules')
   async upsertSchedule(@Body() dto: UpsertScheduleDto, @Req() req: AuthenticatedRequest) {
@@ -37,7 +38,7 @@ export class BillingController {
     );
   }
 
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles(Role.PROPERTY_MANAGER)
   @Patch('schedules/:leaseId/deactivate')
   async deactivate(@Param('leaseId') leaseId: string, @Req() req: AuthenticatedRequest) {
@@ -47,7 +48,7 @@ export class BillingController {
     );
   }
 
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles(Role.TENANT, Role.PROPERTY_MANAGER)
   @Get('autopay')
   async getAutopay(@Req() req: AuthenticatedRequest, @Query('leaseId') leaseId?: string) {
@@ -68,7 +69,7 @@ export class BillingController {
     };
   }
 
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles(Role.TENANT, Role.PROPERTY_MANAGER)
   @Post('autopay')
   async configureAutopay(@Body() dto: ConfigureAutopayDto, @Req() req: AuthenticatedRequest) {
@@ -78,7 +79,7 @@ export class BillingController {
     );
   }
 
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles(Role.TENANT, Role.PROPERTY_MANAGER)
   @Patch('autopay/:leaseId/disable')
   async disableAutopay(@Param('leaseId') leaseId: string, @Req() req: AuthenticatedRequest) {
@@ -88,7 +89,7 @@ export class BillingController {
     );
   }
 
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles(Role.PROPERTY_MANAGER)
   @Post('run')
   async runBilling() {

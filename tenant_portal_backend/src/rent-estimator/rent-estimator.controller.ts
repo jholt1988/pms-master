@@ -5,9 +5,10 @@ import { RentEstimatorService } from './rent-estimator.service';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 
 @Controller('rent-estimator')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 @Roles(Role.PROPERTY_MANAGER)
 export class RentEstimatorController {
   constructor(private readonly rentEstimatorService: RentEstimatorService) {}

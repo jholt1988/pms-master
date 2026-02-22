@@ -25,6 +25,7 @@ import {
   CreateBulkMessageDto,
 } from './dto/messaging.dto';
 import { RolesGuard } from '../auth/roles.guard';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '@prisma/client';
 
@@ -37,7 +38,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('messaging')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), OrgContextGuard)
 export class MessagingController {
   constructor(
     private readonly messagingService: MessagingService,

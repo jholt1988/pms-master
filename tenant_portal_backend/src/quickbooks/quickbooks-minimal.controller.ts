@@ -16,7 +16,7 @@ import { QuickBooksMinimalService } from './quickbooks-minimal.service';
 @ApiTags('QuickBooks Integration')
 @ApiBearerAuth()
 @Controller('quickbooks')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), OrgContextGuard)
 export class QuickBooksController {
   private readonly logger = new Logger(QuickBooksController.name);
 

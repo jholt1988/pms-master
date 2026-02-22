@@ -14,7 +14,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('notifications')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), OrgContextGuard)
 export class NotificationsController {
   constructor(
     private readonly notificationsService: NotificationsService,

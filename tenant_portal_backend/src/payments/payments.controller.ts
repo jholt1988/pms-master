@@ -4,6 +4,7 @@ import { PaymentsService } from './payments.service';
 import { AIPaymentMetricsService } from './ai-payment-metrics.service';
 import { Invoice, Payment, Role } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
@@ -18,7 +19,7 @@ type AuthenticatedRequest = ExpressRequest & {
 };
 
 @Controller('payments')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 export class PaymentsController {
   constructor(
     private readonly paymentsService: PaymentsService,

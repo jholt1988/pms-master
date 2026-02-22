@@ -30,7 +30,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('documents')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), OrgContextGuard)
 export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
 

@@ -30,7 +30,7 @@ interface AuthenticatedRequest {
 }
 
 @Controller('messaging')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), OrgContextGuard)
 export class MessagingLegacyController {
   constructor(
     private readonly messagingService: MessagingService,

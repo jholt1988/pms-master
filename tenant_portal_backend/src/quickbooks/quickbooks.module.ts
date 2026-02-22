@@ -6,6 +6,7 @@ import { QuickBooksController as QuickBooksMinimalController } from './quickbook
 
 import { QuickBooksController as QuickBooksFullController } from './quickbooks.controller';
 import { QuickBooksService } from './quickbooks.service';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 
 const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
 
@@ -15,8 +16,8 @@ const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
     ? [QuickBooksMinimalController, QuickBooksFullController]
     : [QuickBooksMinimalController],
   providers: legacyEnabled
-    ? [QuickBooksMinimalService, QuickBooksService]
-    : [QuickBooksMinimalService],
+    ? [QuickBooksMinimalService, QuickBooksService, OrgContextGuard]
+    : [QuickBooksMinimalService, OrgContextGuard],
   exports: [QuickBooksMinimalService],
 })
 export class QuickBooksModule {}

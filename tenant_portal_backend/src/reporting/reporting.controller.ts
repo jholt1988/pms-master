@@ -2,6 +2,7 @@ import { Controller, Get, Query, UseGuards, Req, ParseIntPipe } from '@nestjs/co
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { Role, LeaseStatus } from '@prisma/client';
 import { ReportingService } from './reporting.service';
 import { Request } from 'express';
@@ -15,7 +16,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('reporting')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 @Roles(Role.PROPERTY_MANAGER)
 export class ReportingController {
   constructor(private readonly reportingService: ReportingService) {}
