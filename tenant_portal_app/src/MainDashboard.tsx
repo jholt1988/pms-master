@@ -44,6 +44,8 @@ interface DashboardMetrics {
     pending: number;
     approved: number;
     rejected: number;
+    legalAccepted?: number;
+    legalMissing?: number;
   };
 }
 
@@ -147,7 +149,7 @@ const MainDashboard = () => {
           occupancy: { total: 0, occupied: 0, vacant: 0, percentage: 0 },
           financials: { monthlyRevenue: 0, collectedThisMonth: 0, outstanding: 0 },
           maintenance: { total: 0, pending: 0, inProgress: 0, overdue: 0 },
-          applications: { total: 0, pending: 0, approved: 0, rejected: 0 },
+          applications: { total: 0, pending: 0, approved: 0, rejected: 0, legalAccepted: 0, legalMissing: 0 },
         });
       } finally {
         setLoading(false);
@@ -260,6 +262,11 @@ const MainDashboard = () => {
                 <h3 className="text-white font-medium">Leasing Pipeline</h3>
                 <p className="text-xs text-gray-400 font-mono">
                   {loading ? 'Loading...' : `${metrics?.applications?.pending || 0} Applications Pending Review`}
+                </p>
+                <p className="text-[10px] text-gray-500 font-mono">
+                  {loading
+                    ? 'Legal acceptance loading…'
+                    : `${metrics?.applications?.legalAccepted || 0} accepted · ${metrics?.applications?.legalMissing || 0} missing`}
                 </p>
               </div>
             </div>
