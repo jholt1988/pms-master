@@ -294,6 +294,38 @@ type Estimate = {
   }>;
 };
 
+function getConfidenceColor(level?: string) {
+  switch (level) {
+    case 'VERY_HIGH': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+    case 'HIGH': return 'bg-green-100 text-green-800 border-green-200';
+    case 'MEDIUM': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+    case 'LOW': return 'bg-orange-100 text-orange-800 border-orange-200';
+    case 'VERY_LOW': return 'bg-red-100 text-red-800 border-red-200';
+    default: return 'bg-gray-100 text-gray-600 border-gray-200';
+  }
+}
+
+function getConfidenceIcon(level?: string) {
+  switch (level) {
+    case 'VERY_HIGH': return '✓✓';
+    case 'HIGH': return '✓';
+    case 'MEDIUM': return '~';
+    case 'LOW': return '⚠';
+    case 'VERY_LOW': return '✗';
+    default: return '?';
+  }
+}
+
+function ConfidenceBadge({ level }: { level?: string }) {
+  if (!level) return null;
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded border text-xs font-medium ${getConfidenceColor(level)}`}>
+      <span className="mr-1">{getConfidenceIcon(level)}</span>
+      {level.replaceAll('_', ' ')}
+    </span>
+  );
+}
+
 function InfoTip({ label, content }: { label: string; content: string }) {
   return (
     <Tooltip
@@ -330,11 +362,7 @@ function EstimatePanel({ estimate, embedded = false, token, canManage = false }:
         <div className="border border-default-200 rounded p-3">
           <div className="flex items-center gap-2 mb-1">
             <div className="text-xs text-foreground-500 font-semibold">Bid explanation</div>
-            {e.confidenceLevel && (
-              <Chip size="sm" variant="flat" color="secondary">
-                Confidence: {e.confidenceLevel.replaceAll('_', ' ')}
-              </Chip>
-            )}
+            <ConfidenceBadge level={e.confidenceLevel} />
           </div>
           <div className="text-sm">
             {e.confidenceReason ? e.confidenceReason : 'Bid range reflects uncertainty in labor/materials and scope based on the inspection notes.'}
@@ -381,7 +409,7 @@ function EstimatePanel({ estimate, embedded = false, token, canManage = false }:
               </div>
               {e.confidenceLevel && (
                 <Chip size="sm" variant="flat" color="secondary">
-                  Confidence: {e.confidenceLevel.replaceAll('_', ' ')}
+                  <ConfidenceBadge level={e.confidenceLevel} />
                 </Chip>
               )}
             </div>
@@ -487,7 +515,7 @@ function EstimatePanel({ estimate, embedded = false, token, canManage = false }:
                   </div>
                   {li.confidenceLevel && (
                     <div className="md:col-span-3">
-                      Confidence: <span className="font-semibold">{li.confidenceLevel.replaceAll('_', ' ')}</span>
+                      <ConfidenceBadge level={li.confidenceLevel} />
                       {li.confidenceReason ? ` — ${li.confidenceReason}` : ''}
                     </div>
                   )}
@@ -1529,7 +1557,7 @@ export default function InspectionDetailPage(): React.ReactElement {
                   <div><strong>Bid range:</strong> {formatCurrency(latestEstimate.bidLowTotal ?? 0, latestEstimate.currency ?? 'USD')} - {formatCurrency(latestEstimate.bidHighTotal ?? 0, latestEstimate.currency ?? 'USD')}</div>
                 )}
                 {latestEstimate.confidenceLevel && (
-                  <div><strong>Confidence:</strong> {latestEstimate.confidenceLevel.replaceAll('_', ' ')}{latestEstimate.confidenceReason ? ` — ${latestEstimate.confidenceReason}` : ''}</div>
+                  <div><strong>Confidence:</strong> <ConfidenceBadge level={latestEstimate.confidenceLevel} />{latestEstimate.confidenceReason ? ` — ${latestEstimate.confidenceReason}` : ''}</div>
                 )}
                 {latestEstimate.generatedAt && (
                   <div><strong>Generated:</strong> {new Date(latestEstimate.generatedAt).toLocaleString()}</div>
