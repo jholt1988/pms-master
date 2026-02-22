@@ -112,6 +112,11 @@ const measurementUnitOptions: Array<{ key: MeasurementUnit; label: string }> = [
   { key: 'FOOT', label: 'Ft' },
 ];
 
+const labelFromOptions = <T extends { key: string; label: string }>(options: T[], key?: string | null) => {
+  if (!key) return '—';
+  return options.find((opt) => opt.key === key)?.label ?? key;
+};
+
 const getStatusColor = (status: InspectionStatus) => {
   switch (status) {
     case 'SCHEDULED':
@@ -857,6 +862,17 @@ export default function InspectionDetailPage(): React.ReactElement {
     return sorted[0]?.generatedAt ?? null;
   }, [estimateResult, inspection]);
 
+  const latestEstimate = useMemo(() => {
+    if (estimateResult) return estimateResult as any;
+    const arr = (inspection as any)?.repairEstimates ?? [];
+    const sorted = [...arr].sort((a: any, b: any) => {
+      const ad = a?.generatedAt ? new Date(a.generatedAt).getTime() : 0;
+      const bd = b?.generatedAt ? new Date(b.generatedAt).getTime() : 0;
+      return bd - ad;
+    });
+    return sorted[0] ?? null;
+  }, [estimateResult, inspection]);
+
   const headerTitle = useMemo(() => {
     if (!inspection) return 'Inspection';
     const prop = inspection.property?.name ?? 'Property';
@@ -927,7 +943,8 @@ export default function InspectionDetailPage(): React.ReactElement {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <>
+      <div className="p-6 max-w-6xl mx-auto print-hidden">
       <div className="flex items-center gap-3 mb-4">
         <Button isIconOnly variant="light" onClick={() => navigate(-1)}>
           <ArrowLeft size={20} />
@@ -949,6 +966,9 @@ export default function InspectionDetailPage(): React.ReactElement {
           </div>
         </div>
         <div className="ml-auto flex items-center gap-2">
+          <Button variant="flat" onClick={() => window.print()}>
+            Print / Export
+          </Button>
           {isPropertyManager && (
             <div className="flex flex-col items-end">
               <div className="flex items-center gap-2">
@@ -1336,6 +1356,118 @@ export default function InspectionDetailPage(): React.ReactElement {
           })
         )}
       </div>
-    </div>
+      <div className="print-only">
+        <div className="print-page">
+          <div className="print-section">
+            <div className="print-title">Inspection Report</div>
+            <div className="print-subtitle">{headerTitle}</div>
+            <div className="print-meta">
+              <div><strong>Status:</strong> {inspection.status}</div>
+              <div><strong>Type:</strong> {inspection.type}</div>
+              <div><strong>Scheduled:</strong> {new Date(inspection.scheduledDate).toLocaleString()}</div>
+              {inspection.completedDate && (
+                <div><strong>Completed:</strong> {new Date(inspection.completedDate).toLocaleString()}</div>
+              )}
+              <div><strong>Exported:</strong> {new Date().toLocaleString()}</div>
+              <div><strong>Action items:</strong> {actionableCount}</div>
+            </div>
+          </div>
+
+          {latestEstimate && (
+            <div className="print-section print-card">
+              <div className="print-section-title">Estimate Summary</div>
+              <div className="print-meta">
+                <div><strong>Total labor:</strong> {formatCurrency(latestEstimate.totalLaborCost ?? 0, latestEstimate.currency ?? 'USD')}</div>
+                <div><strong>Total materials:</strong> {formatCurrency(latestEstimate.totalMaterialCost ?? 0, latestEstimate.currency ?? 'USD')}</div>
+                <div><strong>Total project:</strong> {formatCurrency(latestEstimate.totalProjectCost ?? 0, latestEstimate.currency ?? 'USD')}</div>
+                {(typeof latestEstimate.bidLowTotal === 'number' || typeof latestEstimate.bidHighTotal === 'number') && (
+                  <div><strong>Bid range:</strong> {formatCurrency(latestEstimate.bidLowTotal ?? 0, latestEstimate.currency ?? 'USD')} - {formatCurrency(latestEstimate.bidHighTotal ?? 0, latestEstimate.currency ?? 'USD')}</div>
+                )}
+                {latestEstimate.generatedAt && (
+                  <div><strong>Generated:</strong> {new Date(latestEstimate.generatedAt).toLocaleString()}</div>
+                )}
+              </div>
+              {(latestEstimate.lineItems ?? []).length > 0 && (
+                <table className="print-table">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th>Location</th>
+                      <th>Category</th>
+                      <th>Issue</th>
+                      <th>Labor</th>
+                      <th>Materials</th>
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(latestEstimate.lineItems ?? []).map((line: any) => (
+                      <tr key={line.id ?? line.itemDescription}>
+                        <td>{line.itemDescription}</td>
+                        <td>{line.location}</td>
+                        <td>{line.category}</td>
+                        <td>{line.issueType}</td>
+                        <td>{formatCurrency(line.laborCost ?? 0, latestEstimate.currency ?? 'USD')}</td>
+                        <td>{formatCurrency(line.materialCost ?? 0, latestEstimate.currency ?? 'USD')}</td>
+                        <td>{formatCurrency(line.totalCost ?? 0, latestEstimate.currency ?? 'USD')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+
+          {inspection.notes && (
+            <div className="print-section print-card">
+              <div className="print-section-title">Inspection Notes</div>
+              <div className="print-text">{inspection.notes}</div>
+            </div>
+          )}
+
+          <div className="print-section">
+            <div className="print-section-title">Rooms & Checklist</div>
+            {(inspection.rooms ?? []).map((room) => (
+              <div key={room.id} className="print-card">
+                <div className="print-room-title">{room.name} <span className="print-muted">({room.roomType})</span></div>
+                <table className="print-table">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th>Category</th>
+                      <th>Condition</th>
+                      <th>Requires action</th>
+                      <th>Severity</th>
+                      <th>Issue type</th>
+                      <th>Measurement</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(room.checklistItems ?? []).map((item) => (
+                      <tr key={item.id}>
+                        <td>{item.itemName}</td>
+                        <td>{item.category}</td>
+                        <td>{labelFromOptions(conditionOptions, item.condition ?? null)}</td>
+                        <td>{item.requiresAction ? 'Yes' : 'No'}</td>
+                        <td>{labelFromOptions(severityOptions, item.severity ?? null)}</td>
+                        <td>{labelFromOptions(issueTypeOptions, item.issueType ?? null)}</td>
+                        <td>
+                          {typeof item.measurementValue === 'number'
+                            ? `${item.measurementValue} ${labelFromOptions(measurementUnitOptions, item.measurementUnit ?? null)}`
+                            : '—'}
+                          {item.measurementNotes ? ` (${item.measurementNotes})` : ''}
+                        </td>
+                        <td>{item.notes || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
   );
 }

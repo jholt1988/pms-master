@@ -117,3 +117,102 @@ textarea:focus-visible,
   clip: auto;
   white-space: normal;
 }
+
+/* Print styles for inspection export */
+.print-only {
+  display: none;
+}
+
+@media print {
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    background: #ffffff;
+    color: #111111;
+  }
+
+  .print-hidden {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .print-page {
+    padding: 24px;
+    max-width: none;
+  }
+
+  .print-title {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .print-subtitle {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .print-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 6px 16px;
+    font-size: 12px;
+  }
+
+  .print-section {
+    margin-bottom: 20px;
+  }
+
+  .print-section-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .print-room-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .print-muted {
+    color: #666666;
+    font-weight: 400;
+  }
+
+  .print-card {
+    border: 1px solid #d1d5db;
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+
+  .print-text {
+    font-size: 12px;
+    white-space: pre-wrap;
+  }
+
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+
+  .print-table th,
+  .print-table td {
+    border: 1px solid #d1d5db;
+    padding: 6px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .print-table th {
+    background: #f3f4f6;
+    font-weight: 600;
+  }
+}
