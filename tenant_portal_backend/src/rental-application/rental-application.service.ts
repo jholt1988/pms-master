@@ -94,6 +94,22 @@ export class RentalApplicationService {
       }
     }
 
+    await this.securityEvents.logEvent({
+      type: SecurityEventType.APPLICATION_LEGAL_ACCEPTED,
+      success: true,
+      userId: applicantId ?? null,
+      username: application.email,
+      metadata: {
+        applicationId: application.id,
+        propertyId: application.propertyId,
+        unitId: application.unitId,
+        termsVersion: application.termsVersion,
+        privacyVersion: application.privacyVersion,
+        termsAcceptedAt: application.termsAcceptedAt,
+        privacyAcceptedAt: application.privacyAcceptedAt,
+      },
+    });
+
     return application;
   }
 

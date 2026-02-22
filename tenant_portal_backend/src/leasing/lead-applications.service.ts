@@ -4,15 +4,17 @@
  */
 
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { LeadApplicationStatus } from '@prisma/client';
+import { LeadApplicationStatus, SecurityEventType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
+import { SecurityEventsService } from '../security-events/security-events.service';
 
 @Injectable()
 export class LeadApplicationsService {
   constructor(
     private prisma: PrismaService,
     private emailService: EmailService,
+    private securityEvents: SecurityEventsService,
   ) {}
 
   /**
@@ -59,6 +61,23 @@ export class LeadApplicationsService {
         application.property,
       ).catch(err => console.error('Failed to send application confirmation:', err));
     }
+
+    await this.securityEvents.logEvent({
+      type: SecurityEventType.APPLICATION_LEGAL_ACCEPTED,
+      success: true,
+      userId: null,
+      username: application.lead?.email ?? application.lead?.name ?? null,
+      metadata: {
+        applicationId: application.id,
+        propertyId: application.propertyId,
+        unitId: application.unitId,
+        termsVersion: application.termsVersion,
+        privacyVersion: application.privacyVersion,
+        termsAcceptedAt: application.termsAcceptedAt,
+        privacyAcceptedAt: application.privacyAcceptedAt,
+        leadId: application.leadId,
+      },
+    });
 
     return application;
   }
