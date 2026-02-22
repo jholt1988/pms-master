@@ -141,8 +141,9 @@ model Property {
   tags                 String[]                  @default([])
   yearBuilt            Int?
   createdAt            DateTime                  @default(now())
-  organizationId       String?                   @db.Uuid
-  organization         Organization?              @relation(fields: [organizationId], references: [id])
+  updatedAt            DateTime                  @updatedAt
+  organizationId       String                    @db.Uuid
+  organization         Organization              @relation(fields: [organizationId], references: [id])
   units                Unit[]
   rentalApplications   RentalApplication[]
   expenses             Expense[]
@@ -170,6 +171,7 @@ model Property {
   @@index([bedrooms])
   @@index([bathrooms])
   @@index([minRent])
+  @@index([organizationId])
   approvalTasks ApprovalTask[]
 }
 
