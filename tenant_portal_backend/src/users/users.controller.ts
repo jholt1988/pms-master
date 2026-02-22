@@ -20,6 +20,7 @@ import { ListUsersDto } from './dto/list-users.dto';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
+import { OrgId } from '../common/org-context/org-id.decorator';
 import { Role } from '@prisma/client';
 import { Request } from 'express';
 
@@ -38,9 +39,9 @@ export class UsersController {
 
   @Get()
   @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
-  async listUsers(@Query() query: ListUsersDto) {
-    const users = await this.usersService.findAll(query.skip, query.take, query.role);
-    const total = await this.usersService.count(query.role);
+  async listUsers(@Query() query: ListUsersDto, @OrgId() orgId?: string) {
+    const users = await this.usersService.findAll(query.skip, query.take, query.role, orgId);
+    const total = await this.usersService.count(query.role, orgId);
     return {
       data: users,
       total,
@@ -51,8 +52,8 @@ export class UsersController {
 
   @Get(':id')
   @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
-  async getUser(@Param('id') id: string) {
-    const user = await this.usersService.findById(id);
+  async getUser(@Param('id') id: string, @OrgId() orgId?: string) {
+    const user = await this.usersService.findById(id, orgId);
     if (!user) {
       throw new BadRequestException('User not found');
     }
@@ -63,8 +64,8 @@ export class UsersController {
 
   @Post()
   @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
-  async createUser(@Body() createUserDto: CreateUserDto, @Req() req: AuthenticatedRequest) {
-    return this.usersService.create(createUserDto, req.user.role);
+  async createUser(@Body() createUserDto: CreateUserDto, @Req() req: AuthenticatedRequest, @OrgId() orgId?: string) {
+    return this.usersService.create(createUserDto, req.user.role, orgId);
   }
 
   @Put(':id')
@@ -73,14 +74,15 @@ export class UsersController {
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
     @Req() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
   ) {
-    return this.usersService.update(id, updateUserDto, req.user.sub, req.user.role);
+    return this.usersService.update(id, updateUserDto, req.user.sub, req.user.role, orgId);
   }
 
   @Delete(':id')
   @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
-  async deleteUser(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
-    await this.usersService.delete(id, req.user.sub);
+  async deleteUser(@Param('id') id: string, @Req() req: AuthenticatedRequest, @OrgId() orgId?: string) {
+    await this.usersService.delete(id, req.user.sub, orgId);
     return { success: true };
   }
 }

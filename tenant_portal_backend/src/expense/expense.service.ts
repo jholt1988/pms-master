@@ -18,9 +18,20 @@ export class ExpenseService {
       date: Date;
       category: ExpenseCategory;
     },
+    orgId: string,
   ) {
     const propertyId = data.propertyId;
     const unitId = data.unitId ? this.parseUuidId(data.unitId, 'unit') : undefined;
+    
+
+    const property = await this.prisma.property.findFirst({
+      where: { id: propertyId, organizationId: orgId },
+      select: { id: true },
+    });
+    if (!property) {
+      throw new BadRequestException('Property not found');
+    }
+
     return this.prisma.expense.create({
       data: {
         recordedBy: { connect: { id: recordedById } },
@@ -34,7 +45,7 @@ export class ExpenseService {
     });
   }
 
-  async getAllExpenses(propertyId?: string, unitId?: string, category?: ExpenseCategory) {
+  async getAllExpenses(propertyId?: string, unitId?: string | number, category?: ExpenseCategory, orgId?: string) {
     const where: any = {};
     if (propertyId) {
       where.propertyId = propertyId;
@@ -45,12 +56,21 @@ export class ExpenseService {
     if (category) {
       where.category = category;
     }
+    if (orgId) {
+      where.property = { organizationId: orgId };
+    }
 
     return this.prisma.expense.findMany({ where, include: { property: true, unit: true, recordedBy: true } });
   }
 
-  async getExpenseById(id: number) {
-    return this.prisma.expense.findUnique({ where: { id }, include: { property: true, unit: true, recordedBy: true } });
+  async getExpenseById(id: number, orgId?: string) {
+    return this.prisma.expense.findFirst({
+      where: {
+        id,
+        ...(orgId ? { property: { organizationId: orgId } } : {}),
+      },
+      include: { property: true, unit: true, recordedBy: true },
+    });
   }
 
   async updateExpense(
@@ -63,7 +83,16 @@ export class ExpenseService {
       date?: Date;
       category?: ExpenseCategory;
     },
+    orgId: string,
   ) {
+    const existing = await this.prisma.expense.findFirst({
+      where: { id, property: { organizationId: orgId } },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw new BadRequestException('Expense not found');
+    }
+
     const updateData: any = { ...data };
     if (data.unitId) {
       updateData.unitId = this.parseUuidId(data.unitId, 'unit');
@@ -78,7 +107,14 @@ export class ExpenseService {
     return value;
   }
 
-  async deleteExpense(id: number) {
+  async deleteExpense(id: number, orgId: string) {
+    const existing = await this.prisma.expense.findFirst({
+      where: { id, property: { organizationId: orgId } },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw new BadRequestException('Expense not found');
+    }
     return this.prisma.expense.delete({ where: { id } });
   }
 }

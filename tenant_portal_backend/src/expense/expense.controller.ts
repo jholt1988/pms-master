@@ -6,6 +6,7 @@ import { Roles } from '../auth/roles.decorator';
 import { Role, ExpenseCategory } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
+import { OrgId } from '../common/org-context/org-id.decorator';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -24,8 +25,9 @@ export class ExpenseController {
   createExpense(
     @Request() req: AuthenticatedRequest,
     @Body() data: { propertyId: string; unitId?: string; description: string; amount: number; date: Date; category: ExpenseCategory },
+    @OrgId() orgId: string,
   ) {
-    return this.expenseService.createExpense(req.user.userId, data);
+    return this.expenseService.createExpense(req.user.userId, data, orgId);
   }
 
   @Get()
@@ -33,25 +35,27 @@ export class ExpenseController {
     @Query('propertyId') propertyId?: string,
     @Query('unitId') unitId?: string,
     @Query('category') category?: ExpenseCategory,
+    @OrgId() orgId?: string,
   ) {
-    return this.expenseService.getAllExpenses(propertyId, unitId, category);
+    return this.expenseService.getAllExpenses(propertyId, unitId, category, orgId);
   }
 
   @Get(':id')
-  getExpenseById(@Param('id', ParseIntPipe) id: number) {
-    return this.expenseService.getExpenseById(id);
+  getExpenseById(@Param('id', ParseIntPipe) id: number, @OrgId() orgId?: string) {
+    return this.expenseService.getExpenseById(id, orgId);
   }
 
   @Put(':id')
   updateExpense(
     @Param('id', ParseIntPipe) id: number,
     @Body() data: { propertyId?: string; unitId?: string; description?: string; amount?: number; date?: Date; category?: ExpenseCategory },
+    @OrgId() orgId: string,
   ) {
-    return this.expenseService.updateExpense(id, data);
+    return this.expenseService.updateExpense(id, data, orgId);
   }
 
   @Delete(':id')
-  deleteExpense(@Param('id', ParseIntPipe) id: number) {
-    return this.expenseService.deleteExpense(id);
+  deleteExpense(@Param('id', ParseIntPipe) id: number, @OrgId() orgId: string) {
+    return this.expenseService.deleteExpense(id, orgId);
   }
 }

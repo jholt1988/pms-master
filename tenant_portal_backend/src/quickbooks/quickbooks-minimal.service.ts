@@ -17,12 +17,12 @@ export class QuickBooksMinimalService {
     });
   }
 
-  async getAuthorizationUrl(userId: string): Promise<string> {
+  async getAuthorizationUrl(userId: string, orgId: string): Promise<string> {
     this.logger.log(`Generating QuickBooks authorization URL for user ${userId}`);
     
     const authUri = this.oauthClient.authorizeUri({
       scope: [OAuthClient.scopes.Accounting, OAuthClient.scopes.Payment],
-      state: JSON.stringify({ userId }),
+      state: JSON.stringify({ userId, orgId }),
     });
 
     this.logger.log('QuickBooks authorization URL generated successfully');
@@ -46,8 +46,8 @@ export class QuickBooksMinimalService {
         };
       }
 
-      const { userId } = parsedState || {};
-      if (!userId) {
+      const { userId, orgId } = parsedState || {};
+      if (!userId || !orgId) {
         return {
           success: false,
           message: 'Failed to establish QuickBooks connection: Invalid state payload',
@@ -62,12 +62,13 @@ export class QuickBooksMinimalService {
       // Store connection in database
       await this.prisma.quickBooksConnection.upsert({
         where: {
-          userId_companyId: {
-            userId,
+          organizationId_companyId: {
+            organizationId: orgId,
             companyId: realmId,
           },
         },
         update: {
+          organizationId: orgId,
           accessToken: token.access_token,
           refreshToken: token.refresh_token,
           tokenExpiresAt: new Date(Date.now() + token.expires_in * 1000),
@@ -76,6 +77,7 @@ export class QuickBooksMinimalService {
         },
         create: {
           userId,
+          organizationId: orgId,
           companyId: realmId,
           accessToken: token.access_token,
           refreshToken: token.refresh_token,
@@ -100,14 +102,14 @@ export class QuickBooksMinimalService {
     }
   }
 
-  async getConnectionStatus(userId: string): Promise<{
+  async getConnectionStatus(userId: string, orgId: string): Promise<{
     connected: boolean;
     companyName?: string;
     lastSync?: Date;
     expiresAt?: Date;
   }> {
     const connection = await this.prisma.quickBooksConnection.findFirst({
-      where: { userId, isActive: true },
+      where: { organizationId: orgId, isActive: true },
     });
 
     if (!connection) {
@@ -177,15 +179,15 @@ export class QuickBooksMinimalService {
     }
   }
 
-  async disconnectQuickBooks(userId: string): Promise<{
+  async disconnectQuickBooks(userId: string, orgId: string): Promise<{
     success: boolean;
     message: string;
   }> {
     try {
-    await this.prisma.quickBooksConnection.updateMany({
-      where: { userId },
-      data: { isActive: false },
-    });
+      await this.prisma.quickBooksConnection.updateMany({
+        where: { organizationId: orgId },
+        data: { isActive: false },
+      });
 
       this.logger.log(`QuickBooks connection disconnected for user ${userId}`);
       return {
@@ -201,14 +203,14 @@ export class QuickBooksMinimalService {
     }
   }
 
-  async basicSync(userId: string): Promise<{
+  async basicSync(userId: string, orgId: string): Promise<{
     success: boolean;
     message: string;
     syncedItems?: number;
   }> {
     try {
       const connection = await this.prisma.quickBooksConnection.findFirst({
-        where: { userId, isActive: true },
+        where: { organizationId: orgId, isActive: true },
       });
 
       if (!connection) {

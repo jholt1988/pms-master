@@ -2,7 +2,6 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-
   provider = "prisma-client-js"
 }
 
@@ -10,7 +9,6 @@ datasource db {
   provider = "postgresql"
   url      = env("DIRECT_URL")
 }
-
 
 model User {
   id                        String                      @id @default(uuid()) @db.Uuid
@@ -91,7 +89,7 @@ model User {
   bankTransactionsRecorded BankTransaction[]        @relation("BankTransactionRecordedBy")
 
   approvalTaskDecidedBy ApprovalTask[] @relation("ApprovalDecidedBy")
- approvalTaskCreatedBy ApprovalTask[] @relation("ApprovalCreatedBy")
+  approvalTaskCreatedBy ApprovalTask[] @relation("ApprovalCreatedBy")
 
   approvalTasks ApprovalTask[] @relation("ApprovalTenant")
 
@@ -120,10 +118,15 @@ model UserOrganization {
   @@unique([userId, organizationId])
   @@index([organizationId])
   @@index([userId])
+  organizationMemberships UserOrganization[]
 }
 
 model Property {
   id                   String                    @id @default(uuid()) @db.Uuid
+
+  // Multi-tenant scope
+  organizationId       String                    @db.Uuid
+  organization         Organization              @relation(fields: [organizationId], references: [id])
   name                 String
   address              String
   city                 String?
@@ -154,6 +157,8 @@ model Property {
   repairEstimates      RepairEstimate[]
   scheduleEvents       ScheduleEvent[]
   propertyInquiries    PropertyInquiry[]
+
+  @@index([organizationId])
   tours                Tour[]
   leadApplications     LeadApplication[]
   marketingProfile     PropertyMarketingProfile?
@@ -164,13 +169,13 @@ model Property {
   agentRuns            AgentRun[]                @relation("AgentRunProperty")
   communicationLogs    CommunicationLog[]        @relation("CommunicationLogProperty")
   bankTransactions     BankTransaction[]         @relation("BankTransactionProperty")
+  approvalTasks        ApprovalTask[]
 
   @@index([city, state])
   @@index([propertyType])
   @@index([bedrooms])
   @@index([bathrooms])
   @@index([minRent])
-  approvalTasks ApprovalTask[]
 }
 
 model PropertyMarketingProfile {
@@ -418,10 +423,10 @@ model Lease {
   communicationLogs         CommunicationLog[]        @relation("CommunicationLogLease")
   createdAt                 DateTime                  @default(now())
   updatedAt                 DateTime                  @updatedAt
+  approvalTasks             ApprovalTask[]
 
   @@index([status])
   @@index([endDate])
-  approvalTasks ApprovalTask[]
 }
 
 model MaintenanceRequest {
@@ -486,6 +491,8 @@ model MaintenanceAsset {
 
 model Technician {
   id               Int                         @id @default(autoincrement())
+  organizationId   String                      @db.Uuid
+  organization     Organization                @relation(fields: [organizationId], references: [id])
   name             String
   phone            String?
   email            String?
@@ -507,6 +514,7 @@ model Technician {
 
   @@index([userId])
   @@index([role, active])
+  @@index([organizationId])
 }
 
 model MaintenanceSlaPolicy {
@@ -611,9 +619,9 @@ model Document {
   uploadedBy                  User                         @relation(fields: [uploadedById], references: [id])
   uploadedById                String                       @db.Uuid
   lease                       Lease?                       @relation(fields: [leaseId], references: [id])
-  leaseId                     String?                     @db.Uuid
+  leaseId                     String?                      @db.Uuid
   property                    Property?                    @relation(fields: [propertyId], references: [id])
-  propertyId                  String?                     @db.Uuid
+  propertyId                  String?                      @db.Uuid
   sharedWith                  User[]                       @relation("DocumentShares")
   createdAt                   DateTime                     @default(now())
   updatedAt                   DateTime                     @updatedAt
@@ -1048,8 +1056,8 @@ model LeadApplication {
   creditScore           Int?
   backgroundCheckStatus String?
   creditCheckStatus     String?
-  reviewedById String? @db.Uuid
-  reviewedBy   User?   @relation("LeadApplicationReviewers", fields: [reviewedById], references: [id])
+  reviewedById          String?               @db.Uuid
+  reviewedBy            User?                 @relation("LeadApplicationReviewers", fields: [reviewedById], references: [id])
   reviewedAt            DateTime?
   reviewNotes           String?
   approvedAt            DateTime?
@@ -1748,6 +1756,7 @@ enum EventPriority {
 model QuickBooksConnection {
   id                    Int      @id @default(autoincrement())
   userId                String   @db.Uuid
+  organizationId        String   @db.Uuid
   companyId             String
   accessToken           String
   refreshToken          String
@@ -1758,8 +1767,11 @@ model QuickBooksConnection {
   updatedAt             DateTime @updatedAt
 
   user User @relation("UserQuickBooksConnections", fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id])
 
-  @@unique([userId, companyId])
+  @@unique([organizationId, companyId])
+  @@index([organizationId])
+  @@index([organizationId, isActive])
   @@map("quickbooks_connections")
 }
 
@@ -1843,7 +1855,7 @@ model AgentRun {
   propertyId    String? @db.Uuid
   unitId        String? @db.Uuid
   leaseId       String? @db.Uuid
-  requestId     String? // MaintenanceRequest.id
+  requestId     String? @db.Uuid // MaintenanceRequest.id
 
   initiatedBy User? @relation("AgentRunInitiatedBy", fields: [initiatedById], references: [id], onDelete: SetNull)
   tenant      User? @relation("AgentRunTenant", fields: [tenantId], references: [id], onDelete: SetNull)
@@ -1855,17 +1867,17 @@ model AgentRun {
 
   toolCalls AgentToolCall[]
 
-  startedAt   DateTime  @default(now())
-  completedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  startedAt     DateTime       @default(now())
+  completedAt   DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  approvalTasks ApprovalTask[]
 
   @@index([agentName, status, startedAt])
   @@index([propertyId])
   @@index([tenantId])
   @@index([requestId])
   @@index([traceId])
-  approvalTasks ApprovalTask[]
 }
 
 model AgentToolCall {
@@ -2045,32 +2057,32 @@ enum ApprovalActionType {
 }
 
 model ApprovalTask {
-  id        String            @id @default(uuid()) @db.Uuid
-  status    ApprovalTaskStatus @default(PENDING)
+  id     String             @id @default(uuid()) @db.Uuid
+  status ApprovalTaskStatus @default(PENDING)
 
   // optional linkage to agent observability (if you added AgentRun)
   agentRunId String?
 
   // common linkage for filtering/UX
-  tenantId   String? @db.Uuid
-  propertyId String? @db.Uuid
-  unitId     String? @db.Uuid
-  leaseId    String? @db.Uuid
+  tenantId    String? @db.Uuid
+  propertyId  String? @db.Uuid
+  unitId      String? @db.Uuid
+  leaseId     String? @db.Uuid
   workOrderId String? @db.Uuid // MaintenanceRequest.id after UUID migration
 
   // who created/approved
-  createdById String? @db.Uuid
-  decidedById String? @db.Uuid
-  decidedAt   DateTime?
-  executedAt  DateTime?
+  createdById    String?   @db.Uuid
+  decidedById    String?   @db.Uuid
+  decidedAt      DateTime?
+  executedAt     DateTime?
   executionError String?
 
-  title     String
-  summary   String?
+  title   String
+  summary String?
   // Core payload: list of actions to execute after approval
-  actions   Json
+  actions Json
   // Store tool outputs / execution artifacts
-  results   Json?
+  results Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2079,12 +2091,12 @@ model ApprovalTask {
   createdBy User? @relation("ApprovalCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   decidedBy User? @relation("ApprovalDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
 
-  tenant   User?     @relation("ApprovalTenant", fields: [tenantId], references: [id], onDelete: SetNull)
-  property Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
-  unit     Unit?     @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  lease    Lease?    @relation(fields: [leaseId], references: [id], onDelete: SetNull)
+  tenant   User?               @relation("ApprovalTenant", fields: [tenantId], references: [id], onDelete: SetNull)
+  property Property?           @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  unit     Unit?               @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  lease    Lease?              @relation(fields: [leaseId], references: [id], onDelete: SetNull)
   request  MaintenanceRequest? @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
-  agentRun AgentRun? @relation(fields: [agentRunId], references: [id], onDelete: SetNull)
+  agentRun AgentRun?           @relation(fields: [agentRunId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt])
   @@index([tenantId, createdAt])

@@ -19,6 +19,7 @@ export class UsersService {
   async create(
     data: Prisma.XOR<Prisma.UserCreateInput, Prisma.UserUncheckedCreateInput>,
     requestingUserRole?: Role,
+    orgId?: string,
   ): Promise<User> {
     if (typeof data.email === 'string' || data.email === null) {
       data.email = normalizeEmail(data.email);
@@ -43,16 +44,47 @@ export class UsersService {
       data.role = data.role || Role.TENANT;
     }
 
-    return this.prisma.user.create({ data });
+    const user = await this.prisma.user.create({ data });
+
+    if (orgId) {
+      await this.prisma.userOrganization.create({
+        data: {
+          userId: user.id,
+          organizationId: orgId,
+          role: data.role as Role,
+        },
+      });
+    }
+
+    return user;
   }
 
-  async findById(id: string): Promise<User | null> {
+  async findById(id: string, orgId?: string): Promise<User | null> {
+    if (orgId) {
+      const membership = await this.prisma.userOrganization.findFirst({
+        where: { userId: id, organizationId: orgId },
+        select: { id: true },
+      });
+      if (!membership) {
+        return null;
+      }
+    }
     return this.prisma.user.findUnique({ where: { id } });
   }
 
-  async findAll(skip?: number, take?: number, role?: Role): Promise<Omit<User, 'password'>[]> {
+  async findAll(skip?: number, take?: number, role?: Role, orgId?: string): Promise<Omit<User, 'password'>[]> {
+    const userIds = orgId
+      ? await this.prisma.userOrganization.findMany({
+          where: { organizationId: orgId },
+          select: { userId: true },
+        })
+      : [];
+
     const users = await this.prisma.user.findMany({
-      where: role ? { role } : undefined,
+      where: {
+        ...(role ? { role } : {}),
+        ...(orgId ? { id: { in: userIds.map((u) => u.userId) } } : {}),
+      },
       skip,
       take,
       orderBy: { id: 'asc' },
@@ -61,9 +93,19 @@ export class UsersService {
     return users.map(({ password, ...user }) => user);
   }
 
-  async count(role?: Role): Promise<number> {
+  async count(role?: Role, orgId?: string): Promise<number> {
+    const userIds = orgId
+      ? await this.prisma.userOrganization.findMany({
+          where: { organizationId: orgId },
+          select: { userId: true },
+        })
+      : [];
+
     return this.prisma.user.count({
-      where: role ? { role } : undefined,
+      where: {
+        ...(role ? { role } : {}),
+        ...(orgId ? { id: { in: userIds.map((u) => u.userId) } } : {}),
+      },
     });
   }
 
@@ -72,10 +114,21 @@ export class UsersService {
     data: Prisma.UserUpdateInput,
     requestingUserId?: string,
     requestingUserRole?: Role,
+    orgId?: string,
   ): Promise<User> {
     // Prevent self-promotion (users cannot change their own role)
     if (data.role !== undefined && requestingUserId === id) {
       throw new ForbiddenException('Users cannot change their own role');
+    }
+
+    if (orgId) {
+      const membership = await this.prisma.userOrganization.findFirst({
+        where: { userId: id, organizationId: orgId },
+        select: { id: true },
+      });
+      if (!membership) {
+        throw new ForbiddenException('User not in organization');
+      }
     }
 
     // Role validation: elevated roles require elevated updater
@@ -115,11 +168,22 @@ export class UsersService {
     return this.prisma.user.update({ where: { id }, data });
   }
 
-  async delete(id: string, requestingUserId?: string): Promise<void> {
+  async delete(id: string, requestingUserId?: string, orgId?: string): Promise<void> {
     // Prevent self-deletion
     if (requestingUserId === id) {
       throw new ForbiddenException('Users cannot delete their own account');
     }
+
+    if (orgId) {
+      const membership = await this.prisma.userOrganization.findFirst({
+        where: { userId: id, organizationId: orgId },
+        select: { id: true },
+      });
+      if (!membership) {
+        throw new ForbiddenException('User not in organization');
+      }
+    }
+
     await this.prisma.user.delete({ where: { id } });
   }
 }

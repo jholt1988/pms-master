@@ -2,6 +2,7 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
+import { OrgId } from '../common/org-context/org-id.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { Role, SecurityEventType } from '@prisma/client';
 import { SecurityEventsService } from './security-events.service';
@@ -21,6 +22,7 @@ export class SecurityEventsController {
     @Query('type') type?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @OrgId() orgId?: string,
   ) {
     return this.securityEventsService.listEvents({
       limit: limit ? Number(limit) : undefined,
@@ -33,6 +35,7 @@ export class SecurityEventsController {
           : undefined,
       from: from ? new Date(from) : undefined,
       to: to ? new Date(to) : undefined,
+      orgId,
     });
   }
 }

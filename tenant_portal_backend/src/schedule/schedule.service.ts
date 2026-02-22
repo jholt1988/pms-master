@@ -6,9 +6,20 @@ import { CreateScheduleEventDto } from './dto/create-schedule-event.dto';
 export class ScheduleService {
   constructor(private prisma: PrismaService) {}
 
-  async createEvent(dto: CreateScheduleEventDto) {
+  async createEvent(dto: CreateScheduleEventDto, orgId?: string) {
     const propertyId = this.parseNumericId(dto.propertyId, 'property');
     const unitId = dto.unitId ? this.parseNumericId(dto.unitId, 'unit') : undefined;
+
+    if (orgId) {
+      const property = await this.prisma.property.findFirst({
+        where: { id: propertyId, organizationId: orgId },
+        select: { id: true },
+      });
+      if (!property) {
+        throw new BadRequestException('Property not found');
+      }
+    }
+
     const event = await this.prisma.scheduleEvent.create({
       data: {
         type: dto.type,
@@ -24,8 +35,9 @@ export class ScheduleService {
     return event;
   }
 
-  async getAllEvents() {
+  async getAllEvents(orgId?: string) {
     const events = await this.prisma.scheduleEvent.findMany({
+      where: orgId ? { property: { organizationId: orgId } } : undefined,
       orderBy: { date: 'asc' },
       include: {
         property: { select: { name: true } },
@@ -47,16 +59,17 @@ export class ScheduleService {
     }));
   }
 
-  async getSummary() {
+  async getSummary(orgId?: string) {
     const now = new Date();
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const scope = orgId ? { property: { organizationId: orgId } } : undefined;
 
     const [totalEvents, tours, urgentEvents, highPriorityEvents, mediumPriorityEvents] = await Promise.all([
-      this.prisma.scheduleEvent.count({ where: { date: { gte: now } } }),
-      this.prisma.scheduleEvent.count({ where: { type: 'TOUR', date: { gte: now } } }),
-      this.prisma.scheduleEvent.count({ where: { priority: 'URGENT', date: { gte: now } } }),
-      this.prisma.scheduleEvent.count({ where: { priority: 'HIGH', date: { gte: now } } }),
-      this.prisma.scheduleEvent.count({ where: { priority: 'MEDIUM', date: { gte: now } } }),
+      this.prisma.scheduleEvent.count({ where: { date: { gte: now }, ...(scope ?? {}) } }),
+      this.prisma.scheduleEvent.count({ where: { type: 'TOUR', date: { gte: now }, ...(scope ?? {}) } }),
+      this.prisma.scheduleEvent.count({ where: { priority: 'URGENT', date: { gte: now }, ...(scope ?? {}) } }),
+      this.prisma.scheduleEvent.count({ where: { priority: 'HIGH', date: { gte: now }, ...(scope ?? {}) } }),
+      this.prisma.scheduleEvent.count({ where: { priority: 'MEDIUM', date: { gte: now }, ...(scope ?? {}) } }),
     ]);
 
     return {
@@ -68,7 +81,7 @@ export class ScheduleService {
     };
   }
 
-  async getDailyEvents(dateStr: string) {
+  async getDailyEvents(dateStr: string, orgId?: string) {
     const date = new Date(dateStr);
     const startOfDay = new Date(date.setHours(0, 0, 0, 0));
     const endOfDay = new Date(date.setHours(23, 59, 59, 999));
@@ -79,6 +92,7 @@ export class ScheduleService {
           gte: startOfDay,
           lte: endOfDay,
         },
+        ...(orgId ? { property: { organizationId: orgId } } : {}),
       },
       orderBy: { date: 'asc' },
       include: {
@@ -91,7 +105,7 @@ export class ScheduleService {
     return this.formatEvents(events);
   }
 
-  async getWeeklyEvents(startDateStr: string) {
+  async getWeeklyEvents(startDateStr: string, orgId?: string) {
     const startDate = new Date(startDateStr);
     const endDate = new Date(startDate);
     endDate.setDate(endDate.getDate() + 7);
@@ -102,6 +116,7 @@ export class ScheduleService {
           gte: startDate,
           lt: endDate,
         },
+        ...(orgId ? { property: { organizationId: orgId } } : {}),
       },
       orderBy: { date: 'asc' },
       include: {
@@ -114,7 +129,7 @@ export class ScheduleService {
     return this.formatEvents(events);
   }
 
-  async getMonthlyEvents(month: number, year: number) {
+  async getMonthlyEvents(month: number, year: number, orgId?: string) {
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0, 23, 59, 59);
 
@@ -124,6 +139,7 @@ export class ScheduleService {
           gte: startDate,
           lte: endDate,
         },
+        ...(orgId ? { property: { organizationId: orgId } } : {}),
       },
       orderBy: { date: 'asc' },
       include: {
@@ -136,7 +152,7 @@ export class ScheduleService {
     return this.formatEvents(events);
   }
 
-  async getLeaseExpirations() {
+  async getLeaseExpirations(orgId?: string) {
     const now = new Date();
     const threeMonthsLater = new Date();
     threeMonthsLater.setMonth(threeMonthsLater.getMonth() + 3);
@@ -148,6 +164,7 @@ export class ScheduleService {
           lte: threeMonthsLater,
         },
         status: 'ACTIVE',
+        ...(orgId ? { unit: { property: { organizationId: orgId } } } : {}),
       },
       include: {
         tenant: { select: { username: true } },
@@ -171,19 +188,19 @@ export class ScheduleService {
     }));
   }
 
-  async getTodayEvents() {
+  async getTodayEvents(orgId?: string) {
     const today = new Date();
-    return this.getDailyEvents(today.toISOString().split('T')[0]);
+    return this.getDailyEvents(today.toISOString().split('T')[0], orgId);
   }
 
-  async getThisWeekEvents() {
+  async getThisWeekEvents(orgId?: string) {
     const today = new Date();
-    return this.getWeeklyEvents(today.toISOString().split('T')[0]);
+    return this.getWeeklyEvents(today.toISOString().split('T')[0], orgId);
   }
 
-  async getThisMonthEvents() {
+  async getThisMonthEvents(orgId?: string) {
     const today = new Date();
-    return this.getMonthlyEvents(today.getMonth() + 1, today.getFullYear());
+    return this.getMonthlyEvents(today.getMonth() + 1, today.getFullYear(), orgId);
   }
 
   private formatEvents(events: any[]) {

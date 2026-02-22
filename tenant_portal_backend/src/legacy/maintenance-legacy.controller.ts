@@ -21,13 +21,15 @@ export class MaintenanceLegacyController {
   constructor(private readonly maintenanceService: MaintenanceService) {}
 
   @Get('maintenance-requests')
-  async listRequests() {
-    return this.maintenanceService.findAll({});
+  async listRequests(@Request() req: AuthenticatedRequest) {
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.maintenanceService.findAllForOrgPaged(orgId, {});
   }
 
   @Get('users/technicians')
-  async listTechnicians() {
-    return this.maintenanceService.listTechnicians();
+  async listTechnicians(@Request() req: AuthenticatedRequest) {
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.maintenanceService.listTechnicians(orgId);
   }
 
   @Put('maintenance/:requestId/assignee')
@@ -36,6 +38,15 @@ export class MaintenanceLegacyController {
     @Body() dto: AssignTechnicianDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.maintenanceService.assignTechnician(requestId, dto, req.user.userId);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    const orgRole = (req as any).org?.orgRole as any;
+    return this.maintenanceService.assignTechnicianScoped(
+      requestId,
+      dto,
+      req.user.userId,
+      req.user.role,
+      orgId,
+      orgRole,
+    );
   }
 }

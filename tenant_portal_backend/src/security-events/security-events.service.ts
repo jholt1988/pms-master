@@ -20,6 +20,7 @@ interface ListEventsParams {
   type?: SecurityEventType;
   from?: Date;
   to?: Date;
+  orgId?: string;
 }
 
 @Injectable()
@@ -72,6 +73,9 @@ export class SecurityEventsService {
           gte: from,
           lte: to,
         },
+        ...(params.orgId
+          ? { user: { organizations: { some: { id: params.orgId } } } }
+          : {}),
       },
       orderBy: { createdAt: 'desc' },
       skip: offset,
