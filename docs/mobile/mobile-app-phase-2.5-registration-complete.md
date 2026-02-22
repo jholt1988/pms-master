@@ -103,11 +103,12 @@ Phone:
 - Read-only review of entered data
 
 **Terms Acceptance:**
-- Checkbox for T&C agreement
+- Checkbox for Terms of Service + Privacy Policy agreement
 - Required to proceed
+- Capture acceptance timestamp + document version
 - Links to:
-  - Terms of Service (placeholder alert)
-  - Privacy Policy (placeholder alert)
+  - Terms of Service (placeholder alert → `/legal/terms`)
+  - Privacy Policy (placeholder alert → `/legal/privacy`)
 
 **Form Submission:**
 - Create Account button (disabled until terms accepted)
