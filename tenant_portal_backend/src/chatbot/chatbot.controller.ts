@@ -1,5 +1,6 @@
 import { Controller, Post, Get, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { ChatbotService } from './chatbot.service';
 
 interface AuthenticatedRequest extends Request {
