@@ -1602,6 +1602,7 @@ model InspectionChecklistPhoto {
   uploadedById    String                  @db.Uuid
   url             String
   caption         String?
+  aiAnalysis      String?                 // AI-generated analysis of the photo
   createdAt       DateTime                @default(now())
 
   @@index([checklistItemId])

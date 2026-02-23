@@ -30,7 +30,7 @@ export const NavTop: React.FC<NavTopProps> = ({
           type="button"
         >
           <Search className="" aria-hidden="true" />
-          <span>{searchPlaceholder}</span>
+          <span className="sr-only">{searchPlaceholder}</span>
         </button>
       </div>
       
@@ -38,11 +38,11 @@ export const NavTop: React.FC<NavTopProps> = ({
         <button 
           className="btn" 
           onClick={onNotificationsClick}
-          aria-label="View notifications"
+          aria-label="View notifications, 3 unread alerts"
           type="button"
         >
           <Bell className="w-[16px] h-[16px] mr-1" aria-hidden="true" />
-          Alerts
+          <span className="sr-only">View</span>Alerts
         </button>
         
         <button 
@@ -52,7 +52,7 @@ export const NavTop: React.FC<NavTopProps> = ({
           type="button"
         >
           <Inbox className="w-[16px] h-[16px] mr-1" aria-hidden="true" />
-          Inbox
+          <span className="sr-only">View</span>Inbox
         </button>
         
         <button 
