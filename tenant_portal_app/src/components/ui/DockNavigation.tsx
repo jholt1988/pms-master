@@ -92,6 +92,37 @@ export const DockNavigation: React.FC = () => {
   const userRole = user?.role;
   const [isAllAppsOpen, setIsAllAppsOpen] = useState(false);
   const allAppsRef = useRef<HTMLDivElement>(null);
+
+  // Focus trap for All Apps menu
+  useEffect(() => {
+    if (isAllAppsOpen && allAppsRef.current) {
+      const focusableElements = allAppsRef.current.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      const firstElement = focusableElements[0] as HTMLElement;
+      const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Tab') {
+          if (e.shiftKey && document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement?.focus();
+          } else if (!e.shiftKey && document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement?.focus();
+          }
+        }
+        if (e.key === 'Escape') {
+          setIsAllAppsOpen(false);
+        }
+      };
+
+      document.addEventListener('keydown', handleKeyDown);
+      firstElement?.focus();
+
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [isAllAppsOpen]);
   
   // Close All Apps menu when clicking outside
   useEffect(() => {
