@@ -271,7 +271,7 @@ export class BillingService {
     }
 
     await this.prisma.recurringInvoiceSchedule.updateMany({
-      where: { leaseId: normalizedLeaseId },
+      where: { leaseId: leaseIdNum },
       data: { active: false },
     });
 
@@ -425,7 +425,7 @@ export class BillingService {
     }
 
     const result = await this.prisma.autopayEnrollment.updateMany({
-      where: { leaseId: normalizedLeaseId },
+      where: { leaseId: leaseIdNum },
       data: { active: false },
     });
 
