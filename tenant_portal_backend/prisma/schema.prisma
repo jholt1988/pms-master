@@ -12,12 +12,12 @@ datasource db {
 
 // --- Multi-tenant foundation (PM company / landlord account) ---
 
-
 enum OrgRole {
   OWNER
   ADMIN
   MEMBER
 }
+
 model User {
   id                        String                      @id @default(uuid()) @db.Uuid
   username                  String                      @unique
@@ -110,20 +110,21 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users      UserOrganization[]
-  properties Property[]
-  technicians Technician[]
-  quickBooksConnections QuickBooksConnection[]
+  users                  UserOrganization[]
+  properties             Property[]
+  technicians            Technician[]
+  quickBooksConnections  QuickBooksConnection[]
+  syndicationCredentials SyndicationCredential[]
 }
 
 model UserOrganization {
-  id             String   @id @default(uuid()) @db.Uuid
-  userId         String   @db.Uuid
-  organizationId String   @db.Uuid
-  role           OrgRole  @default(MEMBER)
+  id             String  @id @default(uuid()) @db.Uuid
+  userId         String  @db.Uuid
+  organizationId String  @db.Uuid
+  role           OrgRole @default(MEMBER)
 
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([userId, organizationId])
   @@index([organizationId])
@@ -131,7 +132,7 @@ model UserOrganization {
 }
 
 model Property {
-  id                   String                    @id @default(uuid()) @db.Uuid
+  id String @id @default(uuid()) @db.Uuid
 
   // Multi-tenant scope
   organizationId       String                    @db.Uuid
@@ -164,8 +165,6 @@ model Property {
   repairEstimates      RepairEstimate[]
   scheduleEvents       ScheduleEvent[]
   propertyInquiries    PropertyInquiry[]
-
-  @@index([organizationId])
   tours                Tour[]
   leadApplications     LeadApplication[]
   marketingProfile     PropertyMarketingProfile?
@@ -178,6 +177,7 @@ model Property {
   bankTransactions     BankTransaction[]         @relation("BankTransactionProperty")
   approvalTasks        ApprovalTask[]
 
+  @@index([organizationId])
   @@index([city, state])
   @@index([propertyType])
   @@index([bedrooms])
@@ -1197,8 +1197,6 @@ enum Role {
   ADMIN
 }
 
-
-
 enum ApplicationStatus {
   PENDING
   UNDER_REVIEW
@@ -1604,7 +1602,7 @@ model InspectionChecklistPhoto {
   uploadedById    String                  @db.Uuid
   url             String
   caption         String?
-  aiAnalysis      String?                 // AI-generated analysis of the photo
+  aiAnalysis      String? // AI-generated analysis of the photo
   createdAt       DateTime                @default(now())
 
   @@index([checklistItemId])
@@ -1785,7 +1783,7 @@ model QuickBooksConnection {
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
-  user User @relation("UserQuickBooksConnections", fields: [userId], references: [id], onDelete: Cascade)
+  user         User         @relation("UserQuickBooksConnections", fields: [userId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [organizationId], references: [id])
 
   @@unique([organizationId, companyId])
