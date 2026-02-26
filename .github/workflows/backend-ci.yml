@@ -64,7 +64,7 @@ jobs:
       - name: Generate Prisma Client
         working-directory: ./tenant_portal_backend
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/property_management_test
+          DATABASE_URL: postgresql://postgres.pyxdfddydshmktftxxhw:Bentley2844Alexander@aws-1-us-east-2.pooler.supabase.com:5432/postgres
           DIRECT_URL: postgresql://postgres.pyxdfddydshmktftxxhw:Bentley2844Alexander@aws-1-us-east-2.pooler.supabase.com:5432/postgres
 
         run: npx prisma generate
@@ -72,7 +72,7 @@ jobs:
       - name: Run Prisma migrations
         working-directory: ./tenant_portal_backend
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/property_management_test
+          DATABASE_URL: postgresql://postgres.pyxdfddydshmktftxxhw:Bentley2844Alexander@aws-1-us-east-2.pooler.supabase.com:5432/postgres
           DIRECT_URL: postgresql://postgres.pyxdfddydshmktftxxhw:Bentley2844Alexander@aws-1-us-east-2.pooler.supabase.com:5432/postgres
         run: npx prisma migrate deploy
 
