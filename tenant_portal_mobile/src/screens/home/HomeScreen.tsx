@@ -66,6 +66,13 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         action: () => navigation.navigate('Maintenance'),
       },
       {
+        id: 'inspections',
+        title: 'Inspections',
+        subtitle: 'Check checklist',
+        emoji: '📋',
+        action: () => navigation.navigate('Inspections'),
+      },
+      {
         id: 'messages',
         title: 'Messages',
         subtitle: 'Check updates',
