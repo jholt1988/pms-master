@@ -1,12 +1,20 @@
 export type InspectionStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 
+export interface InspectionPhoto {
+  id: number;
+  url: string;
+  caption?: string;
+}
+
 export interface InspectionChecklistItem {
   id: number;
+  roomId?: number;
   itemName: string;
   category?: string;
   condition?: string;
   requiresAction?: boolean;
   notes?: string;
+  photos?: InspectionPhoto[];
   status?: 'pass' | 'fail' | 'pending';
 }
 
@@ -15,6 +23,7 @@ export interface InspectionRoom {
   name: string;
   roomType?: string;
   checklistItems?: InspectionChecklistItem[];
+
 }
 
 export interface InspectionSummary {
@@ -32,5 +41,6 @@ export interface InspectionSummary {
 
 export interface InspectionDetail extends InspectionSummary {
   notes?: string;
+  photos?: InspectionPhoto[];
   rooms: InspectionRoom[];
 }

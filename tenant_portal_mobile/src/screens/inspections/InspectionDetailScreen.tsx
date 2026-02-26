@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   View,
@@ -9,8 +9,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { RouteProp } from '@react-navigation/native';
-import { inspectionsApi } from '../../api/inspections';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { fetchInspectionDetail, setLocalChecklistItem, updateChecklistItem } from '../../store/checklistSlice';
 import { InspectionDetail, InspectionChecklistItem } from '../../types/inspection';
+import { PhotoPicker } from '../../components/inspections/PhotoPicker';
 import { format } from 'date-fns';
 import * as theme from '../../theme';
 import type { InspectionsStackParamList } from '../../navigation/types';
@@ -21,24 +23,21 @@ interface Props {
 
 export function InspectionDetailScreen({ route }: Props) {
   const { inspectionId } = route.params;
-  const [inspection, setInspection] = useState<InspectionDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { detail: inspection, isLoading } = useAppSelector((state) => state.checklist);
+  const dispatch = useAppDispatch();
 
   useEffect(() => {
     const load = async () => {
       try {
-        const result = await inspectionsApi.get(inspectionId);
-        setInspection(result);
+        dispatch(fetchInspectionDetail(inspectionId));
       } catch (error) {
         console.error('[InspectionDetail] Failed to load inspection', error);
-      } finally {
-        setLoading(false);
       }
     };
     load();
   }, [inspectionId]);
 
-  if (loading || !inspection) {
+  if (isLoading || !inspection) {
     return (
       <SafeAreaView style={styles.centered}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -71,17 +70,42 @@ export function InspectionDetailScreen({ route }: Props) {
 }
 
 function ChecklistItemRow({ item }: { item: InspectionChecklistItem }) {
+  const dispatch = useAppDispatch();
+
+  const handleSelect = (status: 'pass' | 'fail') => {
+    dispatch(setLocalChecklistItem({ itemId: item.id, updates: { status } }));
+    dispatch(updateChecklistItem({ roomId: item.roomId!, itemId: item.id, updates: { status } }));
+  };
+
+  const handlePhotoSelected = (file: { uri: string; name?: string; type?: string }) => {
+    dispatch(addChecklistPhoto({ itemId: item.id, file }));
+  };
+
   return (
     <View style={styles.itemRow}>
       <View style={{ flex: 1 }}>
         <Text style={styles.itemTitle}>{item.itemName}</Text>
         {item.notes ? <Text style={styles.itemNotes}>{item.notes}</Text> : null}
+        {item.photos && item.photos.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoRow}>
+            {item.photos.map((photo) => (
+              <Image key={photo.id} source={{ uri: photo.url }} style={styles.photoThumb} />
+            ))}
+          </ScrollView>
+        )}
+        <PhotoPicker onSelected={handlePhotoSelected} />
       </View>
       <View style={styles.itemButtons}>
-        <TouchableOpacity style={[styles.resultButton, item.status === 'pass' && styles.resultButtonActivePass]}>
+        <TouchableOpacity
+          style={[styles.resultButton, item.status === 'pass' && styles.resultButtonActivePass]}
+          onPress={() => handleSelect('pass')}
+        >
           <Text style={styles.resultText}>Pass</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.resultButton, item.status === 'fail' && styles.resultButtonActiveFail]}>
+        <TouchableOpacity
+          style={[styles.resultButton, item.status === 'fail' && styles.resultButtonActiveFail]}
+          onPress={() => handleSelect('fail')}
+        >
           <Text style={styles.resultText}>Fail</Text>
         </TouchableOpacity>
       </View>
@@ -169,6 +193,16 @@ const styles = StyleSheet.create({
   itemNotes: {
     ...theme.typography.body2,
     color: theme.colors.textSecondary,
+  },
+  photoRow: {
+    marginTop: theme.spacing.sm,
+  },
+  photoThumb: {
+    width: 64,
+    height: 64,
+    borderRadius: 12,
+    marginRight: theme.spacing.sm,
+    backgroundColor: theme.colors.surface,
   },
   itemButtons: {
     flexDirection: 'row',
