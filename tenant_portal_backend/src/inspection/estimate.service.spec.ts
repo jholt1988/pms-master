@@ -48,7 +48,7 @@ describe('EstimateService', () => {
 
   // Mock data
   const mockProperty = {
-    id: 1,
+    id: '11111111-1111-4111-8111-111111111111',
     name: 'Test Property',
     address: '123 Test St, Test City, TS 12345',
     city: 'Test City',
@@ -59,27 +59,27 @@ describe('EstimateService', () => {
   };
 
   const mockUser = {
-    id: 1,
+    id: '33333333-3333-4333-8333-333333333333',
     username: 'pm_user@test.com',
     password: '$2b$10$hashedpassword',
     role: 'PROPERTY_MANAGER'
   };
 
   const mockUnit = {
-    id: 1,
+    id: '22222222-2222-4222-8222-222222222222',
     name: 'Unit 101',
-    propertyId: 1,
+    propertyId: '11111111-1111-4111-8111-111111111111',
   };
 
   const mockInspection = {
     id: 1,
-    propertyId: 1,
-    unitId: 1,
+    propertyId: '11111111-1111-4111-8111-111111111111',
+    unitId: '22222222-2222-4222-8222-222222222222',
     type: InspectionType.MOVE_IN,
     status: InspectionStatus.COMPLETED,
     scheduledDate: new Date(),
     completedDate: new Date(),
-    createdById: 1,
+    createdById: '33333333-3333-4333-8333-333333333333',
     property: mockProperty,
     unit: mockUnit,
     rooms: [
@@ -111,25 +111,25 @@ describe('EstimateService', () => {
   };
 
   const mockMaintenanceRequest = {
-    id: 1,
-    propertyId: 1,
-    unitId: 1,
+    id: '55555555-5555-4555-8555-555555555555',
+    propertyId: '11111111-1111-4111-8111-111111111111',
+    unitId: '22222222-2222-4222-8222-222222222222',
     title: 'Urgent Plumbing Repair',
     description: 'Pipe burst in bathroom',
     priority: MaintenancePriority.HIGH,
     status: 'OPEN',
-    createdById: 1,
+    createdById: '33333333-3333-4333-8333-333333333333',
     property: mockProperty,
     unit: mockUnit,
     repairEstimates: [] as any[]
   };
 
   const mockEstimate = {
-    id: 1,
+    id: '44444444-4444-4444-8444-444444444444',
     status: EstimateStatus.DRAFT,
     currency: 'USD',
-    propertyId: 1,
-    unitId: 1,
+    propertyId: '11111111-1111-4111-8111-111111111111',
+    unitId: '22222222-2222-4222-8222-222222222222',
     inspectionId: 1,
     maintenanceRequestId: null as any,
     totalEstimate: 2500.00,
@@ -147,7 +147,7 @@ describe('EstimateService', () => {
     aiAnalysis: 'AI-generated analysis',
     confidence: 0.85,
     estimatedDuration: '2-3 days',
-    createdById: 1,
+    createdById: '33333333-3333-4333-8333-333333333333',
     createdAt: new Date(),
     updatedAt: new Date(),
     approvedAt: null as any,
@@ -226,7 +226,7 @@ describe('EstimateService', () => {
       mockPrismaService.unitInspection.findUniqueOrThrow.mockResolvedValue(mockInspection);
       mockPrismaService.repairEstimate.create.mockResolvedValue(mockEstimate);
 
-      const result = await service.generateEstimateFromInspection(1, 1);
+      const result = await service.generateEstimateFromInspection(1, '33333333-3333-4333-8333-333333333333');
 
       expect(mockPrismaService.unitInspection.findUniqueOrThrow).toHaveBeenCalledWith({
         where: { id: 1 },
@@ -249,14 +249,14 @@ describe('EstimateService', () => {
 
       expect(mockPrismaService.repairEstimate.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          propertyId: 1,
-          unitId: 1,
+          propertyId: '11111111-1111-4111-8111-111111111111',
+          unitId: '22222222-2222-4222-8222-222222222222',
           inspectionId: 1,
           status: EstimateStatus.DRAFT,
           totalProjectCost: 2500,
           totalLaborCost: 1200,
           totalMaterialCost: 800,
-          generatedById: 1,
+          generatedById: '33333333-3333-4333-8333-333333333333',
           itemsToRepair: 3
         }),
         include: expect.any(Object)
@@ -266,11 +266,11 @@ describe('EstimateService', () => {
     });
 
     it('should throw NotFoundException when inspection not found', async () => {
-      mockPrismaService.unitInspection.findUniqueOrThrow.mockRejectedValue(
+      mockPrismaService.unitInspection.findUniqueOrThrow.mockRejectedValueOnce(
         new Error('Record not found')
       );
 
-      await expect(service.generateEstimateFromInspection(999, 1))
+      await expect(service.generateEstimateFromInspection(999, '33333333-3333-4333-8333-333333333333'))
         .rejects.toThrow();
     });
 
@@ -285,7 +285,7 @@ describe('EstimateService', () => {
 
       mockPrismaService.unitInspection.findUniqueOrThrow.mockResolvedValue(inspectionWithNoItems);
 
-      await expect(service.generateEstimateFromInspection(1, 1))
+      await expect(service.generateEstimateFromInspection(1, '33333333-3333-4333-8333-333333333333'))
         .rejects.toThrow(BadRequestException);
     });
   });
@@ -315,7 +315,7 @@ describe('EstimateService', () => {
     });
 
     it('should throw NotFoundException when maintenance request not found', async () => {
-      mockPrismaService.maintenanceRequest.findUniqueOrThrow.mockRejectedValue(
+      mockPrismaService.maintenanceRequest.findUniqueOrThrow.mockRejectedValueOnce(
         new Error('Record not found')
       );
 
@@ -368,11 +368,11 @@ describe('EstimateService', () => {
       mockPrismaService.repairEstimate.findMany.mockResolvedValue(mockEstimates);
       mockPrismaService.repairEstimate.count.mockResolvedValue(1);
 
-      const query = { propertyId: 1, page: 1, limit: 10 };
+      const query = { propertyId: '11111111-1111-4111-8111-111111111111', page: 1, limit: 10 };
       await service.getEstimates(query);
 
       expect(mockPrismaService.repairEstimate.findMany).toHaveBeenCalledWith({
-        where: { propertyId: 1 },
+        where: { propertyId: '11111111-1111-4111-8111-111111111111' },
         include: expect.any(Object),
         skip: 0,
         take: 10,
@@ -411,14 +411,14 @@ describe('EstimateService', () => {
       mockPrismaService.repairEstimate.findUnique.mockResolvedValue(mockEstimate);
       mockPrismaService.repairEstimate.update.mockResolvedValue(updatedEstimate);
 
-      const result = await service.updateEstimate(1, updateDto, 1);
+      const result = await service.updateEstimate('44444444-4444-4444-8444-444444444444', updateDto, '33333333-3333-4333-8333-333333333333');
 
       expect(mockPrismaService.repairEstimate.update).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: '44444444-4444-4444-8444-444444444444' },
         data: {
           ...updateDto,
           approvedAt: expect.any(Date),
-          approvedById: 1
+          approvedById: '33333333-3333-4333-8333-333333333333'
         },
         include: expect.any(Object)
       });
@@ -432,7 +432,7 @@ describe('EstimateService', () => {
         ...mockEstimate, 
         status: EstimateStatus.APPROVED,
         approvedAt: new Date(),
-        approvedById: 1,
+        approvedById: '33333333-3333-4333-8333-333333333333',
         generatedBy: { username: 'estimator@test.com' },
         totalProjectCost: 2500
       };
@@ -440,7 +440,7 @@ describe('EstimateService', () => {
       mockPrismaService.repairEstimate.findUnique.mockResolvedValue(mockEstimate);
       mockPrismaService.repairEstimate.update.mockResolvedValue(approvedEstimate);
 
-      await service.updateEstimate(1, updateDto, 1);
+      await service.updateEstimate('44444444-4444-4444-8444-444444444444', updateDto, '33333333-3333-4333-8333-333333333333');
 
       // Should call the email service for approval notification
       expect(mockEmailService.sendNotificationEmail).toHaveBeenCalled();
@@ -449,7 +449,7 @@ describe('EstimateService', () => {
     it('should throw NotFoundException when estimate not found', async () => {
       mockPrismaService.repairEstimate.findUnique.mockResolvedValue(null);
 
-      await expect(service.updateEstimate(999, { status: 'APPROVED' as any }, 1))
+      await expect(service.updateEstimate('99999999-9999-4999-8999-999999999999', { status: 'APPROVED' as any }, '33333333-3333-4333-8333-333333333333'))
         .rejects.toThrow(NotFoundException);
     });
   });
@@ -476,10 +476,10 @@ describe('EstimateService', () => {
         .mockResolvedValueOnce(mockMaintenanceRequests[1]);
       mockPrismaService.repairEstimate.update.mockResolvedValue(approvedEstimate);
 
-      const result = await service.convertEstimateToMaintenanceRequests(1, 1);
+      const result = await service.convertEstimateToMaintenanceRequests('44444444-4444-4444-8444-444444444444', '33333333-3333-4333-8333-333333333333');
 
       expect(mockPrismaService.repairEstimate.findUnique).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: '44444444-4444-4444-8444-444444444444' },
         include: { lineItems: true }
       });
 
@@ -491,7 +491,7 @@ describe('EstimateService', () => {
       const draftEstimate = { ...mockEstimate, status: 'DRAFT' };
       mockPrismaService.repairEstimate.findUnique.mockResolvedValue(draftEstimate);
 
-      await expect(service.convertEstimateToMaintenanceRequests(1, 1))
+      await expect(service.convertEstimateToMaintenanceRequests('44444444-4444-4444-8444-444444444444', '33333333-3333-4333-8333-333333333333'))
         .rejects.toThrow(BadRequestException);
     });
   });
@@ -535,10 +535,10 @@ describe('EstimateService', () => {
         _avg: { totalProjectCost: 5000 }
       });
 
-      await service.getEstimateStats(1);
+      await service.getEstimateStats('11111111-1111-4111-8111-111111111111');
 
       expect(mockPrismaService.repairEstimate.count).toHaveBeenCalledWith({
-        where: { propertyId: 1 }
+        where: { propertyId: '11111111-1111-4111-8111-111111111111' }
       });
     });
   });
@@ -627,7 +627,7 @@ describe('EstimateService', () => {
 
   describe('error handling', () => {
     it('should handle database connection errors gracefully', async () => {
-      mockPrismaService.repairEstimate.findUnique.mockRejectedValue(
+      mockPrismaService.repairEstimate.findUnique.mockRejectedValueOnce(
         new Error('Database connection failed')
       );
 
@@ -639,12 +639,12 @@ describe('EstimateService', () => {
       // Mock the enhanced estimate agent to throw an error
       const { createEnhancedEstimateAgent } = require('./agents/enhanced-estimate-agent');
       createEnhancedEstimateAgent.mockReturnValue({
-        generateEstimate: jest.fn().mockRejectedValue(new Error('AI service unavailable'))
+        generateEstimate: jest.fn().mockRejectedValueOnce(new Error('AI service unavailable'))
       });
 
       mockPrismaService.unitInspection.findUniqueOrThrow.mockResolvedValue(mockInspection);
 
-      await expect(service.generateEstimateFromInspection(1, 1))
+      await expect(service.generateEstimateFromInspection(1, '33333333-3333-4333-8333-333333333333'))
         .rejects.toThrow('AI service unavailable');
     });
 
@@ -671,7 +671,7 @@ describe('EstimateService', () => {
       mockPrismaService.unitInspection.findUniqueOrThrow.mockResolvedValue(mockInspection);
       mockPrismaService.repairEstimate.create.mockResolvedValue(mockEstimate);
 
-      const estimate = await service.generateEstimateFromInspection(1, 1);
+      const estimate = await service.generateEstimateFromInspection(1, '33333333-3333-4333-8333-333333333333');
       expect(estimate.status).toBe(EstimateStatus.DRAFT);
 
       // 2. Update estimate to approved
@@ -687,7 +687,7 @@ describe('EstimateService', () => {
       mockPrismaService.repairEstimate.findUnique.mockResolvedValue(estimate);
       mockPrismaService.repairEstimate.update.mockResolvedValue(approvedEstimate);
 
-      const updated = await service.updateEstimate(1, { status: 'APPROVED' as any }, 1);
+      const updated = await service.updateEstimate('44444444-4444-4444-8444-444444444444', { status: 'APPROVED' as any }, '33333333-3333-4333-8333-333333333333');
       expect(updated.status).toBe(EstimateStatus.APPROVED);
 
       // 3. Convert to maintenance requests
@@ -696,7 +696,7 @@ describe('EstimateService', () => {
       mockPrismaService.maintenanceRequest.create.mockResolvedValue(maintenanceRequests[0]);
       mockPrismaService.repairEstimate.update.mockResolvedValue({ ...approvedEstimate, status: 'COMPLETED' });
 
-      const requests = await service.convertEstimateToMaintenanceRequests(1, 1);
+      const requests = await service.convertEstimateToMaintenanceRequests('44444444-4444-4444-8444-444444444444', '33333333-3333-4333-8333-333333333333');
       expect(requests).toHaveLength(1);
     });
   });

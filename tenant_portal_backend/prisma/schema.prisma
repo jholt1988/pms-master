@@ -126,7 +126,33 @@ model User {
 
   approvalTasks ApprovalTask[] @relation("ApprovalTenant")
 
-  organizationMemberships UserOrganization[]
+  organizations UserOrganization[]
+}
+
+model Organization {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users      UserOrganization[]
+  properties Property[]
+  technicians Technician[]
+  quickBooksConnections QuickBooksConnection[]
+}
+
+model UserOrganization {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @db.Uuid
+  organizationId String   @db.Uuid
+  role           OrgRole  @default(MEMBER)
+
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+  @@index([userId])
 }
 
 model Property {
@@ -152,7 +178,6 @@ model Property {
   tags                 String[]                  @default([])
   yearBuilt            Int?
   createdAt            DateTime                  @default(now())
-  updatedAt            DateTime                  @updatedAt
   units                Unit[]
   rentalApplications   RentalApplication[]
   expenses             Expense[]
@@ -1195,6 +1220,12 @@ enum Role {
   PROPERTY_MANAGER
   OWNER
   ADMIN
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
 }
 
 enum ApplicationStatus {

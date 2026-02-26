@@ -365,8 +365,9 @@ export class EstimateQueryDto {
   @IsOptional()
   maintenanceRequestId?: string;
 
+  @IsUUID()
   @IsOptional()
-  propertyId?: string | number;
+  propertyId?: string;
 
   @IsEnum(EstimateStatus)
   @IsOptional()

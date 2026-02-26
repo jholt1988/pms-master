@@ -301,14 +301,25 @@ export class InspectionQueryDto {
 export class EstimateQueryDto {
   inspectionId?: number;
   maintenanceRequestId?: string;
-  propertyId?: string | number;
+  propertyId?: string;
   status?: EstimateStatus;
   limit?: number;
   offset?: number;
 }
 
 export class CreateInspectionWithRoomsDto {
-  inspection!: CreateInspectionDto;
+  inspection?: CreateInspectionDto;
   rooms?: CreateRoomDto[];
   propertyType?: 'apartment' | 'house' | 'commercial';
+
+  // Flat inspection fields (supported by service)
+  propertyId?: string;
+  unitId?: string;
+  leaseId?: string;
+  tenantId?: string;
+  type?: InspectionType;
+  scheduledDate?: string;
+  inspectorId?: string;
+  notes?: string;
+  generalNotes?: string;
 }

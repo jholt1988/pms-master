@@ -1,6 +1,9 @@
 -- Add Organization + UserOrganization tables and enforce Property.organizationId
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
+-- Ensure UUID generator exists on fresh Postgres (CI/local)
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 DO $$ BEGIN
   CREATE TYPE "OrgRole" AS ENUM ('OWNER','ADMIN','MEMBER');
 EXCEPTION
