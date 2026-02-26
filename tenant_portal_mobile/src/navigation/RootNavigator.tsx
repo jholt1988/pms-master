@@ -2,6 +2,7 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { AuthNavigator } from './AuthNavigator';
 import { MainNavigator } from './MainNavigator';
+import { AdminNavigator } from './AdminNavigator';
 import { Loading } from '../components/common';
 import { useAppSelector } from '../store/hooks';
 
@@ -19,7 +20,15 @@ export function RootNavigator() {
   }
 
   // Render appropriate navigator based on auth state
-  if (!user) {
+  
+
+  if (user.role === 'PROPERTY_MANAGER' || user.role === 'ADMIN') {
+    return (
+      <NavigationContainer>
+        <AdminNavigator />
+      </NavigationContainer>
+    );
+  }
     return (
       <NavigationContainer>
         <AuthNavigator />
