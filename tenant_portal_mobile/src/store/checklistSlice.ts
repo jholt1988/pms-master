@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { inspectionsApi } from '../api/inspections';
-import { InspectionDetail, InspectionChecklistItem } from '../types/inspection';
+import { InspectionDetail, InspectionChecklistItem, InspectionPhoto } from '../types/inspection';
 import { getErrorMessage } from '../utils/error';
 
 interface ChecklistState {
@@ -22,6 +22,19 @@ export const fetchInspectionDetail = createAsyncThunk<InspectionDetail, number>(
       return await inspectionsApi.get(inspectionId);
     } catch (error) {
       return rejectWithValue(getErrorMessage(error, 'Failed to load inspection'));
+    }
+  }
+);
+
+
+export const addChecklistPhoto = createAsyncThunk<InspectionPhoto, { itemId: number; file: { uri: string; name?: string; type?: string }; caption?: string }>(
+  'checklist/addPhoto',
+  async ({ itemId, file, caption }, { rejectWithValue }) => {
+    try {
+      const photo = await inspectionsApi.uploadChecklistPhoto(itemId, file, caption);
+      return photo;
+    } catch (error) {
+      return rejectWithValue(getErrorMessage(error, 'Failed to upload photo'));
     }
   }
 );
@@ -57,7 +70,13 @@ const checklistSlice = createSlice({
       })
       .addCase(fetchInspectionDetail.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.detail = action.payload;
+        state.detail = {
+          ...action.payload,
+          rooms: action.payload.rooms?.map((room) => ({
+            ...room,
+            checklistItems: room.checklistItems?.map((item) => ({ ...item, roomId: room.id })) || [],
+          })),
+        };
       })
       .addCase(fetchInspectionDetail.rejected, (state, action) => {
         state.isLoading = false;
@@ -68,6 +87,13 @@ const checklistSlice = createSlice({
         const item = state.detail.rooms?.flatMap((room) => room.checklistItems ?? []).find((i) => i.id === action.payload.id);
         if (item) {
           Object.assign(item, action.payload);
+        }
+      })
+      .addCase(addChecklistPhoto.fulfilled, (state, action) => {
+        if (!state.detail) return;
+        const item = state.detail.rooms?.flatMap((room) => room.checklistItems ?? []).find((i) => i.id === action.meta.arg.itemId);
+        if (item) {
+          item.photos = item.photos ? [...item.photos, action.payload] : [action.payload];
         }
       });
   },

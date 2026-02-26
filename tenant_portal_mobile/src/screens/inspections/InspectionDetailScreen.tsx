@@ -12,6 +12,7 @@ import { RouteProp } from '@react-navigation/native';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchInspectionDetail, setLocalChecklistItem, updateChecklistItem } from '../../store/checklistSlice';
 import { InspectionDetail, InspectionChecklistItem } from '../../types/inspection';
+import { PhotoPicker } from '../../components/inspections/PhotoPicker';
 import { format } from 'date-fns';
 import * as theme from '../../theme';
 import type { InspectionsStackParamList } from '../../navigation/types';
@@ -76,11 +77,23 @@ function ChecklistItemRow({ item }: { item: InspectionChecklistItem }) {
     dispatch(updateChecklistItem({ roomId: item.roomId!, itemId: item.id, updates: { status } }));
   };
 
+  const handlePhotoSelected = (file: { uri: string; name?: string; type?: string }) => {
+    dispatch(addChecklistPhoto({ itemId: item.id, file }));
+  };
+
   return (
     <View style={styles.itemRow}>
       <View style={{ flex: 1 }}>
         <Text style={styles.itemTitle}>{item.itemName}</Text>
         {item.notes ? <Text style={styles.itemNotes}>{item.notes}</Text> : null}
+        {item.photos && item.photos.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoRow}>
+            {item.photos.map((photo) => (
+              <Image key={photo.id} source={{ uri: photo.url }} style={styles.photoThumb} />
+            ))}
+          </ScrollView>
+        )}
+        <PhotoPicker onSelected={handlePhotoSelected} />
       </View>
       <View style={styles.itemButtons}>
         <TouchableOpacity
@@ -180,6 +193,16 @@ const styles = StyleSheet.create({
   itemNotes: {
     ...theme.typography.body2,
     color: theme.colors.textSecondary,
+  },
+  photoRow: {
+    marginTop: theme.spacing.sm,
+  },
+  photoThumb: {
+    width: 64,
+    height: 64,
+    borderRadius: 12,
+    marginRight: theme.spacing.sm,
+    backgroundColor: theme.colors.surface,
   },
   itemButtons: {
     flexDirection: 'row',
