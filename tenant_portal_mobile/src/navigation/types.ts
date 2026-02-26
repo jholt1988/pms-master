@@ -18,6 +18,12 @@ export type AuthStackNavigationProp = NativeStackNavigationProp<AuthStackParamLi
  * Main Tab Navigation
  * Bottom tabs for authenticated users
  */
+export type AdminTabParamList = {
+  Dashboard: undefined;
+  Properties: undefined;
+  Profile: undefined;
+};
+
 export type MainTabParamList = {
   Home: undefined;
   Payments: undefined;
@@ -59,6 +65,11 @@ export type MaintenanceStackNavigationProp = NativeStackNavigationProp<Maintenan
 /**
  * Inspections Stack Navigation
  */
+export type PropertiesStackParamList = {
+  PropertiesList: undefined;
+  PropertyDetail: { propertyId: string };
+};
+
 export type InspectionsStackParamList = {
   InspectionsList: undefined;
   InspectionDetail: { inspectionId: number };

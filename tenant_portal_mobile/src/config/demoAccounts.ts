@@ -13,3 +13,10 @@ export const DEMO_TENANT_ACCOUNTS: DemoAccount[] = [
 
 export const DEFAULT_TENANT_ACCOUNT = DEMO_TENANT_ACCOUNTS[0];
 export const DEMO_ACCOUNT_STORAGE_KEY = 'pms_demo_account';
+
+export const DEMO_ADMIN_ACCOUNTS: DemoAccount[] = [
+  { label: 'Admin PM', username: 'admin_pm', password: 'password123', role: 'PROPERTY_MANAGER' },
+  { label: 'System Admin', username: 'admin', password: 'Admin123!@#', role: 'ADMIN' },
+];
+
+export const DEFAULT_ADMIN_ACCOUNT = DEMO_ADMIN_ACCOUNTS[0];
