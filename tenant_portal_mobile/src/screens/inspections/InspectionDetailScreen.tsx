@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   View,
@@ -9,7 +9,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { RouteProp } from '@react-navigation/native';
-import { inspectionsApi } from '../../api/inspections';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { fetchInspectionDetail, setLocalChecklistItem, updateChecklistItem } from '../../store/checklistSlice';
 import { InspectionDetail, InspectionChecklistItem } from '../../types/inspection';
 import { format } from 'date-fns';
 import * as theme from '../../theme';
@@ -21,24 +22,21 @@ interface Props {
 
 export function InspectionDetailScreen({ route }: Props) {
   const { inspectionId } = route.params;
-  const [inspection, setInspection] = useState<InspectionDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { detail: inspection, isLoading } = useAppSelector((state) => state.checklist);
+  const dispatch = useAppDispatch();
 
   useEffect(() => {
     const load = async () => {
       try {
-        const result = await inspectionsApi.get(inspectionId);
-        setInspection(result);
+        dispatch(fetchInspectionDetail(inspectionId));
       } catch (error) {
         console.error('[InspectionDetail] Failed to load inspection', error);
-      } finally {
-        setLoading(false);
       }
     };
     load();
   }, [inspectionId]);
 
-  if (loading || !inspection) {
+  if (isLoading || !inspection) {
     return (
       <SafeAreaView style={styles.centered}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -71,6 +69,13 @@ export function InspectionDetailScreen({ route }: Props) {
 }
 
 function ChecklistItemRow({ item }: { item: InspectionChecklistItem }) {
+  const dispatch = useAppDispatch();
+
+  const handleSelect = (status: 'pass' | 'fail') => {
+    dispatch(setLocalChecklistItem({ itemId: item.id, updates: { status } }));
+    dispatch(updateChecklistItem({ roomId: item.roomId!, itemId: item.id, updates: { status } }));
+  };
+
   return (
     <View style={styles.itemRow}>
       <View style={{ flex: 1 }}>
@@ -78,10 +83,16 @@ function ChecklistItemRow({ item }: { item: InspectionChecklistItem }) {
         {item.notes ? <Text style={styles.itemNotes}>{item.notes}</Text> : null}
       </View>
       <View style={styles.itemButtons}>
-        <TouchableOpacity style={[styles.resultButton, item.status === 'pass' && styles.resultButtonActivePass]}>
+        <TouchableOpacity
+          style={[styles.resultButton, item.status === 'pass' && styles.resultButtonActivePass]}
+          onPress={() => handleSelect('pass')}
+        >
           <Text style={styles.resultText}>Pass</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.resultButton, item.status === 'fail' && styles.resultButtonActiveFail]}>
+        <TouchableOpacity
+          style={[styles.resultButton, item.status === 'fail' && styles.resultButtonActiveFail]}
+          onPress={() => handleSelect('fail')}
+        >
           <Text style={styles.resultText}>Fail</Text>
         </TouchableOpacity>
       </View>
