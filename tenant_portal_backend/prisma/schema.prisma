@@ -11,32 +11,7 @@ datasource db {
 }
 
 // --- Multi-tenant foundation (PM company / landlord account) ---
-model Organization {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
-  properties            Property[]
-  members               UserOrganization[]
-  syndicationCredentials SyndicationCredential[]
-  technicians           Technician[]
-  quickBooksConnections QuickBooksConnection[]
-}
-
-model UserOrganization {
-  id             String  @id @default(uuid()) @db.Uuid
-  userId         String  @db.Uuid
-  organizationId String  @db.Uuid
-  role           OrgRole @default(MEMBER)
-
-  user         User         @relation(fields: [userId], references: [id])
-  organization Organization @relation(fields: [organizationId], references: [id])
-
-  @@unique([userId, organizationId])
-  @@index([organizationId])
-  @@index([userId])
-}
 
 enum OrgRole {
   OWNER
