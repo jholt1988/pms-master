@@ -12,10 +12,10 @@ export class PrismaHealthIndicator extends HealthIndicator {
     try {
       // Simple query to check database connectivity
       await this.prisma.$queryRaw`SELECT 1`;
-      return this.getStatus(key, true);
+      return { [key]: { status: 'up' } };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown database error';
-      return this.getStatus(key, false, { error: errorMessage });
+      return { [key]: { status: 'down', error: errorMessage } };
     }
   }
 }
