@@ -11,7 +11,9 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
+import { Inject } from '@nestjs/common';
 import { QuickBooksMinimalService } from './quickbooks-minimal.service';
+import { AbstractQuickBooksService } from './quickbooks.types';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 
 @ApiTags('QuickBooks Integration')
@@ -21,7 +23,7 @@ import { OrgContextGuard } from '../common/org-context/org-context.guard';
 export class QuickBooksController {
   private readonly logger = new Logger(QuickBooksController.name);
 
-  constructor(private readonly quickBooksService: QuickBooksMinimalService) {}
+  constructor(@Inject(AbstractQuickBooksService) private readonly quickBooksService: AbstractQuickBooksService) {}
 
   @Get('auth-url')
   @ApiOperation({ summary: 'Get QuickBooks authorization URL' })

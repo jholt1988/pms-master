@@ -1,10 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  AbstractQuickBooksService,
+  OAuthCallbackResult,
+  ConnectionStatus,
+  TestConnectionResult,
+  DisconnectResult,
+  BasicSyncResult,
+} from './quickbooks.types';
 const QuickBooks = require('node-quickbooks');
 const OAuthClient = require('intuit-oauth');
 
 @Injectable()
-export class QuickBooksMinimalService {
+export class QuickBooksMinimalService extends AbstractQuickBooksService {
   private readonly logger = new Logger(QuickBooksMinimalService.name);
   private oauthClient: any;
 
@@ -33,7 +41,7 @@ export class QuickBooksMinimalService {
     code: string,
     state: string,
     realmId: string
-  ): Promise<{ success: boolean; message: string; companyId?: string }> {
+  ): Promise<OAuthCallbackResult> {
     try {
       let parsedState: any;
       try {
@@ -102,12 +110,7 @@ export class QuickBooksMinimalService {
     }
   }
 
-  async getConnectionStatus(userId: string, orgId: string): Promise<{
-    connected: boolean;
-    companyName?: string;
-    lastSync?: Date;
-    expiresAt?: Date;
-  }> {
+  async getConnectionStatus(userId: string, orgId: string): Promise<ConnectionStatus> {
     const connection = await this.prisma.quickBooksConnection.findFirst({
       where: { organizationId: orgId, isActive: true },
     });
@@ -124,11 +127,7 @@ export class QuickBooksMinimalService {
     };
   }
 
-  async testConnection(userId: string): Promise<{
-    success: boolean;
-    message: string;
-    companyInfo?: any;
-  }> {
+  async testConnection(userId: string): Promise<TestConnectionResult> {
     try {
     const connection = await this.prisma.quickBooksConnection.findFirst({
       where: { userId, isActive: true },
@@ -179,10 +178,7 @@ export class QuickBooksMinimalService {
     }
   }
 
-  async disconnectQuickBooks(userId: string, orgId: string): Promise<{
-    success: boolean;
-    message: string;
-  }> {
+  async disconnectQuickBooks(userId: string, orgId: string): Promise<DisconnectResult> {
     try {
       await this.prisma.quickBooksConnection.updateMany({
         where: { organizationId: orgId },
@@ -203,11 +199,7 @@ export class QuickBooksMinimalService {
     }
   }
 
-  async basicSync(userId: string, orgId: string): Promise<{
-    success: boolean;
-    message: string;
-    syncedItems?: number;
-  }> {
+  async basicSync(userId: string, orgId: string): Promise<BasicSyncResult> {
     try {
       const connection = await this.prisma.quickBooksConnection.findFirst({
         where: { organizationId: orgId, isActive: true },

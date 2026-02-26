@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AbstractQuickBooksService } from './quickbooks.types';
 
 // Import QuickBooks packages with require since they don't have proper TypeScript definitions
 const OAuthClient = require('intuit-oauth');
@@ -26,7 +27,7 @@ export interface SyncResult {
 }
 
 @Injectable()
-export class QuickBooksService {
+export class QuickBooksService extends AbstractQuickBooksService {
   private readonly logger = new Logger(QuickBooksService.name);
   private oauthClient: any;
 
