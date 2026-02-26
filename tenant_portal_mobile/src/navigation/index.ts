@@ -3,3 +3,5 @@ export { AuthNavigator } from './AuthNavigator';
 export { MainNavigator } from './MainNavigator';
 export { PaymentsStackNavigator } from './PaymentsStackNavigator';
 export * from './types';
+export { InspectionsStackNavigator } from './InspectionsStackNavigator';
+

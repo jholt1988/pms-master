@@ -5,6 +5,7 @@ import { useAppSelector } from '../store/hooks';
 import HomeScreen from '../screens/home/HomeScreen';
 import { PaymentsStackNavigator } from './PaymentsStackNavigator';
 import { MaintenanceStackNavigator } from './MaintenanceStackNavigator';
+import { InspectionsStackNavigator } from './InspectionsStackNavigator';
 import NotificationsScreen from '../screens/notifications/NotificationsScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import { MainTabParamList } from './types';
@@ -60,6 +61,16 @@ export function MainNavigator() {
           title: 'Payments',
           tabBarIcon: ({ color, size }) => (
             <TabIcon name="💳" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Inspections"
+        component={InspectionsStackNavigator}
+        options={{
+          title: 'Inspections',
+          tabBarIcon: ({ color, size }) => (
+            <TabIcon name="📋" color={color} size={size} />
           ),
         }}
       />
