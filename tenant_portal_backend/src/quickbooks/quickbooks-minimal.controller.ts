@@ -12,6 +12,7 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { QuickBooksMinimalService } from './quickbooks-minimal.service';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 
 @ApiTags('QuickBooks Integration')
 @ApiBearerAuth()

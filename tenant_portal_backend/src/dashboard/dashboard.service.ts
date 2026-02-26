@@ -103,7 +103,7 @@ const [
       LeadApplicationStatus.REJECTED,
     ];
 
-    const [pendingApplications, approvedApplications, rejectedApplications] = await Promise.all([
+    const [pendingApplications, approvedApplications, rejectedApplications, legalAcceptedApplications, legalMissingApplications] = await Promise.all([
       this.prisma.leadApplication.count({
         where: { status: { in: pendingStatuses }, ...(orgLeadAppWhere ?? {}) },
       }),
@@ -112,6 +112,19 @@ const [
       }),
       this.prisma.leadApplication.count({
         where: { status: { in: rejectedStatuses }, ...(orgLeadAppWhere ?? {}) },
+      }),
+      this.prisma.leadApplication.count({
+        where: {
+          ...(orgLeadAppWhere ?? {}),
+          termsAcceptedAt: { not: null },
+          privacyAcceptedAt: { not: null },
+        },
+      }),
+      this.prisma.leadApplication.count({
+        where: {
+          ...(orgLeadAppWhere ?? {}),
+          OR: [{ termsAcceptedAt: null }, { privacyAcceptedAt: null }],
+        },
       }),
     ]);
 
@@ -184,6 +197,8 @@ const [
         pending: pendingApplications,
         approved: approvedApplications,
         rejected: rejectedApplications,
+        legalAccepted: legalAcceptedApplications,
+        legalMissing: legalMissingApplications,
       },
       recentActivity,
     };

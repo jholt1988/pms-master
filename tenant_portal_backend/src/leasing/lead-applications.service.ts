@@ -3,16 +3,18 @@
  * Handles rental application submission and processing for leads
  */
 
-import { Injectable } from '@nestjs/common';
-import { LeadApplicationStatus } from '@prisma/client';
+import { Injectable, BadRequestException } from '@nestjs/common';
+import { LeadApplicationStatus, SecurityEventType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
+import { SecurityEventsService } from '../security-events/security-events.service';
 
 @Injectable()
 export class LeadApplicationsService {
   constructor(
     private prisma: PrismaService,
     private emailService: EmailService,
+    private securityEvents: SecurityEventsService,
   ) {}
 
   /**
@@ -20,11 +22,29 @@ export class LeadApplicationsService {
    */
   async submitApplication(data: any) {
     const normalizedStatus = this.normalizeLeadApplicationStatus(data?.status);
+    const {
+      termsAccepted,
+      privacyAccepted,
+      termsVersion,
+      privacyVersion,
+      ...rest
+    } = data ?? {};
+
+    if (!termsAccepted || !privacyAccepted) {
+      throw new BadRequestException('Terms of Service and Privacy Policy must be accepted');
+    }
+
+    const acceptanceTimestamp = new Date();
+
     const application = await this.prisma.leadApplication.create({
       data: {
-        ...data,
+        ...rest,
         status: normalizedStatus,
         submittedAt: new Date(),
+        termsAcceptedAt: acceptanceTimestamp,
+        termsVersion: termsVersion ?? 'unknown',
+        privacyAcceptedAt: acceptanceTimestamp,
+        privacyVersion: privacyVersion ?? 'unknown',
       },
       include: {
         lead: true,
@@ -41,6 +61,23 @@ export class LeadApplicationsService {
         application.property,
       ).catch(err => console.error('Failed to send application confirmation:', err));
     }
+
+    await this.securityEvents.logEvent({
+      type: SecurityEventType.APPLICATION_LEGAL_ACCEPTED,
+      success: true,
+      userId: null,
+      username: application.lead?.email ?? application.lead?.name ?? null,
+      metadata: {
+        applicationId: application.id,
+        propertyId: application.propertyId,
+        unitId: application.unitId,
+        termsVersion: application.termsVersion,
+        privacyVersion: application.privacyVersion,
+        termsAcceptedAt: application.termsAcceptedAt,
+        privacyAcceptedAt: application.privacyAcceptedAt,
+        leadId: application.leadId,
+      },
+    });
 
     return application;
   }

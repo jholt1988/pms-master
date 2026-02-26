@@ -20,7 +20,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 
-export type UserRole = 'TENANT' | 'PROPERTY_MANAGER' | 'ADMIN';
+export type UserRole = 'TENANT' | 'PROPERTY_MANAGER' | 'OWNER' | 'ADMIN';
 
 interface SidebarProps {
   className?: string;
@@ -41,18 +41,18 @@ interface NavLink {
 }
 
 const mainNavigationLinks: NavLink[] = [
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['TENANT', 'PROPERTY_MANAGER', 'ADMIN'], showChevron: true },
+  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['TENANT', 'PROPERTY_MANAGER', 'OWNER', 'ADMIN'], showChevron: true },
   { path: '/maintenance', label: 'Maintenance', icon: Wrench, roles: ['TENANT'], showChevron: true },
-  { path: '/maintenance-management', label: 'Maintenance', icon: Wrench, roles: ['PROPERTY_MANAGER', 'ADMIN'], showChevron: true },
+  { path: '/maintenance-management', label: 'Maintenance', icon: Wrench, roles: ['PROPERTY_MANAGER', 'OWNER', 'ADMIN'], showChevron: true },
   { path: '/payments', label: 'Payments', icon: Wallet, roles: ['TENANT', 'PROPERTY_MANAGER', 'ADMIN'], showChevron: true },
-  { path: '/messaging', label: 'Messages', icon: MessageSquare, roles: ['TENANT', 'PROPERTY_MANAGER', 'ADMIN'] },
+  { path: '/messaging', label: 'Messages', icon: MessageSquare, roles: ['TENANT', 'PROPERTY_MANAGER', 'OWNER', 'ADMIN'] },
   { path: '/lease-management', label: 'Leases', icon: FileSignature, roles: ['PROPERTY_MANAGER', 'ADMIN'] },
   { path: '/rental-applications-management', label: 'Applications', icon: FileText, roles: ['PROPERTY_MANAGER', 'ADMIN'] },
 ];
 
 const toolsLinks: NavLink[] = [
   { path: '/schedule', label: 'Schedule', icon: Calendar, roles: ['TENANT', 'PROPERTY_MANAGER', 'ADMIN'], showDot: true },
-  { path: '/properties', label: 'Properties', icon: Building2, roles: ['PROPERTY_MANAGER', 'ADMIN'], showDot: true },
+  { path: '/properties', label: 'Properties', icon: Building2, roles: ['PROPERTY_MANAGER', 'OWNER', 'ADMIN'], showDot: true },
   { path: '/documents', label: 'Documents', icon: Files, roles: ['TENANT', 'PROPERTY_MANAGER', 'ADMIN'], showDot: true },
   { path: '/expense-tracker', label: 'Expenses', icon: Wallet, roles: ['PROPERTY_MANAGER', 'ADMIN'] },
   { path: '/rent-estimator', label: 'Rent Estimator', icon: ScanLine, roles: ['PROPERTY_MANAGER', 'ADMIN'] },

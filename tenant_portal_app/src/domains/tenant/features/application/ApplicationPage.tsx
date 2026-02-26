@@ -117,6 +117,9 @@ interface Vehicle {
  * Enhanced rental application page with comprehensive sections
  * Features: Individual sections for references, landlords, employment, pets, vehicles, documents
  */
+const TERMS_VERSION = '0.1';
+const PRIVACY_VERSION = '0.1';
+
 const RentalApplicationPage: React.FC = () => {
   const navigate = useNavigate();
   const [properties, setProperties] = useState<Property[]>([]);
@@ -166,6 +169,8 @@ const RentalApplicationPage: React.FC = () => {
   const [authorizeCreditCheck, setAuthorizeCreditCheck] = useState(false);
   const [authorizeBackgroundCheck, setAuthorizeBackgroundCheck] = useState(false);
   const [authorizeEmploymentVerification, setAuthorizeEmploymentVerification] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   
   // Negative Aspects Explanation
   const [negativeAspectsExplanation, setNegativeAspectsExplanation] = useState('');
@@ -304,6 +309,12 @@ const RentalApplicationPage: React.FC = () => {
       return;
     }
 
+    if (!termsAccepted || !privacyAccepted) {
+      setError('Please accept the Terms of Service and Privacy Policy to proceed.');
+      setSubmitting(false);
+      return;
+    }
+
     const sanitizedReferences = references
       .map((ref) => ({
         name: ref.name.trim(),
@@ -404,6 +415,10 @@ const RentalApplicationPage: React.FC = () => {
           // Note: File uploads would need to be handled via FormData in a real implementation
           ssCardUploaded: !!ssCardFile,
           dlIdUploaded: !!dlIdFile,
+          termsAccepted,
+          privacyAccepted,
+          termsVersion: TERMS_VERSION,
+          privacyVersion: PRIVACY_VERSION,
         },
       });
 
@@ -1578,6 +1593,40 @@ const RentalApplicationPage: React.FC = () => {
                         <p className="text-sm text-gray-500">I authorize my current and previous employers to verify my employment information.</p>
                       </div>
                     </Checkbox>
+
+                    <Checkbox
+                      isSelected={termsAccepted}
+                      onValueChange={setTermsAccepted}
+                      isRequired
+                    >
+                      <div>
+                        <p className="font-medium">I agree to the Terms of Service</p>
+                        <p className="text-sm text-gray-500">
+                          View the terms at{' '}
+                          <a className="text-blue-600 hover:text-blue-700" href="/legal/terms" target="_blank" rel="noreferrer">
+                            /legal/terms
+                          </a>
+                          .
+                        </p>
+                      </div>
+                    </Checkbox>
+
+                    <Checkbox
+                      isSelected={privacyAccepted}
+                      onValueChange={setPrivacyAccepted}
+                      isRequired
+                    >
+                      <div>
+                        <p className="font-medium">I agree to the Privacy Policy</p>
+                        <p className="text-sm text-gray-500">
+                          View the policy at{' '}
+                          <a className="text-blue-600 hover:text-blue-700" href="/legal/privacy" target="_blank" rel="noreferrer">
+                            /legal/privacy
+                          </a>
+                          .
+                        </p>
+                      </div>
+                    </Checkbox>
                   </div>
                 </CardBody>
               </Card>
@@ -1626,7 +1675,7 @@ const RentalApplicationPage: React.FC = () => {
             color="primary"
             size="lg"
             isLoading={submitting}
-            isDisabled={!authorizeCreditCheck || !authorizeBackgroundCheck || !authorizeEmploymentVerification}
+            isDisabled={!authorizeCreditCheck || !authorizeBackgroundCheck || !authorizeEmploymentVerification || !termsAccepted || !privacyAccepted}
             style={{
               fontSize: fontSize.base,
               fontWeight: fontWeight.semibold,

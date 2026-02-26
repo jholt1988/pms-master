@@ -63,7 +63,8 @@ const getPriorityColor = (priority: MaintenanceRequest['priority']) => {
 };
 
 export default function MaintenanceManagementPage(): React.ReactElement {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isOwnerView = user?.role === 'OWNER';
   const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | undefined>(undefined);
@@ -100,6 +101,12 @@ export default function MaintenanceManagementPage(): React.ReactElement {
   const master = (
     <div className="p-4 sm:p-6 w-full">
       <h1 className="text-2xl sm:text-3xl font-bold mb-6 text-white">Maintenance Requests</h1>
+      {isOwnerView && (
+        <div className="mb-6 rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-xs text-gray-300">
+          <span className="font-mono text-neon-blue uppercase tracking-wider">Owner view</span>
+          <span className="ml-2">Read-only ticket status. Updates are managed by the property manager.</span>
+        </div>
+      )}
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <p className="text-gray-300">Loading maintenance requests...</p>

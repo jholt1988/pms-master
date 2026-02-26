@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import { 
   Settings, 
   Bell, 
@@ -10,6 +10,7 @@ import {
   ToggleLeft,
   ToggleRight
 } from 'lucide-react';
+import { useFocusTrap } from '../../utils/focus-trap';
 
 interface SettingsMenuProps {
   isOpen: boolean;
@@ -54,6 +55,8 @@ interface SettingsState {
 }
 
 export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) => {
+  const titleId = useId();
+  const panelRef = useFocusTrap(isOpen);
   const [settings, setSettings] = useState<SettingsState>({
     notifications: {
       email: true,
@@ -98,7 +101,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) =
   const sections: SettingSection[] = [
     {
       title: 'Notifications',
-      icon: <Bell size={18} className="text-neon-blue" />,
+      icon: <Bell size={18} className="text-neon-blue" aria-hidden="true" />,
       items: [
         {
           id: 'email',
@@ -128,7 +131,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) =
     },
     {
       title: 'Appearance',
-      icon: <Palette size={18} className="text-neon-purple" />,
+      icon: <Palette size={18} className="text-neon-purple" aria-hidden="true" />,
       items: [
         {
           id: 'theme',
@@ -163,7 +166,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) =
     },
     {
       title: 'Privacy & Security',
-      icon: <Shield size={18} className="text-green-400" />,
+      icon: <Shield size={18} className="text-green-400" aria-hidden="true" />,
       items: [
         {
           id: 'dataSharing',
@@ -185,7 +188,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) =
     },
     {
       title: 'Performance',
-      icon: <Zap size={18} className="text-yellow-400" />,
+      icon: <Zap size={18} className="text-yellow-400" aria-hidden="true" />,
       items: [
         {
           id: 'cacheEnabled',
@@ -213,6 +216,13 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) =
     onClose();
   };
 
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      onClose();
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -221,10 +231,19 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) =
       <div 
         className="fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm"
         onClick={onClose}
+        aria-hidden="true"
       />
       
       {/* Settings Panel */}
-      <div className="fixed top-0 right-0 h-full w-96 max-w-[90vw] z-[100] animate-in slide-in-from-right duration-300">
+      <div
+        ref={panelRef as React.RefObject<HTMLDivElement>}
+        className="fixed top-0 right-0 h-full w-96 max-w-[90vw] z-[100] animate-in slide-in-from-right duration-300"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onKeyDown={handleKeyDown}
+        tabIndex={-1}
+      >
         <div className="h-full flex flex-col bg-glass-surface backdrop-blur-xl border-l border-glass-highlight shadow-[0_0_50px_-10px_rgba(112,0,255,0.3)] border-neon-purple/30">
           {/* Grid pattern overlay */}
           <div className="pointer-events-none absolute inset-0 bg-grid-pattern opacity-[0.03]" />
@@ -233,15 +252,15 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) =
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-white/10 bg-white/5">
               <div className="flex items-center gap-3">
-                <Settings size={20} className="text-neon-purple" />
-                <h2 className="text-white font-sans text-lg font-semibold">Settings</h2>
+                <Settings size={20} className="text-neon-purple" aria-hidden="true" />
+                <h2 id={titleId} className="text-white font-sans text-lg font-semibold">Settings</h2>
               </div>
               <button
                 onClick={onClose}
                 className="p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
                 aria-label="Close settings"
               >
-                <X size={20} />
+                <X size={20} aria-hidden="true" />
               </button>
             </div>
 
@@ -257,51 +276,64 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) =
                   </div>
                   
                   <div className="space-y-3">
-                    {section.items.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-start justify-between p-4 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
-                      >
-                        <div className="flex-1">
-                          <label className="block text-sm text-white font-medium mb-1">
-                            {item.label}
-                          </label>
-                          {item.description && (
-                            <p className="text-xs text-gray-400">{item.description}</p>
-                          )}
-                        </div>
-                        
-                        <div className="ml-4">
-                          {item.type === 'toggle' && (
-                            <button
-                              onClick={() => item.onChange?.(!item.value)}
-                              className="relative inline-flex items-center"
-                              aria-label={`Toggle ${item.label}`}
-                            >
-                              {item.value ? (
-                                <ToggleRight size={32} className="text-neon-blue" />
-                              ) : (
-                                <ToggleLeft size={32} className="text-gray-600" />
-                              )}
-                            </button>
-                          )}
+                    {section.items.map((item) => {
+                      const sectionId = section.title.replace(/\s+/g, '-').toLowerCase();
+                      const itemLabelId = `settings-${sectionId}-${item.id}-label`;
+                      const itemDescId = item.description ? `settings-${sectionId}-${item.id}-description` : undefined;
+
+                      return (
+                        <div
+                          key={item.id}
+                          className="flex items-start justify-between p-4 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+                        >
+                          <div className="flex-1">
+                            <label id={itemLabelId} className="block text-sm text-white font-medium mb-1">
+                              {item.label}
+                            </label>
+                            {item.description && (
+                              <p id={itemDescId} className="text-xs text-gray-400">
+                                {item.description}
+                              </p>
+                            )}
+                          </div>
                           
-                          {item.type === 'select' && (
-                            <select
-                              value={item.value as string}
-                              onChange={(e) => item.onChange?.(e.target.value)}
-                              className="px-3 py-1.5 bg-black/20 border border-white/10 rounded-lg text-white text-sm focus:border-neon-blue/50 focus:outline-none"
-                            >
-                              {item.options?.map((option) => (
-                                <option key={option.value} value={option.value} className="bg-deep-900">
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
-                          )}
+                          <div className="ml-4">
+                            {item.type === 'toggle' && (
+                              <button
+                                onClick={() => item.onChange?.(!item.value)}
+                                className="relative inline-flex items-center"
+                                role="switch"
+                                aria-checked={!!item.value}
+                                aria-labelledby={itemLabelId}
+                                aria-describedby={itemDescId}
+                              >
+                                {item.value ? (
+                                  <ToggleRight size={32} className="text-neon-blue" aria-hidden="true" />
+                                ) : (
+                                  <ToggleLeft size={32} className="text-gray-600" aria-hidden="true" />
+                                )}
+                              </button>
+                            )}
+                            
+                            {item.type === 'select' && (
+                              <select
+                                value={item.value as string}
+                                onChange={(e) => item.onChange?.(e.target.value)}
+                                className="px-3 py-1.5 bg-black/20 border border-white/10 rounded-lg text-white text-sm focus:border-neon-blue/50 focus:outline-none"
+                                aria-labelledby={itemLabelId}
+                                aria-describedby={itemDescId}
+                              >
+                                {item.options?.map((option) => (
+                                  <option key={option.value} value={option.value} className="bg-deep-900">
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ))}
@@ -314,7 +346,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, onClose }) =
                   onClick={handleSave}
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-neon-blue/20 border border-neon-blue/50 text-neon-blue rounded-lg hover:bg-neon-blue/30 transition-colors font-semibold"
                 >
-                  <Save size={16} />
+                  <Save size={16} aria-hidden="true" />
                   Save Settings
                 </button>
                 <button

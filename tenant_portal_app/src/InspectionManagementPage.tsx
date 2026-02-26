@@ -77,7 +77,8 @@ const getTypeLabel = (type: string) => {
 };
 
 export default function InspectionManagementPage(): React.ReactElement {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isOwnerView = user?.role === 'OWNER';
   const navigate = useNavigate();
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
@@ -173,10 +174,23 @@ export default function InspectionManagementPage(): React.ReactElement {
           <h1 className="text-3xl font-bold">Inspection Management</h1>
           <p className="text-sm text-foreground-500">Monitor upcoming, in-progress, and completed inspections.</p>
         </div>
-        <Button color="primary" onClick={() => setShowCreateModal(true)}>
+        <Button
+          color="primary"
+          isDisabled={isOwnerView}
+          onClick={() => {
+            if (isOwnerView) return;
+            setShowCreateModal(true);
+          }}
+        >
           Schedule Inspection
         </Button>
       </div>
+
+      {isOwnerView && (
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
+          <span className="font-semibold">Owner view:</span> inspection scheduling is managed by your property manager. Data refreshes nightly.
+        </div>
+      )}
 
       <div className="bg-white p-4 rounded-lg shadow mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4">
@@ -211,42 +225,50 @@ export default function InspectionManagementPage(): React.ReactElement {
               <option value="CANCELLED">Cancelled</option>
             </select>
           </label>
-          <input
-            className="border border-input rounded px-3 py-2"
-            placeholder="Inspection Type (Routine, Move-in, etc.)"
-            aria-label="Inspection Type"
-            value={filters.type}
-            onChange={(event) => setFilters((prev) => ({ ...prev, type: event.target.value }))}
-          />
+          <label className="flex flex-col text-sm text-foreground-500">
+            Inspection Type
+            <input
+              className="border border-input rounded px-3 py-2 mt-1"
+              placeholder="Routine, Move-in, etc."
+              value={filters.type}
+              onChange={(event) => setFilters((prev) => ({ ...prev, type: event.target.value }))}
+            />
+          </label>
         </div>
       </div>
 
       {error && (
-        <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded mb-4">
+        <div
+          className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded mb-4"
+          role="alert"
+        >
           {error}
         </div>
       )}
 
       {loading ? (
-        <div className="text-center py-12">Loading inspections...</div>
+        <div className="text-center py-12" role="status" aria-live="polite">
+          Loading inspections...
+        </div>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
+            <caption className="sr-only">Inspection list</caption>
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground-500">
+                <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground-500">
                   Property / Unit
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground-500">
+                <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground-500">
                   Type
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground-500">
+                <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground-500">
                   Status
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground-500">
+                <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground-500">
                   Scheduled
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground-500">
+                <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground-500">
                   Inspector
                 </th>
               </tr>
@@ -263,10 +285,19 @@ export default function InspectionManagementPage(): React.ReactElement {
                 <tr
                   key={inspection.id}
                   onClick={() => handleInspectionClick(inspection)}
-                  className="cursor-pointer hover:bg-gray-50"
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      handleInspectionClick(inspection);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Open inspection ${inspection.unit.name} (${getTypeLabel(inspection.type)})`}
+                  className="cursor-pointer hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
                 >
                   <td className="px-4 py-3 text-sm">
-                      <p className="font-semibold text-foreground">
+                    <p className="font-semibold text-foreground">
                       {properties.find((p) => p.id === inspection.unit.property.id)?.name}
                     </p>
                     <p className="text-xs text-foreground-500">{inspection.unit.name}</p>

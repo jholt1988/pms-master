@@ -106,7 +106,8 @@ async function bootstrap() {
     console.log(`📚 API Documentation: Available at http://localhost:3001/api/docs`);
   }
   
-  await app.listen(3001);
+  const port = Number(process.env.PORT) || 3001;
+  await app.listen(port);
   console.log(`🔒 Security: Helmet headers enabled`);
   console.log(`🌐 CORS: Configured for origins: ${process.env.ALLOWED_ORIGINS || 'http://localhost:3000'}`);
   console.log(`📊 Monitoring: Sentry error tracking initialized`);

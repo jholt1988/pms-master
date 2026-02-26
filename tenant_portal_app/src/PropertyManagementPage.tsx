@@ -201,7 +201,8 @@ const formatAddress = (property?: Property) =>
   [property?.address, property?.city, property?.state].filter(Boolean).join(', ');
 
 const PropertyManagementPage: React.FC = () => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isOwnerView = user?.role === 'OWNER';
   const [properties, setProperties] = useState<Property[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -695,7 +696,9 @@ const PropertyManagementPage: React.FC = () => {
           <Button
             color="primary"
             startContent={<Plus size={18} />}
+            isDisabled={isOwnerView}
             onClick={() => {
+              if (isOwnerView) return;
               setIsEditingProperty(false);
               setIsPropertyModalOpen(true);
             }}
@@ -706,7 +709,9 @@ const PropertyManagementPage: React.FC = () => {
             <Button
               variant="bordered"
               startContent={<Edit size={18} />}
+              isDisabled={isOwnerView}
               onClick={() => {
+                if (isOwnerView) return;
                 setIsEditingProperty(true);
                 setIsPropertyModalOpen(true);
               }}
@@ -716,6 +721,12 @@ const PropertyManagementPage: React.FC = () => {
           )}
         </div>
       </div>
+      {isOwnerView && (
+        <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-xs text-gray-300">
+          <span className="font-mono text-neon-blue uppercase tracking-wider">Owner view</span>
+          <span className="ml-2">Read-only access. Request listing changes or unit updates from your property manager.</span>
+        </div>
+      )}
       {errorMessage && (
         <p className="text-sm text-danger-600">{errorMessage}</p>
       )}
@@ -1003,10 +1014,14 @@ const PropertyManagementPage: React.FC = () => {
                   <p className="text-xs uppercase tracking-wide text-gray-400">Units</p>
                   <h3 className="text-lg font-semibold text-white">Manage units</h3>
                 </div>
-                <Button 
-                  size="sm" 
-                  color="primary" 
-                  onClick={() => setIsBulkUnitModalOpen(true)} 
+                <Button
+                  size="sm"
+                  color="primary"
+                  isDisabled={isOwnerView}
+                  onClick={() => {
+                    if (isOwnerView) return;
+                    setIsBulkUnitModalOpen(true);
+                  }}
                   startContent={<Plus size={16} />}
                 >
                   Add Units
@@ -1034,7 +1049,11 @@ const PropertyManagementPage: React.FC = () => {
                       <Button
                         size="sm"
                         variant="flat"
-                        onClick={() => handleEditUnit(unit)}
+                        isDisabled={isOwnerView}
+                        onClick={() => {
+                          if (isOwnerView) return;
+                          handleEditUnit(unit);
+                        }}
                         startContent={<Edit size={14} />}
                       >
                         Edit
@@ -1064,6 +1083,7 @@ const PropertyManagementPage: React.FC = () => {
                       value={marketingForm.minRent}
                       onChange={(event) => setMarketingForm((prev) => ({ ...prev, minRent: event.target.value }))}
                       placeholder="0"
+                      isDisabled={isOwnerView || marketingSaving || marketingProfileLoading}
                     />
                     <Input
                       label="Max rent"
@@ -1071,6 +1091,7 @@ const PropertyManagementPage: React.FC = () => {
                       value={marketingForm.maxRent}
                       onChange={(event) => setMarketingForm((prev) => ({ ...prev, maxRent: event.target.value }))}
                       placeholder="0"
+                      isDisabled={isOwnerView || marketingSaving || marketingProfileLoading}
                     />
                   </div>
                   <Select
@@ -1083,6 +1104,7 @@ const PropertyManagementPage: React.FC = () => {
                         availabilityStatus: selected || ('' as AvailabilityStatus),
                       }));
                     }}
+                    isDisabled={isOwnerView || marketingSaving || marketingProfileLoading}
                   >
                     {availabilityOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
@@ -1094,12 +1116,14 @@ const PropertyManagementPage: React.FC = () => {
                     label="Marketing headline"
                     value={marketingForm.marketingHeadline}
                     onChange={(event) => setMarketingForm((prev) => ({ ...prev, marketingHeadline: event.target.value }))}
+                    isDisabled={isOwnerView || marketingSaving || marketingProfileLoading}
                   />
                   <Textarea
                     label="Marketing description"
                     minRows={3}
                     value={marketingForm.marketingDescription}
                     onChange={(event) => setMarketingForm((prev) => ({ ...prev, marketingDescription: event.target.value }))}
+                    isDisabled={isOwnerView || marketingSaving || marketingProfileLoading}
                   />
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm text-gray-300">
@@ -1108,9 +1132,11 @@ const PropertyManagementPage: React.FC = () => {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() =>
-                        setMarketingForm((prev) => ({ ...prev, isSyndicationEnabled: !prev.isSyndicationEnabled }))
-                      }
+                      isDisabled={isOwnerView || marketingSaving || marketingProfileLoading}
+                      onClick={() => {
+                        if (isOwnerView) return;
+                        setMarketingForm((prev) => ({ ...prev, isSyndicationEnabled: !prev.isSyndicationEnabled }));
+                      }}
                     >
                       {marketingForm.isSyndicationEnabled ? 'Disable syndication' : 'Enable syndication'}
                     </Button>
@@ -1129,7 +1155,7 @@ const PropertyManagementPage: React.FC = () => {
                     color="primary"
                     onClick={handleMarketingSave}
                     isLoading={marketingSaving || marketingProfileLoading}
-                    disabled={marketingProfileLoading}
+                    disabled={marketingProfileLoading || isOwnerView}
                   >
                     Save marketing updates
                   </Button>
@@ -1143,10 +1169,22 @@ const PropertyManagementPage: React.FC = () => {
                     <h3 className="text-lg font-semibold text-white">Sync status</h3>
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" color="primary" onClick={handleTriggerSyndication} isLoading={syncing}>
+                    <Button
+                      size="sm"
+                      color="primary"
+                      onClick={handleTriggerSyndication}
+                      isLoading={syncing}
+                      isDisabled={isOwnerView}
+                    >
                       Sync now
                     </Button>
-                    <Button size="sm" variant="bordered" onClick={handlePauseSyndication} isLoading={pausing}>
+                    <Button
+                      size="sm"
+                      variant="bordered"
+                      onClick={handlePauseSyndication}
+                      isLoading={pausing}
+                      isDisabled={isOwnerView}
+                    >
                       Pause
                     </Button>
                   </div>
@@ -1212,15 +1250,25 @@ const PropertyManagementPage: React.FC = () => {
                       label="Username or client ID"
                       value={form.username}
                       onChange={(event) => handleChannelInput(definition.key, 'username', event.target.value)}
+                      isDisabled={isOwnerView}
                     />
                     <Input
                       label="API key or secret"
                       type="password"
                       value={form.apiKey}
                       onChange={(event) => handleChannelInput(definition.key, 'apiKey', event.target.value)}
+                      isDisabled={isOwnerView}
                     />
                     <div className="flex items-center justify-between gap-3">
-                      <Button size="sm" variant="ghost" onClick={() => toggleChannelEnabled(definition.key)}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          if (isOwnerView) return;
+                          toggleChannelEnabled(definition.key);
+                        }}
+                        isDisabled={isOwnerView}
+                      >
                         {form.isEnabled ? 'Turn off' : 'Enable'}
                       </Button>
                       <Button
@@ -1228,6 +1276,7 @@ const PropertyManagementPage: React.FC = () => {
                         color="primary"
                         onClick={() => handleCredentialSave(definition.key)}
                         isLoading={savingCredential === definition.key}
+                        isDisabled={isOwnerView}
                       >
                         Save credentials
                       </Button>

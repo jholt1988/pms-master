@@ -68,7 +68,7 @@ export class PropertyController {
 
   @Get()
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles(Role.PROPERTY_MANAGER, Role.OWNER)
   getAllProperties(@OrgId() orgId: string) {
     return this.propertyService.getAllProperties(orgId);
   }
@@ -80,7 +80,7 @@ export class PropertyController {
 
   @Get('search')
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles(Role.PROPERTY_MANAGER, Role.OWNER)
   searchProperties(@Query() query: PropertySearchQueryDto, @OrgId() orgId: string) {
     return this.propertyService.searchProperties(query, orgId);
   }
@@ -92,7 +92,7 @@ export class PropertyController {
 
   @Get('saved-filters')
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles(Role.PROPERTY_MANAGER, Role.OWNER)
   getSavedFilters(@Request() req: AuthenticatedRequest) {
     return this.propertyService.getSavedFilters(req.user.userId);
   }
@@ -114,14 +114,14 @@ export class PropertyController {
 
   @Get(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles(Role.PROPERTY_MANAGER, Role.OWNER)
   getPropertyById(@Param('id', ParseUUIDPipe) id: string, @OrgId() orgId: string) {
     return this.propertyService.getPropertyById(id, orgId);
   }
 
   @Get(':id/marketing')
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles(Role.PROPERTY_MANAGER, Role.OWNER)
   getMarketingProfile(@Param('id', ParseUUIDPipe) id: string, @OrgId() orgId: string) {
     return this.propertyService.getMarketingProfile(id, orgId);
   }

@@ -111,7 +111,7 @@ export default function TenantPortal() {
     switch (status) {
       case 'completed': return 'text-green-600 bg-green-50';
       case 'in-progress': return 'text-blue-600 bg-blue-50';
-      case 'pending': return 'text-yellow-600 bg-yellow-50';
+      case 'pending': return 'text-yellow-700 bg-yellow-100';
       case 'paid': return 'text-green-600 bg-green-50';
       case 'overdue': return 'text-red-600 bg-red-50';
       default: return 'text-gray-600 bg-gray-50';
@@ -121,7 +121,7 @@ export default function TenantPortal() {
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high': return 'text-red-600';
-      case 'medium': return 'text-yellow-600';
+      case 'medium': return 'text-yellow-700';
       case 'low': return 'text-green-600';
       default: return 'text-gray-600';
     }
@@ -147,7 +147,7 @@ export default function TenantPortal() {
             <Building className="w-8 h-8 text-blue-600" />
             <div>
               <h2 className="font-bold text-gray-900">Tenant Portal</h2>
-              <p className="text-sm text-gray-500">Apartment 4B</p>
+              <p className="text-sm text-gray-600">Apartment 4B</p>
             </div>
           </div>
         </div>
@@ -158,7 +158,7 @@ export default function TenantPortal() {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors mb-1 ${
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
                   activeTab === item.id
                     ? 'bg-blue-50 text-blue-600'
                     : 'text-gray-600 hover:bg-gray-50'
@@ -171,7 +171,7 @@ export default function TenantPortal() {
           })}
         </nav>
         <div className="absolute bottom-0 w-64 p-4 border-t">
-          <button className="w-full flex items-center space-x-3 px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg">
+          <button className="w-full flex items-center space-x-3 px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
             <LogOut className="w-5 h-5" />
             <span className="font-medium">Sign Out</span>
           </button>
@@ -187,7 +187,7 @@ export default function TenantPortal() {
               {sidebarItems.find(item => item.id === activeTab)?.label}
             </h1>
             <div className="flex items-center space-x-4">
-              <button className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg">
+              <button aria-label="View notifications" className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
                 <Bell className="w-5 h-5" />
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               </button>
@@ -197,7 +197,7 @@ export default function TenantPortal() {
                 </div>
                 <div>
                   <p className="font-medium text-gray-900">John Doe</p>
-                  <p className="text-sm text-gray-500">Tenant</p>
+                  <p className="text-sm text-gray-600">Tenant</p>
                 </div>
               </div>
             </div>
@@ -215,15 +215,15 @@ export default function TenantPortal() {
                     <DollarSign className="w-5 h-5 text-blue-600" />
                   </div>
                   <p className="text-2xl font-bold text-gray-900">$1,500</p>
-                  <p className="text-sm text-gray-500 mt-1">Due Feb 1, 2024</p>
+                  <p className="text-sm text-gray-600 mt-1">Due Feb 1, 2024</p>
                 </div>
                 <div className="bg-white p-6 rounded-xl shadow-sm border">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-semibold text-gray-900">Open Requests</h3>
-                    <Wrench className="w-5 h-5 text-yellow-600" />
+                    <Wrench className="w-5 h-5 text-yellow-700" />
                   </div>
                   <p className="text-2xl font-bold text-gray-900">{maintenanceRequests.filter(r => r.status !== 'completed').length}</p>
-                  <p className="text-sm text-gray-500 mt-1">Active maintenance</p>
+                  <p className="text-sm text-gray-600 mt-1">Active maintenance</p>
                 </div>
                 <div className="bg-white p-6 rounded-xl shadow-sm border">
                   <div className="flex items-center justify-between mb-4">
@@ -231,7 +231,7 @@ export default function TenantPortal() {
                     <FileText className="w-5 h-5 text-green-600" />
                   </div>
                   <p className="text-2xl font-bold text-gray-900">Active</p>
-                  <p className="text-sm text-gray-500 mt-1">Expires Dec 31, 2024</p>
+                  <p className="text-sm text-gray-600 mt-1">Expires Dec 31, 2024</p>
                 </div>
               </div>
 
@@ -245,7 +245,7 @@ export default function TenantPortal() {
                       <div key={request.id} className="flex items-center justify-between">
                         <div>
                           <p className="font-medium text-gray-900">{request.title}</p>
-                          <p className="text-sm text-gray-500">{format(request.createdAt, 'MMM d, yyyy')}</p>
+                          <p className="text-sm text-gray-600">{format(request.createdAt, 'MMM d, yyyy')}</p>
                         </div>
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>
                           {request.status}
@@ -282,7 +282,7 @@ export default function TenantPortal() {
               <div className="bg-white rounded-xl shadow-sm border">
                 <div className="p-6 border-b">
                   <h2 className="text-xl font-semibold text-gray-900">Rental Application</h2>
-                  <p className="text-gray-500 mt-1">Complete your application in a few simple steps</p>
+                  <p className="text-gray-600 mt-1">Complete your application in a few simple steps</p>
                 </div>
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-8">
@@ -306,22 +306,22 @@ export default function TenantPortal() {
                     <div className="space-y-4">
                       <h3 className="font-semibold text-gray-900">Personal Information</h3>
                       <div className="grid grid-cols-2 gap-4">
-                        <input type="text" placeholder="First Name" className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                        <input type="text" placeholder="Last Name" className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <input type="text" placeholder="First Name" aria-label="First name" className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <input type="text" placeholder="Last Name" aria-label="Last name" className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
                       </div>
-                      <input type="email" placeholder="Email Address" className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                      <input type="tel" placeholder="Phone Number" className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                      <input type="date" placeholder="Date of Birth" className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      <input type="email" placeholder="Email Address" aria-label="Email address" className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      <input type="tel" placeholder="Phone Number" aria-label="Phone number" className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      <input type="date" placeholder="Date of Birth" aria-label="Date of birth" className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                   )}
 
                   {applicationStep === 2 && (
                     <div className="space-y-4">
                       <h3 className="font-semibold text-gray-900">Employment Information</h3>
-                      <input type="text" placeholder="Current Employer" className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                      <input type="text" placeholder="Job Title" className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                      <input type="text" placeholder="Annual Income" className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                      <input type="text" placeholder="Years at Current Job" className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      <input type="text" placeholder="Current Employer" aria-label="Current employer" className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      <input type="text" placeholder="Job Title" aria-label="Job title" className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      <input type="text" placeholder="Annual Income" aria-label="Annual income" className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      <input type="text" placeholder="Years at Current Job" aria-label="Years at current job" className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                   )}
 
@@ -331,13 +331,13 @@ export default function TenantPortal() {
                       <div className="space-y-4">
                         <div className="p-4 border rounded-lg">
                           <p className="font-medium text-gray-900 mb-2">Previous Landlord</p>
-                          <input type="text" placeholder="Name" className="w-full px-4 py-2 border rounded-lg mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                          <input type="tel" placeholder="Phone Number" className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                          <input type="text" placeholder="Name" aria-label="Reference name" className="w-full px-4 py-2 border rounded-lg mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                          <input type="tel" placeholder="Phone Number" aria-label="Phone number" className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
                         <div className="p-4 border rounded-lg">
                           <p className="font-medium text-gray-900 mb-2">Personal Reference</p>
-                          <input type="text" placeholder="Name" className="w-full px-4 py-2 border rounded-lg mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                          <input type="tel" placeholder="Phone Number" className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                          <input type="text" placeholder="Name" aria-label="Reference name" className="w-full px-4 py-2 border rounded-lg mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                          <input type="tel" placeholder="Phone Number" aria-label="Phone number" className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
                       </div>
                     </div>
@@ -350,8 +350,8 @@ export default function TenantPortal() {
                         <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
                           <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                           <p className="text-gray-600 mb-2">Upload your documents</p>
-                          <p className="text-sm text-gray-500 mb-4">ID, Pay Stubs, Bank Statements</p>
-                          <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Choose Files</button>
+                          <p className="text-sm text-gray-600 mb-4">ID, Pay Stubs, Bank Statements</p>
+                          <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Choose Files</button>
                         </div>
                       </div>
                     </div>
@@ -384,10 +384,10 @@ export default function TenantPortal() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h2 className="text-xl font-semibold text-gray-900">Lease Agreement</h2>
-                      <p className="text-gray-500 mt-1">12-month lease starting January 1, 2024</p>
+                      <p className="text-gray-600 mt-1">12-month lease starting January 1, 2024</p>
                     </div>
                     <span className={`px-4 py-2 rounded-full text-sm font-medium ${
-                      leaseSignatureStatus === 'signed' ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-600'
+                      leaseSignatureStatus === 'signed' ? 'bg-green-50 text-green-600' : 'bg-yellow-100 text-yellow-700'
                     }`}>
                       {leaseSignatureStatus === 'signed' ? 'Signed' : 'Pending Signature'}
                     </span>
@@ -400,11 +400,11 @@ export default function TenantPortal() {
                     </div>
                     <p className="text-center text-gray-600 mb-4">Your lease agreement is ready for review</p>
                     <div className="flex justify-center space-x-4">
-                      <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+                      <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
                         <Eye className="w-4 h-4" />
                         <span>View Lease</span>
                       </button>
-                      <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center space-x-2">
+                      <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center space-x-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
                         <Download className="w-4 h-4" />
                         <span>Download PDF</span>
                       </button>
@@ -413,19 +413,19 @@ export default function TenantPortal() {
 
                   <div className="grid grid-cols-2 gap-6 mb-6">
                     <div>
-                      <p className="text-sm text-gray-500 mb-1">Monthly Rent</p>
+                      <p className="text-sm text-gray-600 mb-1">Monthly Rent</p>
                       <p className="text-xl font-semibold text-gray-900">$1,500</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 mb-1">Security Deposit</p>
+                      <p className="text-sm text-gray-600 mb-1">Security Deposit</p>
                       <p className="text-xl font-semibold text-gray-900">$1,500</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 mb-1">Lease Start</p>
+                      <p className="text-sm text-gray-600 mb-1">Lease Start</p>
                       <p className="text-xl font-semibold text-gray-900">Jan 1, 2024</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 mb-1">Lease End</p>
+                      <p className="text-sm text-gray-600 mb-1">Lease End</p>
                       <p className="text-xl font-semibold text-gray-900">Dec 31, 2024</p>
                     </div>
                   </div>
@@ -435,7 +435,7 @@ export default function TenantPortal() {
                       <h3 className="font-semibold text-gray-900 mb-4">Electronic Signature</h3>
                       <div className="bg-gray-50 rounded-lg p-4 mb-4">
                         <p className="text-sm text-gray-600 mb-2">Type your full name to sign electronically</p>
-                        <input type="text" placeholder="John Doe" className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <input type="text" placeholder="John Doe" aria-label="Full name" className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
                       </div>
                       <button
                         onClick={() => setLeaseSignatureStatus('signed')}
@@ -454,9 +454,9 @@ export default function TenantPortal() {
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <div>
-                  <p className="text-gray-500">Document the condition of your rental unit</p>
+                  <p className="text-gray-600">Document the condition of your rental unit</p>
                 </div>
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
                   <Plus className="w-4 h-4" />
                   <span>Add Item</span>
                 </button>
@@ -474,7 +474,7 @@ export default function TenantPortal() {
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                           item.condition === 'excellent' ? 'bg-green-50 text-green-600' :
                           item.condition === 'good' ? 'bg-blue-50 text-blue-600' :
-                          item.condition === 'fair' ? 'bg-yellow-50 text-yellow-600' :
+                          item.condition === 'fair' ? 'bg-yellow-100 text-yellow-700' :
                           'bg-red-50 text-red-600'
                         }`}>
                           {item.condition}
@@ -482,11 +482,11 @@ export default function TenantPortal() {
                       </div>
                       <p className="text-sm text-gray-600 mb-4">{item.notes}</p>
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2 text-sm text-gray-500">
+                        <div className="flex items-center space-x-2 text-sm text-gray-600">
                           <Upload className="w-4 h-4" />
                           <span>{item.photos} photos</span>
                         </div>
-                        <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">Edit</button>
+                        <button className="text-blue-600 hover:text-blue-700 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">Edit</button>
                       </div>
                     </div>
                   </div>
@@ -513,11 +513,11 @@ export default function TenantPortal() {
                     <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
                     <input
                       type="text"
-                      placeholder="Search requests..."
+                      placeholder="Search requests..." aria-label="Search maintenance requests"
                       className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
-                  <select className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <select aria-label="Filter by status" className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option>All Status</option>
                     <option>Pending</option>
                     <option>In Progress</option>
@@ -539,19 +539,20 @@ export default function TenantPortal() {
                   <div className="space-y-4">
                     <input
                       type="text"
-                      placeholder="Issue Title"
+                      placeholder="Issue Title" aria-label="Issue title"
                       value={newRequest.title}
                       onChange={(e) => setNewRequest({...newRequest, title: e.target.value})}
                       className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <textarea
-                      placeholder="Describe the issue in detail..."
+                      placeholder="Describe the issue in detail..." aria-label="Issue description"
                       value={newRequest.description}
                       onChange={(e) => setNewRequest({...newRequest, description: e.target.value})}
                       className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-32"
                     />
                     <div className="grid grid-cols-2 gap-4">
                       <select
+                        aria-label="Request category"
                         value={newRequest.category}
                         onChange={(e) => setNewRequest({...newRequest, category: e.target.value})}
                         className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -563,6 +564,7 @@ export default function TenantPortal() {
                         <option>Appliances</option>
                       </select>
                       <select
+                        aria-label="Request priority"
                         value={newRequest.priority}
                         onChange={(e) => setNewRequest({...newRequest, priority: e.target.value})}
                         className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -585,7 +587,7 @@ export default function TenantPortal() {
                       </button>
                       <button
                         onClick={handleSubmitRequest}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                       >
                         Submit Request
                       </button>
@@ -608,7 +610,7 @@ export default function TenantPortal() {
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4 text-sm text-gray-500">
+                        <div className="flex items-center space-x-4 text-sm text-gray-600">
                           <span className="flex items-center space-x-1">
                             <Calendar className="w-4 h-4" />
                             <span>{format(request.createdAt, 'MMM d, yyyy')}</span>
@@ -619,7 +621,7 @@ export default function TenantPortal() {
                           </span>
                           <span>{request.category}</span>
                         </div>
-                        <button className="text-blue-600 hover:text-blue-700 font-medium">View Details</button>
+                        <button className="text-blue-600 hover:text-blue-700 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">View Details</button>
                       </div>
                     </div>
                   </div>
@@ -634,17 +636,17 @@ export default function TenantPortal() {
                 <div className="bg-white p-6 rounded-xl shadow-sm border">
                   <h3 className="font-semibold text-gray-900 mb-2">Current Balance</h3>
                   <p className="text-3xl font-bold text-gray-900">$1,500</p>
-                  <p className="text-sm text-gray-500 mt-1">Due Feb 1, 2024</p>
+                  <p className="text-sm text-gray-600 mt-1">Due Feb 1, 2024</p>
                 </div>
                 <div className="bg-white p-6 rounded-xl shadow-sm border">
                   <h3 className="font-semibold text-gray-900 mb-2">Last Payment</h3>
                   <p className="text-3xl font-bold text-green-600">$1,650</p>
-                  <p className="text-sm text-gray-500 mt-1">Paid Jan 1, 2024</p>
+                  <p className="text-sm text-gray-600 mt-1">Paid Jan 1, 2024</p>
                 </div>
                 <div className="bg-white p-6 rounded-xl shadow-sm border">
                   <h3 className="font-semibold text-gray-900 mb-2">Auto-Pay</h3>
                   <p className="text-3xl font-bold text-blue-600">Active</p>
-                  <p className="text-sm text-gray-500 mt-1">Next: Feb 1, 2024</p>
+                  <p className="text-sm text-gray-600 mt-1">Next: Feb 1, 2024</p>
                 </div>
               </div>
 
@@ -671,7 +673,7 @@ export default function TenantPortal() {
                       </select>
                     </div>
                   </div>
-                  <button className="mt-6 w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center justify-center space-x-2">
+                  <button className="mt-6 w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center justify-center space-x-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
                     <CreditCard className="w-5 h-5" />
                     <span>Pay Now</span>
                   </button>
@@ -687,7 +689,7 @@ export default function TenantPortal() {
                     <div key={payment.id} className="p-6 flex items-center justify-between">
                       <div>
                         <p className="font-medium text-gray-900">{payment.type}</p>
-                        <p className="text-sm text-gray-500">Due {format(payment.dueDate, 'MMM d, yyyy')}</p>
+                        <p className="text-sm text-gray-600">Due {format(payment.dueDate, 'MMM d, yyyy')}</p>
                       </div>
                       <div className="text-right">
                         <p className="font-semibold text-gray-900">${payment.amount.toFixed(2)}</p>
@@ -710,11 +712,11 @@ export default function TenantPortal() {
                     <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
                     <input
                       type="text"
-                      placeholder="Search documents..."
+                      placeholder="Search documents..." aria-label="Search documents"
                       className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
-                  <select className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <select aria-label="Filter by document type" className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option>All Types</option>
                     <option>Lease</option>
                     <option>Invoice</option>
@@ -722,7 +724,7 @@ export default function TenantPortal() {
                     <option>Other</option>
                   </select>
                 </div>
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
                   <Upload className="w-4 h-4" />
                   <span>Upload Document</span>
                 </button>
@@ -738,20 +740,20 @@ export default function TenantPortal() {
                       <span className={`px-2 py-1 rounded text-xs font-medium ${
                         doc.type === 'lease' ? 'bg-purple-50 text-purple-600' :
                         doc.type === 'invoice' ? 'bg-green-50 text-green-600' :
-                        doc.type === 'notice' ? 'bg-yellow-50 text-yellow-600' :
+                        doc.type === 'notice' ? 'bg-yellow-100 text-yellow-700' :
                         'bg-gray-50 text-gray-600'
                       }`}>
                         {doc.type}
                       </span>
                     </div>
                     <h3 className="font-semibold text-gray-900 mb-1">{doc.name}</h3>
-                    <p className="text-sm text-gray-500 mb-4">{doc.size} • {format(doc.uploadedAt, 'MMM d, yyyy')}</p>
+                    <p className="text-sm text-gray-600 mb-4">{doc.size} • {format(doc.uploadedAt, 'MMM d, yyyy')}</p>
                     <div className="flex space-x-2">
-                      <button className="flex-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 flex items-center justify-center space-x-1">
+                      <button className="flex-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 flex items-center justify-center space-x-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
                         <Eye className="w-4 h-4" />
                         <span className="text-sm font-medium">View</span>
                       </button>
-                      <button className="flex-1 px-3 py-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 flex items-center justify-center space-x-1">
+                      <button className="flex-1 px-3 py-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 flex items-center justify-center space-x-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
                         <Download className="w-4 h-4" />
                         <span className="text-sm font-medium">Download</span>
                       </button>
@@ -773,14 +775,14 @@ export default function TenantPortal() {
                       </div>
                       <div>
                         <h3 className="font-semibold text-gray-900">Property Manager</h3>
-                        <p className="text-sm text-gray-500">Online</p>
+                        <p className="text-sm text-gray-600">Online</p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg">
+                      <button aria-label="Call property manager" className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
                         <Phone className="w-5 h-5" />
                       </button>
-                      <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg">
+                      <button aria-label="Email property manager" className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
                         <Mail className="w-5 h-5" />
                       </button>
                     </div>
@@ -793,7 +795,7 @@ export default function TenantPortal() {
                         message.isOwn ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900'
                       }`}>
                         <p>{message.content}</p>
-                        <p className={`text-xs mt-1 ${message.isOwn ? 'text-blue-100' : 'text-gray-500'}`}>
+                        <p className={`text-xs mt-1 ${message.isOwn ? 'text-blue-200' : 'text-gray-600'}`}>
                           {format(message.timestamp, 'h:mm a')}
                         </p>
                       </div>
@@ -807,12 +809,12 @@ export default function TenantPortal() {
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                      placeholder="Type your message..."
+                      placeholder="Type your message..." aria-label="Type a message"
                       className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <button
                       onClick={handleSendMessage}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                     >
                       <Send className="w-4 h-4" />
                       <span>Send</span>

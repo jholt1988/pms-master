@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { apiFetch } from './services/apiClient';
 
@@ -20,6 +20,39 @@ export default function DocumentManagementPage(): React.ReactElement {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  // Focus trap for upload modal
+  useEffect(() => {
+    if (showUploadModal && modalRef.current) {
+      const focusableElements = modalRef.current.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      const firstElement = focusableElements[0] as HTMLElement;
+      const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Tab') {
+          if (e.shiftKey && document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement?.focus();
+          } else if (!e.shiftKey && document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement?.focus();
+          }
+        }
+        if (e.key === 'Escape') {
+          setShowUploadModal(false);
+        }
+      };
+
+      document.addEventListener('keydown', handleKeyDown);
+      firstElement?.focus();
+
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [showUploadModal]);
+
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadData, setUploadData] = useState({
@@ -225,9 +258,22 @@ export default function DocumentManagementPage(): React.ReactElement {
 
       {/* Upload Modal */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-4">Upload Document</h2>
+        <>
+          {/* Backdrop for focus trap */}
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50" 
+            aria-hidden="true"
+            onClick={() => setShowUploadModal(false)}
+          />
+          <div 
+            ref={modalRef}
+            className="fixed inset-0 bg-transparent flex items-center justify-center pointer-events-none"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="upload-modal-title"
+          >
+            <div className="bg-white p-6 rounded-lg w-full max-w-md pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+              <h2 id="upload-modal-title" className="text-2xl font-bold mb-4">Upload Document</h2>
             <form onSubmit={handleUpload}>
               <div className="mb-4">
                 <label className="block text-sm font-bold mb-2">File</label>
@@ -280,7 +326,8 @@ export default function DocumentManagementPage(): React.ReactElement {
               </div>
             </form>
           </div>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

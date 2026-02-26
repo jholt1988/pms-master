@@ -102,7 +102,7 @@ async function main() {
   let property;
   try {
     property = await prisma.property.upsert({ where: propertyWhere, update: propertyUpdate, create: propertyCreateBase });
-  } catch (e) {
+  } catch (e) { 
     // Retry with minimal fields, but preserve required constraints (e.g., organizationId).
     const update2 = { name: propertyUpdate.name, address: propertyUpdate.address };
     const create2 = { id: propertyId, ...update2 };
@@ -134,7 +134,13 @@ async function main() {
   // Lease (id type varies; many schemas have id as string/uuid)
   const leaseId = typeof unit.id === 'string' ? uuid() : 1;
   let lease;
-  try {
+  const existingLease = await prisma.lease.findFirst({ where: { tenantId: tenant.id } });
+  if (existingLease) {
+    lease = existingLease;
+  }
+
+  if (!lease) {
+    try { 
     lease = await prisma.lease.upsert({
       where: { id: leaseId },
       update: { status: 'ACTIVE', unitId: unit.id, tenantId: tenant.id, rentAmount: 1350 },
@@ -156,8 +162,17 @@ async function main() {
     lease = await prisma.lease.upsert({
       where: { id: leaseId },
       update: { status: 'ACTIVE', unitId: unit.id, tenantId: tenant.id },
-      create: { id: leaseId, status: 'ACTIVE', unitId: unit.id, tenantId: tenant.id },
+      create: {
+        id: leaseId,
+        status: 'ACTIVE',
+        unitId: unit.id,
+        tenantId: tenant.id,
+        startDate: new Date('2026-01-01'),
+        endDate: new Date('2026-12-31'),
+        rentAmount: 1350,
+      },
     });
+  }
   }
 
   // Inspection + rooms + checklist items (omit structured fields if schema doesn't support them)
