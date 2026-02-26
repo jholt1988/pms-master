@@ -11,8 +11,24 @@
    };
 
    export async function apiFetch(path: string, options: ApiOptions = {}) {
-     const base = getApiBase();
-     const url = path.startsWith('http') ? path : `${base.replace(/\/$/, '')}${path.startsWith('/') ? '' : '/'}${path}`;
+     const base = getApiBase().replace(/\/$/, '');
+
+     // Normalize to avoid accidental duplication like `${base}/api` + `/api/...` → `/api/api/...`
+     // Common in tests or env configs where VITE_API_URL already includes `/api`.
+     let normalizedPath = path;
+     if (!path.startsWith('http')) {
+       normalizedPath = path.startsWith('/') ? path : `/${path}`;
+       if (base.endsWith('/api') && normalizedPath.startsWith('/api/')) {
+         normalizedPath = normalizedPath.slice('/api'.length);
+       }
+     }
+
+     const rawUrl = path.startsWith('http') ? path : `${base}${normalizedPath}`;
+
+     // In browser, `fetch('/api/...')` is fine. In Node (Vitest/undici), relative URLs throw.
+     const origin = (typeof window !== 'undefined' && window.location?.origin) ? window.location.origin : 'http://localhost';
+     const url = rawUrl.startsWith('http') ? rawUrl : new URL(rawUrl, origin).toString();
+
      const headers: Record<string, string> = {
        'Content-Type': 'application/json',
        ...(options.headers || {}),

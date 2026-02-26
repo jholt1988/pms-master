@@ -324,7 +324,7 @@ Process each item through all 6 steps and return the complete JSON estimate.`;
    * Generate fallback estimate if AI fails
    */
   private generateFallbackEstimate(inventoryItems: InventoryItem[]): EstimateResult {
-    const lineItems = inventoryItems.map((item, index) => {
+    const lineItems: EstimateResult['line_items'] = inventoryItems.map((item, index) => {
       // Basic fallback cost estimation
       const baseLaborCost = item.action_needed === 'replace' ? 200 : 100;
       const baseMaterialCost = item.action_needed === 'replace' ? 300 : 100;
@@ -332,11 +332,13 @@ Process each item through all 6 steps and return the complete JSON estimate.`;
       const lowTotal = Math.round(midTotal * 0.85 * 100) / 100;
       const highTotal = Math.round(midTotal * 1.25 * 100) / 100;
       
+      const actionType: 'repair' | 'replace' = item.action_needed === 'replace' ? 'replace' : 'repair';
+
       return {
         item_description: item.item_description,
         location: item.location,
         category: item.category,
-        action_type: item.action_needed,
+        action_type: actionType,
         labor_hours: item.action_needed === 'replace' ? 4 : 2,
         labor_rate_per_hour: 75,
         labor_cost: baseLaborCost,
