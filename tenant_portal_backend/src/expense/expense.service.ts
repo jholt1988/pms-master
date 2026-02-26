@@ -2,6 +2,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ExpenseCategory } from '@prisma/client';
+import { isUUID } from 'class-validator';
 
 @Injectable()
 export class ExpenseService {
@@ -11,7 +12,7 @@ export class ExpenseService {
     recordedById: string,
     data: {
       propertyId: string;
-      unitId?: string | number;
+      unitId?: string;
       description: string;
       amount: number;
       date: Date;
@@ -20,7 +21,8 @@ export class ExpenseService {
     orgId: string,
   ) {
     const propertyId = data.propertyId;
-    const unitId = data.unitId ? this.parseNumericId(data.unitId, 'unit') : undefined;
+    const unitId = data.unitId ? this.parseUuidId(data.unitId, 'unit') : undefined;
+    
 
     const property = await this.prisma.property.findFirst({
       where: { id: propertyId, organizationId: orgId },
@@ -49,7 +51,7 @@ export class ExpenseService {
       where.propertyId = propertyId;
     }
     if (unitId) {
-      where.unitId = this.parseNumericId(unitId, 'unit');
+      where.unitId = this.parseUuidId(unitId, 'unit');
     }
     if (category) {
       where.category = category;
@@ -75,7 +77,7 @@ export class ExpenseService {
     id: number,
     data: {
       propertyId?: string;
-      unitId?: string | number;
+      unitId?: string;
       description?: string;
       amount?: number;
       date?: Date;
@@ -93,17 +95,16 @@ export class ExpenseService {
 
     const updateData: any = { ...data };
     if (data.unitId) {
-      updateData.unitId = this.parseNumericId(data.unitId, 'unit');
+      updateData.unitId = this.parseUuidId(data.unitId, 'unit');
     }
     return this.prisma.expense.update({ where: { id }, data: updateData });
   }
 
-  private parseNumericId(value: string | number, field: string): number {
-    const normalized = typeof value === 'string' ? Number(value) : value;
-    if (!Number.isFinite(normalized) || !Number.isInteger(normalized)) {
+  private parseUuidId(value: string, field: string): string {
+    if (!isUUID(value)) {
       throw new BadRequestException(`Invalid ${field} identifier provided.`);
     }
-    return normalized;
+    return value;
   }
 
   async deleteExpense(id: number, orgId: string) {

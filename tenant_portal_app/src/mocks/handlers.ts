@@ -6,7 +6,15 @@
 import { http, HttpResponse, delay } from 'msw';
 import { mockMaintenanceRequests, mockInvoices, mockPayments, mockLeases } from './apiFixtures';
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const RAW_API_BASE = import.meta.env.VITE_API_URL || '/api';
+
+// MSW URL matching:
+// - In the browser, relative URLs like `/api/...` are fine.
+// - In Vitest (jsdom + undici), `fetch('/api/...')` becomes absolute using `window.location.origin`.
+//   MSW's `http.get/post(...)` string matchers are simplest when we register absolute URLs.
+const API_BASE = RAW_API_BASE.startsWith('/')
+  ? `${(typeof window !== 'undefined' && window.location?.origin) ? window.location.origin : 'http://localhost'}${RAW_API_BASE}`
+  : RAW_API_BASE;
 
 // Helper to simulate network delay
 const networkDelay = async () => {
@@ -1270,7 +1278,7 @@ export const handlers = [
   }),
 
   // ==================== Leasing/Leads ====================
-  http.post(`${API_BASE}/leads`, async ({ request }) => {
+  http.post(/.*\/api\/leads$/, async ({ request }) => {
     await networkDelay();
     const body = await request.json() as any;
     
@@ -1289,7 +1297,7 @@ export const handlers = [
     }, { status: 201 });
   }),
 
-  http.get(`${API_BASE}/leads/:id`, async ({ params, request }) => {
+  http.get(/.*\/api\/leads\/[^/]+$/, async ({ params, request }) => {
     await networkDelay();
     
     return HttpResponse.json({
@@ -1303,7 +1311,7 @@ export const handlers = [
     });
   }),
 
-  http.get(`${API_BASE}/leads/session/:sessionId`, async ({ params, request }) => {
+  http.get(/.*\/api\/leads\/session\/[^/]+$/, async ({ params, request }) => {
     await networkDelay();
     
     return HttpResponse.json({
@@ -1409,7 +1417,7 @@ export const handlers = [
   }),
 
   // ==================== Lead Messages ====================
-  http.post(`${API_BASE}/leads/:id/messages`, async ({ params, request }) => {
+  http.post(/.*\/api\/leads\/[^/]+\/messages$/, async ({ params, request }) => {
     await networkDelay();
     const body = await request.json() as any;
     
@@ -1468,7 +1476,7 @@ export const handlers = [
 try {
   console.log('[MSW handlers.ts] ✅ Module loaded successfully');
   console.log('[MSW handlers.ts] Handlers count:', handlers.length);
-  console.log('[MSW handlers.ts] API_BASE:', API_BASE);
+  console.log('[MSW handlers.ts] API_BASE:', RAW_API_BASE, '→ resolved:', API_BASE);
   if (handlers.length === 0) {
     console.error('[MSW handlers.ts] ❌ ERROR: handlers array is empty!');
     throw new Error('Handlers array is empty - this will break MSW');

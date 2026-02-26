@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DocumentCategory, Prisma } from '@prisma/client'; 
+import { isUUID } from 'class-validator';
 import { Multer } from 'multer';
 import { Express } from 'express';
 import * as fs from 'fs/promises';
@@ -77,7 +78,7 @@ export class DocumentsService {
         uploadedBy: { connect: { id: userId } },
       ...(data.leaseId &&
         (() => {
-          const leaseId = this.parseNumericId(data.leaseId, 'lease');
+          const leaseId = this.parseUuidId(data.leaseId, 'lease');
           return { lease: { connect: { id: leaseId } } };
         })()),
       ...(data.propertyId &&
@@ -143,7 +144,7 @@ export class DocumentsService {
         uploadedBy: { connect: { id: params.userId } },
         ...(params.leaseId &&
           (() => {
-            const leaseId = this.parseNumericId(params.leaseId, 'lease');
+            const leaseId = this.parseUuidId(params.leaseId, 'lease');
             return { lease: { connect: { id: leaseId } } };
           })()),
         ...(params.propertyId &&
@@ -230,7 +231,7 @@ export class DocumentsService {
     const where: Prisma.DocumentWhereInput = {
       ...(clauses.length ? { AND: clauses } : {}),
       ...(filters.category && { category: filters.category }),
-      ...(filters.leaseId && { leaseId: this.parseNumericId(filters.leaseId, 'lease') }),
+      ...(filters.leaseId && { leaseId: this.parseUuidId(filters.leaseId, 'lease') }),
       ...(filters.propertyId && { propertyId: filters.propertyId }),
     };
 
@@ -327,11 +328,10 @@ export class DocumentsService {
     return { success: true };
   }
 
-  private parseNumericId(value: string | number, field: string): number {
-    const normalized = typeof value === 'string' ? Number(value) : value;
-    if (!Number.isFinite(normalized) || !Number.isInteger(normalized)) {
+  private parseUuidId(value: string, field: string): string {
+    if (!isUUID(value)) {
       throw new BadRequestException(`Invalid ${field} identifier provided.`);
     }
-    return normalized;
+    return value;
   }
 }
