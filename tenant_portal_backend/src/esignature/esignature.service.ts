@@ -3,6 +3,7 @@ import { DocumentCategory, EsignEnvelope, EsignEnvelopeStatus, EsignParticipantS
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance } from 'axios';
 import { randomUUID } from 'crypto';
+import { isUUID } from 'class-validator';
 import * as docusign from 'docusign-esign';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -338,7 +339,7 @@ export class EsignatureService {
       throw new BadRequestException('At least one recipient is required.');
     }
 
-    const normalizedLeaseId = this.parseNumericId(leaseId, 'lease');
+    const normalizedLeaseId = this.parseUuidId(leaseId, 'lease');
     const lease = await this.prisma.lease.findUnique({
       where: { id: normalizedLeaseId },
       include: {
@@ -443,7 +444,7 @@ export class EsignatureService {
   }
 
   async listLeaseEnvelopes(leaseId: string, user: { userId: string; role: Role }) {
-    const normalizedLeaseId = this.parseNumericId(leaseId, 'lease');
+    const normalizedLeaseId = this.parseUuidId(leaseId, 'lease');
     const lease = await this.prisma.lease.findUnique({ where: { id: normalizedLeaseId } });
     if (!lease) {
       throw new NotFoundException('Lease not found.');
@@ -1854,20 +1855,12 @@ export class EsignatureService {
     return { sent: sentCount, skipped: skippedCount };
   }
 
-  private parseNumericId(value: string | number, field: string): number {
-    if (typeof value === 'number') {
-      if (!Number.isFinite(value) || !Number.isInteger(value)) {
-        throw new BadRequestException(`Invalid ${field} id provided: ${value}`);
-      }
-      return value;
-    }
-
-    const parsed = Number(value);
-    if (!Number.isFinite(parsed) || Number.isNaN(parsed) || !Number.isInteger(parsed)) {
+  private parseUuidId(value: string | number, field: string): string {
+    if (typeof value !== 'string' || !isUUID(value)) {
       throw new BadRequestException(`Invalid ${field} id provided: ${value}`);
     }
 
-    return parsed;
+    return value;
   }
 
   /**

@@ -45,7 +45,6 @@ export const AIOperatingSystem: React.FC = () => {
   }, [isOpen]);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [sessionId, setSessionId] = useState<string | undefined>();
   // Initialize messages based on authentication status

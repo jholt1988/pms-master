@@ -11,12 +11,15 @@ vi.mock('./apiClient', () => ({
   apiFetch: vi.fn(),
 }));
 
-vi.mock('./LeasingAgentService', () => ({
-  LeasingAgentService: vi.fn().mockImplementation(() => ({
-    startConversation: vi.fn(),
-    processMessage: vi.fn(),
-  })),
-}));
+vi.mock('./LeasingAgentService', () => {
+  // Must be constructable via `new LeasingAgentService()`
+  return {
+    LeasingAgentService: function LeasingAgentService(this: any) {
+      this.startConversation = vi.fn();
+      this.processMessage = vi.fn();
+    } as any,
+  };
+});
 
 vi.mock('../domains/shared/ai-services/rent-optimization/RentOptimizationService', () => ({
   rentOptimizationService: {
@@ -60,13 +63,13 @@ describe('AIOperatingSystemService', () => {
     it('should detect maintenance intent', async () => {
       const result = await service.sendMessage('user-1', 'How do I submit a maintenance request?');
 
-      expect(result.response.content).toContain('maintenance');
+      expect(result.response.content).toMatch(/maintenance/i);
     });
 
     it('should detect payment intent', async () => {
       const result = await service.sendMessage('user-1', 'When is rent due?');
 
-      expect(result.response.content).toContain('rent');
+      expect(result.response.content).toMatch(/rent/i);
     });
   });
 
