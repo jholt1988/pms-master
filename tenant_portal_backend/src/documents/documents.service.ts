@@ -39,7 +39,7 @@ export class DocumentsService {
   ) {
     if (orgId) {
       if (data.leaseId) {
-        const leaseId = this.parseNumericId(data.leaseId, 'lease');
+        const leaseId = this.parseUuidId(data.leaseId, 'lease');
         const lease = await this.prisma.lease.findFirst({
           where: { id: leaseId, unit: { property: { organizationId: orgId } } },
           select: { id: true },
@@ -107,7 +107,7 @@ export class DocumentsService {
   ) {
     if (orgId) {
       if (params.leaseId) {
-        const leaseId = this.parseNumericId(params.leaseId, 'lease');
+        const leaseId = this.parseUuidId(params.leaseId, 'lease');
         const lease = await this.prisma.lease.findFirst({
           where: { id: leaseId, unit: { property: { organizationId: orgId } } },
           select: { id: true },
@@ -333,5 +333,13 @@ export class DocumentsService {
       throw new BadRequestException(`Invalid ${field} identifier provided.`);
     }
     return value;
+  }
+
+  private parseNumericId(value: string | number, field: string): number {
+    const id = Number(value);
+    if (isNaN(id)) {
+      throw new BadRequestException(`Invalid ${field} identifier provided.`);
+    }
+    return id;
   }
 }

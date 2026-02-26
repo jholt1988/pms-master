@@ -45,7 +45,7 @@ export class ExpenseService {
     });
   }
 
-  async getAllExpenses(propertyId?: string, unitId?: string | number, category?: ExpenseCategory, orgId?: string) {
+  async getAllExpenses(propertyId?: string, unitId?: string, category?: ExpenseCategory, orgId?: string) {
     const where: any = {};
     if (propertyId) {
       where.propertyId = propertyId;

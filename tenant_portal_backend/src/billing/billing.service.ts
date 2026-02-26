@@ -280,10 +280,10 @@ export class BillingService {
       success: true,
       userId: actor.userId,
       username: actor.username,
-      metadata: { leaseId: normalizedLeaseId, action: 'DEACTIVATE_SCHEDULE' },
+      metadata: { leaseId: leaseIdNum, action: 'DEACTIVATE_SCHEDULE' },
     });
 
-    return { leaseId: normalizedLeaseId, active: false };
+    return { leaseId: leaseIdNum, active: false };
   }
 
   async getAutopayForTenant(userId: string) {
@@ -435,11 +435,11 @@ export class BillingService {
         success: true,
         userId: actor.userId,
         username: actor.username,
-        metadata: { leaseId: normalizedLeaseId },
+        metadata: { leaseId: leaseIdNum },
       });
     }
 
-    return { leaseId: normalizedLeaseId, active: false };
+    return { leaseId: leaseIdNum, active: false };
   }
 
   private computeInitialRun(dto: UpsertScheduleDto, leaseStart: Date): Date {

@@ -880,7 +880,7 @@ Respond in JSON format:
    * Get inspection statistics
    */
   async getInspectionStats(propertyId?: string, orgId?: string): Promise<any> {
-    const parsedPropertyId = propertyId ? this.parseNumericId(propertyId, 'property') : undefined;
+    const parsedPropertyId = propertyId ? this.parseUuidId(propertyId, 'property') : undefined;
     const where = {
       ...(parsedPropertyId ? { propertyId: parsedPropertyId } : {}),
       ...(orgId ? { property: { organizationId: orgId } } : {}),
@@ -1059,5 +1059,13 @@ Respond in JSON format:
       throw new BadRequestException(`Invalid ${field} identifier provided.`);
     }
     return value;
+  }
+
+  private parseNumericId(value: string | number, field: string): number {
+    const id = Number(value);
+    if (isNaN(id)) {
+      throw new BadRequestException(`Invalid ${field} identifier provided.`);
+    }
+    return id;
   }
 }
