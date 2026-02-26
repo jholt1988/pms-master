@@ -1197,11 +1197,7 @@ enum Role {
   ADMIN
 }
 
-enum OrgRole {
-  OWNER
-  ADMIN
-  MEMBER
-}
+
 
 enum ApplicationStatus {
   PENDING
