@@ -120,4 +120,12 @@ export class RentalApplicationController {
       orgId,
     );
   }
+
+  @Post(':id/ai-review')
+  @HttpCode(200)
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles(Role.PROPERTY_MANAGER)
+  getAiReview(@Param('id') id: string, @OrgId() orgId?: string) {
+    return this.rentalApplicationService.getAiReview(Number(id), orgId);
+  }
 }

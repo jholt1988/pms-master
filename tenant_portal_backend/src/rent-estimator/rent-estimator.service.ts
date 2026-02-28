@@ -11,8 +11,8 @@ export class RentEstimatorService {
     unitId: string | number,
     orgId?: string,
   ): Promise<{ estimatedRent: number; details: string }> {
-    const normalizedUnitId = this.parseNumericId(unitId, 'unit');
-    this.parseNumericId(propertyId, 'property');
+    const normalizedUnitId = String(unitId);
+    String(propertyId);
     // In a real application, this would involve more sophisticated logic:
     // - Fetching comparable properties/units from the database.
     // - Using external data sources (e.g., Zillow API, local market data).
@@ -53,11 +53,7 @@ export class RentEstimatorService {
     return { estimatedRent, details };
   }
 
-  private parseNumericId(value: string | number, field: string): number {
-    const normalized = typeof value === 'string' ? Number(value) : value;
-    if (!Number.isFinite(normalized) || !Number.isInteger(normalized)) {
-      throw new BadRequestException(`Invalid ${field} identifier provided.`);
-    }
-    return normalized;
+  private parseNumericId(value: string | number, field: string): string {
+    return String(value);
   }
 }

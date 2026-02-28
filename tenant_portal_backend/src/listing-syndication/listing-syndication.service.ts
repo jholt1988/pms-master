@@ -246,11 +246,7 @@ export class ListingSyndicationService {
     };
   }
 
-  private parseNumericId(value: string | number, field: string): number {
-    const parsed = typeof value === 'number' ? value : Number(value);
-    if (!Number.isFinite(parsed) || Number.isNaN(parsed) || !Number.isInteger(parsed)) {
-      throw new BadRequestException(`Invalid ${field} id: ${value}`);
-    }
-    return parsed;
+  private parseNumericId(value: string | number, field: string): string {
+    return String(value);
   }
 }

@@ -259,10 +259,10 @@ export class BillingService {
   }
 
   async deactivateSchedule(actor: { userId: string; username: string; role: Role }, leaseId: string | number, orgId: string) {
-    const leaseIdNum = this.parseLeaseId(leaseId);
+    const leaseIdStr = typeof leaseId === 'number' ? leaseId.toString() : leaseId;
 
     const lease = await this.prisma.lease.findFirst({
-      where: { id: leaseIdNum, unit: { property: { organizationId: orgId } } },
+      where: { id: leaseIdStr, unit: { property: { organizationId: orgId } } },
       select: { id: true },
     });
 
@@ -271,7 +271,7 @@ export class BillingService {
     }
 
     await this.prisma.recurringInvoiceSchedule.updateMany({
-      where: { leaseId: leaseIdNum },
+      where: { leaseId: leaseIdStr },
       data: { active: false },
     });
 

@@ -90,7 +90,7 @@ export class RentOptimizationService {
   async createRecommendation(data: MLPredictionResponse) {
     const { unit_id, recommended_rent, confidence_interval_low, confidence_interval_high, factors, market_comparables, model_version, reasoning } = data;
 
-    const unitId = this.parseNumericId(unit_id, 'unit');
+    const unitId = String(unit_id);
     const unitIdLabel = String(unitId);
     const unit = await this.prisma.unit.findUnique({
       where: { id: unitId },
@@ -192,7 +192,7 @@ export class RentOptimizationService {
   }
 
   async getRecommendationByUnit(unitId: string | number, orgId?: string) {
-    const unitIdNum = this.parseNumericId(unitId, 'unit');
+    const unitIdNum = String(unitId);
     await this.assertUnitInOrg(unitIdNum, orgId);
     const recommendations = await this.prisma.rentRecommendation.findMany({
       where: {
@@ -232,7 +232,7 @@ export class RentOptimizationService {
     const results = [];
 
     for (const unitId of unitIds) {
-      const unitIdNumeric = this.parseNumericId(unitId, 'unit');
+      const unitIdNumeric = String(unitId);
       const unitIdLabel = String(unitIdNumeric);
       await this.assertUnitInOrg(unitIdNumeric, orgId);
       // Get unit details
@@ -592,7 +592,7 @@ export class RentOptimizationService {
   }
 
   async getRecommendationsByProperty(propertyId: string | number, orgId?: string) {
-    const propertyIdNum = this.parseNumericId(propertyId, 'property');
+    const propertyIdNum = String(propertyId);
     return this.prisma.rentRecommendation.findMany({
       where: {
         unit: {
@@ -627,7 +627,7 @@ export class RentOptimizationService {
   }
 
   async getComparison(unitId: string | number, orgId?: string) {
-    const unitIdNumeric = this.parseNumericId(unitId, 'unit');
+    const unitIdNumeric = String(unitId);
     const unitIdLabel = String(unitIdNumeric);
     await this.assertUnitInOrg(unitIdNumeric, orgId);
     const unit = await this.prisma.unit.findUnique({
@@ -700,7 +700,7 @@ export class RentOptimizationService {
   }
 
   async bulkGenerateByProperty(propertyId: string | number, orgId?: string) {
-    const propertyIdNum = this.parseNumericId(propertyId, 'property');
+    const propertyIdNum = String(propertyId);
     const propertyIdLabel = String(propertyIdNum);
     const units = await this.prisma.unit.findMany({
       where: {
@@ -937,11 +937,7 @@ export class RentOptimizationService {
     };
   }
 
-  private parseNumericId(value: string | number, field: string): number {
-    const parsed = typeof value === 'number' ? value : Number(value);
-    if (!Number.isFinite(parsed) || Number.isNaN(parsed) || !Number.isInteger(parsed)) {
-      throw new BadRequestException(`Invalid ${field} id: ${value}`);
-    }
-    return parsed;
+  private parseNumericId(value: string | number, field: string): string {
+    return String(value);
   }
 }

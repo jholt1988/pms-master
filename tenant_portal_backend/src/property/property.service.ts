@@ -179,7 +179,7 @@ export class PropertyService {
 
   async updateUnit(propertyId: string, unitId: string | number, dto: UpdateUnitDto, orgId: string) {
     const normalizedPropertyId = propertyId
-    const normalizedUnitId = this.parseNumericId(unitId, 'unit');
+    const normalizedUnitId = String(unitId);
     // Verify property exists
     const property = await this.prisma.property.findFirst({
       where: { id: normalizedPropertyId, organizationId: orgId },
@@ -660,11 +660,7 @@ export class PropertyService {
     return payload as Prisma.InputJsonValue;
   }
 
-  private parseNumericId(value: string | number, field: string): number {
-    const parsed = typeof value === 'string' ? Number(value) : value;
-    if (!Number.isFinite(parsed) || !Number.isInteger(parsed)) {
-      throw new BadRequestException(`Invalid ${field} identifier provided.`);
-    }
-    return parsed;
+  private parseNumericId(value: string | number, field: string): string {
+    return String(value);
   }
 }

@@ -528,7 +528,7 @@ export class EstimateService {
     estimates: RepairEstimate[];
     total: number;
   }> {
-    const inspectionId = query.inspectionId ? this.parseNumericId(query.inspectionId, 'inspection') : undefined;
+    const inspectionId = query.inspectionId ? String(query.inspectionId) : undefined;
     const maintenanceRequestId = query.maintenanceRequestId
       ? this.parseUuidId(query.maintenanceRequestId, 'maintenance request')
       : undefined;
@@ -897,12 +897,8 @@ export class EstimateService {
     }
   }
 
-  private parseNumericId(value: string | number, field: string): number {
-    const normalized = typeof value === 'string' ? Number(value) : value;
-    if (!Number.isFinite(normalized) || !Number.isInteger(normalized)) {
-      throw new BadRequestException(`Invalid ${field} identifier provided.`);
-    }
-    return normalized;
+  private parseNumericId(value: string | number, field: string): string {
+    return String(value);
   }
 
   private parseUuidId(value: string, field: string): string {

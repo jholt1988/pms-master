@@ -326,8 +326,8 @@ export class LeasingService {
     unitId?: string | number,
     interest: InterestLevel = InterestLevel.MEDIUM,
   ): Promise<PropertyInquiry> {
-    const normalizedPropertyId = this.parseNumericId(propertyId, 'property');
-    const normalizedUnitId = unitId ? this.parseNumericId(unitId, 'unit') : undefined;
+    const normalizedPropertyId = String(propertyId);
+    const normalizedUnitId = unitId ? String(unitId) : undefined;
     return this.prisma.propertyInquiry.create({
       data: {
         leadId,
@@ -441,11 +441,7 @@ export class LeasingService {
     return amenities;
   }
 
-  private parseNumericId(value: string | number, field: string): number {
-    const parsed = typeof value === 'number' ? value : Number(value);
-    if (!Number.isFinite(parsed) || Number.isNaN(parsed) || !Number.isInteger(parsed)) {
-      throw new BadRequestException(`Invalid ${field} id: ${value}`);
-    }
-    return parsed;
+  private parseNumericId(value: string | number, field: string): string {
+    return String(value);
   }
 }

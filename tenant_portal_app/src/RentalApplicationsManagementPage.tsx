@@ -122,6 +122,8 @@ const RentalApplicationsManagementPage = () => {
   const [savingNoteId, setSavingNoteId] = useState<number | null>(null);
   const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
   const [screeningId, setScreeningId] = useState<number | null>(null);
+  const [aiReviewingId, setAiReviewingId] = useState<number | null>(null);
+  const [aiReviewData, setAiReviewData] = useState<Record<number, any>>({});
   const [termsFilter, setTermsFilter] = useState<'all' | 'accepted' | 'missing'>('all');
   const [privacyFilter, setPrivacyFilter] = useState<'all' | 'accepted' | 'missing'>('all');
   const { token } = useAuth();
@@ -202,6 +204,23 @@ const RentalApplicationsManagementPage = () => {
       setError(error.message);
     } finally {
       setScreeningId(null);
+    }
+  };
+
+  const handleAiReview = async (id: number) => {
+    if (!token) return;
+    setError(null);
+    try {
+      setAiReviewingId(id);
+      const reviewData = await apiFetch(`/rental-applications/${id}/ai-review`, {
+        token,
+        method: 'POST',
+      });
+      setAiReviewData((prev) => ({ ...prev, [id]: reviewData }));
+    } catch (error: any) {
+      setError(`Failed to get AI review: ${error.message}`);
+    } finally {
+      setAiReviewingId(null);
     }
   };
 
@@ -507,6 +526,14 @@ const RentalApplicationsManagementPage = () => {
                         ? 'Re-run screening'
                         : 'Run screening'}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAiReview(application.id)}
+                    disabled={aiReviewingId === application.id}
+                    className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100"
+                  >
+                    {aiReviewingId === application.id ? 'Analyzing…' : 'AI Pre-Screen'}
+                  </button>
                 </div>
 
                 {isExpanded && (
@@ -577,6 +604,35 @@ const RentalApplicationsManagementPage = () => {
                           <p className="mt-3 text-xs text-gray-500">
                             Screening has not been run yet. Capture income, credit, and debt to score
                             the application.
+                          </p>
+                        )}
+                      </div>
+                      <div className="rounded-md border border-gray-200 bg-gray-50 p-4">
+                        <h3 className="text-sm font-semibold text-gray-900">AI Pre-Screen Insights</h3>
+                        {aiReviewData[application.id] ? (
+                          <dl className="mt-3 space-y-2 text-xs text-gray-600">
+                            <div>
+                              <dt className="font-medium text-gray-700">Recommendation</dt>
+                              <dd>{aiReviewData[application.id].recommendation.replace(/_/g, ' ')}</dd>
+                            </div>
+                            <div>
+                              <dt className="font-medium text-gray-700">Summary</dt>
+                              <dd>
+                                <ul className="mt-1 list-disc space-y-1 pl-4">
+                                  {aiReviewData[application.id].summary.split('\\n').map((line: string, index: number) => (
+                                    <li key={index}>{line.replace(/^- /, '')}</li>
+                                  ))}
+                                </ul>
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="font-medium text-gray-700">Checks</dt>
+                              <dd>{aiReviewData[application.id].checks_passed} / {aiReviewData[application.id].checks_total} passed</dd>
+                            </div>
+                          </dl>
+                        ) : (
+                          <p className="mt-3 text-xs text-gray-500">
+                            Click the "AI Pre-Screen" button to get an instant analysis.
                           </p>
                         )}
                       </div>
