@@ -20,7 +20,7 @@ export class ExpenseService {
     orgId: string,
   ) {
     const propertyId = data.propertyId;
-    const unitId = data.unitId ? this.parseNumericId(data.unitId, 'unit') : undefined;
+    const unitId = data.unitId ? String(data.unitId) : undefined;
 
     const property = await this.prisma.property.findFirst({
       where: { id: propertyId, organizationId: orgId },
@@ -49,7 +49,7 @@ export class ExpenseService {
       where.propertyId = propertyId;
     }
     if (unitId) {
-      where.unitId = this.parseNumericId(unitId, 'unit');
+      where.unitId = String(unitId);
     }
     if (category) {
       where.category = category;
@@ -93,17 +93,13 @@ export class ExpenseService {
 
     const updateData: any = { ...data };
     if (data.unitId) {
-      updateData.unitId = this.parseNumericId(data.unitId, 'unit');
+      updateData.unitId = String(data.unitId);
     }
     return this.prisma.expense.update({ where: { id }, data: updateData });
   }
 
-  private parseNumericId(value: string | number, field: string): number {
-    const normalized = typeof value === 'string' ? Number(value) : value;
-    if (!Number.isFinite(normalized) || !Number.isInteger(normalized)) {
-      throw new BadRequestException(`Invalid ${field} identifier provided.`);
-    }
-    return normalized;
+  private parseNumericId(value: string | number, field: string): string {
+    return String(value);
   }
 
   async deleteExpense(id: number, orgId: string) {

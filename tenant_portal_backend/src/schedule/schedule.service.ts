@@ -7,8 +7,8 @@ export class ScheduleService {
   constructor(private prisma: PrismaService) {}
 
   async createEvent(dto: CreateScheduleEventDto, orgId?: string) {
-    const propertyId = this.parseNumericId(dto.propertyId, 'property');
-    const unitId = dto.unitId ? this.parseNumericId(dto.unitId, 'unit') : undefined;
+    const propertyId = String(dto.propertyId);
+    const unitId = dto.unitId ? String(dto.unitId) : undefined;
 
     if (orgId) {
       const property = await this.prisma.property.findFirst({
@@ -218,11 +218,7 @@ export class ScheduleService {
     }));
   }
 
-  private parseNumericId(value: string | number, field: string): number {
-    const normalized = typeof value === 'string' ? Number(value) : value;
-    if (!Number.isFinite(normalized) || !Number.isInteger(normalized)) {
-      throw new BadRequestException(`Invalid ${field} identifier provided.`);
-    }
-    return normalized;
+  private parseNumericId(value: string | number, field: string): string {
+    return String(value);
   }
 }

@@ -56,9 +56,9 @@ export class InspectionService {
    */
   async createInspection(dto: CreateInspectionDto, createdById: string, orgId?: string): Promise<UnitInspection> {
     // Validate property and unit exist
-    const propertyId = this.parseNumericId(dto.propertyId, 'property');
-    const unitId = dto.unitId ? this.parseNumericId(dto.unitId, 'unit') : undefined;
-    const leaseId = dto.leaseId ? this.parseNumericId(dto.leaseId, 'lease') : undefined;
+    const propertyId = String(dto.propertyId);
+    const unitId = dto.unitId ? String(dto.unitId) : undefined;
+    const leaseId = dto.leaseId ? String(dto.leaseId) : undefined;
 
     const property = await this.prisma.property.findFirst({
       where: { id: propertyId, ...(orgId ? { organizationId: orgId } : {}) },
@@ -240,9 +240,9 @@ export class InspectionService {
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const propertyId = query.propertyId ? this.parseNumericId(query.propertyId, 'property') : undefined;
-    const unitId = query.unitId ? this.parseNumericId(query.unitId, 'unit') : undefined;
-    const leaseId = query.leaseId ? this.parseNumericId(query.leaseId, 'lease') : undefined;
+    const propertyId = query.propertyId ? String(query.propertyId) : undefined;
+    const unitId = query.unitId ? String(query.unitId) : undefined;
+    const leaseId = query.leaseId ? String(query.leaseId) : undefined;
 
     const where: any = {
       ...(propertyId && { propertyId }),
@@ -879,7 +879,7 @@ Respond in JSON format:
    * Get inspection statistics
    */
   async getInspectionStats(propertyId?: string, orgId?: string): Promise<any> {
-    const parsedPropertyId = propertyId ? this.parseNumericId(propertyId, 'property') : undefined;
+    const parsedPropertyId = propertyId ? String(propertyId) : undefined;
     const where = {
       ...(parsedPropertyId ? { propertyId: parsedPropertyId } : {}),
       ...(orgId ? { property: { organizationId: orgId } } : {}),
@@ -1053,11 +1053,7 @@ Respond in JSON format:
     }
   }
 
-  private parseNumericId(value: string | number, field: string): number {
-    const normalized = typeof value === 'string' ? Number(value) : value;
-    if (!Number.isFinite(normalized) || !Number.isInteger(normalized)) {
-      throw new BadRequestException(`Invalid ${field} identifier provided.`);
-    }
-    return normalized;
+  private parseNumericId(value: string | number, field: string): string {
+    return String(value);
   }
 }

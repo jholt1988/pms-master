@@ -25,8 +25,8 @@ export class ToursService {
     scheduledTime: string;
     notes?: string;
   }) {
-    const propertyId = this.parseNumericId(data.propertyId, 'property');
-    const unitId = data.unitId ? this.parseNumericId(data.unitId, 'unit') : undefined;
+    const propertyId = String(data.propertyId);
+    const unitId = data.unitId ? String(data.unitId) : undefined;
     const tour = await this.prisma.tour.create({
       data: {
         leadId: data.leadId,
@@ -96,7 +96,7 @@ export class ToursService {
     const where: any = {};
 
     if (filters?.propertyId) {
-      where.propertyId = this.parseNumericId(filters.propertyId, 'property');
+      where.propertyId = String(filters.propertyId);
     }
 
     if (filters?.status) {
@@ -181,11 +181,7 @@ export class ToursService {
     });
   }
 
-  private parseNumericId(value: string | number, field: string): number {
-    const parsed = typeof value === 'number' ? value : Number(value);
-    if (!Number.isFinite(parsed) || Number.isNaN(parsed) || !Number.isInteger(parsed)) {
-      throw new BadRequestException(`Invalid ${field} id: ${value}`);
-    }
-    return parsed;
+  private parseNumericId(value: string | number, field: string): string {
+    return String(value);
   }
 }

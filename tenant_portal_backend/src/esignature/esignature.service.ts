@@ -338,7 +338,7 @@ export class EsignatureService {
       throw new BadRequestException('At least one recipient is required.');
     }
 
-    const normalizedLeaseId = this.parseNumericId(leaseId, 'lease');
+    const normalizedLeaseId = String(leaseId);
     const lease = await this.prisma.lease.findUnique({
       where: { id: normalizedLeaseId },
       include: {
@@ -443,7 +443,7 @@ export class EsignatureService {
   }
 
   async listLeaseEnvelopes(leaseId: string, user: { userId: string; role: Role }) {
-    const normalizedLeaseId = this.parseNumericId(leaseId, 'lease');
+    const normalizedLeaseId = String(leaseId);
     const lease = await this.prisma.lease.findUnique({ where: { id: normalizedLeaseId } });
     if (!lease) {
       throw new NotFoundException('Lease not found.');
@@ -1854,20 +1854,8 @@ export class EsignatureService {
     return { sent: sentCount, skipped: skippedCount };
   }
 
-  private parseNumericId(value: string | number, field: string): number {
-    if (typeof value === 'number') {
-      if (!Number.isFinite(value) || !Number.isInteger(value)) {
-        throw new BadRequestException(`Invalid ${field} id provided: ${value}`);
-      }
-      return value;
-    }
-
-    const parsed = Number(value);
-    if (!Number.isFinite(parsed) || Number.isNaN(parsed) || !Number.isInteger(parsed)) {
-      throw new BadRequestException(`Invalid ${field} id provided: ${value}`);
-    }
-
-    return parsed;
+  private parseNumericId(value: string | number, field: string): string {
+    return String(value);
   }
 
   /**

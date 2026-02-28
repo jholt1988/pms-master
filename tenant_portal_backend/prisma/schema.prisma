@@ -943,6 +943,10 @@ model RentalApplication {
   lifecycleEvents       ApplicationLifecycleEvent[]
   createdAt             DateTime                    @default(now())
   updatedAt             DateTime                    @updatedAt
+
+  ai_recommendation     String?
+  ai_summary            String?
+  ai_reviewed_at        DateTime?
 }
 
 enum LeadStatus {

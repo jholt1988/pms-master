@@ -12,6 +12,7 @@ import { SubmitApplicationDto } from './dto/submit-application.dto';
 import { SecurityEventsService } from '../security-events/security-events.service';
 import { AddRentalApplicationNoteDto } from './dto/add-note.dto';
 import { ApplicationLifecycleService, ApplicationLifecycleEventType } from './application-lifecycle.service';
+import { RentalApplicationAiService } from './rental-application.ai.service';
 
 @Injectable()
 export class RentalApplicationService {
@@ -19,6 +20,7 @@ export class RentalApplicationService {
     private readonly prisma: PrismaService,
     private readonly securityEvents: SecurityEventsService,
     private readonly lifecycleService: ApplicationLifecycleService,
+    private readonly aiService: RentalApplicationAiService,
   ) {}
   
   async submitApplication(data: SubmitApplicationDto, applicantId?: string) {
@@ -27,7 +29,7 @@ export class RentalApplicationService {
       throw new BadRequestException('Terms of Service and Privacy Policy must be accepted');
     }
     const acceptanceTimestamp = new Date();
-    const unitId = this.parseNumericId(data.unitId, 'unit');
+    const unitId = String(data.unitId);
     const references = this.buildReferences(data.references);
     const pastLandlords = this.buildPastLandlords(data.pastLandlords);
     const employments = this.buildEmployments(data.employments);
@@ -584,11 +586,31 @@ export class RentalApplicationService {
     return Number.isNaN(parsed.getTime()) ? undefined : parsed;
   }
 
-  private parseNumericId(value: string | number, field: string): number {
-    const parsed = typeof value === 'string' ? Number(value) : value;
-    if (!Number.isFinite(parsed) || !Number.isInteger(parsed)) {
-      throw new BadRequestException(`Invalid ${field} identifier provided.`);
+  private parseNumericId(value: string | number, field: string): string {
+    return String(value);
+  }
+
+  async getAiReview(applicationId: number, orgId?: string) {
+    const application = await this.getApplicationById(applicationId, orgId);
+    if (!application) {
+      throw new BadRequestException('Application not found');
     }
-    return parsed;
+
+    const review = await this.aiService.getAiReview(String(application.id));
+
+    // --- Blocked by database migration ---
+    // Once the migration is complete, uncomment this section to persist the review.
+    /*
+    await this.prisma.rentalApplication.update({
+      where: { id: applicationId },
+      data: {
+        ai_recommendation: review.recommendation,
+        ai_summary: review.summary,
+        ai_reviewed_at: new Date(),
+      },
+    });
+    */
+
+    return review;
   }
 }

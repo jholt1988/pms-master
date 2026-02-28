@@ -527,11 +527,11 @@ export class EstimateService {
     estimates: RepairEstimate[];
     total: number;
   }> {
-    const inspectionId = query.inspectionId ? this.parseNumericId(query.inspectionId, 'inspection') : undefined;
+    const inspectionId = query.inspectionId ? String(query.inspectionId) : undefined;
     const maintenanceRequestId = query.maintenanceRequestId
-      ? this.parseNumericId(query.maintenanceRequestId, 'maintenance request')
+      ? String(query.maintenanceRequestId)
       : undefined;
-    const propertyId = query.propertyId ? this.parseNumericId(query.propertyId, 'property') : undefined;
+    const propertyId = query.propertyId ? String(query.propertyId) : undefined;
     const where = {
       ...(inspectionId && { inspectionId }),
       ...(maintenanceRequestId && { maintenanceRequestId }),
@@ -680,7 +680,7 @@ export class EstimateService {
    */
   async getEstimateStats(propertyId?: string | number): Promise<any> {
     const parsedPropertyId =
-      propertyId !== undefined ? this.parseNumericId(propertyId, 'property') : undefined;
+      propertyId !== undefined ? String(propertyId) : undefined;
     const where = parsedPropertyId !== undefined ? { propertyId: parsedPropertyId } : {};
 
     const [
@@ -896,11 +896,7 @@ export class EstimateService {
     }
   }
 
-  private parseNumericId(value: string | number, field: string): number {
-    const normalized = typeof value === 'string' ? Number(value) : value;
-    if (!Number.isFinite(normalized) || !Number.isInteger(normalized)) {
-      throw new BadRequestException(`Invalid ${field} identifier provided.`);
-    }
-    return normalized;
+  private parseNumericId(value: string | number, field: string): string {
+    return String(value);
   }
 }

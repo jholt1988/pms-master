@@ -38,7 +38,7 @@ export class DocumentsService {
   ) {
     if (orgId) {
       if (data.leaseId) {
-        const leaseId = this.parseNumericId(data.leaseId, 'lease');
+        const leaseId = String(data.leaseId);
         const lease = await this.prisma.lease.findFirst({
           where: { id: leaseId, unit: { property: { organizationId: orgId } } },
           select: { id: true },
@@ -77,7 +77,7 @@ export class DocumentsService {
         uploadedBy: { connect: { id: userId } },
       ...(data.leaseId &&
         (() => {
-          const leaseId = this.parseNumericId(data.leaseId, 'lease');
+          const leaseId = String(data.leaseId);
           return { lease: { connect: { id: leaseId } } };
         })()),
       ...(data.propertyId &&
@@ -106,7 +106,7 @@ export class DocumentsService {
   ) {
     if (orgId) {
       if (params.leaseId) {
-        const leaseId = this.parseNumericId(params.leaseId, 'lease');
+        const leaseId = String(params.leaseId);
         const lease = await this.prisma.lease.findFirst({
           where: { id: leaseId, unit: { property: { organizationId: orgId } } },
           select: { id: true },
@@ -143,7 +143,7 @@ export class DocumentsService {
         uploadedBy: { connect: { id: params.userId } },
         ...(params.leaseId &&
           (() => {
-            const leaseId = this.parseNumericId(params.leaseId, 'lease');
+            const leaseId = String(params.leaseId);
             return { lease: { connect: { id: leaseId } } };
           })()),
         ...(params.propertyId &&
@@ -230,7 +230,7 @@ export class DocumentsService {
     const where: Prisma.DocumentWhereInput = {
       ...(clauses.length ? { AND: clauses } : {}),
       ...(filters.category && { category: filters.category }),
-      ...(filters.leaseId && { leaseId: this.parseNumericId(filters.leaseId, 'lease') }),
+      ...(filters.leaseId && { leaseId: String(filters.leaseId) }),
       ...(filters.propertyId && { propertyId: filters.propertyId }),
     };
 
@@ -327,11 +327,7 @@ export class DocumentsService {
     return { success: true };
   }
 
-  private parseNumericId(value: string | number, field: string): number {
-    const normalized = typeof value === 'string' ? Number(value) : value;
-    if (!Number.isFinite(normalized) || !Number.isInteger(normalized)) {
-      throw new BadRequestException(`Invalid ${field} identifier provided.`);
-    }
-    return normalized;
+  private parseNumericId(value: string | number, field: string): string {
+    return String(value);
   }
 }
