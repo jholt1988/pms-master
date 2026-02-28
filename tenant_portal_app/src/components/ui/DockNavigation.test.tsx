@@ -70,12 +70,14 @@ describe('DockNavigation', () => {
     });
   });
 
-  it('applies hover effects on dock items', () => {
+  it('applies hover/transition classes on dock items', () => {
     const { container } = renderDock();
-    const dockItems = container.querySelectorAll('[role="button"]');
+
+    // Dock items may be rendered as links, buttons, or other interactive elements.
+    // Use aria-labels as the stable selector.
+    const dockItems = container.querySelectorAll('[aria-label]');
 
     expect(dockItems.length).toBeGreaterThan(0);
-    // Each item should have transition classes
     dockItems.forEach((item) => {
       expect(item).toHaveClass('transition-all');
     });

@@ -4,6 +4,7 @@ import { PaymentsService } from '../payments/payments.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { BillingFrequency, Role, SecurityEventType } from '@prisma/client';
 import { addDays, addMonths, isBefore, nextDay, set } from 'date-fns';
+import { isUUID } from 'class-validator';
 import { UpsertScheduleDto } from './dto/upsert-schedule.dto';
 import { ConfigureAutopayDto } from './dto/configure-autopay.dto';
 import { SecurityEventsService } from '../security-events/security-events.service';
@@ -282,7 +283,7 @@ export class BillingService {
       metadata: { leaseId: leaseIdNum, action: 'DEACTIVATE_SCHEDULE' },
     });
 
-    return { leaseId, active: false };
+    return { leaseId: leaseIdNum, active: false };
   }
 
   async getAutopayForTenant(userId: string) {
@@ -462,11 +463,13 @@ export class BillingService {
     return addMonths(now, 1);
   }
 
-  private parseLeaseId(value: string | number): number {
-    const normalized = typeof value === 'string' ? Number(value) : value;
-    if (!Number.isFinite(normalized) || !Number.isInteger(normalized)) {
+  private parseLeaseId(value: string | number): string {
+    if (typeof value !== 'string') {
       throw new BadRequestException('Invalid lease identifier provided.');
     }
-    return normalized;
+    if (!isUUID(value)) {
+      throw new BadRequestException('Invalid lease identifier provided.');
+    }
+    return value;
   }
 }

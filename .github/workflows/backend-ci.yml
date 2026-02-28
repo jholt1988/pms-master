@@ -22,7 +22,7 @@ jobs:
     
     services:
       postgres:
-        image: postgres:15
+        image: postgres:18
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -52,7 +52,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20.19.0'
           cache: 'npm'
           cache-dependency-path: tenant_portal_backend/package-lock.json
 
@@ -64,13 +64,16 @@ jobs:
       - name: Generate Prisma Client
         working-directory: ./tenant_portal_backend
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/property_management_test
+          DATABASE_URL: postgresql://postgres.pyxdfddydshmktftxxhw:Bentley2844Alexander@aws-1-us-east-2.pooler.supabase.com:5432/postgres
+          DIRECT_URL: postgresql://postgres:postgres@localhost:5432/property_management_test
+
         run: npx prisma generate
 
       - name: Run Prisma migrations
         working-directory: ./tenant_portal_backend
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/property_management_test
+          DATABASE_URL: postgresql://postgres.pyxdfddydshmktftxxhw:Bentley2844Alexander@aws-1-us-east-2.pooler.supabase.com:5432/postgres
+          DIRECT_URL: postgresql://postgres:postgres@localhost:5432/property_management_test
         run: npx prisma migrate deploy
 
       - name: Type check

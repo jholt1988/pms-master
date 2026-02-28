@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DocumentCategory, Prisma } from '@prisma/client'; 
+import { isUUID } from 'class-validator';
 import { Multer } from 'multer';
 import { Express } from 'express';
 import * as fs from 'fs/promises';
@@ -38,7 +39,7 @@ export class DocumentsService {
   ) {
     if (orgId) {
       if (data.leaseId) {
-        const leaseId = String(data.leaseId);
+        const leaseId = this.parseUuidId(data.leaseId, 'lease');
         const lease = await this.prisma.lease.findFirst({
           where: { id: leaseId, unit: { property: { organizationId: orgId } } },
           select: { id: true },
@@ -77,7 +78,7 @@ export class DocumentsService {
         uploadedBy: { connect: { id: userId } },
       ...(data.leaseId &&
         (() => {
-          const leaseId = String(data.leaseId);
+          const leaseId = this.parseUuidId(data.leaseId, 'lease');
           return { lease: { connect: { id: leaseId } } };
         })()),
       ...(data.propertyId &&
@@ -106,7 +107,7 @@ export class DocumentsService {
   ) {
     if (orgId) {
       if (params.leaseId) {
-        const leaseId = String(params.leaseId);
+        const leaseId = this.parseUuidId(params.leaseId, 'lease');
         const lease = await this.prisma.lease.findFirst({
           where: { id: leaseId, unit: { property: { organizationId: orgId } } },
           select: { id: true },
@@ -143,7 +144,7 @@ export class DocumentsService {
         uploadedBy: { connect: { id: params.userId } },
         ...(params.leaseId &&
           (() => {
-            const leaseId = String(params.leaseId);
+            const leaseId = this.parseUuidId(params.leaseId, 'lease');
             return { lease: { connect: { id: leaseId } } };
           })()),
         ...(params.propertyId &&
@@ -230,7 +231,7 @@ export class DocumentsService {
     const where: Prisma.DocumentWhereInput = {
       ...(clauses.length ? { AND: clauses } : {}),
       ...(filters.category && { category: filters.category }),
-      ...(filters.leaseId && { leaseId: String(filters.leaseId) }),
+      ...(filters.leaseId && { leaseId: this.parseUuidId(filters.leaseId, 'lease') }),
       ...(filters.propertyId && { propertyId: filters.propertyId }),
     };
 
@@ -327,7 +328,18 @@ export class DocumentsService {
     return { success: true };
   }
 
-  private parseNumericId(value: string | number, field: string): string {
-    return String(value);
+  private parseUuidId(value: string, field: string): string {
+    if (!isUUID(value)) {
+      throw new BadRequestException(`Invalid ${field} identifier provided.`);
+    }
+    return value;
+  }
+
+  private parseNumericId(value: string | number, field: string): number {
+    const id = Number(value);
+    if (isNaN(id)) {
+      throw new BadRequestException(`Invalid ${field} identifier provided.`);
+    }
+    return id;
   }
 }
