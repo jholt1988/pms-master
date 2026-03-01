@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, UseGuards, Request } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
@@ -69,7 +69,7 @@ export class ScheduleController {
 
   @Post()
   @Roles(Role.PROPERTY_MANAGER)
-  async createEvent(@Body() createEventDto: CreateScheduleEventDto, @OrgId() orgId?: string) {
-    return this.scheduleService.createEvent(createEventDto, orgId);
+  async createEvent(@Body() createEventDto: CreateScheduleEventDto, @Request() req: any, @OrgId() orgId?: string) {
+    return this.scheduleService.createEvent(createEventDto, orgId, req.user?.id ?? req.user?.userId);
   }
 }

@@ -1,12 +1,16 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateScheduleEventDto } from './dto/create-schedule-event.dto';
+import { AuditLogService } from '../shared/audit-log.service';
 
 @Injectable()
 export class ScheduleService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly auditLogService: AuditLogService,
+  ) {}
 
-  async createEvent(dto: CreateScheduleEventDto, orgId?: string) {
+  async createEvent(dto: CreateScheduleEventDto, orgId?: string, actorId?: string) {
     const propertyId = String(dto.propertyId);
     const unitId = dto.unitId ? String(dto.unitId) : undefined;
 
@@ -32,6 +36,23 @@ export class ScheduleService {
         tenantId: dto.tenantId,
       },
     });
+
+    await this.auditLogService.record({
+      orgId,
+      actorId,
+      module: 'schedule',
+      action: 'CREATE_EVENT',
+      entityType: 'scheduleEvent',
+      entityId: event.id,
+      result: 'SUCCESS',
+      metadata: {
+        type: event.type,
+        priority: event.priority,
+        propertyId: event.propertyId,
+        unitId: event.unitId,
+      },
+    });
+
     return event;
   }
 
