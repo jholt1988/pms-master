@@ -18,6 +18,7 @@ import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { Inject } from '@nestjs/common';
 import { QuickBooksMinimalService } from './quickbooks-minimal.service';
 import { BasicSyncResult, ConnectionStatus, AbstractQuickBooksService } from './quickbooks.types';
+import { AuditLogService } from '../shared/audit-log.service';
 
 @ApiTags('quickbooks')
 @ApiBearerAuth()
@@ -26,7 +27,10 @@ import { BasicSyncResult, ConnectionStatus, AbstractQuickBooksService } from './
 export class QuickBooksController {
   private readonly logger = new Logger(QuickBooksController.name);
 
-  constructor(@Inject(AbstractQuickBooksService) private readonly quickBooksService: AbstractQuickBooksService) {}
+  constructor(
+    @Inject(AbstractQuickBooksService) private readonly quickBooksService: AbstractQuickBooksService,
+    private readonly auditLogService: AuditLogService,
+  ) {}
 
   @Get('auth-url')
   @ApiOperation({ summary: 'Get QuickBooks OAuth authorization URL' })
@@ -170,17 +174,41 @@ export class QuickBooksController {
         throw new HttpException('Missing organization context', HttpStatus.BAD_REQUEST);
       }
       const result = await this.quickBooksService.basicSync(userId, orgId);
-      
+
+      await this.auditLogService.record({
+        orgId,
+        actorId: userId,
+        module: 'quickbooks',
+        action: 'SYNC',
+        entityType: 'quickbooksConnection',
+        result: result.success ? 'SUCCESS' : 'FAILURE',
+        metadata: {
+          syncedItems: result.syncedItems,
+          message: result.message,
+          errors: result.errors,
+        },
+      });
+
       if (result.success) {
         this.logger.log(`QuickBooks sync completed successfully: ${result.syncedItems} items synced`);
       } else {
         this.logger.warn(`QuickBooks sync completed with errors: ${result.message}`);
       }
-      
+
       return result;
     } catch (error: any) {
       this.logger.error('QuickBooks sync failed:', error);
-      
+
+      await this.auditLogService.record({
+        orgId: req.org?.orgId as string | undefined,
+        actorId: req.user?.id,
+        module: 'quickbooks',
+        action: 'SYNC',
+        entityType: 'quickbooksConnection',
+        result: 'FAILURE',
+        metadata: { error: error?.message ?? 'Unknown error' },
+      });
+
       if (error.message.includes('No active QuickBooks connection')) {
         throw new HttpException(
           'No active QuickBooks connection found. Please connect first.',
@@ -217,15 +245,35 @@ export class QuickBooksController {
         throw new HttpException('Missing organization context', HttpStatus.BAD_REQUEST);
       }
       await this.quickBooksService.disconnectQuickBooks(userId, orgId);
-      
+
+      await this.auditLogService.record({
+        orgId,
+        actorId: userId,
+        module: 'quickbooks',
+        action: 'DISCONNECT',
+        entityType: 'quickbooksConnection',
+        result: 'SUCCESS',
+      });
+
       this.logger.log(`QuickBooks disconnected for user ${userId}`);
-      
+
       return {
         success: true,
         message: 'QuickBooks integration disconnected successfully',
       };
     } catch (error: any) {
       this.logger.error('Failed to disconnect QuickBooks:', error);
+
+      await this.auditLogService.record({
+        orgId: req.org?.orgId as string | undefined,
+        actorId: req.user?.id,
+        module: 'quickbooks',
+        action: 'DISCONNECT',
+        entityType: 'quickbooksConnection',
+        result: 'FAILURE',
+        metadata: { error: error?.message ?? 'Unknown error' },
+      });
+
       throw new HttpException(
         'Failed to disconnect QuickBooks integration',
         HttpStatus.INTERNAL_SERVER_ERROR,
