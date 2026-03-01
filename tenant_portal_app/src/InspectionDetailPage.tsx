@@ -334,6 +334,64 @@ function getConfidenceIcon(level?: string) {
   }
 }
 
+function buildFallbackEstimateFromInspection(inspection: InspectionDetail): Estimate {
+  const actionableItems = (inspection.rooms ?? []).flatMap((room: InspectionRoom) =>
+    (room.checklistItems ?? [])
+      .filter((item: ChecklistItem) => item.requiresAction)
+      .map((item: ChecklistItem) => ({ room, item })),
+  );
+
+  const lineItems = actionableItems.map(({ room, item }: { room: InspectionRoom; item: ChecklistItem }, idx: number) => {
+    const severityWeight = item.severity === 'EMERGENCY' ? 3 : item.severity === 'HIGH' ? 2 : 1;
+    const laborHours = 1.5 * severityWeight;
+    const laborRate = 85;
+    const materialCost = 60 * severityWeight;
+    const laborCost = laborHours * laborRate;
+    const totalCost = laborCost + materialCost;
+
+    return {
+      id: idx + 1,
+      itemDescription: item.itemName,
+      location: room.name,
+      category: item.category,
+      issueType: item.issueType ?? 'REPAIR',
+      laborHours,
+      laborRate,
+      laborCost,
+      materialCost,
+      totalCost,
+      confidenceLevel: 'LOW' as const,
+      confidenceReason: 'Fallback estimate based on checklist severity and default local rates.',
+      assumptions: ['Labor rate defaulted to $85/hr', 'Material costs estimated from severity band'],
+      questionsToReduceUncertainty: ['Confirm exact materials needed', 'Confirm on-site labor complexity'],
+      repairInstructions: item.notes ?? null,
+      notes: item.notes ?? null,
+    };
+  });
+
+  const totalLaborCost = lineItems.reduce((sum: number, li) => sum + li.laborCost, 0);
+  const totalMaterialCost = lineItems.reduce((sum: number, li) => sum + li.materialCost, 0);
+  const totalProjectCost = totalLaborCost + totalMaterialCost;
+
+  return {
+    id: Date.now(),
+    currency: 'USD',
+    generatedAt: new Date().toISOString(),
+    status: 'DRAFT',
+    totalLaborCost,
+    totalMaterialCost,
+    totalProjectCost,
+    itemsToRepair: lineItems.length,
+    itemsToReplace: 0,
+    bidLowTotal: Math.round(totalProjectCost * 0.85),
+    bidHighTotal: Math.round(totalProjectCost * 1.25),
+    confidenceLevel: 'LOW',
+    confidenceReason:
+      'Fallback mode: AI estimate was unavailable, so this rough estimate was generated from checklist items. Treat as provisional.',
+    lineItems,
+  };
+}
+
 function ConfidenceBadge({ level }: { level?: string }) {
   if (!level) return null;
   return (
@@ -374,6 +432,22 @@ function EstimatePanel({ estimate, embedded = false, token, canManage = false }:
     questions?.[0] ? `To tighten the bid: ${questions[0]}` : null,
   ].filter(Boolean) as string[];
 
+  const scopeSummary = lineItemCount > 0
+    ? `${lineItemCount} actionable item${lineItemCount === 1 ? '' : 's'} across ${(new Set((e.lineItems ?? []).map((li) => li.location)).size || 1)} area${(new Set((e.lineItems ?? []).map((li) => li.location)).size || 1) === 1 ? '' : 's'}`
+    : 'No actionable scope available.';
+
+  const totalLaborHours = (e.lineItems ?? []).reduce((sum, li) => sum + (typeof li.laborHours === 'number' ? li.laborHours : 0), 0);
+  const timelineSummary = totalLaborHours > 0
+    ? `${Math.max(1, Math.ceil(totalLaborHours / 6))} work day${Math.ceil(totalLaborHours / 6) === 1 ? '' : 's'} (${totalLaborHours.toFixed(1)} labor hours estimated)`
+    : 'Timeline pending vendor validation';
+
+  const rationaleSummary = e.confidenceReason
+    ?? 'Estimate calculated from checklist severity, itemized labor/material assumptions, and inspection notes.';
+
+  const confidenceSummary = e.confidenceLevel
+    ? e.confidenceLevel.replaceAll('_', ' ')
+    : 'UNSPECIFIED';
+
   const body = (
     <div className={embedded ? 'flex flex-col gap-4' : 'flex flex-col gap-4'}>
       {(hasRange || e.confidenceLevel || e.confidenceReason) && (
@@ -406,6 +480,21 @@ function EstimatePanel({ estimate, embedded = false, token, canManage = false }:
             </div>
           ) : null}
         </div>
+      )}
+
+      {!embedded && (
+        <Card className="border border-primary-200 bg-primary-50/40">
+          <CardBody className="p-3">
+            <div className="text-xs text-foreground-500 font-semibold mb-2">Demo View (Standardized)</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+              <div><span className="font-semibold">Scope:</span> {scopeSummary}</div>
+              <div><span className="font-semibold">Cost:</span> {formatCurrency(e.totalProjectCost ?? 0, currency)}{hasRange ? ` (range ${formatCurrency(e.bidLowTotal as number, currency)}–${formatCurrency(e.bidHighTotal as number, currency)})` : ''}</div>
+              <div><span className="font-semibold">Timeline:</span> {timelineSummary}</div>
+              <div><span className="font-semibold">Confidence:</span> {confidenceSummary}</div>
+            </div>
+            <div className="mt-2 text-xs text-foreground-600 whitespace-pre-wrap"><span className="font-semibold">Rationale:</span> {rationaleSummary}</div>
+          </CardBody>
+        </Card>
       )}
 
       {!embedded && (
@@ -849,6 +938,7 @@ export default function InspectionDetailPage(): React.ReactElement {
 
   const [estimateLoading, setEstimateLoading] = useState(false);
   const [estimateError, setEstimateError] = useState<string | null>(null);
+  const [estimateNotice, setEstimateNotice] = useState<string | null>(null);
   const [estimateResult, setEstimateResult] = useState<any | null>(null);
   const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
   const [analyzingPhotos, setAnalyzingPhotos] = useState<Record<number, boolean>>({});
@@ -1016,6 +1106,7 @@ export default function InspectionDetailPage(): React.ReactElement {
 
     setEstimateLoading(true);
     setEstimateError(null);
+    setEstimateNotice(null);
     setEstimateResult(null);
 
     try {
@@ -1028,7 +1119,15 @@ export default function InspectionDetailPage(): React.ReactElement {
       // Re-fetch so the inspection detail reflects newly created estimate(s)
       await fetchInspection();
     } catch (err: any) {
-      setEstimateError(err.message ?? 'Failed to generate estimate');
+      const message = err?.message ?? 'Failed to generate estimate';
+      // Fallback mode: keep demo flow alive with deterministic rough estimate
+      const fallbackEstimate = buildFallbackEstimateFromInspection(inspection);
+      if ((fallbackEstimate.lineItems?.length ?? 0) > 0) {
+        setEstimateResult(fallbackEstimate);
+        setEstimateNotice(`Fallback estimate generated: ${message}`);
+      } else {
+        setEstimateError(message);
+      }
     } finally {
       setEstimateLoading(false);
     }
@@ -1219,6 +1318,14 @@ export default function InspectionDetailPage(): React.ReactElement {
           generateEstimate();
         }}
       />
+
+      {estimateNotice && (
+        <Card className="mb-4 border border-amber-200 bg-amber-50">
+          <CardBody className="flex flex-col gap-2">
+            <p className="text-sm text-amber-800">{estimateNotice}</p>
+          </CardBody>
+        </Card>
+      )}
 
       {estimateError && (
         <Card className="mb-4 border border-rose-200">
@@ -1813,6 +1920,7 @@ export default function InspectionDetailPage(): React.ReactElement {
             ))}
           </div>
         </div>
+      </div>
       </div>
     </>
   );
