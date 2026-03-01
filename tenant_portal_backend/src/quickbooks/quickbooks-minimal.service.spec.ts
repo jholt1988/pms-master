@@ -1,10 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { QuickBooksMinimalService } from './quickbooks-minimal.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { Logger } from '@nestjs/common';
+import { AbstractQuickBooksService } from './quickbooks.types';
 
 describe('QuickBooksMinimalService', () => {
-  let service: QuickBooksMinimalService;
+  let service: AbstractQuickBooksService;
   let prismaService: PrismaService;
 
   const mockPrismaService = {
@@ -38,13 +38,17 @@ describe('QuickBooksMinimalService', () => {
       providers: [
         QuickBooksMinimalService,
         {
+          provide: AbstractQuickBooksService,
+          useClass: QuickBooksMinimalService,
+        },
+        {
           provide: PrismaService,
           useValue: mockPrismaService,
         },
       ],
     }).compile();
 
-    service = module.get<QuickBooksMinimalService>(QuickBooksMinimalService);
+    service = module.get<AbstractQuickBooksService>(AbstractQuickBooksService as any);
     prismaService = module.get<PrismaService>(PrismaService);
 
     // Mock environment variables
@@ -64,8 +68,9 @@ describe('QuickBooksMinimalService', () => {
 
   describe('getAuthorizationUrl', () => {
     it('should generate authorization URL with user state', async () => {
-      const userId = 1;
-      const authUrl = await service.getAuthorizationUrl(userId);
+      const userId = 'user-1';
+      const orgId = 'org-1';
+      const authUrl = await service.getAuthorizationUrl(userId, orgId);
 
       expect(authUrl).toContain('https://appcenter.intuit.com/connect/oauth2');
       expect(authUrl).toContain('client_id=test_client_id');
@@ -74,8 +79,9 @@ describe('QuickBooksMinimalService', () => {
     });
 
     it('should include accounting scope in authorization URL', async () => {
-      const userId = 1;
-      const authUrl = await service.getAuthorizationUrl(userId);
+      const userId = 'user-1';
+      const orgId = 'org-1';
+      const authUrl = await service.getAuthorizationUrl(userId, orgId);
 
       expect(authUrl).toContain('scope=com.intuit.quickbooks.accounting');
     });
@@ -83,10 +89,11 @@ describe('QuickBooksMinimalService', () => {
 
   describe('getConnectionStatus', () => {
     it('should return disconnected status when no connection exists', async () => {
-      const userId = 1;
+      const userId = 'user-1';
+      const orgId = 'org-1';
       mockPrismaService.quickBooksConnection.findFirst.mockResolvedValue(null);
 
-      const status = await service.getConnectionStatus(userId);
+      const status = await service.getConnectionStatus(userId, orgId);
 
       expect(status.connected).toBe(false);
       expect(status.companyName).toBeUndefined();
@@ -94,7 +101,8 @@ describe('QuickBooksMinimalService', () => {
     });
 
     it('should return connected status when active connection exists', async () => {
-      const userId = 1;
+      const userId = 'user-1';
+      const orgId = 'org-1';
       const mockConnection = {
         id: 1,
         userId: 1,
@@ -110,7 +118,7 @@ describe('QuickBooksMinimalService', () => {
 
       mockPrismaService.quickBooksConnection.findFirst.mockResolvedValue(mockConnection);
 
-      const status = await service.getConnectionStatus(userId);
+      const status = await service.getConnectionStatus(userId, orgId);
 
       expect(status.connected).toBe(true);
       expect(status.companyName).toBe('test_company_123');
@@ -118,7 +126,8 @@ describe('QuickBooksMinimalService', () => {
     });
 
     it('should return connection status with expiration date', async () => {
-      const userId = 1;
+      const userId = 'user-1';
+      const orgId = 'org-1';
       const mockConnection = {
         id: 1,
         userId: 1,
@@ -134,7 +143,7 @@ describe('QuickBooksMinimalService', () => {
 
       mockPrismaService.quickBooksConnection.findFirst.mockResolvedValue(mockConnection);
 
-      const status = await service.getConnectionStatus(userId);
+      const status = await service.getConnectionStatus(userId, orgId);
 
       // Service returns connected: true if connection exists, regardless of expiration
       expect(status.connected).toBe(true);
@@ -173,7 +182,7 @@ describe('QuickBooksMinimalService', () => {
 
     it('should return error when OAuth token exchange fails', async () => {
       const code = 'test_auth_code';
-      const state = JSON.stringify({ userId: 1 });
+      const state = JSON.stringify({ userId: 'user-1' });
       const realmId = 'test_company_123';
 
       // Mock OAuth client to throw error
@@ -192,26 +201,28 @@ describe('QuickBooksMinimalService', () => {
 
   describe('disconnectQuickBooks', () => {
     it('should successfully disconnect when connection exists', async () => {
-      const userId = 1;
+      const userId = 'user-1';
+      const orgId = 'org-1';
       mockPrismaService.quickBooksConnection.updateMany.mockResolvedValue({ count: 1 });
 
-      const result = await service.disconnectQuickBooks(userId);
+      const result = await service.disconnectQuickBooks(userId, orgId);
 
       expect(result.success).toBe(true);
       expect(result.message).toBe('QuickBooks connection disconnected successfully');
       expect(mockPrismaService.quickBooksConnection.updateMany).toHaveBeenCalledWith({
-        where: { userId },
+        where: { organizationId: orgId },
         data: { isActive: false },
       });
     });
 
     it('should handle case when update fails', async () => {
-      const userId = 1;
+      const userId = 'user-1';
+      const orgId = 'org-1';
       mockPrismaService.quickBooksConnection.updateMany.mockRejectedValue(
         new Error('Database error')
       );
 
-      const result = await service.disconnectQuickBooks(userId);
+      const result = await service.disconnectQuickBooks(userId, orgId);
 
       expect(result.success).toBe(false);
       expect(result.message).toContain('Failed to disconnect');
@@ -238,20 +249,22 @@ describe('QuickBooksMinimalService', () => {
     });
 
     it('should fail when no QuickBooks connection exists', async () => {
-      const userId = 1;
+      const userId = 'user-1';
+      const orgId = 'org-1';
       mockPrismaService.quickBooksConnection.findFirst.mockResolvedValue(null);
 
-      const result = await service.basicSync(userId);
+      const result = await service.basicSync(userId, orgId);
 
       expect(result.success).toBe(false);
       expect(result.message).toBe('No active QuickBooks connection found');
     });
 
     it('should complete successfully when connection exists', async () => {
-      const userId = 1;
+      const userId = 'user-1';
+      const orgId = 'org-1';
       mockPrismaService.quickBooksConnection.update.mockResolvedValue({});
 
-      const result = await service.basicSync(userId);
+      const result = await service.basicSync(userId, orgId);
 
       expect(result.success).toBe(true);
       expect(result.message).toBe('Basic sync completed successfully');

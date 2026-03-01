@@ -21,6 +21,7 @@ import {
   RoomType
 } from '@prisma/client';
 import { createDefaultInspectionRooms, getChecklistTemplate } from '../../prisma/seed-inspection-templates';
+import { isUUID } from 'class-validator';
 
 @Injectable()
 export class InspectionService {
@@ -56,9 +57,9 @@ export class InspectionService {
    */
   async createInspection(dto: CreateInspectionDto, createdById: string, orgId?: string): Promise<UnitInspection> {
     // Validate property and unit exist
-    const propertyId = String(dto.propertyId);
-    const unitId = dto.unitId ? String(dto.unitId) : undefined;
-    const leaseId = dto.leaseId ? String(dto.leaseId) : undefined;
+    const propertyId = this.parseUuidId(dto.propertyId, 'property');
+    const unitId = dto.unitId ? this.parseUuidId(dto.unitId, 'unit') : undefined;
+    const leaseId = dto.leaseId ? this.parseUuidId(dto.leaseId, 'lease') : undefined;
 
     const property = await this.prisma.property.findFirst({
       where: { id: propertyId, ...(orgId ? { organizationId: orgId } : {}) },
@@ -240,9 +241,9 @@ export class InspectionService {
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    const propertyId = query.propertyId ? String(query.propertyId) : undefined;
-    const unitId = query.unitId ? String(query.unitId) : undefined;
-    const leaseId = query.leaseId ? String(query.leaseId) : undefined;
+    const propertyId = query.propertyId ? this.parseUuidId(query.propertyId, 'property') : undefined;
+    const unitId = query.unitId ? this.parseUuidId(query.unitId, 'unit') : undefined;
+    const leaseId = query.leaseId ? this.parseUuidId(query.leaseId, 'lease') : undefined;
 
     const where: any = {
       ...(propertyId && { propertyId }),
@@ -879,7 +880,7 @@ Respond in JSON format:
    * Get inspection statistics
    */
   async getInspectionStats(propertyId?: string, orgId?: string): Promise<any> {
-    const parsedPropertyId = propertyId ? String(propertyId) : undefined;
+    const parsedPropertyId = propertyId ? this.parseUuidId(propertyId, 'property') : undefined;
     const where = {
       ...(parsedPropertyId ? { propertyId: parsedPropertyId } : {}),
       ...(orgId ? { property: { organizationId: orgId } } : {}),
@@ -1053,7 +1054,18 @@ Respond in JSON format:
     }
   }
 
-  private parseNumericId(value: string | number, field: string): string {
-    return String(value);
+  private parseUuidId(value: string | number, field: string): string {
+    if (typeof value !== 'string' || !isUUID(value)) {
+      throw new BadRequestException(`Invalid ${field} identifier provided.`);
+    }
+    return value;
+  }
+
+  private parseNumericId(value: string | number, field: string): number {
+    const id = Number(value);
+    if (isNaN(id)) {
+      throw new BadRequestException(`Invalid ${field} identifier provided.`);
+    }
+    return id;
   }
 }

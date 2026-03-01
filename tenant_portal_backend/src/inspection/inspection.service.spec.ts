@@ -17,31 +17,31 @@ describe('InspectionService', () => {
 
   // Mock data
   const mockProperty = {
-    id: 1,
+    id: '11111111-1111-4111-8111-111111111111',
     name: 'Test Property',
     address: '123 Test St, Test City, Test State, USA',
   };
 
   const mockUnit = {
-    id: 1,
+    id: '22222222-2222-4222-8222-222222222222',
     name: 'Unit 101',
-    propertyId: 1,
+    propertyId: '11111111-1111-4111-8111-111111111111',
   };
 
   const mockUser = {
-    id: 1,
+    id: '33333333-3333-4333-8333-333333333333',
     username: 'test@example.com',
     role: 'PROPERTY_MANAGER',
   };
 
   const mockInspection = {
     id: 1,
-    propertyId: 1,
-    unitId: 1,
+    propertyId: '11111111-1111-4111-8111-111111111111',
+    unitId: '22222222-2222-4222-8222-222222222222',
     type: InspectionType.MOVE_IN,
     status: InspectionStatus.SCHEDULED,
     scheduledDate: new Date(),
-    createdById: 1,
+    createdById: '33333333-3333-4333-8333-333333333333',
     property: mockProperty,
     unit: mockUnit,
     inspector: mockUser,
@@ -120,11 +120,11 @@ describe('InspectionService', () => {
 
   describe('createInspection', () => {
     const createInspectionDto = {
-      propertyId: 1,
-      unitId: 1,
+      propertyId: '11111111-1111-4111-8111-111111111111',
+      unitId: '22222222-2222-4222-8222-222222222222',
       type: InspectionType.MOVE_IN,
       scheduledDate: new Date().toISOString(),
-      inspectorId: 1,
+      inspectorId: '33333333-3333-4333-8333-333333333333',
     };
 
     it('should create an inspection successfully', async () => {
@@ -133,19 +133,19 @@ describe('InspectionService', () => {
       mockPrismaService.unit.findUnique.mockResolvedValue(mockUnit);
       mockPrismaService.unitInspection.create.mockResolvedValue(mockInspection);
 
-      const result = await service.createInspection(createInspectionDto, 1);
+      const result = await service.createInspection(createInspectionDto, '33333333-3333-4333-8333-333333333333');
 
       expect(mockPrismaService.property.findUnique).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: '11111111-1111-4111-8111-111111111111' },
       });
       expect(mockPrismaService.unit.findUnique).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: '22222222-2222-4222-8222-222222222222' },
       });
       expect(mockPrismaService.unitInspection.create).toHaveBeenCalledWith({
         data: {
           ...createInspectionDto,
           scheduledDate: new Date(createInspectionDto.scheduledDate),
-          createdById: 1,
+          createdById: '33333333-3333-4333-8333-333333333333',
           status: 'SCHEDULED',
         },
         include: expect.any(Object),
@@ -157,7 +157,7 @@ describe('InspectionService', () => {
       mockPrismaService.property.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.createInspection(createInspectionDto, 1)
+        service.createInspection(createInspectionDto, '33333333-3333-4333-8333-333333333333')
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -166,7 +166,7 @@ describe('InspectionService', () => {
       mockPrismaService.unit.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.createInspection(createInspectionDto, 1)
+        service.createInspection(createInspectionDto, '33333333-3333-4333-8333-333333333333')
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -174,11 +174,11 @@ describe('InspectionService', () => {
       mockPrismaService.property.findUnique.mockResolvedValue(mockProperty);
       mockPrismaService.unit.findUnique.mockResolvedValue({
         ...mockUnit,
-        propertyId: 2, // Different property
+        propertyId: '44444444-4444-4444-8444-444444444444', // Different property
       });
 
       await expect(
-        service.createInspection(createInspectionDto, 1)
+        service.createInspection(createInspectionDto, '33333333-3333-4333-8333-333333333333')
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -243,7 +243,7 @@ describe('InspectionService', () => {
 
   describe('addSignature', () => {
     const signatureDto = {
-      userId: 1,
+      userId: '33333333-3333-4333-8333-333333333333',
       role: 'tenant',
       signatureData: 'base64-signature-data',
     };
@@ -260,7 +260,7 @@ describe('InspectionService', () => {
       expect(mockPrismaService.inspectionSignature.findFirst).toHaveBeenCalledWith({
         where: {
           inspectionId: 1,
-          userId: 1,
+          userId: '33333333-3333-4333-8333-333333333333',
         },
       });
       expect(mockPrismaService.inspectionSignature.create).toHaveBeenCalledWith({
@@ -277,7 +277,7 @@ describe('InspectionService', () => {
       mockPrismaService.unitInspection.findUnique.mockResolvedValue(mockInspection);
       mockPrismaService.inspectionSignature.findFirst.mockResolvedValue({
         id: 1,
-        userId: 1,
+        userId: '33333333-3333-4333-8333-333333333333',
         inspectionId: 1,
       });
 
@@ -353,10 +353,10 @@ describe('InspectionService', () => {
     it('should filter by property if provided', async () => {
       mockPrismaService.unitInspection.count.mockResolvedValue(1);
 
-      await service.getInspectionStats(1);
+      await service.getInspectionStats('11111111-1111-4111-8111-111111111111');
 
       expect(mockPrismaService.unitInspection.count).toHaveBeenCalledWith({
-        where: { propertyId: 1 },
+        where: { propertyId: '11111111-1111-4111-8111-111111111111' },
       });
     });
   });
@@ -383,14 +383,14 @@ describe('InspectionService', () => {
     });
 
     it('should filter inspections by property', async () => {
-      const query = { ...queryDto, propertyId: 1 };
+      const query = { ...queryDto, propertyId: '11111111-1111-4111-8111-111111111111' };
       mockPrismaService.unitInspection.findMany.mockResolvedValue([]);
       mockPrismaService.unitInspection.count.mockResolvedValue(0);
 
       await service.getInspections(query);
 
       expect(mockPrismaService.unitInspection.findMany).toHaveBeenCalledWith({
-        where: { propertyId: 1 },
+        where: { propertyId: '11111111-1111-4111-8111-111111111111' },
         include: expect.any(Object),
         skip: 0,
         take: 10,
@@ -434,11 +434,11 @@ describe('InspectionService', () => {
 
   describe('createInspectionWithRooms', () => {
     const createWithRoomsDto = {
-      propertyId: 1,
-      unitId: 1,
+      propertyId: '11111111-1111-4111-8111-111111111111',
+      unitId: '22222222-2222-4222-8222-222222222222',
       type: 'MOVE_IN' as InspectionType,
       scheduledDate: new Date().toISOString(),
-      inspectorId: 1,
+      inspectorId: '33333333-3333-4333-8333-333333333333',
       rooms: [
         { name: 'Living Room', roomType: RoomType.LIVING_ROOM },
         { name: 'Kitchen', roomType: RoomType.KITCHEN }
@@ -458,17 +458,18 @@ describe('InspectionService', () => {
       mockPrismaService.unit.findUnique.mockResolvedValue(mockUnit);
       mockPrismaService.unitInspection.create.mockResolvedValue(inspectionWithRooms);
 
-      const result = await service.createInspectionWithRooms(createWithRoomsDto, 1);
+      const result = await service.createInspectionWithRooms(createWithRoomsDto, '33333333-3333-4333-8333-333333333333');
+      const rooms = (result as any).rooms;
 
-      expect(result.rooms).toHaveLength(2);
-      expect(result.rooms[0].name).toBe('Living Room');
-      expect(result.rooms[1].name).toBe('Kitchen');
+      expect(rooms).toHaveLength(2);
+      expect(rooms[0].name).toBe('Living Room');
+      expect(rooms[1].name).toBe('Kitchen');
     });
 
     it('should throw BadRequestException when no rooms provided', async () => {
       const dtoWithoutRooms = { ...createWithRoomsDto, rooms: [] };
 
-      await expect(service.createInspectionWithRooms(dtoWithoutRooms, 1))
+      await expect(service.createInspectionWithRooms(dtoWithoutRooms, '33333333-3333-4333-8333-333333333333'))
         .rejects.toThrow(BadRequestException);
     });
   });
@@ -518,8 +519,8 @@ describe('InspectionService', () => {
 
   describe('addPhotoToChecklistItem', () => {
     const uploadDto = {
-      caption: 'Damaged faucet photo',
-      metadata: JSON.stringify({ timestamp: new Date().toISOString() })
+      url: 'https://example.com/photo.jpg',
+      caption: 'Damaged faucet photo'
     };
 
     it('should add photo to checklist item successfully', async () => {

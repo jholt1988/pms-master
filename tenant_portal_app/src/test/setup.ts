@@ -63,10 +63,11 @@ global.ResizeObserver = class ResizeObserver {
   unobserve() {}
 } as any;
 
-// Suppress console errors in tests (optional - uncomment if needed)
-// global.console = {
-//   ...console,
-//   error: vi.fn(),
-//   warn: vi.fn(),
-// };
+// Suppress noisy, expected errors in tests (e.g. fire-and-forget persistence in LeasingAgentService)
+const originalConsoleError = console.error.bind(console);
+console.error = (...args: any[]) => {
+  const first = args[0];
+  if (typeof first === 'string' && first.startsWith('Error saving message:')) return;
+  return originalConsoleError(...args);
+};
 

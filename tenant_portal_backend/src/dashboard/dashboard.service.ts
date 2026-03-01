@@ -13,6 +13,7 @@ export class DashboardService {
     const orgPropertyWhere = orgId ? { organizationId: orgId } : undefined;
     const orgUnitWhere = orgId ? { property: { organizationId: orgId } } : undefined;
     const orgLeaseWhere = orgId ? { unit: { property: { organizationId: orgId } } } : undefined;
+    const orgPaymentWhere = orgId ? { lease: { unit: { property: { organizationId: orgId } } } } : undefined;
     const orgMaintenanceWhere = orgId ? { property: { organizationId: orgId } } : undefined;
     const orgLeadAppWhere = orgId ? { property: { organizationId: orgId } } : undefined;
 
@@ -47,7 +48,7 @@ const [
         gte: startOfMonth,
         lte: now,
       },
-      ...(orgLeaseWhere ?? {}),
+      ...(orgPaymentWhere ?? {}),
     },
   }),
   this.prisma.invoice.aggregate({
@@ -72,7 +73,7 @@ const [
     },
   }),
   this.prisma.payment.findMany({
-    where: orgLeaseWhere ?? undefined,
+    where: orgPaymentWhere ?? undefined,
     orderBy: { paymentDate: 'desc' },
     take: 3,
   }),

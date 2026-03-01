@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PMS Mobile Portals</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; }
+    .portal-card {
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .portal-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+  <div class="max-w-4xl mx-auto px-6 py-16">
+    
+    <!-- Header -->
+    <header class="text-center mb-16">
+      <div class="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-sm mb-6">
+        <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+        <span class="text-sm text-slate-600">Mobile Portals Ready</span>
+      </div>
+      <h1 class="text-4xl font-bold text-slate-900 mb-4">PMS Mobile Portals</h1>
+      <p class="text-lg text-slate-600 max-w-xl mx-auto">
+        Modern, mobile-first interfaces for tenants and property managers. 
+        Built with SuperDesign principles.
+      </p>
+    </header>
+
+    <!-- Portal Cards -->
+    <div class="grid md:grid-cols-2 gap-8">
+      
+      <!-- Tenant Portal Card -->
+      <a href="tenant-portal.html" class="portal-card bg-white rounded-3xl p-8 border border-slate-200 shadow-sm block">
+        <div class="flex items-center gap-4 mb-6">
+          <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center text-white shadow-lg">
+            <i data-lucide="home" class="w-8 h-8"></i>
+          </div>
+          <div>
+            <h2 class="text-xl font-bold text-slate-900">Tenant Portal</h2>
+            <p class="text-sm text-slate-500">For residents & tenants</p>
+          </div>
+        </div>
+        
+        <ul class="space-y-3 text-slate-600 mb-6">
+          <li class="flex items-center gap-3">
+            <i data-lucide="check-circle" class="w-5 h-5 text-green-500"></i>
+            <span>Pay rent & view payment history</span>
+          </li>
+          <li class="flex items-center gap-3">
+            <i data-lucide="check-circle" class="w-5 h-5 text-green-500"></i>
+            <span>Submit maintenance requests</span>
+          </li>
+          <li class="flex items-center gap-3">
+            <i data-lucide="check-circle" class="w-5 h-5 text-green-500"></i>
+            <span>Messaging with property manager</span>
+          </li>
+          <li class="flex items-center gap-3">
+            <i data-lucide="check-circle" class="w-5 h-5 text-green-500"></i>
+            <span>View documents & lease info</span>
+          </li>
+        </ul>
+        
+        <div class="flex items-center gap-2 text-blue-600 font-medium">
+          <span>Launch Portal</span>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </div>
+      </a>
+
+      <!-- Admin Portal Card -->
+      <a href="admin-portal.html" class="portal-card bg-white rounded-3xl p-8 border border-slate-200 shadow-sm block">
+        <div class="flex items-center gap-4 mb-6">
+          <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-700 flex items-center justify-center text-white shadow-lg">
+            <i data-lucide="building-2" class="w-8 h-8"></i>
+          </div>
+          <div>
+            <h2 class="text-xl font-bold text-slate-900">Admin/PM Portal</h2>
+            <p class="text-sm text-slate-500">For property managers</p>
+          </div>
+        </div>
+        
+        <ul class="space-y-3 text-slate-600 mb-6">
+          <li class="flex items-center gap-3">
+            <i data-lucide="check-circle" class="w-5 h-5 text-green-500"></i>
+            <span>Overview dashboard with stats</span>
+          </li>
+          <li class="flex items-center gap-3">
+            <i data-lucide="check-circle" class="w-5 h-5 text-green-500"></i>
+            <span>Unit management & tenant info</span>
+          </li>
+          <li class="flex items-center gap-3">
+            <i data-lucide="check-circle" class="w-5 h-5 text-green-500"></i>
+            <span>AI-powered inspections</span>
+          </li>
+          <li class="flex items-center gap-3">
+            <i data-lucide="check-circle" class="w-5 h-5 text-green-500"></i>
+            <span>Priority task management</span>
+          </li>
+        </ul>
+        
+        <div class="flex items-center gap-2 text-orange-600 font-medium">
+          <span>Launch Portal</span>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </div>
+      </a>
+    </div>
+
+    <!-- Design System Info -->
+    <div class="mt-16 bg-white rounded-2xl p-8 border border-slate-200">
+      <h3 class="text-lg font-bold text-slate-900 mb-6">Design System</h3>
+      <div class="grid sm:grid-cols-3 gap-6">
+        <div>
+          <h4 class="font-medium text-slate-900 mb-2">Colors</h4>
+          <div class="flex flex-wrap gap-2">
+            <div class="flex items-center gap-2">
+              <div class="w-6 h-6 rounded-lg bg-[#1e293b]"></div>
+              <span class="text-xs text-slate-500">Navy</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="w-6 h-6 rounded-lg bg-[#f97316]"></div>
+              <span class="text-xs text-slate-500">Coral</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <h4 class="font-medium text-slate-900 mb-2">Typography</h4>
+          <p class="text-sm text-slate-600">Inter — Modern, highly readable sans-serif</p>
+        </div>
+        <div>
+          <h4 class="font-medium text-slate-900 mb-2">Features</h4>
+          <p class="text-sm text-slate-600">Mobile-first, PWA-ready, touch-friendly</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-16 text-center text-slate-500 text-sm">
+      <p>Built with SuperDesign & Prompt Engineering Expert skills</p>
+    </footer>
+  </div>
+
+  <script>lucide.createIcons();</script>
+</body>
+</html>
