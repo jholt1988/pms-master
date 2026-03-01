@@ -1,5 +1,6 @@
 
-import { Module, HttpModule } from '@nestjs/common';
+import { Module } from '@nestjs/common';
+import { HttpModule } from '@nestjs/axios';
 import { RentalApplicationController } from './rental-application.controller';
 import { RentalApplicationService } from './rental-application.service';
 import { ApplicationLifecycleService } from './application-lifecycle.service';
