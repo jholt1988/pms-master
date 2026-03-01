@@ -17,6 +17,7 @@ export class QuickBooksMinimalService extends AbstractQuickBooksService {
   private oauthClient: any;
 
   constructor(private prisma: PrismaService) {
+    super();
     this.oauthClient = new OAuthClient({
       clientId: process.env.QUICKBOOKS_CLIENT_ID,
       clientSecret: process.env.QUICKBOOKS_CLIENT_SECRET,
