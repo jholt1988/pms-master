@@ -8,6 +8,7 @@ import { isUUID } from 'class-validator';
 import { UpsertScheduleDto } from './dto/upsert-schedule.dto';
 import { ConfigureAutopayDto } from './dto/configure-autopay.dto';
 import { SecurityEventsService } from '../security-events/security-events.service';
+import { StripeService } from '../payments/stripe.service';
 
 @Injectable()
 export class BillingService {
@@ -17,6 +18,7 @@ export class BillingService {
     private readonly prisma: PrismaService,
     private readonly paymentsService: PaymentsService,
     private readonly securityEvents: SecurityEventsService,
+    private readonly stripeService: StripeService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_1AM)
@@ -228,6 +230,63 @@ export class BillingService {
     });
 
     return updated;
+  }
+
+  async createOnboardingLink(orgId: string, input: { refreshUrl: string; returnUrl: string }) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: orgId },
+      select: { id: true, name: true, stripeConnectedAccountId: true },
+    });
+    if (!org) throw new NotFoundException('Organization not found');
+
+    let accountId = org.stripeConnectedAccountId ?? undefined;
+    if (!accountId) {
+      const created = await this.stripeService.createConnectedAccount({
+        organizationId: org.id,
+      });
+      accountId = created.accountId;
+      await this.prisma.organization.update({
+        where: { id: org.id },
+        data: {
+          stripeConnectedAccountId: accountId,
+          stripeOnboardingStatus: 'PENDING',
+          stripeLastOnboardingCheckAt: new Date(),
+        },
+      });
+    }
+
+    const link = await this.stripeService.createConnectedAccountOnboardingLink({
+      accountId,
+      refreshUrl: input.refreshUrl,
+      returnUrl: input.returnUrl,
+    });
+
+    return {
+      accountId,
+      onboardingUrl: link.url,
+      expiresAt: link.expiresAt,
+    };
+  }
+
+  async refreshConnectedAccountStatus(orgId: string) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: orgId },
+      select: { id: true, stripeConnectedAccountId: true },
+    });
+    if (!org || !org.stripeConnectedAccountId) {
+      throw new NotFoundException('Connected account not found for organization');
+    }
+
+    const status = await this.stripeService.getConnectedAccountStatus(org.stripeConnectedAccountId);
+    return this.upsertConnectedAccount(orgId, {
+      stripeConnectedAccountId: status.accountId,
+      stripeOnboardingStatus: status.onboardingStatus,
+      stripeChargesEnabled: status.chargesEnabled,
+      stripePayoutsEnabled: status.payoutsEnabled,
+      stripeDetailsSubmitted: status.detailsSubmitted,
+      stripeCapabilities: status.capabilities,
+      stripeOnboardingCompletedAt: status.onboardingStatus === 'COMPLETED' ? new Date().toISOString() : undefined,
+    });
   }
 
   async listSchedules(orgId: string) {

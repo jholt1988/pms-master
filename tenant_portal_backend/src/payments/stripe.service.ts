@@ -22,6 +22,22 @@ export interface SetupPaymentMethodDto {
   paymentMethodId: string;
 }
 
+export interface CreateConnectedAccountDto {
+  organizationId: string;
+  email?: string;
+  country?: string;
+  businessType?: 'individual' | 'company';
+}
+
+export interface ConnectedAccountStatus {
+  accountId: string;
+  onboardingStatus: 'NOT_STARTED' | 'PENDING' | 'IN_REVIEW' | 'COMPLETED' | 'RESTRICTED';
+  chargesEnabled: boolean;
+  payoutsEnabled: boolean;
+  detailsSubmitted: boolean;
+  capabilities?: Record<string, unknown>;
+}
+
 @Injectable()
 export class StripeService {
   private readonly logger = new Logger(StripeService.name);
@@ -300,6 +316,81 @@ export class StripeService {
     } catch (error) {
       this.logger.error(`Failed to handle payment failure for ${paymentIntent.id}:`, error);
     }
+  }
+
+  async createConnectedAccount(dto: CreateConnectedAccountDto): Promise<{ accountId: string }> {
+    if (this.isStripeDisabled) {
+      return { accountId: `mock_acct_${dto.organizationId.slice(0, 8)}` };
+    }
+
+    const account = await this.stripe!.accounts.create({
+      type: 'express',
+      country: dto.country ?? 'US',
+      email: dto.email,
+      business_type: dto.businessType ?? 'company',
+      metadata: {
+        organizationId: dto.organizationId,
+      },
+      capabilities: {
+        card_payments: { requested: true },
+        transfers: { requested: true },
+      },
+    });
+
+    return { accountId: account.id };
+  }
+
+  async createConnectedAccountOnboardingLink(params: {
+    accountId: string;
+    refreshUrl: string;
+    returnUrl: string;
+  }): Promise<{ url: string; expiresAt?: number }> {
+    if (this.isStripeDisabled) {
+      return {
+        url: `${params.returnUrl}?mock_onboarding=1&account=${params.accountId}`,
+      };
+    }
+
+    const link = await this.stripe!.accountLinks.create({
+      account: params.accountId,
+      refresh_url: params.refreshUrl,
+      return_url: params.returnUrl,
+      type: 'account_onboarding',
+    });
+
+    return { url: link.url, expiresAt: link.expires_at };
+  }
+
+  async getConnectedAccountStatus(accountId: string): Promise<ConnectedAccountStatus> {
+    if (this.isStripeDisabled) {
+      return {
+        accountId,
+        onboardingStatus: 'PENDING',
+        chargesEnabled: false,
+        payoutsEnabled: false,
+        detailsSubmitted: false,
+        capabilities: { card_payments: 'inactive', transfers: 'inactive' },
+      };
+    }
+
+    const account = await this.stripe!.accounts.retrieve(accountId);
+    const requirements = (account as any).requirements;
+    const disabledReason = requirements?.disabled_reason as string | undefined;
+
+    let onboardingStatus: ConnectedAccountStatus['onboardingStatus'] = 'NOT_STARTED';
+    if (account.details_submitted) onboardingStatus = 'PENDING';
+    if (disabledReason?.includes('under_review')) onboardingStatus = 'IN_REVIEW';
+    if (account.charges_enabled && account.payouts_enabled) onboardingStatus = 'COMPLETED';
+    if (disabledReason) onboardingStatus = 'RESTRICTED';
+
+    return {
+      accountId: account.id,
+      onboardingStatus,
+      chargesEnabled: Boolean(account.charges_enabled),
+      payoutsEnabled: Boolean(account.payouts_enabled),
+      detailsSubmitted: Boolean(account.details_submitted),
+      capabilities: account.capabilities as Record<string, unknown>,
+    };
   }
 
   /**

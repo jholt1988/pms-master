@@ -125,6 +125,23 @@ export class BillingController {
 
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles(Role.PROPERTY_MANAGER)
+  @Post('connected-account/onboarding-link')
+  async createOnboardingLink(
+    @OrgId() orgId: string,
+    @Body() body: { refreshUrl: string; returnUrl: string },
+  ) {
+    return this.billingService.createOnboardingLink(orgId, body);
+  }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles(Role.PROPERTY_MANAGER)
+  @Post('connected-account/refresh')
+  async refreshConnectedAccountStatus(@OrgId() orgId: string) {
+    return this.billingService.refreshConnectedAccountStatus(orgId);
+  }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles(Role.PROPERTY_MANAGER)
   @Post('run')
   async runBilling() {
     return this.billingService.manualRun();

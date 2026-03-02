@@ -29,6 +29,7 @@ import { AuditLogService } from '../shared/audit-log.service';
     PaymentMethodsService,
     AIPaymentService,
     AIPaymentMetricsService,
+    StripeService,
   ],
 })
 export class PaymentsModule { }
