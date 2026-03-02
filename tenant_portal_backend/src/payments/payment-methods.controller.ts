@@ -26,6 +26,11 @@ export class PaymentMethodsController {
     return this.paymentMethodsService.listForUser(req.user.userId);
   }
 
+  @Post('setup-intent')
+  async createSetupIntent(@Req() req: AuthenticatedRequest) {
+    return this.paymentMethodsService.createSetupIntent(req.user.userId);
+  }
+
   @Post()
   async create(@Body() dto: CreatePaymentMethodDto, @Req() req: AuthenticatedRequest) {
     const method = await this.paymentMethodsService.create(req.user.userId, dto);

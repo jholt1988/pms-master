@@ -104,27 +104,43 @@ const PaymentMethodForm = ({ onSuccess, onCancel }: { onSuccess: () => void, onC
     setError(null);
 
     try {
-      // 1. Tokenize card with Stripe
       const cardElement = elements.getElement(CardElement);
       if (!cardElement) throw new Error("Card element not found");
 
-      const { error: stripeError, paymentMethod } = await stripe.createPaymentMethod({
-        type: 'card',
-        card: cardElement,
+      // 1) Ask backend for SetupIntent (off_session-ready flow)
+      const setup = await apiFetch('/payments/payment-methods/setup-intent', {
+        token,
+        method: 'POST',
+      }) as { clientSecret?: string };
+
+      if (!setup?.clientSecret) {
+        throw new Error('Unable to initialize card setup.');
+      }
+
+      // 2) Confirm card setup with Stripe
+      const { error: stripeError, setupIntent } = await stripe.confirmCardSetup(setup.clientSecret, {
+        payment_method: {
+          card: cardElement,
+        },
       });
 
       if (stripeError) {
         throw new Error(stripeError.message);
       }
 
-      // 2. Send token to backend
-      await apiFetch('/payment-methods', {
+      const paymentMethodId = (setupIntent?.payment_method as string | undefined);
+      if (!paymentMethodId) {
+        throw new Error('Card setup did not return a payment method.');
+      }
+
+      // 3) Persist payment method metadata in backend
+      await apiFetch('/payments/payment-methods', {
         token,
         method: 'POST',
         body: {
           type: 'CARD',
           provider: 'STRIPE',
-          providerPaymentMethodId: paymentMethod.id,
+          providerPaymentMethodId: paymentMethodId,
         }
       });
 
@@ -209,7 +225,7 @@ const PaymentsPage: React.FC = () => {
       setIsLoading(true);
       const [invoicesData, methodsData, historyData] = await Promise.all([
         apiFetch('/payments/invoices', { token }).catch(() => []),
-        apiFetch('/payment-methods', { token }).catch(() => []),
+        apiFetch('/payments/payment-methods', { token }).catch(() => []),
         apiFetch('/payments/history', { token }).catch(() => [])
       ]);
 
@@ -258,7 +274,7 @@ const PaymentsPage: React.FC = () => {
     if (!window.confirm('Are you sure you want to remove this payment method?')) return;
 
     try {
-      await apiFetch(`/payment-methods/${id}`, { token, method: 'DELETE' });
+      await apiFetch(`/payments/payment-methods/${id}`, { token, method: 'DELETE' });
       setPaymentMethods(prev => prev.filter(m => m.id !== id));
     } catch (err) {
       console.error('Failed to delete payment method', err);

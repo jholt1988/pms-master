@@ -12,8 +12,7 @@ export class PaymentMethodsService {
     private readonly stripeService: StripeService,
   ) { }
 
-  async create(userId: string, dto: CreatePaymentMethodDto) {
-    // 1. Get or Create Stripe Customer
+  private async getOrCreateStripeCustomer(userId: string): Promise<string> {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     let stripeCustomerId = user.stripeCustomerId;
 
@@ -26,6 +25,24 @@ export class PaymentMethodsService {
       });
       stripeCustomerId = customer.id;
     }
+
+    return stripeCustomerId;
+  }
+
+  async createSetupIntent(userId: string) {
+    const customerId = await this.getOrCreateStripeCustomer(userId);
+    const setupIntent = await this.stripeService.createSetupIntent(customerId);
+
+    return {
+      customerId,
+      setupIntentId: setupIntent.id,
+      clientSecret: setupIntent.client_secret,
+    };
+  }
+
+  async create(userId: string, dto: CreatePaymentMethodDto) {
+    // 1. Get or Create Stripe Customer
+    const stripeCustomerId = await this.getOrCreateStripeCustomer(userId);
 
     // 2. Attach Payment Method to Stripe Customer (if it's a Stripe method)
     let cardDetails = {

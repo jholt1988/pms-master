@@ -186,10 +186,11 @@ export class StripeService {
       return {
         id: `mock_setup_${customerId}`,
         object: 'setup_intent',
-        status: 'succeeded',
+        status: 'requires_confirmation',
         usage: 'off_session',
         customer: customerId,
         payment_method_types: ['card'],
+        client_secret: `seti_mock_${customerId}_secret`,
       } as Stripe.SetupIntent;
     }
 
