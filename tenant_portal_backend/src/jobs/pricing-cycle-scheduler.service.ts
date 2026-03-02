@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
+import { calculateFee } from '../billing/fee-engine';
 
 @Injectable()
 export class PricingCycleSchedulerService {
@@ -89,6 +90,10 @@ export class PricingCycleSchedulerService {
       const feeConfig = (activeCycle.activeFeeSchedule?.feeConfig ?? {}) as Record<string, unknown>;
       const basePct = Number(feeConfig['baseManagementFeePct'] ?? 0);
       const expressPct = Number(feeConfig['expressFeePct'] ?? 0);
+      const sampleAmount = Number(feeConfig['sampleAmount'] ?? 1000);
+
+      const projectedBaseManagementFee = calculateFee({ amount: sampleAmount, flatPercent: basePct, minimumFee: 0 }).finalFee;
+      const projectedExpressFee = calculateFee({ amount: sampleAmount, flatPercent: expressPct, minimumFee: 0 }).finalFee;
 
       await this.prisma.pricingSnapshot.create({
         data: {
@@ -99,10 +104,13 @@ export class PricingCycleSchedulerService {
           inputPayload: {
             generatedBy: 'scheduler',
             generatedAt: new Date().toISOString(),
+            sampleAmount,
           } as any,
           computedFees: {
             projectedBaseManagementFeePct: basePct,
             projectedExpressFeePct: expressPct,
+            projectedBaseManagementFee,
+            projectedExpressFee,
             projectionConfidence: 'BASELINE',
           } as any,
         },
