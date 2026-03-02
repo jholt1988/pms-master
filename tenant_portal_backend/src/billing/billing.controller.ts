@@ -142,6 +142,51 @@ export class BillingController {
 
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles(Role.PROPERTY_MANAGER)
+  @Post('fee-schedules/versions')
+  async createFeeScheduleVersion(
+    @OrgId() orgId: string,
+    @Req() req: AuthenticatedRequest,
+    @Body() body: { versionLabel: string; effectiveAt: string; feeConfig: Record<string, unknown> },
+  ) {
+    return this.billingService.createFeeScheduleVersion(orgId, req.user.userId, body);
+  }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles(Role.PROPERTY_MANAGER)
+  @Post('plan-cycles')
+  async createPlanCycle(
+    @OrgId() orgId: string,
+    @Body() body: { name: string; startsAt: string; endsAt: string; status?: 'DRAFT' | 'ACTIVE' | 'CLOSED'; activeFeeScheduleId?: string },
+  ) {
+    return this.billingService.createPlanCycle(orgId, body);
+  }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles(Role.PROPERTY_MANAGER)
+  @Post('pricing-snapshots')
+  async createPricingSnapshot(
+    @OrgId() orgId: string,
+    @Body()
+    body: {
+      planCycleId: string;
+      feeScheduleVersionId: string;
+      snapshotType?: string;
+      inputPayload?: Record<string, unknown>;
+      computedFees: Record<string, unknown>;
+    },
+  ) {
+    return this.billingService.createPricingSnapshot(orgId, body);
+  }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles(Role.PROPERTY_MANAGER)
+  @Get('pricing-snapshots')
+  async listPricingSnapshots(@OrgId() orgId: string, @Query('planCycleId') planCycleId?: string) {
+    return this.billingService.listPricingSnapshots(orgId, planCycleId);
+  }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles(Role.PROPERTY_MANAGER)
   @Post('run')
   async runBilling() {
     return this.billingService.manualRun();

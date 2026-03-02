@@ -289,6 +289,59 @@ export class BillingService {
     });
   }
 
+  async createFeeScheduleVersion(orgId: string, actorUserId: string, input: { versionLabel: string; effectiveAt: string; feeConfig: Record<string, unknown> }) {
+    return this.prisma.feeScheduleVersion.create({
+      data: {
+        organizationId: orgId,
+        versionLabel: input.versionLabel,
+        effectiveAt: new Date(input.effectiveAt),
+        feeConfig: input.feeConfig as any,
+        createdById: actorUserId,
+      },
+    });
+  }
+
+  async createPlanCycle(orgId: string, input: { name: string; startsAt: string; endsAt: string; status?: 'DRAFT' | 'ACTIVE' | 'CLOSED'; activeFeeScheduleId?: string }) {
+    return this.prisma.orgPlanCycle.create({
+      data: {
+        organizationId: orgId,
+        name: input.name,
+        startsAt: new Date(input.startsAt),
+        endsAt: new Date(input.endsAt),
+        status: input.status ?? 'DRAFT',
+        activeFeeScheduleId: input.activeFeeScheduleId,
+      },
+    });
+  }
+
+  async createPricingSnapshot(orgId: string, input: { planCycleId: string; feeScheduleVersionId: string; snapshotType?: string; inputPayload?: Record<string, unknown>; computedFees: Record<string, unknown> }) {
+    return this.prisma.pricingSnapshot.create({
+      data: {
+        organizationId: orgId,
+        planCycleId: input.planCycleId,
+        feeScheduleVersionId: input.feeScheduleVersionId,
+        snapshotType: input.snapshotType ?? 'BILLING_PREVIEW',
+        inputPayload: (input.inputPayload as any) ?? undefined,
+        computedFees: input.computedFees as any,
+      },
+    });
+  }
+
+  async listPricingSnapshots(orgId: string, planCycleId?: string) {
+    return this.prisma.pricingSnapshot.findMany({
+      where: {
+        organizationId: orgId,
+        ...(planCycleId ? { planCycleId } : {}),
+      },
+      include: {
+        planCycle: true,
+        feeScheduleVersion: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+  }
+
   async listSchedules(orgId: string) {
     return this.prisma.recurringInvoiceSchedule.findMany({
       where: { lease: { unit: { property: { organizationId: orgId } } } },

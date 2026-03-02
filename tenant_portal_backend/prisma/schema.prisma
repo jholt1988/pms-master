@@ -27,6 +27,12 @@ enum StripeOnboardingStatus {
   RESTRICTED
 }
 
+enum OrgPlanCycleStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
 model User {
   id                        String                      @id @default(uuid()) @db.Uuid
   username                  String                      @unique
@@ -111,6 +117,7 @@ model User {
   approvalTasks ApprovalTask[] @relation("ApprovalTenant")
 
   organizations UserOrganization[]
+  feeScheduleVersionsCreated FeeScheduleVersion[] @relation("FeeScheduleVersionCreatedBy")
 }
 
 model Organization {
@@ -132,6 +139,9 @@ model Organization {
   technicians            Technician[]
   quickBooksConnections  QuickBooksConnection[]
   syndicationCredentials SyndicationCredential[]
+  planCycles             OrgPlanCycle[]
+  feeScheduleVersions    FeeScheduleVersion[]
+  pricingSnapshots       PricingSnapshot[]
 }
 
 model UserOrganization {
@@ -146,6 +156,58 @@ model UserOrganization {
   @@unique([userId, organizationId])
   @@index([organizationId])
   @@index([userId])
+}
+
+model OrgPlanCycle {
+  id                     String             @id @default(uuid()) @db.Uuid
+  organizationId         String             @db.Uuid
+  organization           Organization       @relation(fields: [organizationId], references: [id])
+  name                   String
+  startsAt               DateTime
+  endsAt                 DateTime
+  status                 OrgPlanCycleStatus @default(DRAFT)
+  activeFeeScheduleId    String?            @db.Uuid
+  activeFeeSchedule      FeeScheduleVersion? @relation("ActiveFeeSchedule", fields: [activeFeeScheduleId], references: [id])
+  snapshots              PricingSnapshot[]
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  @@index([organizationId, status])
+  @@index([startsAt, endsAt])
+}
+
+model FeeScheduleVersion {
+  id                     String             @id @default(uuid()) @db.Uuid
+  organizationId         String             @db.Uuid
+  organization           Organization       @relation(fields: [organizationId], references: [id])
+  versionLabel           String
+  effectiveAt            DateTime
+  feeConfig              Json
+  createdById            String?            @db.Uuid
+  createdBy              User?              @relation("FeeScheduleVersionCreatedBy", fields: [createdById], references: [id])
+  planCyclesActive       OrgPlanCycle[]     @relation("ActiveFeeSchedule")
+  snapshots              PricingSnapshot[]
+  createdAt              DateTime           @default(now())
+
+  @@unique([organizationId, versionLabel])
+  @@index([organizationId, effectiveAt])
+}
+
+model PricingSnapshot {
+  id                     String             @id @default(uuid()) @db.Uuid
+  organizationId         String             @db.Uuid
+  organization           Organization       @relation(fields: [organizationId], references: [id])
+  planCycleId            String             @db.Uuid
+  planCycle              OrgPlanCycle       @relation(fields: [planCycleId], references: [id])
+  feeScheduleVersionId   String             @db.Uuid
+  feeScheduleVersion     FeeScheduleVersion @relation(fields: [feeScheduleVersionId], references: [id])
+  snapshotType           String             @default("BILLING_PREVIEW")
+  inputPayload           Json?
+  computedFees           Json
+  createdAt              DateTime           @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([planCycleId, createdAt])
 }
 
 model Property {
