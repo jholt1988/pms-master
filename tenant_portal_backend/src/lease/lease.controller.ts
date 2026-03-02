@@ -91,7 +91,7 @@ export class LeaseController {
 
   @Put(':id')
   @Roles(Role.PROPERTY_MANAGER)
-  updateLease(
+  async updateLease(
     @Param('id') id: string,
     @Body() data: UpdateLeaseDto,
     @Request() req: AuthenticatedRequest,
@@ -104,7 +104,7 @@ export class LeaseController {
 
   @Put(':id/status')
   @Roles(Role.PROPERTY_MANAGER)
-  updateLeaseStatus(
+  async updateLeaseStatus(
     @Param('id') id: string,
     @Body() data: UpdateLeaseStatusDto,
     @Request() req: AuthenticatedRequest,
@@ -128,7 +128,7 @@ export class LeaseController {
 
   @Post(':id/notices')
   @Roles(Role.PROPERTY_MANAGER)
-  recordLeaseNotice(
+  async recordLeaseNotice(
     @Param('id') id: string,
     @Body() dto: RecordLeaseNoticeDto,
     @Request() req: AuthenticatedRequest,

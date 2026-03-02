@@ -20,13 +20,18 @@ Use:
 - Attempts deterministic seed (`npx ts-node scripts/dev-seed-inspection-demo.ts`)
 - Runs smoke tests (`scripts/smoke-tests/run-smoke-tests.js`)
 
-## Known blocker
-Seed step currently fails TypeScript compile due schema drift:
-- `PropertyCreateInput` now requires organization linkage
-- `scripts/dev-seed-inspection-demo.ts` still creates `Property` without organization relation
+## Known blockers (current)
+1. ✅ Seed schema drift fixed
+- `scripts/dev-seed-inspection-demo.ts` now creates/uses a deterministic Organization and links property via `organizationId`.
 
-Representative error:
-- `TS2322 ... Property 'organization' is missing ... required in type 'PropertyCreateInput'`
+2. ⛔ Smoke check expectations mismatch
+- Smoke suite expects health/readiness/liveness endpoints:
+  - `/api/health`
+  - `/api/health/readiness`
+  - `/api/health/liveness`
+- Current backend returns 404 for these routes in this runtime.
 
 ## Next fix
-Patch seed scripts to create/use a deterministic Organization and connect property via `organizationId` (or nested `organization` relation), then re-run pipeline.
+Either:
+- expose health endpoints in backend routing, or
+- adjust smoke-tests route expectations for the current service topology.

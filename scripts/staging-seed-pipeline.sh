@@ -22,6 +22,8 @@ echo "[4/5] Verifying seed coverage"
 node scripts/check-seed-coverage.ts || true
 
 echo "[5/5] Running smoke checks"
+cd "$ROOT_DIR/scripts/smoke-tests"
+npm ci
 cd "$ROOT_DIR"
 node scripts/smoke-tests/run-smoke-tests.js
 
