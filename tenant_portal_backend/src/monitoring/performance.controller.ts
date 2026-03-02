@@ -13,7 +13,7 @@ import { PrismaService } from '../prisma/prisma.service';
  * Note: Metrics are collected by PerformanceMiddleware which is registered globally.
  * In a production setup, this would integrate with an APM service (New Relic, Datadog, etc.)
  */
-@Controller('api/monitoring/performance')
+@Controller('monitoring/performance')
 @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 @Roles('ADMIN', 'PROPERTY_MANAGER')
 export class PerformanceController {
