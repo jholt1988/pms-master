@@ -18,7 +18,7 @@ vi.mock('@nextui-org/react', () => {
       {children}
     </button>
   );
-  const Input = React.forwardRef((props: React.InputHTMLAttributes<HTMLInputElement>, ref: React.ForwardedRef<HTMLInputElement>) => (
+  const Input = React.forwardRef(({ startContent, endContent, ...props }: any, ref: React.ForwardedRef<HTMLInputElement>) => (
     <input {...props} ref={ref} />
   ));
 
