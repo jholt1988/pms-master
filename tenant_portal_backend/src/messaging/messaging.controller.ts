@@ -155,11 +155,26 @@ export class MessagingController {
     @Body() dto: CreateMessageDto,
     @OrgId() orgId?: string,
   ) {
-    return this.messagingService.sendMessage(
+    const message = await this.messagingService.sendMessage(
       { ...dto, conversationId },
       req.user.userId,
       orgId,
     );
+    await this.auditLogService.record({
+      orgId,
+      actorId: req.user.userId,
+      module: 'MESSAGING',
+      action: 'MESSAGE_SENT',
+      entityType: 'Message',
+      entityId: message.id,
+      result: 'SUCCESS',
+      metadata: {
+        conversationId: message.conversationId,
+        hasAttachments: Array.isArray(dto.attachmentUrls) && dto.attachmentUrls.length > 0,
+        attachmentCount: dto.attachmentUrls?.length ?? 0,
+      },
+    });
+    return message;
   }
 
   /**
