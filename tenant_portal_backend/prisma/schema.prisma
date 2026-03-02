@@ -19,6 +19,20 @@ enum OrgRole {
   MEMBER
 }
 
+enum StripeOnboardingStatus {
+  NOT_STARTED
+  PENDING
+  IN_REVIEW
+  COMPLETED
+  RESTRICTED
+}
+
+enum OrgPlanCycleStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
 model User {
   id                        String                      @id @default(uuid()) @db.Uuid
   username                  String                      @unique
@@ -103,19 +117,33 @@ model User {
   approvalTasks ApprovalTask[] @relation("ApprovalTenant")
 
   organizations UserOrganization[]
+  feeScheduleVersionsCreated FeeScheduleVersion[] @relation("FeeScheduleVersionCreatedBy")
 }
 
 model Organization {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                               String                     @id @default(uuid()) @db.Uuid
+  name                             String
+  stripeConnectedAccountId         String?                    @unique
+  stripeOnboardingStatus           StripeOnboardingStatus     @default(NOT_STARTED)
+  stripeChargesEnabled             Boolean                    @default(false)
+  stripePayoutsEnabled             Boolean                    @default(false)
+  stripeDetailsSubmitted           Boolean                    @default(false)
+  stripeCapabilities               Json?
+  stripeOnboardingCompletedAt      DateTime?
+  stripeLastOnboardingCheckAt      DateTime?
+  createdAt                        DateTime                   @default(now())
+  updatedAt                        DateTime                   @updatedAt
 
   users                  UserOrganization[]
   properties             Property[]
   technicians            Technician[]
   quickBooksConnections  QuickBooksConnection[]
   syndicationCredentials SyndicationCredential[]
+  planCycles             OrgPlanCycle[]
+  feeScheduleVersions    FeeScheduleVersion[]
+  pricingSnapshots       PricingSnapshot[]
+  stripeWebhookEvents    StripeWebhookEvent[]
+  paymentLedgerEntries   PaymentLedgerEntry[]
 }
 
 model UserOrganization {
@@ -130,6 +158,58 @@ model UserOrganization {
   @@unique([userId, organizationId])
   @@index([organizationId])
   @@index([userId])
+}
+
+model OrgPlanCycle {
+  id                     String             @id @default(uuid()) @db.Uuid
+  organizationId         String             @db.Uuid
+  organization           Organization       @relation(fields: [organizationId], references: [id])
+  name                   String
+  startsAt               DateTime
+  endsAt                 DateTime
+  status                 OrgPlanCycleStatus @default(DRAFT)
+  activeFeeScheduleId    String?            @db.Uuid
+  activeFeeSchedule      FeeScheduleVersion? @relation("ActiveFeeSchedule", fields: [activeFeeScheduleId], references: [id])
+  snapshots              PricingSnapshot[]
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  @@index([organizationId, status])
+  @@index([startsAt, endsAt])
+}
+
+model FeeScheduleVersion {
+  id                     String             @id @default(uuid()) @db.Uuid
+  organizationId         String             @db.Uuid
+  organization           Organization       @relation(fields: [organizationId], references: [id])
+  versionLabel           String
+  effectiveAt            DateTime
+  feeConfig              Json
+  createdById            String?            @db.Uuid
+  createdBy              User?              @relation("FeeScheduleVersionCreatedBy", fields: [createdById], references: [id])
+  planCyclesActive       OrgPlanCycle[]     @relation("ActiveFeeSchedule")
+  snapshots              PricingSnapshot[]
+  createdAt              DateTime           @default(now())
+
+  @@unique([organizationId, versionLabel])
+  @@index([organizationId, effectiveAt])
+}
+
+model PricingSnapshot {
+  id                     String             @id @default(uuid()) @db.Uuid
+  organizationId         String             @db.Uuid
+  organization           Organization       @relation(fields: [organizationId], references: [id])
+  planCycleId            String             @db.Uuid
+  planCycle              OrgPlanCycle       @relation(fields: [planCycleId], references: [id])
+  feeScheduleVersionId   String             @db.Uuid
+  feeScheduleVersion     FeeScheduleVersion @relation(fields: [feeScheduleVersionId], references: [id])
+  snapshotType           String             @default("BILLING_PREVIEW")
+  inputPayload           Json?
+  computedFees           Json
+  createdAt              DateTime           @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([planCycleId, createdAt])
 }
 
 model Property {
@@ -156,8 +236,6 @@ model Property {
   yearBuilt            Int?
   createdAt            DateTime                  @default(now())
   updatedAt            DateTime                  @updatedAt
-  organizationId       String                    @db.Uuid
-  organization         Organization              @relation(fields: [organizationId], references: [id])
   units                Unit[]
   rentalApplications   RentalApplication[]
   expenses             Expense[]
@@ -187,8 +265,6 @@ model Property {
   @@index([bedrooms])
   @@index([bathrooms])
   @@index([minRent])
-  @@index([organizationId])
-  approvalTasks ApprovalTask[]
 }
 
 model PropertyMarketingProfile {
@@ -786,6 +862,7 @@ model Invoice {
   externalId  String?                   @unique
   lateFees    LateFee[]
   paymentPlan PaymentPlan?
+  paymentAttempts PaymentAttempt[]
   schedule    RecurringInvoiceSchedule? @relation(fields: [scheduleId], references: [id])
   scheduleId  Int?
 }
@@ -806,8 +883,28 @@ model Payment {
   paymentMethod       PaymentMethod?       @relation(fields: [paymentMethodId], references: [id])
   paymentMethodId     Int?
   paymentPlanPayments PaymentPlanPayment[] @relation("PaymentPlanPayment")
+  ledgerEntries       PaymentLedgerEntry[]
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
+}
+
+model PaymentLedgerEntry {
+  id                 String    @id @default(uuid()) @db.Uuid
+  payment            Payment   @relation(fields: [paymentId], references: [id])
+  paymentId          Int
+  organization       Organization? @relation(fields: [organizationId], references: [id])
+  organizationId     String?   @db.Uuid
+  leaseId            String?   @db.Uuid
+  sourceEventId      String    @unique
+  currency           String    @default("usd")
+  grossAmountMinor   Int
+  platformFeeMinor   Int       @default(0)
+  netAmountMinor     Int
+  tierSnapshot       Json?
+  createdAt          DateTime  @default(now())
+
+  @@index([paymentId, createdAt])
+  @@index([organizationId, createdAt])
 }
 
 model Conversation {
@@ -1350,6 +1447,20 @@ model PaymentPlan {
   paymentPlanPayments  PaymentPlanPayment[]
 }
 
+model StripeWebhookEvent {
+  id             String        @id @default(uuid()) @db.Uuid
+  eventId        String        @unique
+  eventType      String
+  stripeAccountId String?
+  organizationId String?       @db.Uuid
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  payload        Json?
+  processedAt    DateTime      @default(now())
+
+  @@index([organizationId, processedAt])
+  @@index([eventType])
+}
+
 model PaymentPlanPayment {
   id                Int         @id @default(autoincrement())
   paymentPlan       PaymentPlan @relation(fields: [paymentPlanId], references: [id], onDelete: Cascade)
@@ -1371,8 +1482,28 @@ model AutopayEnrollment {
   paymentMethodId Int
   active          Boolean       @default(true)
   maxAmount       Float?
+  attempts        PaymentAttempt[]
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+}
+
+model PaymentAttempt {
+  id                  String               @id @default(uuid()) @db.Uuid
+  autopayEnrollment   AutopayEnrollment    @relation(fields: [autopayEnrollmentId], references: [id])
+  autopayEnrollmentId Int
+  invoice             Invoice              @relation(fields: [invoiceId], references: [id])
+  invoiceId           Int
+  status              PaymentAttemptStatus @default(SCHEDULED)
+  failureReason       String?
+  externalAttemptId   String?
+  scheduledFor        DateTime             @default(now())
+  attemptedAt         DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  @@unique([autopayEnrollmentId, invoiceId, scheduledFor])
+  @@index([status, scheduledFor])
 }
 
 model SecurityEvent {
@@ -1403,6 +1534,14 @@ model PasswordResetToken {
   @@index([token])
   @@index([userId])
   @@index([expiresAt])
+}
+
+enum PaymentAttemptStatus {
+  SCHEDULED
+  ATTEMPTING
+  SUCCEEDED
+  FAILED
+  NEEDS_AUTH
 }
 
 enum SecurityEventType {

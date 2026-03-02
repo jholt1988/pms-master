@@ -8,6 +8,7 @@ import { isUUID } from 'class-validator';
 import { UpsertScheduleDto } from './dto/upsert-schedule.dto';
 import { ConfigureAutopayDto } from './dto/configure-autopay.dto';
 import { SecurityEventsService } from '../security-events/security-events.service';
+import { StripeService } from '../payments/stripe.service';
 
 @Injectable()
 export class BillingService {
@@ -17,6 +18,7 @@ export class BillingService {
     private readonly prisma: PrismaService,
     private readonly paymentsService: PaymentsService,
     private readonly securityEvents: SecurityEventsService,
+    private readonly stripeService: StripeService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_1AM)
@@ -104,6 +106,7 @@ export class BillingService {
       include: {
         lease: {
           include: {
+            unit: { include: { property: true } },
             invoices: {
               where: { status: 'UNPAID', dueDate: { lte: today } },
             },
@@ -115,27 +118,88 @@ export class BillingService {
     });
 
     for (const enrollment of autopayEnrollments) {
-      for (const invoice of enrollment.lease.invoices) {
-        if (enrollment.maxAmount && invoice.amount > enrollment.maxAmount) {
-          this.logger.warn(
-            `Skipping autopay for invoice ${invoice.id}: amount ${invoice.amount} exceeds cap ${enrollment.maxAmount}`,
-          );
-          continue;
-        }
+      const orgId = enrollment.lease.unit?.property?.organizationId;
+      const lockKey = `autopay-worker:${orgId ?? 'no-org'}:${enrollment.id}`;
+      let lockAcquired = false;
 
-        try {
-          await this.paymentsService.recordPaymentForInvoice({
-            invoiceId: invoice.id,
-            amount: invoice.amount,
-            leaseId: enrollment.leaseId,
-            userId: enrollment.lease.tenantId,
-            paymentMethodId: enrollment.paymentMethodId,
-            initiatedBy: 'AUTOPAY',
+      try {
+        const lockResult = await this.prisma.$queryRaw<Array<{ pg_try_advisory_lock: boolean }>>`
+          SELECT pg_try_advisory_lock(hashtext(${lockKey})) as "pg_try_advisory_lock"
+        `;
+        lockAcquired = lockResult[0]?.pg_try_advisory_lock ?? false;
+        if (!lockAcquired) continue;
+
+        for (const invoice of enrollment.lease.invoices) {
+          if (enrollment.maxAmount && invoice.amount > enrollment.maxAmount) {
+            await this.prisma.paymentAttempt.create({
+              data: {
+                autopayEnrollmentId: enrollment.id,
+                invoiceId: invoice.id,
+                status: 'FAILED',
+                failureReason: `Amount ${invoice.amount} exceeds cap ${enrollment.maxAmount}`,
+                scheduledFor: new Date(),
+                attemptedAt: new Date(),
+                completedAt: new Date(),
+              },
+            });
+            continue;
+          }
+
+          const attempt = await this.prisma.paymentAttempt.create({
+            data: {
+              autopayEnrollmentId: enrollment.id,
+              invoiceId: invoice.id,
+              status: 'SCHEDULED',
+              scheduledFor: new Date(),
+            },
           });
 
-          this.logger.log(`Autopay succeeded for invoice ${invoice.id}`);
-        } catch (error) {
-          this.logger.error(`Autopay failed for invoice ${invoice.id}`, error as Error);
+          await this.prisma.paymentAttempt.update({
+            where: { id: attempt.id },
+            data: {
+              status: 'ATTEMPTING',
+              attemptedAt: new Date(),
+            },
+          });
+
+          try {
+            const payment = await this.paymentsService.recordPaymentForInvoice({
+              invoiceId: invoice.id,
+              amount: invoice.amount,
+              leaseId: enrollment.leaseId,
+              userId: enrollment.lease.tenantId,
+              paymentMethodId: enrollment.paymentMethodId,
+              initiatedBy: 'AUTOPAY',
+            });
+
+            await this.prisma.paymentAttempt.update({
+              where: { id: attempt.id },
+              data: {
+                status: 'SUCCEEDED',
+                externalAttemptId: payment.externalId ?? undefined,
+                completedAt: new Date(),
+              },
+            });
+
+            this.logger.log(`Autopay succeeded for invoice ${invoice.id}`);
+          } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error);
+            const needsAuth = /authentication|required|3d secure|requires_action/i.test(reason);
+            await this.prisma.paymentAttempt.update({
+              where: { id: attempt.id },
+              data: {
+                status: needsAuth ? 'NEEDS_AUTH' : 'FAILED',
+                failureReason: reason,
+                completedAt: new Date(),
+              },
+            });
+
+            this.logger.error(`Autopay failed for invoice ${invoice.id}`, error as Error);
+          }
+        }
+      } finally {
+        if (lockAcquired) {
+          await this.prisma.$queryRaw`SELECT pg_advisory_unlock(hashtext(${lockKey}))`;
         }
       }
     }
@@ -162,6 +226,182 @@ export class BillingService {
   async manualRun(): Promise<{ generated: number }> {
     await this.runDailyBillingCycle();
     return { generated: 1 };
+  }
+
+  async getConnectedAccount(orgId: string) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: orgId },
+      select: {
+        id: true,
+        name: true,
+        stripeConnectedAccountId: true,
+        stripeOnboardingStatus: true,
+        stripeChargesEnabled: true,
+        stripePayoutsEnabled: true,
+        stripeDetailsSubmitted: true,
+        stripeCapabilities: true,
+        stripeOnboardingCompletedAt: true,
+        stripeLastOnboardingCheckAt: true,
+      },
+    });
+
+    if (!org) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    return org;
+  }
+
+  async upsertConnectedAccount(
+    orgId: string,
+    input: {
+      stripeConnectedAccountId?: string;
+      stripeOnboardingStatus?: 'NOT_STARTED' | 'PENDING' | 'IN_REVIEW' | 'COMPLETED' | 'RESTRICTED';
+      stripeChargesEnabled?: boolean;
+      stripePayoutsEnabled?: boolean;
+      stripeDetailsSubmitted?: boolean;
+      stripeCapabilities?: Record<string, unknown>;
+      stripeOnboardingCompletedAt?: string;
+    },
+  ) {
+    const updated = await this.prisma.organization.update({
+      where: { id: orgId },
+      data: {
+        stripeConnectedAccountId: input.stripeConnectedAccountId,
+        stripeOnboardingStatus: input.stripeOnboardingStatus,
+        stripeChargesEnabled: input.stripeChargesEnabled,
+        stripePayoutsEnabled: input.stripePayoutsEnabled,
+        stripeDetailsSubmitted: input.stripeDetailsSubmitted,
+        stripeCapabilities: input.stripeCapabilities as any,
+        stripeOnboardingCompletedAt: input.stripeOnboardingCompletedAt
+          ? new Date(input.stripeOnboardingCompletedAt)
+          : undefined,
+        stripeLastOnboardingCheckAt: new Date(),
+      },
+      select: {
+        id: true,
+        stripeConnectedAccountId: true,
+        stripeOnboardingStatus: true,
+        stripeChargesEnabled: true,
+        stripePayoutsEnabled: true,
+        stripeDetailsSubmitted: true,
+        stripeCapabilities: true,
+        stripeOnboardingCompletedAt: true,
+        stripeLastOnboardingCheckAt: true,
+      },
+    });
+
+    return updated;
+  }
+
+  async createOnboardingLink(orgId: string, input: { refreshUrl: string; returnUrl: string }) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: orgId },
+      select: { id: true, name: true, stripeConnectedAccountId: true },
+    });
+    if (!org) throw new NotFoundException('Organization not found');
+
+    let accountId = org.stripeConnectedAccountId ?? undefined;
+    if (!accountId) {
+      const created = await this.stripeService.createConnectedAccount({
+        organizationId: org.id,
+      });
+      accountId = created.accountId;
+      await this.prisma.organization.update({
+        where: { id: org.id },
+        data: {
+          stripeConnectedAccountId: accountId,
+          stripeOnboardingStatus: 'PENDING',
+          stripeLastOnboardingCheckAt: new Date(),
+        },
+      });
+    }
+
+    const link = await this.stripeService.createConnectedAccountOnboardingLink({
+      accountId,
+      refreshUrl: input.refreshUrl,
+      returnUrl: input.returnUrl,
+    });
+
+    return {
+      accountId,
+      onboardingUrl: link.url,
+      expiresAt: link.expiresAt,
+    };
+  }
+
+  async refreshConnectedAccountStatus(orgId: string) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: orgId },
+      select: { id: true, stripeConnectedAccountId: true },
+    });
+    if (!org || !org.stripeConnectedAccountId) {
+      throw new NotFoundException('Connected account not found for organization');
+    }
+
+    const status = await this.stripeService.getConnectedAccountStatus(org.stripeConnectedAccountId);
+    return this.upsertConnectedAccount(orgId, {
+      stripeConnectedAccountId: status.accountId,
+      stripeOnboardingStatus: status.onboardingStatus,
+      stripeChargesEnabled: status.chargesEnabled,
+      stripePayoutsEnabled: status.payoutsEnabled,
+      stripeDetailsSubmitted: status.detailsSubmitted,
+      stripeCapabilities: status.capabilities,
+      stripeOnboardingCompletedAt: status.onboardingStatus === 'COMPLETED' ? new Date().toISOString() : undefined,
+    });
+  }
+
+  async createFeeScheduleVersion(orgId: string, actorUserId: string, input: { versionLabel: string; effectiveAt: string; feeConfig: Record<string, unknown> }) {
+    return this.prisma.feeScheduleVersion.create({
+      data: {
+        organizationId: orgId,
+        versionLabel: input.versionLabel,
+        effectiveAt: new Date(input.effectiveAt),
+        feeConfig: input.feeConfig as any,
+        createdById: actorUserId,
+      },
+    });
+  }
+
+  async createPlanCycle(orgId: string, input: { name: string; startsAt: string; endsAt: string; status?: 'DRAFT' | 'ACTIVE' | 'CLOSED'; activeFeeScheduleId?: string }) {
+    return this.prisma.orgPlanCycle.create({
+      data: {
+        organizationId: orgId,
+        name: input.name,
+        startsAt: new Date(input.startsAt),
+        endsAt: new Date(input.endsAt),
+        status: input.status ?? 'DRAFT',
+        activeFeeScheduleId: input.activeFeeScheduleId,
+      },
+    });
+  }
+
+  async createPricingSnapshot(orgId: string, input: { planCycleId: string; feeScheduleVersionId: string; snapshotType?: string; inputPayload?: Record<string, unknown>; computedFees: Record<string, unknown> }) {
+    return this.prisma.pricingSnapshot.create({
+      data: {
+        organizationId: orgId,
+        planCycleId: input.planCycleId,
+        feeScheduleVersionId: input.feeScheduleVersionId,
+        snapshotType: input.snapshotType ?? 'BILLING_PREVIEW',
+        inputPayload: (input.inputPayload as any) ?? undefined,
+        computedFees: input.computedFees as any,
+      },
+    });
+  }
+
+  async listPricingSnapshots(orgId: string, planCycleId?: string) {
+    return this.prisma.pricingSnapshot.findMany({
+      where: {
+        organizationId: orgId,
+        ...(planCycleId ? { planCycleId } : {}),
+      },
+      include: {
+        planCycle: true,
+        feeScheduleVersion: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
   }
 
   async listSchedules(orgId: string) {
@@ -398,6 +638,92 @@ export class BillingService {
     });
 
     return enrollment;
+  }
+
+  async listNeedsAuthAttemptsForTenant(userId: string) {
+    const lease = await this.prisma.lease.findUnique({
+      where: { tenantId: userId },
+      select: { id: true },
+    });
+    if (!lease) throw new NotFoundException('Lease not found for tenant');
+
+    return this.prisma.paymentAttempt.findMany({
+      where: {
+        autopayEnrollment: { leaseId: lease.id },
+        status: 'NEEDS_AUTH',
+      },
+      include: {
+        invoice: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+  }
+
+  async recoverNeedsAuthAttempt(
+    actor: { userId: string; username: string; role: Role },
+    attemptId: string,
+    orgId?: string,
+  ) {
+    const attempt = await this.prisma.paymentAttempt.findUnique({
+      where: { id: attemptId },
+      include: {
+        autopayEnrollment: {
+          include: {
+            lease: {
+              include: { tenant: true, unit: { include: { property: true } } },
+            },
+          },
+        },
+        invoice: true,
+      },
+    });
+
+    if (!attempt) throw new NotFoundException('Payment attempt not found');
+    const lease = attempt.autopayEnrollment.lease;
+
+    if (actor.role === Role.TENANT && lease.tenantId !== actor.userId) {
+      throw new BadRequestException('You can only recover your own payment attempt');
+    }
+    if (actor.role === Role.PROPERTY_MANAGER && orgId && lease.unit?.property?.organizationId !== orgId) {
+      throw new BadRequestException('Attempt does not belong to your organization');
+    }
+
+    if (attempt.status !== 'NEEDS_AUTH') {
+      return attempt;
+    }
+
+    await this.prisma.paymentAttempt.update({
+      where: { id: attempt.id },
+      data: { status: 'ATTEMPTING', attemptedAt: new Date() },
+    });
+
+    try {
+      const payment = await this.paymentsService.recordPaymentForInvoice({
+        invoiceId: attempt.invoiceId,
+        amount: attempt.invoice.amount,
+        leaseId: lease.id,
+        userId: lease.tenantId,
+        paymentMethodId: attempt.autopayEnrollment.paymentMethodId,
+        initiatedBy: 'TENANT_RECOVERY',
+      });
+
+      return this.prisma.paymentAttempt.update({
+        where: { id: attempt.id },
+        data: {
+          status: 'SUCCEEDED',
+          externalAttemptId: payment.externalId ?? undefined,
+          completedAt: new Date(),
+          failureReason: null,
+        },
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      return this.prisma.paymentAttempt.update({
+        where: { id: attempt.id },
+        data: { status: 'FAILED', failureReason: reason, completedAt: new Date() },
+      });
+    }
   }
 
   async disableAutopay(

@@ -18,8 +18,8 @@ export class CreateMaintenanceRequestDto {
   propertyId?: string;
 
   @IsOptional()
-  @IsInt()
-  unitId?: number;
+  @IsUUID()
+  unitId?: string;
 
   @IsOptional()
   @IsInt()

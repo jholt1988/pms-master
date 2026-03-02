@@ -25,8 +25,15 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
   
-  // Request size limits
-  app.use(require('express').json({ limit: '1mb' }));
+  // Request size limits + raw body capture (for Stripe signature verification)
+  app.use(require('express').json({
+    limit: '1mb',
+    verify: (req: any, _res: any, buf: Buffer) => {
+      if (req.originalUrl?.includes('/webhooks/stripe')) {
+        req.rawBody = Buffer.from(buf);
+      }
+    },
+  }));
   app.use(require('express').urlencoded({ limit: '1mb', extended: true }));
   
   const globalPrefix = 'api';

@@ -27,6 +27,11 @@ export class CreateMessageDto {
   @IsUUID()
   @IsOptional()
   recipientId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  attachmentUrls?: string[];
 }
 
 export class CreateConversationDto {

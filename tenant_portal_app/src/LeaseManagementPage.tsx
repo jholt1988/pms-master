@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { apiFetch } from './services/apiClient';
+import { EmptyState, LoadingState, FeedbackBanner } from './components/ui';
 
 type LeaseStatus =
   | 'DRAFT'
@@ -836,11 +837,11 @@ function LeaseManagementPage(): React.ReactElement {
   );
 
   if (!token) {
-    return <div className="p-4 text-sm text-gray-600">Please sign in to manage leases.</div>;
+    return <EmptyState variant="inline" title="Sign in required" message="Please sign in to manage leases." />;
   }
 
   if (loading) {
-    return <div className="p-4 text-sm text-gray-600">Loading lease lifecycle…</div>;
+    return <LoadingState variant="inline" message="Loading lease lifecycle…" />;
   }
 
   const renderLeaseCard = (lease: Lease) => {
@@ -1368,14 +1369,8 @@ function LeaseManagementPage(): React.ReactElement {
         </p>
       </header>
 
-      {error && (
-        <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
-      )}
-      {feedback && (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          {feedback}
-        </div>
-      )}
+      {error && <FeedbackBanner tone="error" message={error} />}
+      {feedback && <FeedbackBanner tone="success" message={feedback} />}
 
       <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm space-y-3">
         <div className="flex items-center justify-between">
@@ -1385,6 +1380,7 @@ function LeaseManagementPage(): React.ReactElement {
         <div className="grid gap-3 md:grid-cols-3">
           <select
             value={assignmentForm.tenantId}
+            aria-label="Select tenant"
             onChange={(event) => setAssignmentForm((prev) => ({ ...prev, tenantId: event.target.value }))}
             className="rounded border border-gray-300 px-3 py-2 text-sm"
           >
@@ -1395,6 +1391,7 @@ function LeaseManagementPage(): React.ReactElement {
           </select>
           <select
             value={assignmentForm.unitId}
+            aria-label="Select available unit"
             onChange={(event) => setAssignmentForm((prev) => ({ ...prev, unitId: event.target.value }))}
             className="rounded border border-gray-300 px-3 py-2 text-sm"
           >
@@ -1405,6 +1402,7 @@ function LeaseManagementPage(): React.ReactElement {
           </select>
           <select
             value={assignmentForm.status}
+            aria-label="Select lease status"
             onChange={(event) => setAssignmentForm((prev) => ({ ...prev, status: event.target.value as LeaseStatus }))}
             className="rounded border border-gray-300 px-3 py-2 text-sm"
           >
@@ -1412,10 +1410,10 @@ function LeaseManagementPage(): React.ReactElement {
             <option value="ACTIVE">Active</option>
             <option value="PENDING_APPROVAL">Pending approval</option>
           </select>
-          <input type="date" value={assignmentForm.startDate} onChange={(e)=>setAssignmentForm((p)=>({...p,startDate:e.target.value}))} className="rounded border border-gray-300 px-3 py-2 text-sm" />
-          <input type="date" value={assignmentForm.endDate} onChange={(e)=>setAssignmentForm((p)=>({...p,endDate:e.target.value}))} className="rounded border border-gray-300 px-3 py-2 text-sm" />
-          <input type="number" placeholder="Rent amount" value={assignmentForm.rentAmount} onChange={(e)=>setAssignmentForm((p)=>({...p,rentAmount:e.target.value}))} className="rounded border border-gray-300 px-3 py-2 text-sm" />
-          <input type="number" placeholder="Deposit amount" value={assignmentForm.depositAmount} onChange={(e)=>setAssignmentForm((p)=>({...p,depositAmount:e.target.value}))} className="rounded border border-gray-300 px-3 py-2 text-sm" />
+          <input type="date" aria-label="Lease start date" value={assignmentForm.startDate} onChange={(e)=>setAssignmentForm((p)=>({...p,startDate:e.target.value}))} className="rounded border border-gray-300 px-3 py-2 text-sm" />
+          <input type="date" aria-label="Lease end date" value={assignmentForm.endDate} onChange={(e)=>setAssignmentForm((p)=>({...p,endDate:e.target.value}))} className="rounded border border-gray-300 px-3 py-2 text-sm" />
+          <input type="number" aria-label="Rent amount" placeholder="Rent amount" value={assignmentForm.rentAmount} onChange={(e)=>setAssignmentForm((p)=>({...p,rentAmount:e.target.value}))} className="rounded border border-gray-300 px-3 py-2 text-sm" />
+          <input type="number" aria-label="Deposit amount" placeholder="Deposit amount" value={assignmentForm.depositAmount} onChange={(e)=>setAssignmentForm((p)=>({...p,depositAmount:e.target.value}))} className="rounded border border-gray-300 px-3 py-2 text-sm" />
         </div>
         <button
           type="button"

@@ -942,6 +942,7 @@ export default function InspectionDetailPage(): React.ReactElement {
   const [estimateResult, setEstimateResult] = useState<any | null>(null);
   const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
   const [analyzingPhotos, setAnalyzingPhotos] = useState<Record<number, boolean>>({});
+  const [draftRestoreNotice, setDraftRestoreNotice] = useState<string | null>(null);
 
   const userRole = (user as { role?: string } | null)?.role;
   const isPropertyManager = userRole === 'PROPERTY_MANAGER';
@@ -978,7 +979,23 @@ export default function InspectionDetailPage(): React.ReactElement {
           };
         });
       });
-      setDraftByRoom(initialDraft);
+      const draftStorageKey = `inspection-draft:${inspectionId}`;
+      let mergedDraft = initialDraft;
+      try {
+        const raw = localStorage.getItem(draftStorageKey);
+        if (raw) {
+          const localDraft = JSON.parse(raw) as DraftByRoom;
+          mergedDraft = { ...initialDraft };
+          for (const room of data.rooms ?? []) {
+            mergedDraft[room.id] = { ...(initialDraft[room.id] ?? {}), ...(localDraft?.[room.id] ?? {}) };
+          }
+          setDraftRestoreNotice('Recovered local inspection draft.');
+        }
+      } catch {
+        // ignore malformed local draft cache
+      }
+
+      setDraftByRoom(mergedDraft);
       setItemMeta({});
     } catch (err: any) {
       setError(err.message ?? 'Failed to load inspection');
@@ -1021,6 +1038,16 @@ export default function InspectionDetailPage(): React.ReactElement {
   }, []);
 
   const roomDrafts = useMemo(() => draftByRoom ?? {}, [draftByRoom]);
+
+  useEffect(() => {
+    if (!inspectionId || Number.isNaN(inspectionId)) return;
+    const key = `inspection-draft:${inspectionId}`;
+    try {
+      localStorage.setItem(key, JSON.stringify(roomDrafts));
+    } catch {
+      // ignore storage quota errors
+    }
+  }, [inspectionId, roomDrafts]);
 
   const validateItem = useCallback((item: ChecklistItem, draft: DraftChecklistItem): string | null => {
     if (draft.requiresAction) {
@@ -1318,6 +1345,14 @@ export default function InspectionDetailPage(): React.ReactElement {
           generateEstimate();
         }}
       />
+
+      {draftRestoreNotice && (
+        <Card className="mb-4 border border-sky-200 bg-sky-50">
+          <CardBody className="flex flex-col gap-2">
+            <p className="text-sm text-sky-800">{draftRestoreNotice}</p>
+          </CardBody>
+        </Card>
+      )}
 
       {estimateNotice && (
         <Card className="mb-4 border border-amber-200 bg-amber-50">

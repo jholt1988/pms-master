@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Request, UseGuards, Put, ParseIntPipe } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Request, UseGuards, Put } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { MaintenanceService } from './maintenance.service';
 import { AIMaintenanceMetricsService } from './ai-maintenance-metrics.service';
@@ -15,6 +15,7 @@ import { ApiException } from '../common/errors';
 import { ErrorCode } from '../common/errors/error-codes.enum';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
+import { AuditLogService } from '../shared/audit-log.service';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -32,6 +33,7 @@ export class MaintenanceController {
   constructor(
     private readonly maintenanceService: MaintenanceService,
     private readonly aiMetrics: AIMaintenanceMetricsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   @Get()
@@ -57,7 +59,7 @@ export class MaintenanceController {
 
   @Get(':id')
   async findOne(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
   ) {
     const request = await this.maintenanceService.findById(id);
@@ -96,7 +98,18 @@ export class MaintenanceController {
 
     // Tenant creates are always derived from lease/unit/property
     if (req.user.role === Role.TENANT) {
-      return this.maintenanceService.create(req.user.userId, req.user.role, dto, orgId);
+      const created = await this.maintenanceService.create(req.user.userId, req.user.role, dto, orgId);
+    await this.auditLogService.record({
+      orgId,
+      actorId: req.user.userId,
+      module: 'MAINTENANCE',
+      action: 'REQUEST_CREATED',
+      entityType: 'MaintenanceRequest',
+      entityId: created.id,
+      result: 'SUCCESS',
+      metadata: { priority: dto.priority, category: dto.category },
+    });
+    return created;
     }
 
     // Owner creates must be tied to a specific property in-org.
@@ -108,19 +121,30 @@ export class MaintenanceController {
       );
     }
 
-    return this.maintenanceService.create(req.user.userId, req.user.role, dto, orgId);
+    const created = await this.maintenanceService.create(req.user.userId, req.user.role, dto, orgId);
+    await this.auditLogService.record({
+      orgId,
+      actorId: req.user.userId,
+      module: 'MAINTENANCE',
+      action: 'REQUEST_CREATED',
+      entityType: 'MaintenanceRequest',
+      entityId: created.id,
+      result: 'SUCCESS',
+      metadata: { priority: dto.priority, category: dto.category },
+    });
+    return created;
   }
 
   @Patch(':id/status')
   @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
   async updateStatus(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() updateStatusDto: UpdateMaintenanceStatusDto,
     @Request() req: AuthenticatedRequest,
   ) {
     const orgId = (req as any).org?.orgId as string | undefined;
     const orgRole = (req as any).org?.orgRole as OrgRole | undefined;
-    return this.maintenanceService.updateStatusScoped(
+    const updated = await this.maintenanceService.updateStatusScoped(
       id,
       updateStatusDto,
       req.user.userId,
@@ -128,18 +152,29 @@ export class MaintenanceController {
       orgId,
       orgRole,
     );
+    await this.auditLogService.record({
+      orgId,
+      actorId: req.user.userId,
+      module: 'MAINTENANCE',
+      action: 'STATUS_UPDATED',
+      entityType: 'MaintenanceRequest',
+      entityId: updated.id,
+      result: 'SUCCESS',
+      metadata: { status: updateStatusDto.status },
+    });
+    return updated;
   }
 
   @Put(':id/status')
   @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
   async replaceStatus(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() updateStatusDto: UpdateMaintenanceStatusDto,
     @Request() req: AuthenticatedRequest,
   ) {
     const orgId = (req as any).org?.orgId as string | undefined;
     const orgRole = (req as any).org?.orgRole as OrgRole | undefined;
-    return this.maintenanceService.updateStatusScoped(
+    const updated = await this.maintenanceService.updateStatusScoped(
       id,
       updateStatusDto,
       req.user.userId,
@@ -147,18 +182,29 @@ export class MaintenanceController {
       orgId,
       orgRole,
     );
+    await this.auditLogService.record({
+      orgId,
+      actorId: req.user.userId,
+      module: 'MAINTENANCE',
+      action: 'STATUS_UPDATED',
+      entityType: 'MaintenanceRequest',
+      entityId: updated.id,
+      result: 'SUCCESS',
+      metadata: { status: updateStatusDto.status },
+    });
+    return updated;
   }
 
   @Patch(':id/assign')
   @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
   async assignTechnician(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() dto: AssignTechnicianDto,
     @Request() req: AuthenticatedRequest,
   ) {
     const orgId = (req as any).org?.orgId as string | undefined;
     const orgRole = (req as any).org?.orgRole as OrgRole | undefined;
-    return this.maintenanceService.assignTechnicianScoped(
+    const assigned = await this.maintenanceService.assignTechnicianScoped(
       id,
       dto,
       req.user.userId,
@@ -166,11 +212,22 @@ export class MaintenanceController {
       orgId,
       orgRole,
     );
+    await this.auditLogService.record({
+      orgId,
+      actorId: req.user.userId,
+      module: 'MAINTENANCE',
+      action: 'ASSIGNED',
+      entityType: 'MaintenanceRequest',
+      entityId: assigned.id,
+      result: 'SUCCESS',
+      metadata: { technicianId: dto.technicianId ?? null },
+    });
+    return assigned;
   }
 
   @Post(':id/notes')
   async addNote(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() dto: AddMaintenanceNoteDto,
     @Request() req: AuthenticatedRequest,
   ) {
@@ -206,7 +263,7 @@ export class MaintenanceController {
 
   @Post(':id/photos')
   async addPhoto(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() dto: AddMaintenancePhotoDto,
     @Request() req: AuthenticatedRequest,
   ) {
@@ -223,7 +280,7 @@ export class MaintenanceController {
   @Post(':id/confirm-complete')
   @Roles(Role.TENANT)
   async confirmComplete(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() dto: ConfirmMaintenanceCompleteDto,
     @Request() req: AuthenticatedRequest,
   ) {

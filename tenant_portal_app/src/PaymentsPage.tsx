@@ -111,6 +111,7 @@ export default function PaymentsPage(): React.ReactElement {
   const [leaseId, setLeaseId] = useState<number | null>(null);
   const [autopayMaxAmount, setAutopayMaxAmount] = useState<string>('');
   const [selectedMethodId, setSelectedMethodId] = useState<string>('');
+  const [needsAuthAttempts, setNeedsAuthAttempts] = useState<NeedsAuthAttempt[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -137,6 +138,13 @@ export default function PaymentsPage(): React.ReactElement {
 
     const methodsData = await apiFetch('/payment-methods', { token });
     setPaymentMethods(methodsData);
+
+    try {
+      const attempts = await apiFetch('/billing/autopay/needs-auth-attempts', { token });
+      setNeedsAuthAttempts(Array.isArray(attempts) ? attempts : []);
+    } catch {
+      setNeedsAuthAttempts([]);
+    }
 
     try {
       const autopayData = await apiFetch('/billing/autopay', { token });
@@ -279,6 +287,25 @@ export default function PaymentsPage(): React.ReactElement {
       await refreshBillingExtras();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to enable autopay');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRecoverAttempt = async (attemptId: string) => {
+    if (!token) return;
+    setActionLoading(true);
+    setNotice(null);
+    setError(null);
+    try {
+      await apiFetch(`/billing/autopay/needs-auth-attempts/${attemptId}/recover`, {
+        method: 'POST',
+        token,
+      });
+      setNotice('Payment authentication recovery attempted.');
+      await Promise.all([loadInvoicesAndPayments(), refreshBillingExtras()]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to recover payment attempt');
     } finally {
       setActionLoading(false);
     }

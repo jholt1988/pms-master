@@ -60,6 +60,7 @@ interface MaintenanceRequest {
     name: string;
   };
   notes?: { id: number; body: string; createdAt: string }[];
+  photos?: { id: number; url: string; caption?: string }[];
   slaPolicy?: any;
 }
 
@@ -98,7 +99,8 @@ const MaintenancePage: React.FC = () => {
     category: '',
     priority: 'MEDIUM' as MaintenancePriority,
     preferredDate: '',
-    preferredTime: ''
+    preferredTime: '',
+    photoUrls: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -165,11 +167,28 @@ const MaintenancePage: React.FC = () => {
         // Assuming connection to user's property/unit is handled by backend logic/auth
       };
 
-      await apiFetch('/maintenance', {
+      const created = await apiFetch('/maintenance', {
         token,
         method: 'POST',
         body: payload
       });
+
+      const photoUrls = newRequest.photoUrls
+        .split(/\r?\n|,/)
+        .map((v) => v.trim())
+        .filter(Boolean);
+
+      if (created?.id && photoUrls.length > 0) {
+        await Promise.all(
+          photoUrls.map((url) =>
+            apiFetch(`/maintenance/${created.id}/photos`, {
+              token,
+              method: 'POST',
+              body: { url },
+            }),
+          ),
+        );
+      }
 
       // Refresh list
       await fetchRequests();
@@ -181,7 +200,8 @@ const MaintenancePage: React.FC = () => {
         category: '',
         priority: 'MEDIUM',
         preferredDate: '',
-        preferredTime: ''
+        preferredTime: '',
+        photoUrls: ''
       });
       onClose();
     } catch (err: any) {
@@ -370,6 +390,25 @@ const MaintenancePage: React.FC = () => {
                 <div className="space-y-4">
                   <p className="text-sm text-foreground-600 whitespace-pre-wrap">{request.description}</p>
 
+                  {request.photos && request.photos.length > 0 && (
+                    <div>
+                      <p className="font-medium text-foreground-700 mb-2">Attached Photos</p>
+                      <div className="flex flex-wrap gap-2">
+                        {request.photos.map((photo) => (
+                          <a
+                            key={photo.id}
+                            href={photo.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs rounded border border-default-300 px-2 py-1 hover:bg-default-100"
+                          >
+                            Photo #{photo.id}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid md:grid-cols-2 gap-4 text-sm">
                     <div>
                       <p className="font-medium text-foreground-700 mb-2">Property Details</p>
@@ -536,6 +575,17 @@ const MaintenancePage: React.FC = () => {
                   }}
                 />
               </div>
+
+              <Textarea
+                label="Photo URLs (Optional)"
+                placeholder="Paste image URLs (one per line or comma-separated)"
+                value={newRequest.photoUrls}
+                onChange={(e) => setNewRequest({ ...newRequest, photoUrls: e.target.value })}
+                minRows={3}
+                classNames={{
+                  label: "sr-only",
+                }}
+              />
 
               <div className="bg-primary-50 border border-primary-200 rounded-lg p-4">
                 <p className="text-sm text-foreground-600">
