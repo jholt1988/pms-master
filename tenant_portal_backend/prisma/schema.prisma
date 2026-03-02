@@ -19,6 +19,14 @@ enum OrgRole {
   MEMBER
 }
 
+enum StripeOnboardingStatus {
+  NOT_STARTED
+  PENDING
+  IN_REVIEW
+  COMPLETED
+  RESTRICTED
+}
+
 model User {
   id                        String                      @id @default(uuid()) @db.Uuid
   username                  String                      @unique
@@ -106,10 +114,18 @@ model User {
 }
 
 model Organization {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                               String                     @id @default(uuid()) @db.Uuid
+  name                             String
+  stripeConnectedAccountId         String?                    @unique
+  stripeOnboardingStatus           StripeOnboardingStatus     @default(NOT_STARTED)
+  stripeChargesEnabled             Boolean                    @default(false)
+  stripePayoutsEnabled             Boolean                    @default(false)
+  stripeDetailsSubmitted           Boolean                    @default(false)
+  stripeCapabilities               Json?
+  stripeOnboardingCompletedAt      DateTime?
+  stripeLastOnboardingCheckAt      DateTime?
+  createdAt                        DateTime                   @default(now())
+  updatedAt                        DateTime                   @updatedAt
 
   users                  UserOrganization[]
   properties             Property[]
@@ -156,8 +172,6 @@ model Property {
   yearBuilt            Int?
   createdAt            DateTime                  @default(now())
   updatedAt            DateTime                  @updatedAt
-  organizationId       String                    @db.Uuid
-  organization         Organization              @relation(fields: [organizationId], references: [id])
   units                Unit[]
   rentalApplications   RentalApplication[]
   expenses             Expense[]
@@ -187,8 +201,6 @@ model Property {
   @@index([bedrooms])
   @@index([bathrooms])
   @@index([minRent])
-  @@index([organizationId])
-  approvalTasks ApprovalTask[]
 }
 
 model PropertyMarketingProfile {

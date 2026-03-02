@@ -164,6 +164,72 @@ export class BillingService {
     return { generated: 1 };
   }
 
+  async getConnectedAccount(orgId: string) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: orgId },
+      select: {
+        id: true,
+        name: true,
+        stripeConnectedAccountId: true,
+        stripeOnboardingStatus: true,
+        stripeChargesEnabled: true,
+        stripePayoutsEnabled: true,
+        stripeDetailsSubmitted: true,
+        stripeCapabilities: true,
+        stripeOnboardingCompletedAt: true,
+        stripeLastOnboardingCheckAt: true,
+      },
+    });
+
+    if (!org) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    return org;
+  }
+
+  async upsertConnectedAccount(
+    orgId: string,
+    input: {
+      stripeConnectedAccountId?: string;
+      stripeOnboardingStatus?: 'NOT_STARTED' | 'PENDING' | 'IN_REVIEW' | 'COMPLETED' | 'RESTRICTED';
+      stripeChargesEnabled?: boolean;
+      stripePayoutsEnabled?: boolean;
+      stripeDetailsSubmitted?: boolean;
+      stripeCapabilities?: Record<string, unknown>;
+      stripeOnboardingCompletedAt?: string;
+    },
+  ) {
+    const updated = await this.prisma.organization.update({
+      where: { id: orgId },
+      data: {
+        stripeConnectedAccountId: input.stripeConnectedAccountId,
+        stripeOnboardingStatus: input.stripeOnboardingStatus,
+        stripeChargesEnabled: input.stripeChargesEnabled,
+        stripePayoutsEnabled: input.stripePayoutsEnabled,
+        stripeDetailsSubmitted: input.stripeDetailsSubmitted,
+        stripeCapabilities: input.stripeCapabilities as any,
+        stripeOnboardingCompletedAt: input.stripeOnboardingCompletedAt
+          ? new Date(input.stripeOnboardingCompletedAt)
+          : undefined,
+        stripeLastOnboardingCheckAt: new Date(),
+      },
+      select: {
+        id: true,
+        stripeConnectedAccountId: true,
+        stripeOnboardingStatus: true,
+        stripeChargesEnabled: true,
+        stripePayoutsEnabled: true,
+        stripeDetailsSubmitted: true,
+        stripeCapabilities: true,
+        stripeOnboardingCompletedAt: true,
+        stripeLastOnboardingCheckAt: true,
+      },
+    });
+
+    return updated;
+  }
+
   async listSchedules(orgId: string) {
     return this.prisma.recurringInvoiceSchedule.findMany({
       where: { lease: { unit: { property: { organizationId: orgId } } } },

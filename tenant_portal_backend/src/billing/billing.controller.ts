@@ -99,6 +99,32 @@ export class BillingController {
 
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles(Role.PROPERTY_MANAGER)
+  @Get('connected-account')
+  async getConnectedAccount(@OrgId() orgId: string) {
+    return this.billingService.getConnectedAccount(orgId);
+  }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles(Role.PROPERTY_MANAGER)
+  @Patch('connected-account')
+  async upsertConnectedAccount(
+    @OrgId() orgId: string,
+    @Body()
+    body: {
+      stripeConnectedAccountId?: string;
+      stripeOnboardingStatus?: 'NOT_STARTED' | 'PENDING' | 'IN_REVIEW' | 'COMPLETED' | 'RESTRICTED';
+      stripeChargesEnabled?: boolean;
+      stripePayoutsEnabled?: boolean;
+      stripeDetailsSubmitted?: boolean;
+      stripeCapabilities?: Record<string, unknown>;
+      stripeOnboardingCompletedAt?: string;
+    },
+  ) {
+    return this.billingService.upsertConnectedAccount(orgId, body);
+  }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles(Role.PROPERTY_MANAGER)
   @Post('run')
   async runBilling() {
     return this.billingService.manualRun();
