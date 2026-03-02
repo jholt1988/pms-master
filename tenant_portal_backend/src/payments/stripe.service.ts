@@ -290,7 +290,7 @@ export class StripeService {
 
     switch (event.type) {
       case 'payment_intent.succeeded':
-        await this.handlePaymentSuccess(event.data.object as Stripe.PaymentIntent);
+        await this.handlePaymentSuccess(event.data.object as Stripe.PaymentIntent, event.id);
         break;
       case 'payment_intent.payment_failed':
         await this.handlePaymentFailure(event.data.object as Stripe.PaymentIntent);
@@ -339,7 +339,7 @@ export class StripeService {
     return { eventId: event.id, deduped: false, organizationId };
   }
 
-  private async handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent): Promise<void> {
+  private async handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent, sourceEventId: string): Promise<void> {
     try {
       const payment = await this.prisma.payment.findFirst({
         where: { externalId: paymentIntent.id },
@@ -353,6 +353,44 @@ export class StripeService {
             paymentDate: new Date(),
           },
         });
+
+        const existingLedger = await this.prisma.paymentLedgerEntry.findUnique({
+          where: { sourceEventId },
+          select: { id: true },
+        });
+
+        if (!existingLedger) {
+          const metadata = (paymentIntent.metadata ?? {}) as Record<string, string>;
+          const organizationId = metadata.organizationId || undefined;
+          const leaseId = metadata.leaseId || undefined;
+          const platformFeeMinor =
+            typeof paymentIntent.application_fee_amount === 'number'
+              ? paymentIntent.application_fee_amount
+              : Number(metadata.platform_fee_minor ?? 0) || 0;
+          const grossAmountMinor = Number(paymentIntent.amount ?? Math.round(Number(payment.amount) * 100));
+          const netAmountMinor = Math.max(0, grossAmountMinor - platformFeeMinor);
+
+          let tierSnapshot: Record<string, unknown> | undefined;
+          try {
+            tierSnapshot = metadata.tier_snapshot ? JSON.parse(metadata.tier_snapshot) : undefined;
+          } catch {
+            tierSnapshot = undefined;
+          }
+
+          await this.prisma.paymentLedgerEntry.create({
+            data: {
+              paymentId: payment.id,
+              organizationId,
+              leaseId,
+              sourceEventId,
+              currency: paymentIntent.currency ?? 'usd',
+              grossAmountMinor,
+              platformFeeMinor,
+              netAmountMinor,
+              tierSnapshot: tierSnapshot as any,
+            },
+          });
+        }
 
         this.logger.log(`Updated payment ${payment.id} to COMPLETED`);
       } else {

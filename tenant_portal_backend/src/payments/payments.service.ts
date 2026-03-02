@@ -128,6 +128,7 @@ export class PaymentsService {
         const orgIdForLease = lease.unit?.property?.organizationId;
         let connectedAccountId: string | undefined;
         let applicationFeeAmountCents: number | undefined;
+        let tierSnapshot: Record<string, unknown> | undefined;
 
         if (orgIdForLease) {
           const org = await this.prisma.organization.findUnique({
@@ -160,6 +161,12 @@ export class PaymentsService {
               enforceFeeLessThanAmount: true,
             });
             applicationFeeAmountCents = Math.max(0, Math.round(fee.finalFee * 100));
+            tierSnapshot = {
+              tiers: tiers ?? null,
+              flatPercent,
+              minimumFee,
+              computed: fee,
+            };
           }
         }
 
@@ -171,6 +178,9 @@ export class PaymentsService {
           metadata: {
             leaseId,
             tenantId: lease.tenantId,
+            ...(orgIdForLease ? { organizationId: orgIdForLease } : {}),
+            ...(typeof applicationFeeAmountCents === 'number' ? { platform_fee_minor: String(applicationFeeAmountCents) } : {}),
+            ...(tierSnapshot ? { tier_snapshot: JSON.stringify(tierSnapshot) } : {}),
             ...(dto.invoiceId ? { invoiceId: String(dto.invoiceId) } : {}),
           },
           connectedAccountId,

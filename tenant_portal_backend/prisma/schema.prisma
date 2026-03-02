@@ -143,6 +143,7 @@ model Organization {
   feeScheduleVersions    FeeScheduleVersion[]
   pricingSnapshots       PricingSnapshot[]
   stripeWebhookEvents    StripeWebhookEvent[]
+  paymentLedgerEntries   PaymentLedgerEntry[]
 }
 
 model UserOrganization {
@@ -881,8 +882,28 @@ model Payment {
   paymentMethod       PaymentMethod?       @relation(fields: [paymentMethodId], references: [id])
   paymentMethodId     Int?
   paymentPlanPayments PaymentPlanPayment[] @relation("PaymentPlanPayment")
+  ledgerEntries       PaymentLedgerEntry[]
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
+}
+
+model PaymentLedgerEntry {
+  id                 String    @id @default(uuid()) @db.Uuid
+  payment            Payment   @relation(fields: [paymentId], references: [id])
+  paymentId          Int
+  organization       Organization? @relation(fields: [organizationId], references: [id])
+  organizationId     String?   @db.Uuid
+  leaseId            String?   @db.Uuid
+  sourceEventId      String    @unique
+  currency           String    @default("usd")
+  grossAmountMinor   Int
+  platformFeeMinor   Int       @default(0)
+  netAmountMinor     Int
+  tierSnapshot       Json?
+  createdAt          DateTime  @default(now())
+
+  @@index([paymentId, createdAt])
+  @@index([organizationId, createdAt])
 }
 
 model Conversation {
