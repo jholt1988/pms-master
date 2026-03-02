@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { isUUID } from 'class-validator';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   MaintenanceAsset,
@@ -86,12 +87,12 @@ export class MaintenanceService {
 
     let leaseId: number | undefined;
     let propertyId: string | undefined;
-    let unitId: number | undefined;
+    let unitId: string | undefined;
 
     if (typeof roleOrDto === 'object') {
       // Old behavior: resolve Property + Unit from User's Lease if not provided.
       propertyId = dto.propertyId ?? undefined;
-      unitId = dto.unitId ? Number(dto.unitId) : undefined;
+      unitId = dto.unitId ?? undefined;
 
       if (propertyId == null || unitId == null) {
         const userLookup = this.prisma.user?.findUnique ?? this.prisma.user?.findFirst;
@@ -144,7 +145,7 @@ export class MaintenanceService {
       propertyId = lease.unit.propertyId;
     } else {
       propertyId = dto.propertyId ?? undefined;
-      unitId = dto.unitId ? Number(dto.unitId) : undefined;
+      unitId = dto.unitId ?? undefined;
 
       if (propertyId && orgId) {
         const property = await this.prisma.property.findFirst({
@@ -1252,9 +1253,9 @@ export class MaintenanceService {
     return MaintenancePriority.MEDIUM;
   }
 
-  private toRequestId(id: string | number): number {
-    const parsed = typeof id === 'number' ? id : Number(id);
-    if (Number.isNaN(parsed)) {
+  private toRequestId(id: string | number): string {
+    const parsed = String(id);
+    if (!isUUID(parsed)) {
       throw ApiException.badRequest(
         ErrorCode.VALIDATION_INVALID_INPUT,
         `Invalid maintenance request id: ${id}`,

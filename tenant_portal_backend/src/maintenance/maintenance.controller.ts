@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Request, UseGuards, Put, ParseIntPipe } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Request, UseGuards, Put } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { MaintenanceService } from './maintenance.service';
 import { AIMaintenanceMetricsService } from './ai-maintenance-metrics.service';
@@ -57,7 +57,7 @@ export class MaintenanceController {
 
   @Get(':id')
   async findOne(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
   ) {
     const request = await this.maintenanceService.findById(id);
@@ -114,7 +114,7 @@ export class MaintenanceController {
   @Patch(':id/status')
   @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
   async updateStatus(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() updateStatusDto: UpdateMaintenanceStatusDto,
     @Request() req: AuthenticatedRequest,
   ) {
@@ -133,7 +133,7 @@ export class MaintenanceController {
   @Put(':id/status')
   @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
   async replaceStatus(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() updateStatusDto: UpdateMaintenanceStatusDto,
     @Request() req: AuthenticatedRequest,
   ) {
@@ -152,7 +152,7 @@ export class MaintenanceController {
   @Patch(':id/assign')
   @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
   async assignTechnician(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() dto: AssignTechnicianDto,
     @Request() req: AuthenticatedRequest,
   ) {
@@ -170,7 +170,7 @@ export class MaintenanceController {
 
   @Post(':id/notes')
   async addNote(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() dto: AddMaintenanceNoteDto,
     @Request() req: AuthenticatedRequest,
   ) {
@@ -206,7 +206,7 @@ export class MaintenanceController {
 
   @Post(':id/photos')
   async addPhoto(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() dto: AddMaintenancePhotoDto,
     @Request() req: AuthenticatedRequest,
   ) {
@@ -223,7 +223,7 @@ export class MaintenanceController {
   @Post(':id/confirm-complete')
   @Roles(Role.TENANT)
   async confirmComplete(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() dto: ConfirmMaintenanceCompleteDto,
     @Request() req: AuthenticatedRequest,
   ) {
