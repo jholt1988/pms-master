@@ -242,10 +242,10 @@ export class StripeService {
   /**
    * Handle Stripe webhooks
    */
-  async handleWebhook(signature: string, payload: Buffer): Promise<void> {
+  async handleWebhook(signature: string, payload: Buffer): Promise<{ eventId: string; deduped: boolean; organizationId?: string }> {
     if (this.isStripeDisabled) {
-      this.logger.log('Stripe webhook ignored because integration is disabled in this environment.');
-      return;
+      // In disabled mode we can't verify signatures, but keep endpoint non-fatal.
+      return { eventId: `mock_${Date.now()}`, deduped: false };
     }
 
     if (!process.env.STRIPE_WEBHOOK_SECRET) {
@@ -265,6 +265,27 @@ export class StripeService {
       throw new BadRequestException('Invalid webhook signature');
     }
 
+    // Idempotency guard
+    const existing = await this.prisma.stripeWebhookEvent.findUnique({ where: { eventId: event.id } });
+    if (existing) {
+      this.logger.log(`Ignoring duplicate Stripe event ${event.id}`);
+      return { eventId: event.id, deduped: true, organizationId: existing.organizationId ?? undefined };
+    }
+
+    const stripeAccountId = (event as any).account as string | undefined;
+    const metadataOrgId = (event.data?.object as any)?.metadata?.organizationId as string | undefined;
+
+    let organizationId: string | undefined;
+    if (metadataOrgId) {
+      organizationId = metadataOrgId;
+    } else if (stripeAccountId) {
+      const org = await this.prisma.organization.findFirst({
+        where: { stripeConnectedAccountId: stripeAccountId },
+        select: { id: true },
+      });
+      organizationId = org?.id;
+    }
+
     this.logger.log(`Received Stripe webhook: ${event.type}`);
 
     switch (event.type) {
@@ -274,14 +295,48 @@ export class StripeService {
       case 'payment_intent.payment_failed':
         await this.handlePaymentFailure(event.data.object as Stripe.PaymentIntent);
         break;
-      case 'customer.subscription.created':
-      case 'customer.subscription.updated':
-      case 'customer.subscription.deleted':
-        // Handle subscription events if needed
+      case 'account.updated': {
+        const account = event.data.object as Stripe.Account;
+        const org = await this.prisma.organization.findFirst({
+          where: { stripeConnectedAccountId: account.id },
+          select: { id: true },
+        });
+        if (org) {
+          organizationId = org.id;
+          await this.prisma.organization.update({
+            where: { id: org.id },
+            data: {
+              stripeOnboardingStatus:
+                account.charges_enabled && account.payouts_enabled
+                  ? 'COMPLETED'
+                  : account.details_submitted
+                  ? 'PENDING'
+                  : 'NOT_STARTED',
+              stripeChargesEnabled: Boolean(account.charges_enabled),
+              stripePayoutsEnabled: Boolean(account.payouts_enabled),
+              stripeDetailsSubmitted: Boolean(account.details_submitted),
+              stripeCapabilities: (account.capabilities as any) ?? undefined,
+              stripeLastOnboardingCheckAt: new Date(),
+            },
+          });
+        }
         break;
+      }
       default:
         this.logger.log(`Unhandled webhook event type: ${event.type}`);
     }
+
+    await this.prisma.stripeWebhookEvent.create({
+      data: {
+        eventId: event.id,
+        eventType: event.type,
+        stripeAccountId,
+        organizationId,
+        payload: event as any,
+      },
+    });
+
+    return { eventId: event.id, deduped: false, organizationId };
   }
 
   private async handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent): Promise<void> {
