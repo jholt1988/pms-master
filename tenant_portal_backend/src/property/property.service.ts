@@ -97,8 +97,7 @@ export class PropertyService {
     }
   }
 
-  async createUnit(propertyId: string, name: string, orgId: string) {
-   
+  async createUnit(propertyId: string, dto: { name: string; unitNumber?: string; status?: 'ACTIVE' | 'MANAGED' | 'ARCHIVED'; bedrooms?: number; bathrooms?: number; squareFeet?: number; hasParking?: boolean; hasLaundry?: boolean; hasBalcony?: boolean; hasAC?: boolean; isFurnished?: boolean; petsAllowed?: boolean; }, orgId: string) {
     // Verify property exists
     const property = await this.prisma.property.findFirst({
       where: { id: propertyId, organizationId: orgId },
@@ -111,8 +110,19 @@ export class PropertyService {
     try {
       return await this.prisma.unit.create({
         data: {
-          propertyId: propertyId,
-          name,
+          propertyId,
+          name: dto.name,
+          unitNumber: dto.unitNumber,
+          status: dto.status ?? 'MANAGED',
+          bedrooms: dto.bedrooms,
+          bathrooms: dto.bathrooms,
+          squareFeet: dto.squareFeet,
+          hasParking: dto.hasParking ?? false,
+          hasLaundry: dto.hasLaundry ?? false,
+          hasBalcony: dto.hasBalcony ?? false,
+          hasAC: dto.hasAC ?? false,
+          isFurnished: dto.isFurnished ?? false,
+          petsAllowed: dto.petsAllowed ?? false,
         },
         include: {
           property: true,
@@ -177,9 +187,9 @@ export class PropertyService {
     }
   }
 
-  async updateUnit(propertyId: string, unitId: string | number, dto: UpdateUnitDto, orgId: string) {
-    const normalizedPropertyId = propertyId
-    const normalizedUnitId = String(unitId);
+  async updateUnit(propertyId: string, unitId: string, dto: UpdateUnitDto, orgId: string) {
+    const normalizedPropertyId = propertyId;
+    const normalizedUnitId = unitId;
     // Verify property exists
     const property = await this.prisma.property.findFirst({
       where: { id: normalizedPropertyId, organizationId: orgId },
@@ -193,7 +203,7 @@ export class PropertyService {
       const unit = await this.prisma.unit.findFirst({
         where: {
           id: normalizedUnitId,
-          propertyId: propertyId,
+          propertyId: normalizedPropertyId,
         },
       });
 
@@ -206,6 +216,7 @@ export class PropertyService {
 
       if (dto.name !== undefined) updateData.name = dto.name;
       if (dto.unitNumber !== undefined) updateData.unitNumber = dto.unitNumber;
+      if (dto.status !== undefined) updateData.status = dto.status;
       if (dto.bedrooms !== undefined) updateData.bedrooms = dto.bedrooms;
       if (dto.bathrooms !== undefined) updateData.bathrooms = dto.bathrooms;
       if (dto.squareFeet !== undefined) updateData.squareFeet = dto.squareFeet;
@@ -660,7 +671,10 @@ export class PropertyService {
     return payload as Prisma.InputJsonValue;
   }
 
+
   private parseNumericId(value: string | number, field: string): string {
     return String(value);
   }
+
+
 }

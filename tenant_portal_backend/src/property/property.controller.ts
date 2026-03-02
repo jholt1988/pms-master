@@ -64,7 +64,7 @@ export class PropertyController {
     @Body() dto: CreateUnitDto,
     @OrgId() orgId: string,
   ) {
-    return this.propertyService.createUnit(propertyId, dto.name, orgId);
+    return this.propertyService.createUnit(propertyId, dto, orgId);
   }
 
   @Get()

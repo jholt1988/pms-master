@@ -1,0 +1,9 @@
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'UnitStatus') THEN
+    CREATE TYPE "UnitStatus" AS ENUM ('ACTIVE', 'MANAGED', 'ARCHIVED');
+  END IF;
+END$$;
+
+ALTER TABLE "Unit"
+  ADD COLUMN IF NOT EXISTS "status" "UnitStatus" NOT NULL DEFAULT 'MANAGED';

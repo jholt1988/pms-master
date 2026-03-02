@@ -262,6 +262,7 @@ model SavedPropertyFilter {
 model Unit {
   id                 String               @id @default(uuid()) @db.Uuid
   name               String // e.g., "Apt 101"
+  status             UnitStatus           @default(MANAGED)
   property           Property             @relation(fields: [propertyId], references: [id])
   propertyId         String               @db.Uuid
   lease              Lease?
@@ -292,6 +293,12 @@ model Unit {
   rentRecommendations RentRecommendation[]
 
   approvalTasks ApprovalTask[]
+}
+
+enum UnitStatus {
+  ACTIVE
+  MANAGED
+  ARCHIVED
 }
 
 enum PropertyAvailabilityStatus {
