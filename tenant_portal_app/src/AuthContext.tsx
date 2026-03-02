@@ -19,6 +19,33 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+const storage = {
+  getItem(key: string): string | null {
+    try {
+      const getter = globalThis?.localStorage?.getItem;
+      return typeof getter === 'function' ? getter.call(globalThis.localStorage, key) : null;
+    } catch {
+      return null;
+    }
+  },
+  setItem(key: string, value: string): void {
+    try {
+      const setter = globalThis?.localStorage?.setItem;
+      if (typeof setter === 'function') setter.call(globalThis.localStorage, key, value);
+    } catch {
+      // no-op for non-browser/test environments
+    }
+  },
+  removeItem(key: string): void {
+    try {
+      const remover = globalThis?.localStorage?.removeItem;
+      if (typeof remover === 'function') remover.call(globalThis.localStorage, key);
+    } catch {
+      // no-op for non-browser/test environments
+    }
+  },
+};
+
 /**
  * Check if a JWT token is expired or will expire soon
  * @param token - JWT token string
@@ -43,28 +70,28 @@ const isTokenExpired = (token: string): boolean => {
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [token, setToken] = useState<string | null>(() => {
     try {
-      const storedToken = localStorage.getItem('token');
+      const storedToken = storage.getItem('token');
       if (storedToken && !isTokenExpired(storedToken)) {
         return storedToken;
       }
       // Remove expired token
-      localStorage.removeItem('token');
+      storage.removeItem('token');
       return null;
     } catch {
-      localStorage.removeItem('token');
+      storage.removeItem('token');
       return null;
     }
   });
 
   const [user, setUser] = useState<JwtPayload | null>(() => {
     try {
-      const storedToken = localStorage.getItem('token');
+      const storedToken = storage.getItem('token');
       if (storedToken && !isTokenExpired(storedToken)) {
         return jwtDecode<JwtPayload>(storedToken);
       }
-      localStorage.removeItem('token');
+      storage.removeItem('token');
     } catch {
-      localStorage.removeItem('token');
+      storage.removeItem('token');
     }
     return null;
   });
@@ -76,7 +103,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // Validate token is not expired
         if (isTokenExpired(token)) {
           console.warn('Token is expired, logging out');
-          localStorage.removeItem('token');
+          storage.removeItem('token');
           // Use startTransition to defer state updates and avoid cascading renders
           startTransition(() => {
             setToken(null);
@@ -85,7 +112,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           return;
         }
 
-        localStorage.setItem('token', token);
+        storage.setItem('token', token);
         const decoded = jwtDecode<JwtPayload>(token);
         // Use startTransition to defer state update and avoid cascading renders
         startTransition(() => {
@@ -93,7 +120,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         });
       } catch (error) {
         console.error('Failed to decode auth token', error);
-        localStorage.removeItem('token');
+        storage.removeItem('token');
         // Use startTransition to defer state updates and avoid cascading renders
         startTransition(() => {
           setToken(null);
@@ -101,7 +128,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         });
       }
     } else {
-      localStorage.removeItem('token');
+      storage.removeItem('token');
       // Use startTransition to defer state update and avoid cascading renders
       startTransition(() => {
         setUser(null);
