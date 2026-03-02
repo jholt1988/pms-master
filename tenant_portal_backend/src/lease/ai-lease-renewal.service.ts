@@ -107,12 +107,8 @@ export class AILeaseRenewalService {
     return String(leaseId);
   }
 
-  private normalizeLeaseIdNumber(leaseId: string | number): number {
-    const parsed = typeof leaseId === 'string' ? Number(leaseId) : leaseId;
-    if (!Number.isFinite(parsed) || !Number.isInteger(parsed)) {
-      throw new BadRequestException('Invalid lease identifier provided.');
-    }
-    return parsed;
+  private normalizeLeaseIdNumber(leaseId: string | number): string {
+    return this.normalizeLeaseId(leaseId);
   }
 
   async predictRenewalLikelihood(leaseId: string | number): Promise<RenewalPrediction> {
@@ -122,10 +118,9 @@ export class AILeaseRenewalService {
     let error: string | undefined;
 
     const leaseIdStr = this.normalizeLeaseId(leaseId);
-    const leaseIdNum = this.normalizeLeaseIdNumber(leaseId);
     try {
     const lease = (await this.prisma.lease.findUnique({
-      where: { id: leaseIdNum },
+      where: { id: leaseIdStr },
       include: {
         tenant: {
           include: {
@@ -356,8 +351,7 @@ export class AILeaseRenewalService {
     let error: string | undefined;
 
     const leaseIdStr = this.normalizeLeaseId(leaseId);
-    const leaseIdNum = this.normalizeLeaseIdNumber(leaseId);
-    try {
+    try { 
       // Check cache first
       const cached = this.rentRecommendationCache.get(leaseIdStr);
       if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
@@ -380,7 +374,7 @@ export class AILeaseRenewalService {
       }
 
       const lease = (await this.prisma.lease.findUnique({
-        where: { id: leaseIdNum },
+        where: { id: leaseIdStr },
         include: {
           unit: {
             include: {
@@ -568,10 +562,9 @@ export class AILeaseRenewalService {
     let error: string | undefined;
 
     const leaseIdStr = this.normalizeLeaseId(leaseId);
-    const leaseIdNum = this.normalizeLeaseIdNumber(leaseId);
     try {
       const lease = (await this.prisma.lease.findUnique({
-      where: { id: leaseIdNum },
+      where: { id: leaseIdStr },
       include: {
         tenant: {
           include: {

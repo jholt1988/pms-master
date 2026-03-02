@@ -134,6 +134,11 @@ async function main() {
   // Lease (id type varies; many schemas have id as string/uuid)
   const leaseId = typeof unit.id === 'string' ? uuid() : 1;
   let lease;
+
+  // Some schemas enforce unique tenantId on Lease.
+  try {
+    await prisma.lease.deleteMany({ where: { tenantId: tenant.id } });
+  } catch (_) {}
   try {
     lease = await prisma.lease.upsert({
       where: { id: leaseId },
@@ -156,7 +161,18 @@ async function main() {
     lease = await prisma.lease.upsert({
       where: { id: leaseId },
       update: { status: 'ACTIVE', unitId: unit.id, tenantId: tenant.id },
-      create: { id: leaseId, status: 'ACTIVE', unitId: unit.id, tenantId: tenant.id },
+      create: {
+        id: leaseId,
+        status: 'ACTIVE',
+        unitId: unit.id,
+        tenantId: tenant.id,
+        startDate: new Date('2026-01-01'),
+        endDate: new Date('2026-12-31'),
+        rentAmount: 1350,
+        noticePeriodDays: 30,
+        depositAmount: 600,
+        autoRenew: false,
+      },
     });
   }
 

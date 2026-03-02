@@ -4,6 +4,7 @@
  */
 
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { isUUID } from 'class-validator';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { Lead, LeadStatus, LeadMessage, MessageRole, PropertyInquiry, InterestLevel, Prisma } from '@prisma/client';
@@ -392,11 +393,10 @@ export class LeasingService {
     return amenities;
   }
 
-  private parseNumericId(value: string | number, field: string): number {
-    const parsed = typeof value === 'number' ? value : Number(value);
-    if (!Number.isFinite(parsed) || Number.isNaN(parsed) || !Number.isInteger(parsed)) {
+  private parseNumericId(value: string | number, field: string): string {
+    if (typeof value !== 'string' || !isUUID(value)) {
       throw new BadRequestException(`Invalid ${field} id: ${value}`);
     }
-    return parsed;
+    return value;
   }
 }

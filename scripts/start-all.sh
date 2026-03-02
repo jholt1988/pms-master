@@ -98,6 +98,20 @@ if command -v python3 >/dev/null 2>&1; then
     PYTHON_VERSION=$(python3 --version 2>&1)
     echo -e "${GREEN}✅ Python: $PYTHON_VERSION${NC}"
     PYTHON_CMD="python3"
+
+    # Some environments expose a python3 binary that crashes at runtime
+    # (e.g., Illegal instruction). Smoke-test and fall back to /usr/bin/python3.
+    if ! $PYTHON_CMD -c "print('python-runtime-ok')" >/dev/null 2>&1; then
+        echo -e "${YELLOW}⚠️  python3 runtime check failed. Trying /usr/bin/python3...${NC}"
+        if [ -x "/usr/bin/python3" ] && /usr/bin/python3 -c "print('python-runtime-ok')" >/dev/null 2>&1; then
+            PYTHON_CMD="/usr/bin/python3"
+            PYTHON_VERSION=$($PYTHON_CMD --version 2>&1)
+            echo -e "${GREEN}✅ Fallback Python: $PYTHON_VERSION${NC}"
+        else
+            echo -e "${RED}❌ No stable Python runtime found.${NC}"
+            exit 1
+        fi
+    fi
 elif command -v python >/dev/null 2>&1; then
     PYTHON_VERSION=$(python --version 2>&1)
     echo -e "${GREEN}✅ Python: $PYTHON_VERSION${NC}"
