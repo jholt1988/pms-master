@@ -477,6 +477,12 @@ export class MaintenanceService {
     return { items, page, pageSize, total };
   }
 
+  private readonly allowedStatusTransitions: Record<Status, Status[]> = {
+    [Status.PENDING]: [Status.IN_PROGRESS],
+    [Status.IN_PROGRESS]: [Status.COMPLETED],
+    [Status.COMPLETED]: [],
+  };
+
   async updateStatus(
     id: string | number,
     dto: UpdateMaintenanceStatusDto,
@@ -496,6 +502,32 @@ export class MaintenanceService {
         'Maintenance request not found',
         { requestId: id },
       );
+    }
+
+    const allowedNext = this.allowedStatusTransitions[existing.status as Status] ?? [];
+    if (!allowedNext.includes(dto.status)) {
+      throw ApiException.badRequest(
+        ErrorCode.BUSINESS_PRECONDITION_FAILED,
+        `Invalid status transition: ${existing.status} -> ${dto.status}`,
+        { requestId: requestNumericId, from: existing.status, to: dto.status },
+      );
+    }
+
+    if (dto.status === Status.COMPLETED) {
+      if (!existing.assigneeId) {
+        throw ApiException.badRequest(
+          ErrorCode.BUSINESS_PRECONDITION_FAILED,
+          'Cannot close request without an assigned technician',
+          { requestId: requestNumericId },
+        );
+      }
+      if (!dto.note?.trim()) {
+        throw ApiException.badRequest(
+          ErrorCode.BUSINESS_PRECONDITION_FAILED,
+          'Closure note is required when marking request completed',
+          { requestId: requestNumericId },
+        );
+      }
     }
 
     const updateData: any = { status: dto.status };
@@ -597,6 +629,14 @@ export class MaintenanceService {
       );
     }
 
+    if (existing.status === Status.COMPLETED) {
+      throw ApiException.badRequest(
+        ErrorCode.BUSINESS_PRECONDITION_FAILED,
+        'Cannot assign technician to completed request',
+        { requestId: id },
+      );
+    }
+
     // If technician not provided, use AI to assign
     let technicianId = dto.technicianId;
     let aiAssignmentUsed = false;
@@ -666,6 +706,12 @@ export class MaintenanceService {
       where: { id: requestNumericId },
       data: {
         assignee: { connect: { id: technicianId } },
+        ...(existing.status === Status.PENDING
+          ? {
+              status: Status.IN_PROGRESS,
+              acknowledgedAt: existing.acknowledgedAt ?? new Date(),
+            }
+          : {}),
       },
       include: this.defaultRequestInclude,
     });
