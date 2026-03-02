@@ -4,6 +4,7 @@ import { useAuth } from './AuthContext';
 import { apiFetch } from './services/apiClient';
 import BulkMessageComposer from './components/messages/BulkMessageComposer';
 import BulkMessageStatusPanel from './components/messages/BulkMessageStatusPanel';
+import { EmptyState, LoadingState, FeedbackBanner } from './components/ui';
 
 const formatDateTime = (value?: string | null): string => {
   if (!value) {
@@ -154,11 +155,11 @@ const MessagingPage = () => {
   };
 
   if (!token) {
-    return <div className="p-4 text-sm text-gray-600">Sign in to access your inbox.</div>;
+    return <EmptyState variant="inline" title="Sign in required" message="Sign in to access your inbox." />;
   }
 
   if (loading) {
-    return <div className="p-4 text-sm text-gray-600">Loading conversations…</div>;
+    return <LoadingState variant="inline" message="Loading conversations…" />;
   }
 
   const getConversationTitle = (conversation: any): string => {
@@ -204,9 +205,7 @@ const MessagingPage = () => {
         </p>
       </header>
 
-      {error && (
-        <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
-      )}
+      {error && <FeedbackBanner tone="error" message={error} />}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,2fr)]">
         <aside className="rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -216,7 +215,7 @@ const MessagingPage = () => {
           </div>
           <ul className="max-h-112 divide-y divide-gray-100 overflow-y-auto text-sm">
             {conversations.length === 0 ? (
-              <li className="px-4 py-6 text-center text-gray-500">No conversations yet.</li>
+              <li className="px-4 py-6 text-center text-gray-500"><EmptyState variant="inline" title="No conversations yet" message="Start a new conversation to begin messaging." /></li>
             ) : (
               conversations.map((conversation) => {
                 const selected = selectedConversation?.id === conversation.id;

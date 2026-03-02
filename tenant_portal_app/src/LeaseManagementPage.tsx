@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { apiFetch } from './services/apiClient';
+import { EmptyState, LoadingState, FeedbackBanner } from './components/ui';
 
 type LeaseStatus =
   | 'DRAFT'
@@ -836,11 +837,11 @@ function LeaseManagementPage(): React.ReactElement {
   );
 
   if (!token) {
-    return <div className="p-4 text-sm text-gray-600">Please sign in to manage leases.</div>;
+    return <EmptyState variant="inline" title="Sign in required" message="Please sign in to manage leases." />;
   }
 
   if (loading) {
-    return <div className="p-4 text-sm text-gray-600">Loading lease lifecycle…</div>;
+    return <LoadingState variant="inline" message="Loading lease lifecycle…" />;
   }
 
   const renderLeaseCard = (lease: Lease) => {
@@ -1368,14 +1369,8 @@ function LeaseManagementPage(): React.ReactElement {
         </p>
       </header>
 
-      {error && (
-        <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
-      )}
-      {feedback && (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          {feedback}
-        </div>
-      )}
+      {error && <FeedbackBanner tone="error" message={error} />}
+      {feedback && <FeedbackBanner tone="success" message={feedback} />}
 
       <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm space-y-3">
         <div className="flex items-center justify-between">

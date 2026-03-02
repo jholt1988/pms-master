@@ -14,6 +14,7 @@ export { StatusBadge } from './StatusBadge';
 export { ActionButton } from './ActionButton';
 export { SearchInput } from './SearchInput';
 export { LoadingState } from './LoadingState';
+export { FeedbackBanner } from './FeedbackBanner';
 export { EmptyState } from './EmptyState';
 export { Sidebar } from './Sidebar';
 export { Topbar } from './Topbar';
