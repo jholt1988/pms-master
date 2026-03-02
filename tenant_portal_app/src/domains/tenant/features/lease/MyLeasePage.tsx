@@ -93,6 +93,7 @@ interface Lease {
   autopayEnrollment?: AutopayEnrollment | null;
   history?: LeaseHistoryEntry[];
   esignEnvelopes?: EsignEnvelope[];
+  documents?: Array<{ id: number; fileName: string; category?: string | null; uploadedAt?: string | null; createdAt?: string }>;
 }
 
 interface NoticeFormState {

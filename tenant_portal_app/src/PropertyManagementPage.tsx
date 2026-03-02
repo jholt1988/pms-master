@@ -25,7 +25,7 @@ import { UnitEditor } from './components/properties/UnitEditor';
 type AvailabilityStatus = 'AVAILABLE' | 'LIMITED' | 'WAITLISTED' | 'COMING_SOON' | 'UNAVAILABLE';
 
 interface Property {
-  id: number;
+  id: string;
   name: string;
   address?: string;
   city?: string;
@@ -54,11 +54,13 @@ interface Property {
   mortgageInterestRate?: number;
 }
 
+type UnitLifecycleStatus = 'ACTIVE' | 'MANAGED' | 'ARCHIVED';
+
 interface Unit {
-  id: number;
+  id: string;
   name: string;
-  propertyId: number;
-  status?: string;
+  propertyId: string;
+  status?: UnitLifecycleStatus;
   rent?: number;
   bedrooms?: number;
   bathrooms?: number;
@@ -73,7 +75,7 @@ interface Unit {
 
 interface MarketingProfileResponse {
   property: {
-    id: number;
+    id: string;
     name: string;
     address?: string;
   };
@@ -199,6 +201,14 @@ const getSyndicationChipColor = (status: string) => {
 
 const formatAddress = (property?: Property) =>
   [property?.address, property?.city, property?.state].filter(Boolean).join(', ');
+
+const normalizeUnitStatus = (status?: string): UnitLifecycleStatus => {
+  const value = (status ?? 'MANAGED').toUpperCase();
+  return value === 'ACTIVE' || value === 'MANAGED' || value === 'ARCHIVED' ? value : 'MANAGED';
+};
+
+const getDoorCount = (units?: Unit[]) =>
+  (units ?? []).filter((unit) => ['ACTIVE', 'MANAGED'].includes(normalizeUnitStatus(unit.status))).length;
 
 const PropertyManagementPage: React.FC = () => {
   const { token, user } = useAuth();
@@ -449,6 +459,7 @@ const PropertyManagementPage: React.FC = () => {
 
   const handleBulkCreateUnits = async (unitsData: Array<{
     name: string;
+    status?: UnitLifecycleStatus;
     bedrooms: string;
     bathrooms: string;
     squareFeet: string;
@@ -466,10 +477,18 @@ const PropertyManagementPage: React.FC = () => {
       
       // Create units one by one (or batch if backend supports it)
       for (const unitData of unitsData) {
-        // Backend currently only accepts 'name' field in CreateUnitDto
-        // Additional fields (bedrooms, bathrooms, features, etc.) would need backend DTO update
         const unitPayload = {
           name: unitData.name.trim(),
+          status: unitData.status ?? 'MANAGED',
+          bedrooms: unitData.bedrooms ? parseFloat(unitData.bedrooms) : undefined,
+          bathrooms: unitData.bathrooms ? parseFloat(unitData.bathrooms) : undefined,
+          squareFeet: unitData.squareFeet ? parseInt(unitData.squareFeet) : undefined,
+          hasParking: unitData.features.includes('Parking'),
+          hasLaundry: unitData.features.includes('Laundry'),
+          hasBalcony: unitData.features.includes('Balcony'),
+          hasAC: unitData.features.includes('AC'),
+          isFurnished: unitData.features.includes('Furnished'),
+          petsAllowed: unitData.features.includes('Pet Friendly'),
         };
 
         const createdUnit: Unit = await apiFetch(`/properties/${selectedProperty.id}/units`, {
@@ -501,6 +520,7 @@ const PropertyManagementPage: React.FC = () => {
 
   const handleUpdateUnit = async (unitData: {
     name: string;
+    status?: UnitLifecycleStatus;
     bedrooms: string;
     bathrooms: string;
     squareFeet: string;
@@ -524,6 +544,7 @@ const PropertyManagementPage: React.FC = () => {
 
       const unitPayload = {
         name: unitData.name.trim(),
+        status: unitData.status ?? 'MANAGED',
         bedrooms: unitData.bedrooms ? parseFloat(unitData.bedrooms) : undefined,
         bathrooms: unitData.bathrooms ? parseFloat(unitData.bathrooms) : undefined,
         squareFeet: unitData.squareFeet ? parseInt(unitData.squareFeet) : undefined,
@@ -769,7 +790,7 @@ const PropertyManagementPage: React.FC = () => {
                   </div>
                   <div className="flex items-center justify-between text-base text-gray-300">
                     <span className="font-medium">
-                      {property.units?.length ?? property.unitCount ?? 0} units
+                      {property.units ? getDoorCount(property.units) : (property.unitCount ?? 0)} units
                     </span>
                     <span>{property.propertyType ?? 'Property'}</span>
                   </div>
@@ -831,7 +852,7 @@ const PropertyManagementPage: React.FC = () => {
                   {selectedProperty.marketingProfile?.availabilityStatus ?? 'Unknown'}
                 </Chip>
                 <Chip color="success" variant="flat">
-                  {marketingProfile?.unitCount ?? units.length} units
+                  {units.length ? getDoorCount(units) : (marketingProfile?.unitCount ?? 0)} units
                 </Chip>
               </div>
             </CardHeader>
@@ -1365,6 +1386,7 @@ const PropertyManagementPage: React.FC = () => {
           bathrooms: editingUnit.bathrooms,
           squareFeet: editingUnit.squareFeet,
           rent: editingUnit.rent,
+          status: normalizeUnitStatus(editingUnit.status),
           hasParking: editingUnit.hasParking,
           hasLaundry: editingUnit.hasLaundry,
           hasBalcony: editingUnit.hasBalcony,

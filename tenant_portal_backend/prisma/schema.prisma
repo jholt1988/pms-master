@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DIRECT_URL")
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
 // --- Multi-tenant foundation (PM company / landlord account) ---
@@ -154,6 +155,9 @@ model Property {
   tags                 String[]                  @default([])
   yearBuilt            Int?
   createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  organizationId       String                    @db.Uuid
+  organization         Organization              @relation(fields: [organizationId], references: [id])
   units                Unit[]
   rentalApplications   RentalApplication[]
   expenses             Expense[]
@@ -183,6 +187,8 @@ model Property {
   @@index([bedrooms])
   @@index([bathrooms])
   @@index([minRent])
+  @@index([organizationId])
+  approvalTasks ApprovalTask[]
 }
 
 model PropertyMarketingProfile {
@@ -256,6 +262,7 @@ model SavedPropertyFilter {
 model Unit {
   id                 String               @id @default(uuid()) @db.Uuid
   name               String // e.g., "Apt 101"
+  status             UnitStatus           @default(MANAGED)
   property           Property             @relation(fields: [propertyId], references: [id])
   propertyId         String               @db.Uuid
   lease              Lease?
@@ -286,6 +293,12 @@ model Unit {
   rentRecommendations RentRecommendation[]
 
   approvalTasks ApprovalTask[]
+}
+
+enum UnitStatus {
+  ACTIVE
+  MANAGED
+  ARCHIVED
 }
 
 enum PropertyAvailabilityStatus {

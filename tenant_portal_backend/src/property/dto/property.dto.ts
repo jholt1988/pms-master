@@ -15,7 +15,7 @@ import {
   IsIn,
 } from 'class-validator';
 import { Type, Transform, TransformFnParams } from 'class-transformer';
-import { PropertyAvailabilityStatus } from '@prisma/client';
+import { PropertyAvailabilityStatus, UnitStatus } from '@prisma/client';
 
 const transformCsvToArray = ({ value }: TransformFnParams) => {
   if (value === undefined || value === null || value === '') {
@@ -46,9 +46,6 @@ const transformToNumber = ({ value }: TransformFnParams) => {
 };
 
 export class CreatePropertyDto {
-  @IsString()
-  @IsNotEmpty()
-  organizationId: string;
   @IsString()
   @IsNotEmpty()
   @MinLength(1)
@@ -129,6 +126,53 @@ export class CreateUnitDto {
   @IsNotEmpty()
   @MinLength(1)
   name: string;
+
+  @IsOptional()
+  @IsString()
+  unitNumber?: string;
+
+  @IsOptional()
+  @IsEnum(UnitStatus)
+  status?: UnitStatus;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  bedrooms?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  bathrooms?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  squareFeet?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  hasParking?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  hasLaundry?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  hasBalcony?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  hasAC?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isFurnished?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  petsAllowed?: boolean;
 }
 
 export class UpdateUnitDto {
@@ -140,6 +184,10 @@ export class UpdateUnitDto {
   @IsOptional()
   @IsString()
   unitNumber?: string;
+
+  @IsOptional()
+  @IsEnum(UnitStatus)
+  status?: UnitStatus;
 
   @IsOptional()
   @Type(() => Number)

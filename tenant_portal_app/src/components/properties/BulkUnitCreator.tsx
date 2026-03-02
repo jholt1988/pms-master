@@ -10,12 +10,14 @@ import {
   Card,
   CardBody,
   Chip,
-  Checkbox,
+  Select,
+  SelectItem,
 } from '@nextui-org/react';
 import { Plus, X, Trash2 } from 'lucide-react';
 
 interface UnitFormData {
   name: string;
+  status: 'ACTIVE' | 'MANAGED' | 'ARCHIVED';
   bedrooms: string;
   bathrooms: string;
   squareFeet: string;
@@ -67,6 +69,7 @@ export const BulkUnitCreator: React.FC<BulkUnitCreatorProps> = ({
   const [units, setUnits] = useState<UnitFormData[]>([
     {
       name: '',
+      status: 'MANAGED',
       bedrooms: '',
       bathrooms: '',
       squareFeet: '',
@@ -88,6 +91,7 @@ export const BulkUnitCreator: React.FC<BulkUnitCreatorProps> = ({
       ...units,
       {
         name: '',
+        status: 'MANAGED',
         bedrooms: '',
         bathrooms: '',
         squareFeet: '',
@@ -131,6 +135,7 @@ export const BulkUnitCreator: React.FC<BulkUnitCreatorProps> = ({
       const name = `${bulkPattern.prefix}${number}${bulkPattern.suffix}`;
       newUnits.push({
         name,
+        status: 'MANAGED',
         bedrooms: '',
         bathrooms: '',
         squareFeet: '',
@@ -251,7 +256,7 @@ export const BulkUnitCreator: React.FC<BulkUnitCreatorProps> = ({
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                     <Input
                       size="md"
                       value={unit.name}
@@ -273,6 +278,18 @@ export const BulkUnitCreator: React.FC<BulkUnitCreatorProps> = ({
                         input: "text-white",
                       }}
                     />
+                    <Select
+                      label="Status"
+                      selectedKeys={[unit.status]}
+                      onSelectionChange={(keys) => {
+                        const selected = Array.from(keys)[0] as 'ACTIVE' | 'MANAGED' | 'ARCHIVED' | undefined;
+                        updateUnit(index, 'status', selected ?? 'MANAGED');
+                      }}
+                    >
+                      <SelectItem key="ACTIVE" value="ACTIVE">Active</SelectItem>
+                      <SelectItem key="MANAGED" value="MANAGED">Managed</SelectItem>
+                      <SelectItem key="ARCHIVED" value="ARCHIVED">Archived</SelectItem>
+                    </Select>
                   </div>
 
                   <div className="grid grid-cols-3 gap-4">

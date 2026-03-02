@@ -108,7 +108,7 @@ export class MaintenanceMonitoringService {
    * Escalate a maintenance request
    */
   private async escalateRequest(
-    requestId: number,
+    requestId: string,
     prediction: {
       probability: number;
       riskLevel: string;
