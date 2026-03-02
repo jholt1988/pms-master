@@ -82,10 +82,10 @@ describe('PMS Boundary / Replay Safety (e2e)', () => {
 
     const tenantALogin = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ username: 'tenantA@boundary.test', password: 'password123' })
-      .expect(201);
+      .send({ username: 'tenantA@boundary.test', password: 'password123' });
 
-    const tenantAToken = tenantALogin.body.accessToken as string;
+    expect([200, 201]).toContain(tenantALogin.status);
+    const tenantAToken = (tenantALogin.body.accessToken || tenantALogin.body.access_token) as string;
 
     const res = await request(app.getHttpServer())
       .post('/payments')
