@@ -98,6 +98,28 @@ export class BillingController {
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles(Role.TENANT, Role.PROPERTY_MANAGER)
+  @Get('autopay/needs-auth-attempts')
+  async listNeedsAuthAttempts(@Req() req: AuthenticatedRequest) {
+    if (req.user.role === Role.TENANT) {
+      return this.billingService.listNeedsAuthAttemptsForTenant(req.user.userId);
+    }
+    throw new BadRequestException('Property manager view not implemented for this endpoint');
+  }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles(Role.TENANT, Role.PROPERTY_MANAGER)
+  @Post('autopay/needs-auth-attempts/:attemptId/recover')
+  async recoverNeedsAuthAttempt(@Param('attemptId') attemptId: string, @Req() req: AuthenticatedRequest) {
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.billingService.recoverNeedsAuthAttempt(
+      { userId: req.user.userId, username: req.user.username, role: req.user.role },
+      attemptId,
+      orgId,
+    );
+  }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles(Role.PROPERTY_MANAGER)
   @Get('connected-account')
   async getConnectedAccount(@OrgId() orgId: string) {

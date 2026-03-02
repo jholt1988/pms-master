@@ -640,6 +640,92 @@ export class BillingService {
     return enrollment;
   }
 
+  async listNeedsAuthAttemptsForTenant(userId: string) {
+    const lease = await this.prisma.lease.findUnique({
+      where: { tenantId: userId },
+      select: { id: true },
+    });
+    if (!lease) throw new NotFoundException('Lease not found for tenant');
+
+    return this.prisma.paymentAttempt.findMany({
+      where: {
+        autopayEnrollment: { leaseId: lease.id },
+        status: 'NEEDS_AUTH',
+      },
+      include: {
+        invoice: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+  }
+
+  async recoverNeedsAuthAttempt(
+    actor: { userId: string; username: string; role: Role },
+    attemptId: string,
+    orgId?: string,
+  ) {
+    const attempt = await this.prisma.paymentAttempt.findUnique({
+      where: { id: attemptId },
+      include: {
+        autopayEnrollment: {
+          include: {
+            lease: {
+              include: { tenant: true, unit: { include: { property: true } } },
+            },
+          },
+        },
+        invoice: true,
+      },
+    });
+
+    if (!attempt) throw new NotFoundException('Payment attempt not found');
+    const lease = attempt.autopayEnrollment.lease;
+
+    if (actor.role === Role.TENANT && lease.tenantId !== actor.userId) {
+      throw new BadRequestException('You can only recover your own payment attempt');
+    }
+    if (actor.role === Role.PROPERTY_MANAGER && orgId && lease.unit?.property?.organizationId !== orgId) {
+      throw new BadRequestException('Attempt does not belong to your organization');
+    }
+
+    if (attempt.status !== 'NEEDS_AUTH') {
+      return attempt;
+    }
+
+    await this.prisma.paymentAttempt.update({
+      where: { id: attempt.id },
+      data: { status: 'ATTEMPTING', attemptedAt: new Date() },
+    });
+
+    try {
+      const payment = await this.paymentsService.recordPaymentForInvoice({
+        invoiceId: attempt.invoiceId,
+        amount: attempt.invoice.amount,
+        leaseId: lease.id,
+        userId: lease.tenantId,
+        paymentMethodId: attempt.autopayEnrollment.paymentMethodId,
+        initiatedBy: 'TENANT_RECOVERY',
+      });
+
+      return this.prisma.paymentAttempt.update({
+        where: { id: attempt.id },
+        data: {
+          status: 'SUCCEEDED',
+          externalAttemptId: payment.externalId ?? undefined,
+          completedAt: new Date(),
+          failureReason: null,
+        },
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      return this.prisma.paymentAttempt.update({
+        where: { id: attempt.id },
+        data: { status: 'FAILED', failureReason: reason, completedAt: new Date() },
+      });
+    }
+  }
+
   async disableAutopay(
     actor: { userId: string; username: string; role: Role },
     leaseId: string | number,
