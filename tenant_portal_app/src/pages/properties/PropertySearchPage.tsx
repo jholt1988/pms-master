@@ -383,17 +383,23 @@ export const PropertySearchPage: React.FC = () => {
 
     if (error) {
       return (
-        <div className="text-center py-10 text-danger font-medium">
-          {error}
-        </div>
+        <Card className="border border-danger-200 bg-danger-50">
+          <CardBody className="py-6 text-center">
+            <p className="text-danger-700 font-medium">{error}</p>
+            <p className="text-danger-600 text-sm mt-1">Please adjust filters or try again.</p>
+          </CardBody>
+        </Card>
       );
     }
 
     if (!results || results.items.length === 0) {
       return (
-        <div className="text-center py-12 text-default-500">
-          No properties matched your filters. Try broadening your search.
-        </div>
+        <Card className="border border-default-200 bg-default-50">
+          <CardBody className="py-6 text-center">
+            <p className="text-default-700 font-medium">No properties matched your filters.</p>
+            <p className="text-default-500 text-sm mt-1">Try broadening your search criteria.</p>
+          </CardBody>
+        </Card>
       );
     }
 

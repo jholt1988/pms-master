@@ -13,6 +13,7 @@ import { SecurityEventsService } from '../security-events/security-events.servic
 import { AddRentalApplicationNoteDto } from './dto/add-note.dto';
 import { ApplicationLifecycleService, ApplicationLifecycleEventType } from './application-lifecycle.service';
 import { RentalApplicationAiService } from './rental-application.ai.service';
+import { AuditLogService } from '../shared/audit-log.service';
 
 @Injectable()
 export class RentalApplicationService {
@@ -21,6 +22,7 @@ export class RentalApplicationService {
     private readonly securityEvents: SecurityEventsService,
     private readonly lifecycleService: ApplicationLifecycleService,
     private readonly aiService: RentalApplicationAiService,
+    private readonly auditLogService: AuditLogService,
   ) {}
   
   async submitApplication(data: SubmitApplicationDto, applicantId?: string) {
@@ -109,6 +111,20 @@ export class RentalApplicationService {
         privacyVersion: application.privacyVersion,
         termsAcceptedAt: application.termsAcceptedAt,
         privacyAcceptedAt: application.privacyAcceptedAt,
+      },
+    });
+
+    await this.auditLogService.record({
+      orgId: undefined,
+      actorId: applicantId ?? null,
+      module: 'rental-application',
+      action: 'SUBMIT',
+      entityType: 'rentalApplication',
+      entityId: application.id,
+      result: 'SUCCESS',
+      metadata: {
+        propertyId: application.propertyId,
+        unitId: application.unitId,
       },
     });
 
@@ -203,7 +219,7 @@ export class RentalApplicationService {
     }
 
     // Return updated application
-    return this.prisma.rentalApplication.findUnique({
+    const updated = await this.prisma.rentalApplication.findUnique({
       where: { id },
       include: {
         applicant: true,
@@ -212,6 +228,22 @@ export class RentalApplicationService {
         manualNotes: { include: { author: true }, orderBy: { createdAt: 'desc' } },
       },
     });
+
+    await this.auditLogService.record({
+      orgId,
+      actorId: actor?.userId,
+      module: 'rental-application',
+      action: 'STATUS_UPDATE',
+      entityType: 'rentalApplication',
+      entityId: id,
+      result: 'SUCCESS',
+      metadata: {
+        fromStatus: application.status,
+        toStatus: status,
+      },
+    });
+
+    return updated;
   }
 
   async screenApplication(
@@ -303,6 +335,21 @@ export class RentalApplicationService {
         income: application.income,
         rentAmount,
         creditScore: application.creditScore,
+      },
+    });
+
+    await this.auditLogService.record({
+      orgId,
+      actorId: actor.userId,
+      module: 'rental-application',
+      action: 'SCREEN',
+      entityType: 'rentalApplication',
+      entityId: id,
+      result: 'SUCCESS',
+      metadata: {
+        score: evaluation.score,
+        recommendation: evaluation.recommendation,
+        qualificationStatus: evaluation.qualificationStatus,
       },
     });
 
@@ -428,6 +475,17 @@ export class RentalApplicationService {
       userId: actor.userId,
       username: actor.username,
       metadata: { applicationId },
+    });
+
+    await this.auditLogService.record({
+      orgId,
+      actorId: actor.userId,
+      module: 'rental-application',
+      action: 'ADD_NOTE',
+      entityType: 'rentalApplication',
+      entityId: applicationId,
+      result: 'SUCCESS',
+      metadata: { noteId: note.id },
     });
 
     return note;
@@ -597,6 +655,19 @@ export class RentalApplicationService {
     }
 
     const review = await this.aiService.getAiReview(String(application.id));
+
+    await this.auditLogService.record({
+      orgId,
+      actorId: null,
+      module: 'rental-application',
+      action: 'AI_REVIEW',
+      entityType: 'rentalApplication',
+      entityId: applicationId,
+      result: 'SUCCESS',
+      metadata: {
+        recommendation: review.recommendation,
+      },
+    });
 
     // --- Blocked by database migration ---
     // Once the migration is complete, uncomment this section to persist the review.

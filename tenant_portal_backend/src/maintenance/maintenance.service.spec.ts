@@ -4,7 +4,7 @@ import { AIMaintenanceService } from './ai-maintenance.service';
 import { SystemUserService } from '../shared/system-user.service';
 import { AIMaintenanceMetricsService } from './ai-maintenance-metrics.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { MaintenancePriority, Status, Role } from '@prisma/client';
+import { MaintenancePriority, Status, Role, OrgRole } from '@prisma/client';
 import { CreateMaintenanceRequestDto } from './dto/create-maintenance-request.dto';
 import { AssignTechnicianDto } from './dto/assign-technician.dto';
 
@@ -237,6 +237,34 @@ describe('MaintenanceService - Metrics Integration', () => {
 
       expect(mockAIMetrics.recordMetric).not.toHaveBeenCalled();
       expect(mockAIMaintenanceService.assignTechnician).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('scoped owner boundaries', () => {
+    it('blocks OWNER org role from status changes with explicit message', async () => {
+      await expect(
+        service.updateStatusScoped(
+          123,
+          { status: Status.IN_PROGRESS },
+          'owner-user-id',
+          Role.PROPERTY_MANAGER,
+          'org-1',
+          OrgRole.OWNER,
+        ),
+      ).rejects.toThrow('Owners are read-only for maintenance status changes');
+    });
+
+    it('blocks OWNER org role from technician assignment with explicit message', async () => {
+      await expect(
+        service.assignTechnicianScoped(
+          123,
+          { technicianId: 42 },
+          'owner-user-id',
+          Role.PROPERTY_MANAGER,
+          'org-1',
+          OrgRole.OWNER,
+        ),
+      ).rejects.toThrow('Owners are read-only for technician assignment');
     });
   });
 
