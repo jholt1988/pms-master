@@ -604,7 +604,7 @@ export class MaintenanceService {
     if (!technicianId) {
       try {
         const startTime = Date.now();
-        const aiMatch = await this.aiMaintenanceService.assignTechnician(existing);
+        const aiMatch = await this.aiMaintenanceService.assignTechnician(existing, orgId);
         const responseTime = Date.now() - startTime;
 
         if (aiMatch) {
@@ -983,15 +983,21 @@ export class MaintenanceService {
     return this.findById(numericRequestId);
   }
 
-  async listTechnicians(): Promise<Technician[]> {
+  async listTechnicians(orgId?: string): Promise<Technician[]> {
     return this.prisma.technician.findMany({
-      where: { active: true },
+      where: {
+        active: true,
+        ...(orgId ? { organizationId: orgId } : {}),
+      },
       orderBy: { name: 'asc' },
     });
   }
 
-  async createTechnician(data: { name: string; phone?: string; email?: string; userId?: string; role?: string }): Promise<Technician> {
+  async createTechnician(data: { name: string; phone?: string; email?: string; userId?: string; role?: string }, orgId?: string): Promise<Technician> {
     const role = this.parseTechnicianRole(data.role);
+    if (!orgId) {
+      throw new BadRequestException('Organization context is required');
+    }
     return this.prisma.technician.create({
       data: {
         name: data.name,
@@ -999,17 +1005,21 @@ export class MaintenanceService {
         email: data.email,
         user: data.userId ? { connect: { id: data.userId } } : undefined,
         role,
+        organization: { connect: { id: orgId } },
       },
     });
   }
 
-  async listAssets(propertyId?: string, unitId?: number): Promise<MaintenanceAsset[]> {
+  async listAssets(propertyId?: string, unitId?: number, orgId?: string): Promise<MaintenanceAsset[]> {
     const where: Prisma.MaintenanceAssetWhereInput = {};
     if (propertyId !== undefined) {
       where.propertyId = propertyId;
     }
     if (unitId !== undefined) {
       where.unitId = unitId;
+    }
+    if (orgId) {
+      where.property = { organizationId: orgId };
     }
 
     return this.prisma.maintenanceAsset.findMany({
@@ -1027,9 +1037,19 @@ export class MaintenanceService {
     model?: string;
     serialNumber?: string;
     installDate?: Date | string;
-  }): Promise<MaintenanceAsset> {
+  }, orgId?: string): Promise<MaintenanceAsset> {
     const category = this.parseAssetCategory(data.category);
     const installDate = this.parseOptionalDate(data.installDate, 'installDate');
+
+    if (orgId) {
+      const property = await this.prisma.property.findFirst({
+        where: { id: data.propertyId, organizationId: orgId },
+        select: { id: true },
+      });
+      if (!property) {
+        throw new BadRequestException('Property not found');
+      }
+    }
 
     return this.prisma.maintenanceAsset.create({
       data: {
@@ -1045,7 +1065,7 @@ export class MaintenanceService {
     });
   }
 
-  async getSlaPolicies(propertyId?: string): Promise<MaintenanceSlaPolicy[]> {
+  async getSlaPolicies(propertyId?: string, orgId?: string): Promise<MaintenanceSlaPolicy[]> {
     const where: Prisma.MaintenanceSlaPolicyWhereInput = {
       active: true,
     };
@@ -1053,6 +1073,16 @@ export class MaintenanceService {
       where.OR = [{ propertyId }, { propertyId: null }];
     } else {
       where.propertyId = null;
+    }
+
+    if (orgId && propertyId) {
+      const property = await this.prisma.property.findFirst({
+        where: { id: propertyId, organizationId: orgId },
+        select: { id: true },
+      });
+      if (!property) {
+        throw new BadRequestException('Property not found');
+      }
     }
 
     if (!this.prisma.maintenanceSlaPolicy?.findMany) {

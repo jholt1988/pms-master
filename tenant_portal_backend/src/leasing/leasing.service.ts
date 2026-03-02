@@ -133,19 +133,36 @@ export class LeasingService {
     limit?: number;
     offset?: number;
     page?: number;
+    orgId?: string;
   }) {
     const where: Prisma.LeadWhereInput = {};
+
+    if (filters?.orgId) {
+      where.OR = [
+        { propertyInquiries: { some: { property: { organizationId: filters.orgId } } } },
+        { tours: { some: { property: { organizationId: filters.orgId } } } },
+        { applications: { some: { property: { organizationId: filters.orgId } } } },
+      ];
+    }
 
     if (filters?.status) {
       where.status = filters.status;
     }
 
     if (filters?.search) {
-      where.OR = [
-        { name: { contains: filters.search, mode: 'insensitive' } },
-        { email: { contains: filters.search, mode: 'insensitive' } },
-        { phone: { contains: filters.search, mode: 'insensitive' } },
-      ];
+      const searchClause: Prisma.LeadWhereInput = {
+        OR: [
+          { name: { contains: filters.search, mode: 'insensitive' } },
+          { email: { contains: filters.search, mode: 'insensitive' } },
+          { phone: { contains: filters.search, mode: 'insensitive' } },
+        ],
+      };
+
+      if (where.OR && Array.isArray(where.OR)) {
+        where.AND = [...(where.AND ?? []), searchClause];
+      } else {
+        Object.assign(where, searchClause);
+      }
     }
 
     if (filters?.dateFrom || filters?.dateTo) {
@@ -213,7 +230,10 @@ export class LeasingService {
   /**
    * Get conversation history
    */
-  async getConversationHistory(leadId: string): Promise<LeadMessage[]> {
+  async getConversationHistory(leadId: string, orgId?: string): Promise<LeadMessage[]> {
+    if (orgId) {
+      await this.assertLeadInOrg(leadId, orgId);
+    }
     return this.prisma.leadMessage.findMany({
       where: { leadId },
       orderBy: { createdAt: 'asc' },
@@ -307,8 +327,8 @@ export class LeasingService {
     unitId?: string | number,
     interest: InterestLevel = InterestLevel.MEDIUM,
   ): Promise<PropertyInquiry> {
-    const normalizedPropertyId = this.parseNumericId(propertyId, 'property');
-    const normalizedUnitId = unitId ? this.parseNumericId(unitId, 'unit') : undefined;
+    const normalizedPropertyId = String(propertyId);
+    const normalizedUnitId = unitId ? String(unitId) : undefined;
     return this.prisma.propertyInquiry.create({
       data: {
         leadId,
@@ -322,7 +342,10 @@ export class LeasingService {
   /**
    * Update lead status
    */
-  async updateLeadStatus(leadId: string, status: LeadStatus): Promise<Lead> {
+  async updateLeadStatus(leadId: string, status: LeadStatus, orgId?: string): Promise<Lead> {
+    if (orgId) {
+      await this.assertLeadInOrg(leadId, orgId);
+    }
     const updates: any = { status };
 
     if (status === LeadStatus.CONVERTED) {
@@ -338,8 +361,16 @@ export class LeasingService {
   /**
    * Get lead statistics
    */
-  async getLeadStatistics(dateFrom?: Date, dateTo?: Date) {
+  async getLeadStatistics(dateFrom?: Date, dateTo?: Date, orgId?: string) {
     const where: Prisma.LeadWhereInput = {};
+
+    if (orgId) {
+      where.OR = [
+        { propertyInquiries: { some: { property: { organizationId: orgId } } } },
+        { tours: { some: { property: { organizationId: orgId } } } },
+        { applications: { some: { property: { organizationId: orgId } } } },
+      ];
+    }
 
     if (dateFrom || dateTo) {
       where.createdAt = {};
@@ -377,6 +408,24 @@ export class LeasingService {
   /**
    * Helper to get unit amenities
    */
+  private async assertLeadInOrg(leadId: string, orgId: string) {
+    const lead = await this.prisma.lead.findFirst({
+      where: {
+        id: leadId,
+        OR: [
+          { propertyInquiries: { some: { property: { organizationId: orgId } } } },
+          { tours: { some: { property: { organizationId: orgId } } } },
+          { applications: { some: { property: { organizationId: orgId } } } },
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (!lead) {
+      throw new BadRequestException('Lead not found');
+    }
+  }
+
   private getUnitAmenities(unit: any, property: any): string[] {
     const amenities: string[] = [];
 
@@ -397,6 +446,6 @@ export class LeasingService {
     if (typeof value !== 'string' || !isUUID(value)) {
       throw new BadRequestException(`Invalid ${field} id: ${value}`);
     }
-    return value;
-  }
+    return String(value);
+  
 }

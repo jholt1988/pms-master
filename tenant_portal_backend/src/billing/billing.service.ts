@@ -164,8 +164,9 @@ export class BillingService {
     return { generated: 1 };
   }
 
-  async listSchedules() {
+  async listSchedules(orgId: string) {
     return this.prisma.recurringInvoiceSchedule.findMany({
+      where: { lease: { unit: { property: { organizationId: orgId } } } },
       include: {
         lease: {
           include: {
@@ -181,10 +182,11 @@ export class BillingService {
   async upsertSchedule(
     actor: { userId: string; username: string; role: Role },
     dto: UpsertScheduleDto,
+    orgId: string,
   ) {
     const leaseId = this.parseLeaseId(dto.leaseId);
-    const lease = await this.prisma.lease.findUnique({
-      where: { id: leaseId },
+    const lease = await this.prisma.lease.findFirst({
+      where: { id: leaseId, unit: { property: { organizationId: orgId } } },
       include: { tenant: true, unit: true },
     });
 
@@ -256,10 +258,20 @@ export class BillingService {
     return schedule;
   }
 
-  async deactivateSchedule(actor: { userId: string; username: string; role: Role }, leaseId: string) {
-    const normalizedLeaseId = this.parseLeaseId(leaseId);
+  async deactivateSchedule(actor: { userId: string; username: string; role: Role }, leaseId: string | number, orgId: string) {
+    const leaseIdStr = typeof leaseId === 'number' ? leaseId.toString() : leaseId;
+
+    const lease = await this.prisma.lease.findFirst({
+      where: { id: leaseIdStr, unit: { property: { organizationId: orgId } } },
+      select: { id: true },
+    });
+
+    if (!lease) {
+      throw new NotFoundException('Lease not found');
+    }
+
     await this.prisma.recurringInvoiceSchedule.updateMany({
-      where: { leaseId: normalizedLeaseId },
+      where: { leaseId: leaseIdStr },
       data: { active: false },
     });
 
@@ -268,10 +280,10 @@ export class BillingService {
       success: true,
       userId: actor.userId,
       username: actor.username,
-      metadata: { leaseId: normalizedLeaseId, action: 'DEACTIVATE_SCHEDULE' },
+      metadata: { leaseId: leaseIdNum, action: 'DEACTIVATE_SCHEDULE' },
     });
 
-    return { leaseId: normalizedLeaseId, active: false };
+    return { leaseId: leaseIdNum, active: false };
   }
 
   async getAutopayForTenant(userId: string) {
@@ -294,10 +306,13 @@ export class BillingService {
     };
   }
 
-  async getAutopayForLease(leaseId: string) {
-    const normalizedLeaseId = this.parseLeaseId(leaseId);
-    const lease = await this.prisma.lease.findUnique({
-      where: { id: normalizedLeaseId },
+  async getAutopayForLease(leaseId: string | number, orgId?: string) {
+    const leaseIdNum = this.parseLeaseId(leaseId);
+    const lease = await this.prisma.lease.findFirst({
+      where: {
+        id: leaseIdNum,
+        ...(orgId ? { unit: { property: { organizationId: orgId } } } : {}),
+      },
       include: {
         autopayEnrollment: {
           include: { paymentMethod: true },
@@ -317,11 +332,17 @@ export class BillingService {
   async configureAutopay(
     actor: { userId: string; username: string; role: Role },
     dto: ConfigureAutopayDto,
+    orgId?: string,
   ) {
     const leaseId = this.parseLeaseId(dto.leaseId);
-    const lease = await this.prisma.lease.findUnique({
-      where: { id: leaseId },
-      include: { tenant: true },
+    const lease = await this.prisma.lease.findFirst({
+      where: {
+        id: leaseId,
+        ...(actor.role === Role.PROPERTY_MANAGER && orgId
+          ? { unit: { property: { organizationId: orgId } } }
+          : {}),
+      },
+      include: { tenant: true, unit: { include: { property: true } } },
     });
 
     if (!lease) {
@@ -381,11 +402,18 @@ export class BillingService {
 
   async disableAutopay(
     actor: { userId: string; username: string; role: Role },
-    leaseId: string,
+    leaseId: string | number,
+    orgId?: string,
   ) {
-    const normalizedLeaseId = this.parseLeaseId(leaseId);
-    const lease = await this.prisma.lease.findUnique({
-      where: { id: normalizedLeaseId },
+    const leaseIdNum = this.parseLeaseId(leaseId);
+    const lease = await this.prisma.lease.findFirst({
+      where: {
+        id: leaseIdNum,
+        ...(actor.role === Role.PROPERTY_MANAGER && orgId
+          ? { unit: { property: { organizationId: orgId } } }
+          : {}),
+      },
+      include: { tenant: true },
     });
 
     if (!lease) {
@@ -397,7 +425,7 @@ export class BillingService {
     }
 
     const result = await this.prisma.autopayEnrollment.updateMany({
-      where: { leaseId: normalizedLeaseId },
+      where: { leaseId: leaseIdNum },
       data: { active: false },
     });
 
@@ -407,11 +435,11 @@ export class BillingService {
         success: true,
         userId: actor.userId,
         username: actor.username,
-        metadata: { leaseId: normalizedLeaseId },
+        metadata: { leaseId: leaseIdNum },
       });
     }
 
-    return { leaseId: normalizedLeaseId, active: false };
+    return { leaseId: leaseIdNum, active: false };
   }
 
   private computeInitialRun(dto: UpsertScheduleDto, leaseStart: Date): Date {

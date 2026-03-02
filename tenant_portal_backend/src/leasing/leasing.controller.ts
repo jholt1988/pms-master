@@ -19,6 +19,8 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { LeasingService } from './leasing.service';
 import { LeadStatus } from '@prisma/client';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
+import { OrgId } from '../common/org-context/org-id.decorator';
 
 @Controller(['api/leasing', 'leasing'])
 export class LeasingController {
@@ -87,7 +89,7 @@ export class LeasingController {
    * Get all leads with filtering
    * GET /leasing/leads?status=NEW&search=john&limit=20&offset=0
    */
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), OrgContextGuard)
   @Get('leads')
   async getLeads(
     @Query('status') status?: string,
@@ -97,6 +99,7 @@ export class LeasingController {
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
     @Query('page') page?: string,
+    @OrgId() orgId?: string,
   ) {
     try {
       const filters: any = {};
@@ -124,7 +127,7 @@ export class LeasingController {
         filters.page = parsedPage;
       }
 
-      const result = await this.leasingService.getLeads(filters);
+      const result = await this.leasingService.getLeads({ ...filters, orgId });
       return {
         success: true,
         ...result,
@@ -260,11 +263,12 @@ export class LeasingController {
    * Update lead status
    * PATCH /leasing/leads/:id/status
    */
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), OrgContextGuard)
   @Patch('leads/:id/status')
   async updateStatus(
     @Param('id') leadId: string,
     @Body() body: { status: string },
+    @OrgId() orgId?: string,
   ) {
     try {
       const { status } = body;
@@ -277,7 +281,7 @@ export class LeasingController {
         throw new HttpException('Invalid status value', HttpStatus.BAD_REQUEST);
       }
 
-      const lead = await this.leasingService.updateLeadStatus(leadId, status as any);
+      const lead = await this.leasingService.updateLeadStatus(leadId, status as any, orgId);
 
       return lead;
     } catch (error) {
@@ -289,13 +293,14 @@ export class LeasingController {
    * Get leasing statistics
    * GET /leasing/statistics
    */
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), OrgContextGuard)
   @Get('statistics')
   async getStatistics(
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo') dateTo?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @OrgId() orgId?: string,
   ) {
     try {
       const from = dateFrom || startDate;
@@ -304,6 +309,7 @@ export class LeasingController {
       const stats = await this.leasingService.getLeadStatistics(
         from ? new Date(from) : undefined,
         to ? new Date(to) : undefined,
+        orgId,
       );
 
       return stats;

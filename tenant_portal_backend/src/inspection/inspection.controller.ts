@@ -19,6 +19,8 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
+import { OrgId } from '../common/org-context/org-id.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '@prisma/client';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -39,7 +41,7 @@ import {
 
 // Blessed inspections API surface (v2). Served under /api/inspections via global prefix.
 @Controller('inspections')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 export class InspectionController {
   constructor(
     private readonly inspectionService: InspectionService,
@@ -54,8 +56,9 @@ export class InspectionController {
   async createInspection(
     @Body() dto: CreateInspectionDto,
     @Request() req: any,
+    @OrgId() orgId: string,
   ) {
-    return this.inspectionService.createInspection(dto, req.user.userId);
+    return this.inspectionService.createInspection(dto, req.user.userId, orgId);
   }
 
   @Post('with-rooms')
@@ -64,8 +67,9 @@ export class InspectionController {
   async createInspectionWithRooms(
     @Body() dto: CreateInspectionWithRoomsDto,
     @Request() req: any,
+    @OrgId() orgId: string,
   ) {
-    return this.inspectionService.createInspectionWithRooms(dto, req.user.userId);
+    return this.inspectionService.createInspectionWithRooms(dto, req.user.userId, orgId);
   }
 
   @Get()
@@ -73,7 +77,8 @@ export class InspectionController {
   async getInspections(@Query() query: InspectionQueryDto, @Request() req: any) {
     // Back-compat: some clients expect `{ data: [...] }`, others expect `{ inspections, total, ... }`.
     // Return both shapes until we finish contract normalization.
-    const result = await this.inspectionService.getInspections(query, req.user);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    const result = await this.inspectionService.getInspections(query, req.user, orgId);
     return {
       ...result,
       data: result.inspections,
@@ -88,16 +93,18 @@ export class InspectionController {
   }
 
   @Get('stats')
-  async getInspectionStats(@Query('propertyId') propertyId?: string) {
+  async getInspectionStats(@Query('propertyId') propertyId?: string, @OrgId() orgId?: string) {
     return this.inspectionService.getInspectionStats(
       propertyId ? this.ensureUuid(propertyId, 'propertyId') : undefined,
+      orgId,
     );
   }
 
   @Get(':id')
   @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
   async getInspection(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
-    return this.inspectionService.getInspectionById(id, req.user);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.inspectionService.getInspectionById(id, req.user, orgId);
   }
 
   @Patch(':id')
@@ -105,15 +112,16 @@ export class InspectionController {
   async updateInspection(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateInspectionDto,
+    @OrgId() orgId: string,
   ) {
-    return this.inspectionService.updateInspection(id, dto);
+    return this.inspectionService.updateInspection(id, dto, orgId);
   }
 
   @Post(':id/complete')
   @Roles(Role.PROPERTY_MANAGER)
   @HttpCode(HttpStatus.OK)
-  async completeInspection(@Param('id', ParseIntPipe) id: number) {
-    return this.inspectionService.completeInspection(id);
+  async completeInspection(@Param('id', ParseIntPipe) id: number, @OrgId() orgId: string) {
+    return this.inspectionService.completeInspection(id, orgId);
   }
 
   @Patch(':id/status')
@@ -124,14 +132,15 @@ export class InspectionController {
     @Body() dto: UpdateInspectionStatusDto,
     @Request() req: any,
   ) {
-    return this.inspectionService.setInspectionStatus(id, dto.status, req.user);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.inspectionService.setInspectionStatus(id, dto.status, req.user, orgId);
   }
 
   @Delete(':id')
   @Roles(Role.PROPERTY_MANAGER)
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteInspection(@Param('id', ParseIntPipe) id: number) {
-    await this.inspectionService.deleteInspection(id);
+  async deleteInspection(@Param('id', ParseIntPipe) id: number, @OrgId() orgId: string) {
+    await this.inspectionService.deleteInspection(id, orgId);
   }
 
   // Room operations
@@ -142,8 +151,9 @@ export class InspectionController {
   async createRoom(
     @Param('id', ParseIntPipe) inspectionId: number,
     @Body() dto: CreateRoomDto,
+    @OrgId() orgId: string,
   ) {
-    return this.inspectionService.createRoomWithDefaultChecklist(inspectionId, dto);
+    return this.inspectionService.createRoomWithDefaultChecklist(inspectionId, dto, orgId);
   }
 
   // Checklist item operations
@@ -153,8 +163,9 @@ export class InspectionController {
   async updateChecklistItem(
     @Param('itemId', ParseIntPipe) itemId: number,
     @Body() dto: UpdateChecklistItemDto,
+    @OrgId() orgId: string,
   ) {
-    return this.inspectionService.updateChecklistItem(itemId, dto);
+    return this.inspectionService.updateChecklistItem(itemId, dto, orgId);
   }
 
   @Patch('rooms/:roomId/items')
@@ -164,7 +175,8 @@ export class InspectionController {
     @Body() dto: UpdateRoomChecklistItemsDto,
     @Request() req: any,
   ) {
-    return this.inspectionService.updateRoomChecklistItems(roomId, dto.items ?? [], req.user);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.inspectionService.updateRoomChecklistItems(roomId, dto.items ?? [], req.user, orgId);
   }
 
   @Post('items/:itemId/photos')
@@ -175,7 +187,8 @@ export class InspectionController {
     @Body() dto: UploadPhotoDto,
     @Request() req: any,
   ) {
-    return this.inspectionService.addPhotoToChecklistItem(itemId, dto, req.user.userId);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.inspectionService.addPhotoToChecklistItem(itemId, dto, req.user.userId, orgId);
   }
 
   // File upload endpoint for photos
@@ -206,7 +219,31 @@ export class InspectionController {
       caption: caption || undefined,
     };
 
-    return this.inspectionService.addPhotoToChecklistItem(itemId, dto, req.user.userId);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.inspectionService.addPhotoToChecklistItem(itemId, dto, req.user.userId, orgId);
+  }
+
+  // Delete photo endpoint
+  @Delete('photos/:photoId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Roles(Role.PROPERTY_MANAGER)
+  async deletePhoto(
+    @Param('photoId', ParseIntPipe) photoId: number,
+    @OrgId() orgId: string,
+  ) {
+    await this.inspectionService.deletePhoto(photoId, orgId);
+  }
+
+  // AI Photo Analysis endpoint
+  @Post('items/:itemId/analyze')
+  @HttpCode(HttpStatus.OK)
+  @Roles(Role.PROPERTY_MANAGER)
+  async analyzePhotos(
+    @Param('itemId', ParseIntPipe) itemId: number,
+    @Request() req: any,
+  ) {
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.inspectionService.analyzePhotos(itemId, orgId);
   }
 
   // Signature operations
@@ -217,17 +254,19 @@ export class InspectionController {
   async addSignature(
     @Param('id', ParseIntPipe) inspectionId: number,
     @Body() dto: CreateSignatureDto,
+    @OrgId() orgId: string,
   ) {
-    return this.inspectionService.addSignature(inspectionId, dto);
+    return this.inspectionService.addSignature(inspectionId, dto, orgId);
   }
 
   // Report generation
 
   @Get(':id/report')
-  async generateReport(@Param('id', ParseIntPipe) id: number) {
+  async generateReport(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
     // This would generate a PDF report
     // For now, return inspection data in a report format
-    const inspection = await this.inspectionService.getInspectionById(id);
+    const orgId = (req as any).org?.orgId as string | undefined;
+    const inspection = await this.inspectionService.getInspectionById(id, req.user, orgId);
     
     return {
       reportId: `inspection-${id}-${Date.now()}`,
@@ -246,14 +285,16 @@ export class InspectionController {
   async generateEstimate(
     @Param('id', ParseIntPipe) inspectionId: number,
     @Request() req: any,
+    @OrgId() orgId: string,
   ) {
-    return this.estimateService.generateEstimateFromInspection(inspectionId, req.user.userId);
+    return this.estimateService.generateEstimateFromInspection(inspectionId, req.user.userId, orgId);
   }
 
   @Get(':id/estimates')
   @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
-  async getInspectionEstimates(@Param('id', ParseIntPipe) inspectionId: number) {
-    return this.estimateService.getEstimates({ inspectionId });
+  async getInspectionEstimates(@Param('id', ParseIntPipe) inspectionId: number, @Request() req: any) {
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.estimateService.getEstimates({ inspectionId, orgId });
   }
 
   private ensureUuid(value: string, field: string): string {

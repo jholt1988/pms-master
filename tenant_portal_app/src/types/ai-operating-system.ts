@@ -6,7 +6,7 @@
 export interface UserContext {
   userId: string | number;
   username: string;
-  role: 'TENANT' | 'PROPERTY_MANAGER' | 'ADMIN';
+  role: 'TENANT' | 'PROPERTY_MANAGER' | 'OWNER' | 'ADMIN';
   currentPage?: string;
   currentRoute?: string;
   leaseId?: number;

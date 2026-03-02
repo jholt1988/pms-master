@@ -5,10 +5,11 @@ import { InspectionService } from './inspection.service';
 import { EstimateService } from './estimate.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 
 @Module({
   controllers: [InspectionController, EstimateController],
-  providers: [InspectionService, EstimateService, PrismaService, EmailService],
+  providers: [InspectionService, EstimateService, PrismaService, EmailService, OrgContextGuard],
   exports: [InspectionService, EstimateService],
 })
 export class InspectionModule {}

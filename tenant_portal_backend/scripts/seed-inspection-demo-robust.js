@@ -102,7 +102,7 @@ async function main() {
   let property;
   try {
     property = await prisma.property.upsert({ where: propertyWhere, update: propertyUpdate, create: propertyCreateBase });
-  } catch (e) {
+  } catch (e) { 
     // Retry with minimal fields, but preserve required constraints (e.g., organizationId).
     const update2 = { name: propertyUpdate.name, address: propertyUpdate.address };
     const create2 = { id: propertyId, ...update2 };
@@ -140,6 +140,13 @@ async function main() {
     await prisma.lease.deleteMany({ where: { tenantId: tenant.id } });
   } catch (_) {}
   try {
+  const existingLease = await prisma.lease.findFirst({ where: { tenantId: tenant.id } });
+  if (existingLease) {
+    lease = existingLease;
+  }
+
+  if (!lease) {
+    try { 
     lease = await prisma.lease.upsert({
       where: { id: leaseId },
       update: { status: 'ACTIVE', unitId: unit.id, tenantId: tenant.id, rentAmount: 1350 },
@@ -174,6 +181,7 @@ async function main() {
         autoRenew: false,
       },
     });
+  }
   }
 
   // Inspection + rooms + checklist items (omit structured fields if schema doesn't support them)

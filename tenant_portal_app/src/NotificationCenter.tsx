@@ -78,6 +78,16 @@ export default function NotificationCenter(): React.ReactElement {
     setIsOpen(!isOpen);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleToggle();
+    }
+    if (e.key === 'Escape' && isOpen) {
+      setIsOpen(false);
+    }
+  };
+
   const handleMarkAsRead = async (id: number) => {
     if (!token) return;
     try {
@@ -131,8 +141,11 @@ export default function NotificationCenter(): React.ReactElement {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={handleToggle}
-        className="relative p-2 text-gray-600 hover:text-gray-900 focus:outline-none"
-        aria-label="Notifications"
+        onKeyDown={handleKeyDown}
+        className="relative p-2 text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-neon-blue rounded"
+        aria-label={`Notifications, ${unreadCount} unread`}
+        aria-expanded={isOpen}
+        aria-haspopup="true"
       >
         <svg
           className="w-6 h-6"
@@ -140,6 +153,7 @@ export default function NotificationCenter(): React.ReactElement {
           stroke="currentColor"
           viewBox="0 0 24 24"
           xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
         >
           <path
             strokeLinecap="round"
@@ -149,20 +163,24 @@ export default function NotificationCenter(): React.ReactElement {
           />
         </svg>
         {unreadCount > 0 && (
-          <span className="absolute top-0 right-0 block h-4 w-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
+          <span className="absolute top-0 right-0 block h-4 w-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center" aria-hidden="true">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-96 overflow-hidden flex flex-col">
+        <div 
+          className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-96 overflow-hidden flex flex-col"
+          role="menu"
+          aria-label="Notifications dropdown"
+        >
           <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-            <h3 className="font-bold text-lg">Notifications</h3>
+            <h3 className="font-bold text-lg" id="notifications-title">Notifications</h3>
             {unreadNotifications.length > 0 && (
               <button
                 onClick={handleMarkAllAsRead}
-                className="text-sm text-blue-500 hover:text-blue-700"
+                className="text-sm text-blue-500 hover:text-blue-700 focus:outline-none focus:underline"
               >
                 Mark all as read
               </button>

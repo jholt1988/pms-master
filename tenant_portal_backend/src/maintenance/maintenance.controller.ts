@@ -14,6 +14,7 @@ import { ConfirmMaintenanceCompleteDto } from './dto/confirm-maintenance-complet
 import { ApiException } from '../common/errors';
 import { ErrorCode } from '../common/errors/error-codes.enum';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
+import { OrgId } from '../common/org-context/org-id.decorator';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -231,21 +232,28 @@ export class MaintenanceController {
 
   @Get('technicians')
   @Roles(Role.PROPERTY_MANAGER)
-  listTechnicians() {
-    return this.maintenanceService.listTechnicians();
+  listTechnicians(@OrgId() orgId?: string) {
+    return this.maintenanceService.listTechnicians(orgId);
   }
 
   @Post('technicians')
   @Roles(Role.PROPERTY_MANAGER)
-  createTechnician(@Body() body: { name: string; phone?: string; email?: string; userId?: string; role?: string }) {
-    return this.maintenanceService.createTechnician(body);
+  createTechnician(
+    @Body() body: { name: string; phone?: string; email?: string; userId?: string; role?: string },
+    @OrgId() orgId?: string,
+  ) {
+    return this.maintenanceService.createTechnician(body, orgId);
   }
 
   @Get('assets')
   @Roles(Role.PROPERTY_MANAGER)
-  listAssets(@Query('propertyId') propertyId?: string, @Query('unitId') unitId?: string) {
+  listAssets(
+    @Query('propertyId') propertyId?: string,
+    @Query('unitId') unitId?: string,
+    @OrgId() orgId?: string,
+  ) {
     const parsedUnitId = this.parseOptionalNumber(unitId, 'unitId');
-    return this.maintenanceService.listAssets(propertyId, parsedUnitId);
+    return this.maintenanceService.listAssets(propertyId, parsedUnitId, orgId);
   }
 
   @Post('assets')
@@ -262,14 +270,15 @@ export class MaintenanceController {
       serialNumber?: string;
       installDate?: string;
     },
+    @OrgId() orgId?: string,
   ) {
-    return this.maintenanceService.createAsset(body);
+    return this.maintenanceService.createAsset(body, orgId);
   }
 
   @Get('sla-policies')
   @Roles(Role.PROPERTY_MANAGER)
-  getSlaPolicies(@Query('propertyId') propertyId?: string) {
-    return this.maintenanceService.getSlaPolicies(propertyId);
+  getSlaPolicies(@Query('propertyId') propertyId?: string, @OrgId() orgId?: string) {
+    return this.maintenanceService.getSlaPolicies(propertyId, orgId);
   }
 
   private parseManagerFilters(query: Record<string, string | undefined>): ManagerFilters {

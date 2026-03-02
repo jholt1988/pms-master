@@ -18,11 +18,18 @@ export type AuthStackNavigationProp = NativeStackNavigationProp<AuthStackParamLi
  * Main Tab Navigation
  * Bottom tabs for authenticated users
  */
+export type AdminTabParamList = {
+  Dashboard: undefined;
+  Properties: undefined;
+  Profile: undefined;
+};
+
 export type MainTabParamList = {
   Home: undefined;
   Payments: undefined;
   Maintenance: undefined;
   Notifications: undefined;
+  Inspections: undefined;
   Profile: undefined;
 };
 
@@ -56,6 +63,21 @@ export type MaintenanceStackParamList = {
 export type MaintenanceStackNavigationProp = NativeStackNavigationProp<MaintenanceStackParamList>;
 
 /**
+ * Inspections Stack Navigation
+ */
+export type PropertiesStackParamList = {
+  PropertiesList: undefined;
+  PropertyDetail: { propertyId: string };
+};
+
+export type InspectionsStackParamList = {
+  InspectionsList: undefined;
+  InspectionDetail: { inspectionId: number };
+};
+
+export type InspectionsStackNavigationProp = NativeStackNavigationProp<InspectionsStackParamList>;
+
+/**
  * Root Stack Navigation
  * Top-level navigation that switches between Auth and Main
  */
@@ -74,6 +96,7 @@ export type RegisterScreenNavigationProp = NativeStackNavigationProp<AuthStackPa
 export type HomeScreenNavigationProp = BottomTabNavigationProp<MainTabParamList, 'Home'>;
 export type PaymentsScreenNavigationProp = BottomTabNavigationProp<MainTabParamList, 'Payments'>;
 export type MaintenanceScreenNavigationProp = BottomTabNavigationProp<MainTabParamList, 'Maintenance'>;
+export type InspectionsScreenNavigationProp = BottomTabNavigationProp<MainTabParamList, 'Inspections'>;
 export type ProfileScreenNavigationProp = BottomTabNavigationProp<MainTabParamList, 'Profile'>;
 
 /**

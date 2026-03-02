@@ -6,11 +6,13 @@ import { LeaseStatus, SyndicationChannel } from '@prisma/client';
 export class ReportingService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getRentRoll(filters?: { propertyId?: string; status?: LeaseStatus }) {
+  async getRentRoll(filters?: { propertyId?: string; status?: LeaseStatus; orgId?: string }) {
     const propertyId = filters?.propertyId;
+    const orgId = filters?.orgId;
     const leases = await this.prisma.lease.findMany({
       where: {
         ...(propertyId && { unit: { propertyId } }),
+        ...(orgId && { unit: { property: { organizationId: orgId } } }),
         ...(filters?.status && { status: filters.status }),
       },
       include: {
@@ -60,10 +62,11 @@ export class ReportingService {
     }));
   }
 
-  async getProfitAndLoss(filters?: { propertyId?: string; startDate?: Date; endDate?: Date }) {
+  async getProfitAndLoss(filters?: { propertyId?: string; startDate?: Date; endDate?: Date; orgId?: string }) {
     const startDate = filters?.startDate || new Date(new Date().getFullYear(), 0, 1);
     const endDate = filters?.endDate || new Date();
     const propertyId = filters?.propertyId;
+    const orgId = filters?.orgId;
 
     // Get income (rent payments)
     const payments = await this.prisma.payment.findMany({
@@ -77,6 +80,13 @@ export class ReportingService {
           lease: {
             unit: {
               propertyId,
+            },
+          },
+        }),
+        ...(orgId && {
+          lease: {
+            unit: {
+              property: { organizationId: orgId },
             },
           },
         }),
@@ -102,6 +112,7 @@ export class ReportingService {
           lte: endDate,
         },
         ...(propertyId && { propertyId }),
+        ...(orgId && { property: { organizationId: orgId } }),
       },
       include: {
         property: true,
@@ -146,10 +157,11 @@ export class ReportingService {
     }));
   }
 
-  async getMaintenanceResolutionAnalytics(filters?: { propertyId?: string; startDate?: Date; endDate?: Date }) {
+  async getMaintenanceResolutionAnalytics(filters?: { propertyId?: string; startDate?: Date; endDate?: Date; orgId?: string }) {
     const startDate = filters?.startDate || new Date(new Date().getFullYear(), 0, 1);
     const endDate = filters?.endDate || new Date();
     const propertyId = filters?.propertyId;
+    const orgId = filters?.orgId;
 
     const requests = await this.prisma.maintenanceRequest.findMany({
       where: {
@@ -162,6 +174,7 @@ export class ReportingService {
           not: null,
         },
         ...(propertyId && { propertyId }),
+        ...(orgId && { property: { organizationId: orgId } }),
       },
       include: {
         property: true,
@@ -213,10 +226,14 @@ export class ReportingService {
     };
   }
 
-  async getVacancyRate(filters?: { propertyId?: string }) {
+  async getVacancyRate(filters?: { propertyId?: string; orgId?: string }) {
     const propertyId = filters?.propertyId;
+    const orgId = filters?.orgId;
     const properties = await this.prisma.property.findMany({
-      where: propertyId ? { id: propertyId } : undefined,
+      where: {
+        ...(propertyId ? { id: propertyId } : {}),
+        ...(orgId ? { organizationId: orgId } : {}),
+      },
       include: {
         units: {
           include: {
@@ -245,10 +262,11 @@ export class ReportingService {
     });
   }
 
-  async getPaymentHistory(filters?: { userId?: string; propertyId?: string; startDate?: Date; endDate?: Date }) {
+  async getPaymentHistory(filters?: { userId?: string; propertyId?: string; startDate?: Date; endDate?: Date; orgId?: string }) {
     const startDate = filters?.startDate || new Date(new Date().getFullYear(), 0, 1);
     const endDate = filters?.endDate || new Date();
     const propertyId = filters?.propertyId;
+    const orgId = filters?.orgId;
 
     const payments = await this.prisma.payment.findMany({
       where: {
@@ -261,6 +279,13 @@ export class ReportingService {
           lease: {
             unit: {
               propertyId,
+            },
+          },
+        }),
+        ...(orgId && {
+          lease: {
+            unit: {
+              property: { organizationId: orgId },
             },
           },
         }),

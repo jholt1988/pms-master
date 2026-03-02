@@ -32,6 +32,8 @@ const MaintenanceManagementPage = lazy(() => import('./MaintenanceManagementPage
 const QuickBooksPage = lazy(() => import('./QuickBooksPage'));
 const RentOptimizationDashboard = lazy(() => import('./domains/property-manager/features/rent-optimization/RentOptimizationDashboard'));
 const PropertySearchPage = lazy(() => import('./pages/properties/PropertySearchPage').then(m => ({ default: m.PropertySearchPage })));
+const TermsPage = lazy(() => import('./pages/legal/TermsPage'));
+const PrivacyPage = lazy(() => import('./pages/legal/PrivacyPage'));
 
 // Shared domain imports - lazy loaded
 const LoginPage = lazy(() => import('./domains/shared/auth/features/login').then(m => ({ default: m.LoginPage })));
@@ -148,7 +150,7 @@ const RoleBasedShell = () => {
   
   // Render the same AppShell for all roles (twin layout)
   // DockNavigation will show role-appropriate items
-  if (user.role === 'PROPERTY_MANAGER' || user.role === 'ADMIN' || user.role === 'TENANT') {
+  if (user.role === 'PROPERTY_MANAGER' || user.role === 'OWNER' || user.role === 'ADMIN' || user.role === 'TENANT') {
     return <AppShell />;
   }
   
@@ -166,7 +168,7 @@ const DashboardRouter = () => {
     return <TenantDashboard />;
   }
   
-  if (user?.role === 'PROPERTY_MANAGER' || user?.role === 'ADMIN') {
+  if (user?.role === 'PROPERTY_MANAGER' || user?.role === 'OWNER' || user?.role === 'ADMIN') {
     return <MainDashboard />;
   }
   
@@ -192,6 +194,10 @@ export default function App({className}: {className: string}): React.ReactElemen
           <Route path="/rental-application" element={<ApplicationLandingPage />} />
           <Route path="/rental-application/form" element={<RentalApplicationFormPage />} />
           <Route path="/rental-application/confirmation" element={<ApplicationConfirmationPage />} />
+
+          {/* Legal (public) */}
+          <Route path="/legal/terms" element={<TermsPage />} />
+          <Route path="/legal/privacy" element={<PrivacyPage />} />
 
           {/* Unauthorized page - accessible to logged in users */}
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
@@ -228,7 +234,7 @@ export default function App({className}: {className: string}): React.ReactElemen
                 </PageErrorBoundaryWithNav>
               } />
 
-              <Route element={<RequireRole allowedRoles={['PROPERTY_MANAGER']} />}>
+              <Route element={<RequireRole allowedRoles={['PROPERTY_MANAGER', 'ADMIN']} />}>
                 <Route path="properties" element={<PropertyManagementPage />} />
                 <Route path="properties/search" element={<PropertySearchPage />} />
                 <Route path="schedule" element={<SchedulePage />} />
@@ -249,6 +255,16 @@ export default function App({className}: {className: string}): React.ReactElemen
                 <Route path="inspections/:id" element={<InspectionDetailPage />} />
                 <Route path="maintenance-management" element={<MaintenanceManagementPage />} />
                 <Route path="quickbooks" element={<QuickBooksPage />} />
+              </Route>
+
+              <Route element={<RequireRole allowedRoles={['OWNER']} />}>
+                <Route path="properties" element={<PropertyManagementPage />} />
+                <Route path="properties/search" element={<PropertySearchPage />} />
+                <Route path="maintenance-management" element={<MaintenanceManagementPage />} />
+                <Route path="reporting" element={<ReportingPage />} />
+                <Route path="inspection-management" element={<InspectionManagementPage />} />
+                <Route path="inspections" element={<Navigate to="/inspection-management" replace />} />
+                <Route path="inspections/:id" element={<InspectionDetailPage />} />
               </Route>
 
               <Route element={<RequireRole allowedRoles={['TENANT']} />}>

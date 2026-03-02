@@ -114,6 +114,67 @@ function applyDeterministicLaborPricing(userLocation: UserLocation, estimateResu
   }
 }
 
+// Confidence threshold constants
+const CONFIDENCE_AUTO_DOWNGRADE_NOTE_LENGTH = 50; // Characters
+const CONFIDENCE_COMPLEX_ITEM_COUNT = 10; // Items that trigger complexity penalty
+
+/**
+ * Downgrade confidence level based on inspection quality indicators
+ */
+function autoDowngradeConfidence(
+  confidenceLevel: string | undefined,
+  inspectionNotes: string | null | undefined,
+  lineItemCount: number,
+  lineItems?: Array<{ confidence_level?: string; confidence_reason?: string }>
+): { confidenceLevel: string; confidenceReason: string } {
+  // Default to provided confidence or MEDIUM
+  let currentLevel = confidenceLevel || 'MEDIUM';
+  const downgradeReasons: string[] = [];
+
+  // Factor 1: Short inspection notes
+  const notesLength = (inspectionNotes || '').trim().length;
+  if (notesLength < CONFIDENCE_AUTO_DOWNGRADE_NOTE_LENGTH) {
+    downgradeReasons.push(`Inspection notes are brief (${notesLength} chars), reducing certainty`);
+  }
+
+  // Factor 2: Complex line items (many items = harder to estimate accurately)
+  if (lineItemCount >= CONFIDENCE_COMPLEX_ITEM_COUNT) {
+    downgradeReasons.push(`High item count (${lineItemCount}) increases estimation complexity`);
+  }
+
+  // Factor 3: Check individual line item confidence levels
+  if (lineItems && lineItems.length > 0) {
+    const lowConfidenceItems = lineItems.filter(
+      (li) => li.confidence_level === 'LOW' || li.confidence_level === 'VERY_LOW'
+    ).length;
+    const lowConfidenceRatio = lowConfidenceItems / lineItems.length;
+    if (lowConfidenceRatio > 0.3) {
+      downgradeReasons.push(`${lowConfidenceItems}/${lineItems.length} items have low confidence`);
+    }
+  }
+
+  // Apply downgrade if any factors present
+  if (downgradeReasons.length > 0) {
+    const confidenceHierarchy = ['VERY_HIGH', 'HIGH', 'MEDIUM', 'LOW', 'VERY_LOW'];
+    const currentIdx = confidenceHierarchy.indexOf(currentLevel);
+
+    // Downgrade by one level for each factor (max 2 levels)
+    const downgradeSteps = Math.min(downgradeReasons.length, 2);
+    const newIdx = Math.min(currentIdx + downgradeSteps, confidenceHierarchy.length - 1);
+
+    if (newIdx !== currentIdx && currentIdx >= 0) {
+      currentLevel = confidenceHierarchy[newIdx];
+    }
+  }
+
+  return {
+    confidenceLevel: currentLevel,
+    confidenceReason: downgradeReasons.length > 0
+      ? `Auto-downgraded: ${downgradeReasons.join('; ')}. Original assessment may be overly optimistic.`
+      : 'High confidence in estimate based on detailed inspection data.',
+  };
+}
+
 @Injectable()
 export class EstimateService {
   constructor(
@@ -126,10 +187,14 @@ export class EstimateService {
    */
   async generateEstimateFromInspection(
     inspectionId: number, 
-    userId: string
+    userId: string | number,
+    orgId?: string
   ): Promise<RepairEstimate> {
-    const inspection = await this.prisma.unitInspection.findUniqueOrThrow({
-      where: { id: inspectionId },
+    const inspection = await this.prisma.unitInspection.findFirst({
+      where: {
+        id: inspectionId,
+        ...(orgId ? { property: { organizationId: orgId } } : {}),
+      },
       include: {
         property: true,
         unit: true,
@@ -249,15 +314,29 @@ export class EstimateService {
     if (typeof estimateResult.estimate_summary.bid_high_total === 'number') {
       enriched.bidHighTotal = estimateResult.estimate_summary.bid_high_total;
     }
-    if (estimateResult.estimate_summary.confidence_level) {
-      enriched.confidenceLevel = estimateResult.estimate_summary.confidence_level;
-      enriched.confidenceReason = estimateResult.estimate_summary.confidence_reason;
-    }
+
+    // Auto-downgrade confidence based on inspection quality indicators
+    const { confidenceLevel: adjustedConfidence, confidenceReason: adjustedReason } = autoDowngradeConfidence(
+      estimateResult.estimate_summary.confidence_level,
+      inspection.notes,
+      estimateResult.line_items.length,
+      estimateResult.line_items
+    );
+    enriched.confidenceLevel = adjustedConfidence;
+    enriched.confidenceReason = adjustedReason;
 
     if (Array.isArray(enriched.lineItems) && Array.isArray(estimateResult.line_items)) {
       enriched.lineItems = enriched.lineItems.map((li: any, idx: number) => {
         const src = estimateResult.line_items[idx];
         if (!src) return li;
+
+        // Apply auto-downgrade to individual line items based on notes
+        const { confidenceLevel: adjustedLevel } = autoDowngradeConfidence(
+          src.confidence_level,
+          li.notes || null,
+          1,
+        );
+
         return {
           ...li,
           bidLowTotal: src.bid_low_total,
@@ -266,7 +345,7 @@ export class EstimateService {
           bidHighLaborCost: src.bid_high_labor_cost,
           bidLowMaterialCost: src.bid_low_material_cost,
           bidHighMaterialCost: src.bid_high_material_cost,
-          confidenceLevel: src.confidence_level,
+          confidenceLevel: adjustedLevel,
           confidenceReason: src.confidence_reason,
           assumptions: src.assumptions,
           questionsToReduceUncertainty: src.questions_to_reduce_uncertainty,
@@ -364,15 +443,29 @@ export class EstimateService {
     if (typeof estimateResult.estimate_summary.bid_high_total === 'number') {
       enriched.bidHighTotal = estimateResult.estimate_summary.bid_high_total;
     }
-    if (estimateResult.estimate_summary.confidence_level) {
-      enriched.confidenceLevel = estimateResult.estimate_summary.confidence_level;
-      enriched.confidenceReason = estimateResult.estimate_summary.confidence_reason;
-    }
+
+    // Auto-downgrade confidence for maintenance requests (no inspection notes to evaluate)
+    const { confidenceLevel: adjustedConfidence, confidenceReason: adjustedReason } = autoDowngradeConfidence(
+      estimateResult.estimate_summary.confidence_level,
+      null, // No inspection notes for maintenance requests
+      estimateResult.line_items.length,
+      estimateResult.line_items
+    );
+    enriched.confidenceLevel = adjustedConfidence;
+    enriched.confidenceReason = adjustedReason;
 
     if (Array.isArray(enriched.lineItems) && Array.isArray(estimateResult.line_items)) {
       enriched.lineItems = enriched.lineItems.map((li: any, idx: number) => {
         const src = estimateResult.line_items[idx];
         if (!src) return li;
+
+        // Apply auto-downgrade to individual line items
+        const { confidenceLevel: adjustedLevel } = autoDowngradeConfidence(
+          src.confidence_level,
+          li.notes || null,
+          1,
+        );
+
         return {
           ...li,
           bidLowTotal: src.bid_low_total,
@@ -381,7 +474,7 @@ export class EstimateService {
           bidHighLaborCost: src.bid_high_labor_cost,
           bidLowMaterialCost: src.bid_low_material_cost,
           bidHighMaterialCost: src.bid_high_material_cost,
-          confidenceLevel: src.confidence_level,
+          confidenceLevel: adjustedLevel,
           confidenceReason: src.confidence_reason,
           assumptions: src.assumptions,
           questionsToReduceUncertainty: src.questions_to_reduce_uncertainty,
@@ -431,11 +524,11 @@ export class EstimateService {
   /**
    * Get estimates with filtering
    */
-  async getEstimates(query: EstimateQueryDto): Promise<{
+  async getEstimates(query: EstimateQueryDto & { orgId?: string }): Promise<{
     estimates: RepairEstimate[];
     total: number;
   }> {
-    const inspectionId = query.inspectionId ? this.parseNumericId(query.inspectionId, 'inspection') : undefined;
+    const inspectionId = query.inspectionId ? String(query.inspectionId) : undefined;
     const maintenanceRequestId = query.maintenanceRequestId
       ? this.parseUuidId(query.maintenanceRequestId, 'maintenance request')
       : undefined;
@@ -445,6 +538,7 @@ export class EstimateService {
       ...(maintenanceRequestId && { maintenanceRequestId }),
       ...(propertyId && { propertyId }),
       ...(query.status && { status: query.status }),
+      ...(query.orgId ? { property: { organizationId: query.orgId } } : {}),
     };
 
     const [estimates, total] = await Promise.all([
@@ -803,12 +897,8 @@ export class EstimateService {
     }
   }
 
-  private parseNumericId(value: string | number, field: string): number {
-    const normalized = typeof value === 'string' ? Number(value) : value;
-    if (!Number.isFinite(normalized) || !Number.isInteger(normalized)) {
-      throw new BadRequestException(`Invalid ${field} identifier provided.`);
-    }
-    return normalized;
+  private parseNumericId(value: string | number, field: string): string {
+    return String(value);
   }
 
   private parseUuidId(value: string, field: string): string {

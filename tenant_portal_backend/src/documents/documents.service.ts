@@ -35,7 +35,31 @@ export class DocumentsService {
       leaseId?: string;
       propertyId?: string;
     },
+    orgId?: string,
   ) {
+    if (orgId) {
+      if (data.leaseId) {
+        const leaseId = this.parseUuidId(data.leaseId, 'lease');
+        const lease = await this.prisma.lease.findFirst({
+          where: { id: leaseId, unit: { property: { organizationId: orgId } } },
+          select: { id: true },
+        });
+        if (!lease) {
+          throw new NotFoundException('Lease not found');
+        }
+      }
+
+      if (data.propertyId) {
+        const property = await this.prisma.property.findFirst({
+          where: { id: data.propertyId, organizationId: orgId },
+          select: { id: true },
+        });
+        if (!property) {
+          throw new NotFoundException('Property not found');
+        }
+      }
+    }
+
     // Generate unique filename
     const fileExt = path.extname(file.originalname);
     const fileName = `${randomBytes(16).toString('hex')}${fileExt}`;
@@ -79,7 +103,31 @@ export class DocumentsService {
       propertyId?: string;
       mimeType?: string;
     },
+    orgId?: string,
   ) {
+    if (orgId) {
+      if (params.leaseId) {
+        const leaseId = this.parseUuidId(params.leaseId, 'lease');
+        const lease = await this.prisma.lease.findFirst({
+          where: { id: leaseId, unit: { property: { organizationId: orgId } } },
+          select: { id: true },
+        });
+        if (!lease) {
+          throw new NotFoundException('Lease not found');
+        }
+      }
+
+      if (params.propertyId) {
+        const property = await this.prisma.property.findFirst({
+          where: { id: params.propertyId, organizationId: orgId },
+          select: { id: true },
+        });
+        if (!property) {
+          throw new NotFoundException('Property not found');
+        }
+      }
+    }
+
     const fileExt = path.extname(params.fileName) || '.pdf';
     const fileName = `${randomBytes(16).toString('hex')}${fileExt}`;
     const filePath = path.join(this.uploadDir, fileName);
@@ -108,14 +156,27 @@ export class DocumentsService {
     });
   }
 
-  async getFileStream(documentId: number, userId: string) {
+  async getFileStream(documentId: number, userId: string, orgId?: string) {
+    const accessScope = {
+      OR: [
+        { uploadedById: userId },
+        { sharedWith: { some: { id: userId } } },
+      ],
+    };
+
+    const orgScope = orgId
+      ? {
+          OR: [
+            { property: { organizationId: orgId } },
+            { lease: { unit: { property: { organizationId: orgId } } } },
+          ],
+        }
+      : undefined;
+
     const document = await this.prisma.document.findFirst({
       where: {
         id: documentId,
-        OR: [
-          { uploadedById: userId },
-          { sharedWith: { some: { id: userId } } },
-        ],
+        AND: [accessScope, ...(orgScope ? [orgScope] : [])],
       },
     });
 
@@ -145,14 +206,30 @@ export class DocumentsService {
     propertyId?: string;
     skip?: number;
     take?: number;
+    orgId?: string;
   }) {
-    const where: Prisma.DocumentWhereInput = {
-      ...(filters.userId && {
+    const clauses: Prisma.DocumentWhereInput[] = [];
+
+    if (filters.userId) {
+      clauses.push({
         OR: [
           { uploadedById: filters.userId },
           { sharedWith: { some: { id: filters.userId } } },
         ],
-      }),
+      });
+    }
+
+    if (filters.orgId) {
+      clauses.push({
+        OR: [
+          { property: { organizationId: filters.orgId } },
+          { lease: { unit: { property: { organizationId: filters.orgId } } } },
+        ],
+      });
+    }
+
+    const where: Prisma.DocumentWhereInput = {
+      ...(clauses.length ? { AND: clauses } : {}),
       ...(filters.category && { category: filters.category }),
       ...(filters.leaseId && { leaseId: this.parseUuidId(filters.leaseId, 'lease') }),
       ...(filters.propertyId && { propertyId: filters.propertyId }),
@@ -183,11 +260,19 @@ export class DocumentsService {
     };
   }
 
-  async shareDocument(documentId: number, userIds: string[], requestingUserId: string) {
+  async shareDocument(documentId: number, userIds: string[], requestingUserId: string, orgId?: string) {
     const document = await this.prisma.document.findFirst({
       where: {
         id: documentId,
         uploadedById: requestingUserId, // Only owner can share
+        ...(orgId
+          ? {
+              OR: [
+                { property: { organizationId: orgId } },
+                { lease: { unit: { property: { organizationId: orgId } } } },
+              ],
+            }
+          : {}),
       },
     });
 
@@ -207,11 +292,19 @@ export class DocumentsService {
     return { success: true };
   }
 
-  async deleteDocument(documentId: number, userId: string) {
+  async deleteDocument(documentId: number, userId: string, orgId?: string) {
     const document = await this.prisma.document.findFirst({
       where: {
         id: documentId,
         uploadedById: userId, // Only owner can delete
+        ...(orgId
+          ? {
+              OR: [
+                { property: { organizationId: orgId } },
+                { lease: { unit: { property: { organizationId: orgId } } } },
+              ],
+            }
+          : {}),
       },
     });
 
@@ -240,5 +333,13 @@ export class DocumentsService {
       throw new BadRequestException(`Invalid ${field} identifier provided.`);
     }
     return value;
+  }
+
+  private parseNumericId(value: string | number, field: string): number {
+    const id = Number(value);
+    if (isNaN(id)) {
+      throw new BadRequestException(`Invalid ${field} identifier provided.`);
+    }
+    return id;
   }
 }

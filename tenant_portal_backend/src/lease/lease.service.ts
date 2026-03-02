@@ -57,7 +57,7 @@ export class LeaseService {
     },
   };
 
-  async createLease(dto: CreateLeaseDto) {
+  async createLease(dto: CreateLeaseDto, orgId?: string) {
     const startDate = this.requireDate(dto.startDate, 'startDate');
     const endDate = this.requireDate(dto.endDate, 'endDate');
 
@@ -66,6 +66,17 @@ export class LeaseService {
     }
 
     try {
+      if (orgId) {
+        const unitId = this.normalizeNumericId(dto.unitId as any);
+        const unit = await this.prisma.unit.findFirst({
+          where: { id: unitId, property: { organizationId: orgId } },
+          select: { id: true },
+        });
+        if (!unit) {
+          throw new ForbiddenException('Unit not found in organization');
+        }
+      }
+
       const lease = await this.prisma.lease.create({
         data: {
           tenantId: this.normalizeId(dto.tenantId as any),
@@ -97,25 +108,32 @@ export class LeaseService {
     }
   }
 
-  async getAllLeases() {
+  async getAllLeases(orgId?: string) {
     return this.prisma.lease.findMany({
+      where: orgId ? { unit: { property: { organizationId: orgId } } } : undefined,
       include: this.leaseInclude,
       orderBy: [{ status: 'asc' }, { endDate: 'asc' }],
     });
   }
 
-  async getLeaseById(id: string | number) {
+  async getLeaseById(id: string | number, orgId?: string) {
     const leaseId = this.normalizeNumericId(id);
-    const lease = await this.prisma.lease.findUnique({ where: { id: leaseId }, include: this.leaseInclude });
+    const lease = await this.prisma.lease.findFirst({
+      where: { id: leaseId, ...(orgId ? { unit: { property: { organizationId: orgId } } } : {}) },
+      include: this.leaseInclude,
+    });
     if (!lease) {
       throw new NotFoundException('Lease not found');
     }
     return lease;
   }
 
-  async getLeaseHistory(id: string | number) {
+  async getLeaseHistory(id: string | number, orgId?: string) {
     const leaseId = this.normalizeNumericId(id);
-    const lease = await this.prisma.lease.findUnique({ where: { id: leaseId } });
+    const lease = await this.prisma.lease.findFirst({
+      where: { id: leaseId, ...(orgId ? { unit: { property: { organizationId: orgId } } } : {}) },
+      select: { id: true },
+    });
     if (!lease) {
       throw new NotFoundException('Lease not found');
     }
@@ -131,10 +149,10 @@ export class LeaseService {
     return this.prisma.lease.findUnique({ where: { tenantId: tenantIdStr }, include: this.leaseInclude });
   }
 
-  async updateLease(id: string | number, dto: UpdateLeaseDto, actorId: string | number) {
+  async updateLease(id: string | number, dto: UpdateLeaseDto, actorId: string | number, orgId?: string) {
     const leaseId = this.normalizeNumericId(id);
     const actorIdStr = this.normalizeId(actorId);
-    const lease = await this.ensureLease(leaseId);
+    const lease = await this.ensureLease(leaseId, orgId);
 
     const data: Prisma.LeaseUncheckedUpdateInput = {};
     if (dto.startDate) {
@@ -187,10 +205,10 @@ export class LeaseService {
     return updated;
   }
 
-  async updateLeaseStatus(id: string | number, dto: UpdateLeaseStatusDto, actorId: string | number) {
+  async updateLeaseStatus(id: string | number, dto: UpdateLeaseStatusDto, actorId: string | number, orgId?: string) {
     const leaseId = this.normalizeNumericId(id);
     const actorIdStr = this.normalizeId(actorId);
-    const lease = await this.ensureLease(leaseId);
+    const lease = await this.ensureLease(leaseId, orgId);
 
     const data: Prisma.LeaseUncheckedUpdateInput = {
       status: dto.status,
@@ -244,10 +262,10 @@ export class LeaseService {
     return updated;
   }
 
-  async createRenewalOffer(id: string | number, dto: CreateRenewalOfferDto, actorId: string | number) {
+  async createRenewalOffer(id: string | number, dto: CreateRenewalOfferDto, actorId: string | number, orgId?: string) {
     const leaseId = this.normalizeNumericId(id);
     const actorIdStr = this.normalizeId(actorId);
-    const lease = await this.ensureLease(leaseId);
+    const lease = await this.ensureLease(leaseId, orgId);
 
     const proposedStart = this.requireDate(dto.proposedStart, 'proposedStart');
     const proposedEnd = this.requireDate(dto.proposedEnd, 'proposedEnd');
@@ -333,10 +351,10 @@ export class LeaseService {
     return updated;
   }
 
-  async recordLeaseNotice(id: string | number, dto: RecordLeaseNoticeDto, actorId: string | number) {
+  async recordLeaseNotice(id: string | number, dto: RecordLeaseNoticeDto, actorId: string | number, orgId?: string) {
     const leaseId = this.normalizeNumericId(id);
     const actorIdStr = this.normalizeId(actorId);
-    await this.ensureLease(leaseId);
+    await this.ensureLease(leaseId, orgId);
 
     const notice = await this.prisma.leaseNotice.create({
       data: {
@@ -367,7 +385,7 @@ export class LeaseService {
       note: `Notice recorded (${dto.type})`,
     });
 
-    return this.getLeaseById(leaseId);
+    return this.getLeaseById(leaseId, orgId);
   }
 
   async respondToRenewalOffer(
@@ -375,11 +393,12 @@ export class LeaseService {
     offerId: string | number,
     dto: RespondRenewalOfferDto,
     tenantUserId: string | number,
+    orgId?: string,
   ) {
     const leaseIdNum = this.normalizeNumericId(leaseId);
     const offerIdNum = typeof offerId === 'string' ? Number(offerId) : offerId;
     const tenantUserIdStr = this.normalizeId(tenantUserId);
-    const lease = await this.ensureLease(leaseIdNum);
+    const lease = await this.ensureLease(leaseIdNum, orgId);
     if (lease.tenantId !== tenantUserIdStr) {
       throw new ForbiddenException('You are not authorized to respond to this renewal offer.');
     }
@@ -455,13 +474,13 @@ export class LeaseService {
       metadata: historyMetadata,
     });
 
-    return this.getLeaseById(leaseIdNum);
+    return this.getLeaseById(leaseIdNum, orgId);
   }
 
-  async submitTenantNotice(leaseId: string | number, dto: TenantSubmitNoticeDto, tenantUserId: string | number) {
+  async submitTenantNotice(leaseId: string | number, dto: TenantSubmitNoticeDto, tenantUserId: string | number, orgId?: string) {
     const leaseIdNum = this.normalizeNumericId(leaseId);
     const tenantUserIdStr = this.normalizeId(tenantUserId);
-    const lease = await this.ensureLease(leaseIdNum);
+    const lease = await this.ensureLease(leaseIdNum, orgId);
     if (lease.tenantId !== tenantUserIdStr) {
       throw new ForbiddenException('You are not authorized to update this lease.');
     }
@@ -513,12 +532,15 @@ export class LeaseService {
       metadata,
     });
 
-    return this.getLeaseById(leaseIdNum);
+    return this.getLeaseById(leaseIdNum, orgId);
   }
 
-  private async ensureLease(id: string | number) {
+  private async ensureLease(id: string | number, orgId?: string) {
     const leaseId = this.normalizeNumericId(id);
-    const lease = await this.prisma.lease.findUnique({ where: { id: leaseId }, include: this.leaseInclude });
+    const lease = await this.prisma.lease.findFirst({
+      where: { id: leaseId, ...(orgId ? { unit: { property: { organizationId: orgId } } } : {}) },
+      include: this.leaseInclude,
+    });
     if (!lease) {
       throw new NotFoundException('Lease not found');
     }

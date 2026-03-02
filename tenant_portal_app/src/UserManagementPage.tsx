@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { apiFetch } from './services/apiClient';
 
@@ -23,6 +23,71 @@ export default function UserManagementPage(): React.ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const createModalRef = useRef<HTMLDivElement>(null);
+  const editModalRef = useRef<HTMLDivElement>(null);
+
+  // Focus trap for Create Modal
+  useEffect(() => {
+    if (showCreateModal && createModalRef.current) {
+      const focusableElements = createModalRef.current.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      const firstElement = focusableElements[0] as HTMLElement;
+      const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Tab') {
+          if (e.shiftKey && document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement?.focus();
+          } else if (!e.shiftKey && document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement?.focus();
+          }
+        }
+        if (e.key === 'Escape') {
+          setShowCreateModal(false);
+        }
+      };
+
+      document.addEventListener('keydown', handleKeyDown);
+      firstElement?.focus();
+
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [showCreateModal]);
+
+  // Focus trap for Edit Modal
+  useEffect(() => {
+    if (showEditModal && editModalRef.current) {
+      const focusableElements = editModalRef.current.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      const firstElement = focusableElements[0] as HTMLElement;
+      const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Tab') {
+          if (e.shiftKey && document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement?.focus();
+          } else if (!e.shiftKey && document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement?.focus();
+          }
+        }
+        if (e.key === 'Escape') {
+          setShowEditModal(false);
+        }
+      };
+
+      document.addEventListener('keydown', handleKeyDown);
+      firstElement?.focus();
+
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [showEditModal]);
+
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<'TENANT' | 'PROPERTY_MANAGER' | 'ADMIN' | ''>('');
@@ -253,9 +318,17 @@ export default function UserManagementPage(): React.ReactElement {
 
       {/* Create Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-4">Create User</h2>
+        <>
+          <div className="fixed inset-0 bg-black bg-opacity-50" aria-hidden="true" onClick={() => setShowCreateModal(false)} />
+          <div 
+            ref={createModalRef}
+            className="fixed inset-0 bg-transparent flex items-center justify-center pointer-events-none"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-user-title"
+          >
+          <div className="bg-white p-6 rounded-lg w-full max-w-md pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+            <h2 id="create-user-title" className="text-2xl font-bold mb-4">Create User</h2>
             <form onSubmit={handleCreate}>
               <div className="mb-4">
                 <input
@@ -305,14 +378,23 @@ export default function UserManagementPage(): React.ReactElement {
               </div>
             </form>
           </div>
-        </div>
+          </div>
+        </>
       )}
 
       {/* Edit Modal */}
       {showEditModal && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-4">Edit User</h2>
+        <>
+          <div className="fixed inset-0 bg-black bg-opacity-50" aria-hidden="true" onClick={() => { setShowEditModal(false); setSelectedUser(null); }} />
+          <div 
+            ref={editModalRef}
+            className="fixed inset-0 bg-transparent flex items-center justify-center pointer-events-none"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-user-title"
+          >
+          <div className="bg-white p-6 rounded-lg w-full max-w-md pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+            <h2 id="edit-user-title" className="text-2xl font-bold mb-4">Edit User</h2>
             <form onSubmit={handleUpdate}>
               <div className="mb-4">
                 <input
@@ -363,7 +445,8 @@ export default function UserManagementPage(): React.ReactElement {
               </div>
             </form>
           </div>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

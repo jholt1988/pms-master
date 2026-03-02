@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/>
+  <meta content="#1e293b" name="theme-color"/>
+  <title>Tenant Portal - PMS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com">
+  </script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js">
+  </script>
+  <script>
+   tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: {
+            primary: { DEFAULT: '#1e293b', foreground: '#fff' },
+            accent: { DEFAULT: '#f97316', foreground: '#fff' },
+            surface: '#fff', background: '#f8fafc',
+            muted: { DEFAULT: '#f1f5f9', foreground: '#64748b' },
+            border: '#e2e8f0', success: '#22c55e', warning: '#f59e0b', error: '#ef4444'
+          },
+          animation: {
+            'fade-in': 'fadeIn 0.4s ease-out', 'slide-up': 'slideUp 0.4s ease-out',
+            'slide-in': 'slideIn 0.35s ease-out'
+          },
+          keyframes: {
+            fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+            slideUp: { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+            slideIn: { '0%': { opacity: '0', transform: 'translateX(20px)' }, '100%': { opacity: '1', transform: 'translateX(0)' } }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+   * { -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Inter', system-ui, sans-serif; overscroll-behavior-y: none; }
+    .safe-top { padding-top: max(env(safe-area-inset-top), 8px); }
+    .safe-bottom { padding-bottom: max(env(safe-area-inset-bottom), 8px); }
+    .touch-feedback { transition: transform 0.1s, opacity 0.1s; }
+    .touch-feedback:active { transform: scale(0.98); opacity: 0.8; }
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .page { display: none; }
+    .page.active { display: block; animation: fadeIn 0.3s ease-out; }
+    .nav-item { transition: all 0.2s; }
+    .nav-item.active { color: #f97316; }
+    .nav-item.active .nav-icon { transform: translateY(-2px); }
+    .nav-icon { transition: transform 0.2s; }
+    .badge-pulse { animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+    .slide-up-modal { animation: slideUpModal 0.3s ease-out; }
+    @keyframes slideUpModal { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  </style>
+</head>
+<body class="bg-background text-foreground">
+  <div class="app-container max-w-md mx-auto min-h-screen relative">
+    <!-- Header -->
+    <header class="fixed top-0 left-0 right-0 z-50 bg-surface/95 backdrop-blur-md border-b border-border safe-top">
+      <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-slate-700 flex items-center justify-center text-white font-semibold text-sm">JD</div>
+          <div>
+            <h1 class="font-semibold text-base">Welcome back</h1>
+            <p class="text-xs text-muted-foreground">Unit 4B • Riverside Apts</p>
+          </div>
+        </div>
+        <button class="relative p-2 rounded-full hover:bg-muted touch-feedback">
+          <i class="w-5 h-5 text-foreground" data-lucide="bell"></i>
+          <span class="absolute top-1 right-1 w-2 h-2 bg-accent rounded-full badge-pulse"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="pt-[72px] pb-[88px] px-4">
+      <!-- Dashboard -->
+      <div class="page active" id="page-dashboard">
+        <div id="dashboard-rent-card" class="mt-4 bg-gradient-to-br from-primary to-slate-800 rounded-2xl p-5 text-white shadow-lg" style="animation: slideUp 0.4s ease-out;">
+          <div class="flex justify-between items-start mb-4">
+            <div><p class="text-white/70 text-sm mb-1">Rent Due</p><p class="text-xs text-white/50">March 1, 2026</p></div>
+            <span class="px-3 py-1 bg-white/20 rounded-full text-xs font-medium">Due in 6 days</span>
+          </div>
+          <p class="text-3xl font-bold mb-4">$1,250.00</p>
+          <button class="w-full py-3 bg-accent rounded-xl font-semibold text-sm touch-feedback flex items-center justify-center gap-2" onclick="initiatePayment()">
+            <i class="w-4 h-4" data-lucide="credit-card"></i> <span id="pay-btn-text">Pay Now</span>
+          </button>
+        </div>
+        
+        <!-- Inspection Alert Container (Hidden by default) -->
+        <div id="dashboard-inspection-alert" class="hidden mt-4"></div>
+
+        <div class="mt-6" style="animation: slideUp 0.4s ease-out 0.1s both;">
+          <h2 class="font-semibold text-sm mb-3">Quick Actions</h2>
+          <div class="grid grid-cols-4 gap-3">
+            <button class="flex flex-col items-center gap-2 p-3 rounded-xl bg-surface shadow-sm border border-border touch-feedback" onclick="showPage('maintenance')">
+              <div class="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center"><i class="w-5 h-5 text-blue-600" data-lucide="wrench"></i></div>
+              <span class="text-xs font-medium">Maintenance</span>
+            </button>
+            <button class="flex flex-col items-center gap-2 p-3 rounded-xl bg-surface shadow-sm border border-border touch-feedback" onclick="showPage('inspections')">
+              <div class="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center"><i class="w-5 h-5 text-purple-600" data-lucide="clipboard-check"></i></div>
+              <span class="text-xs font-medium">Inspections</span>
+            </button>
+            <button class="flex flex-col items-center gap-2 p-3 rounded-xl bg-surface shadow-sm border border-border touch-feedback" onclick="showPage('messages')">
+              <div class="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center"><i class="w-5 h-5 text-green-600" data-lucide="message-square"></i></div>
+              <span class="text-xs font-medium">Messages</span>
+            </button>
+            <button class="flex flex-col items-center gap-2 p-3 rounded-xl bg-surface shadow-sm border border-border touch-feedback" onclick="showPage('profile')">
+              <div class="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center"><i class="w-5 h-5 text-orange-600" data-lucide="user"></i></div>
+              <span class="text-xs font-medium">Profile</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-6" style="animation: slideUp 0.4s ease-out 0.2s both;">
+          <h2 class="font-semibold text-sm mb-3">Recent Activity</h2>
+          <div class="space-y-3">
+            <div class="bg-surface rounded-xl p-4 border border-border touch-feedback">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center shrink-0"><i class="w-5 h-5 text-green-600" data-lucide="check-circle"></i></div>
+                <div class="flex-1 min-w-0">
+                  <p class="font-medium text-sm">Rent Payment Received</p>
+                  <p class="text-xs text-muted-foreground">Feb 1, 2026 • Auto-pay</p>
+                </div>
+                <span class="font-semibold text-sm text-green-600">-$1,250</span>
+              </div>
+            </div>
+            <div class="bg-surface rounded-xl p-4 border border-border touch-feedback">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center shrink-0"><i class="w-5 h-5 text-blue-600" data-lucide="wrench"></i></div>
+                <div class="flex-1 min-w-0">
+                  <p class="font-medium text-sm">Maintenance Request</p>
+                  <p class="text-xs text-muted-foreground">Feb 15, 2026 • Kitchen leak</p>
+                </div>
+                <span class="px-2 py-1 bg-amber-100 text-amber-700 text-xs rounded-full font-medium">In Progress</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Maintenance -->
+      <div class="page" id="page-maintenance">
+        <div class="mt-4" style="animation: slideUp 0.4s ease-out;">
+          <h2 class="font-semibold text-lg mb-4">Maintenance</h2>
+          <button class="w-full mb-4 px-4 py-3 bg-accent text-white rounded-xl text-sm font-medium touch-feedback flex items-center justify-center gap-2" onclick="openMaintenanceModal()">
+            <i class="w-4 h-4" data-lucide="plus"></i> New Request
+          </button>
+          <h3 class="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Active</h3>
+          <div class="space-y-3">
+            <div class="bg-surface rounded-xl p-4 border border-border">
+              <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0"><i class="w-5 h-5 text-amber-600" data-lucide="alert-circle"></i></div>
+                <div class="flex-1">
+                  <div class="flex items-start justify-between">
+                    <p class="font-medium text-sm">Kitchen Faucet Leak</p>
+                    <span class="px-2 py-1 bg-amber-100 text-amber-700 text-xs rounded-full font-medium">In Progress</span>
+                  </div>
+                  <p class="text-xs text-muted-foreground mt-1">Submitted Feb 15 • Assigned to Mike's Plumbing</p>
+                  <p class="text-xs text-muted-foreground mt-2">Water dripping under sink. Started yesterday.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Inspections -->
+      <div class="page" id="page-inspections">
+        <div class="mt-4" style="animation: slideUp 0.4s ease-out;">
+          <h2 class="font-semibold text-lg mb-4">Inspections</h2>
+          
+          <!-- Upcoming -->
+          <div class="bg-gradient-to-br from-primary to-slate-800 rounded-2xl p-5 text-white shadow-lg mb-6">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-accent/20 backdrop-blur-sm flex items-center justify-center"><i class="w-6 h-6 text-accent" data-lucide="calendar-check"></i></div>
+                <div>
+                  <h3 class="font-semibold">Upcoming Inspection</h3>
+                  <p class="text-xs text-white/60">Scheduled for Mar 15, 2026</p>
+                </div>
+              </div>
+              <span class="px-3 py-1 bg-accent/20 text-accent rounded-full text-xs font-medium">Due in 15 days</span>
+            </div>
+            <p class="text-sm text-white/80 mb-4">Annual inspection of smoke detectors, HVAC filter, and general unit condition.</p>
+            <div class="flex items-center justify-between text-xs text-white/60">
+              <span><i class="w-3 h-3 inline mr-1" data-lucide="clock"></i> 10:00 AM - 11:00 AM</span>
+              <span>Est. 30 min</span>
+            </div>
+          </div>
+
+          <!-- Start Button -->
+          <div class="mb-6">
+            <button class="w-full py-4 bg-accent text-white rounded-xl font-semibold text-sm touch-feedback flex items-center justify-center gap-2" onclick="startInspection()">
+              <i class="w-5 h-5" data-lucide="clipboard-check"></i> Start Inspection Checklist
+            </button>
+            <p class="text-xs text-muted-foreground text-center mt-2">Available 24 hours before scheduled time</p>
+          </div>
+
+          <!-- History -->
+          <h3 class="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Past Inspections</h3>
+          <div class="space-y-3">
+            <div class="bg-surface rounded-xl p-4 border border-border touch-feedback">
+              <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center shrink-0"><i class="w-5 h-5 text-green-600" data-lucide="check"></i></div>
+                <div class="flex-1">
+                  <div class="flex items-start justify-between">
+                    <div>
+                      <p class="font-medium text-sm">Move-in Inspection</p>
+                      <p class="text-xs text-muted-foreground">Feb 1, 2026</p>
+                    </div>
+                    <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">Passed</span>
+                  </div>
+                  <button class="mt-2 px-3 py-1.5 bg-muted rounded-lg text-xs font-medium touch-feedback">View Report</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Messages -->
+      <div class="page" id="page-messages">
+        <div class="mt-4" style="animation: slideUp 0.4s ease-out;">
+          <h2 class="font-semibold text-lg mb-4">Messages</h2>
+          <div class="space-y-1">
+            <div class="bg-surface rounded-xl p-4 border border-border touch-feedback">
+              <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-slate-600 flex items-center justify-center text-white font-semibold">PM</div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between">
+                    <h4 class="font-medium text-sm">Property Manager</h4>
+                    <span class="text-xs text-muted-foreground">2h ago</span>
+                  </div>
+                  <p class="text-sm font-medium truncate">Re: March rent reminder</p>
+                </div>
+                <div class="w-2.5 h-2.5 bg-accent rounded-full"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Profile -->
+      <div class="page" id="page-profile">
+        <div class="mt-4" style="animation: slideUp 0.4s ease-out;">
+          <div class="bg-surface rounded-2xl p-5 border border-border text-center">
+            <div class="w-20 h-20 rounded-full bg-gradient-to-br from-primary to-slate-700 mx-auto flex items-center justify-center text-white text-2xl font-bold mb-3">JD</div>
+            <h2 class="font-semibold text-lg">Jordan Davis</h2>
+            <p class="text-sm text-muted-foreground">jordan.davis@email.com</p>
+            <p class="text-xs text-muted-foreground mt-1">Unit 4B • Riverside Apartments</p>
+            <div class="mt-4"><span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">Lease expires: Aug 31, 2026</span></div>
+          </div>
+          <div class="mt-6 space-y-2">
+            <button class="w-full bg-surface rounded-xl p-4 border border-border flex items-center justify-between touch-feedback">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center"><i class="w-5 h-5 text-blue-600" data-lucide="file-text"></i></div>
+                <span class="font-medium text-sm">Lease Documents</span>
+              </div>
+              <i class="w-5 h-5 text-muted-foreground" data-lucide="chevron-right"></i>
+            </button>
+            <button class="w-full bg-surface rounded-xl p-4 border border-border flex items-center justify-between touch-feedback">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center"><i class="w-5 h-5 text-green-600" data-lucide="bell"></i></div>
+                <span class="font-medium text-sm">Notifications</span>
+              </div>
+              <i class="w-5 h-5 text-muted-foreground" data-lucide="chevron-right"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Bottom Nav -->
+    <nav class="fixed bottom-0 left-0 right-0 z-50 bg-surface border-t border-border safe-bottom">
+      <div class="max-w-md mx-auto px-6 py-2">
+        <div class="flex items-center justify-around">
+          <button class="nav-item active flex flex-col items-center gap-1 p-2 text-muted-foreground" onclick="showPage('dashboard')">
+            <i class="nav-icon w-5 h-5" data-lucide="home"></i>
+            <span class="text-[10px] font-medium">Home</span>
+          </button>
+          <button class="nav-item flex flex-col items-center gap-1 p-2 text-muted-foreground" onclick="showPage('inspections')">
+            <i class="nav-icon w-5 h-5" data-lucide="clipboard-check"></i>
+            <span class="text-[10px] font-medium">Inspect</span>
+          </button>
+          <button class="nav-item flex flex-col items-center gap-1 p-2 text-muted-foreground" onclick="showPage('messages')">
+            <i class="nav-icon w-5 h-5" data-lucide="message-square"></i>
+            <span class="text-[10px] font-medium">Messages</span>
+          </button>
+          <button class="nav-item flex flex-col items-center gap-1 p-2 text-muted-foreground" onclick="showPage('profile')">
+            <i class="nav-icon w-5 h-5" data-lucide="user"></i>
+            <span class="text-[10px] font-medium">Profile</span>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Inspection Checklist Modal -->
+    <div class="fixed inset-0 bg-black/50 z-50 hidden" id="inspection-modal">
+      <div class="absolute inset-x-0 bottom-0 max-w-md mx-auto bg-surface rounded-t-2xl slide-up-modal max-h-[90vh] overflow-y-auto">
+        <div class="p-5">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold">Inspection Checklist</h3>
+            <button class="p-2 hover:bg-muted rounded-lg" onclick="closeModal()">
+              <i class="w-5 h-5 text-muted-foreground" data-lucide="x"></i>
+            </button>
+          </div>
+
+          <!-- Progress -->
+          <div class="mb-4">
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-muted-foreground">Progress</span>
+              <span class="font-medium">2 of 8 items</span>
+            </div>
+            <div class="h-2 bg-muted rounded-full overflow-hidden">
+              <div class="h-full bg-accent rounded-full transition-all" id="progress-bar" style="width: 25%"></div>
+            </div>
+          </div>
+
+          <!-- Rooms Tabs -->
+          <div class="flex gap-2 overflow-x-auto hide-scrollbar mb-4 pb-1">
+            <button class="px-4 py-2 bg-primary text-white rounded-lg text-xs font-medium whitespace-nowrap">Living Room</button>
+            <button class="px-4 py-2 bg-muted text-foreground rounded-lg text-xs font-medium whitespace-nowrap">Kitchen</button>
+            <button class="px-4 py-2 bg-muted text-foreground rounded-lg text-xs font-medium whitespace-nowrap">Bedroom</button>
+          </div>
+
+          <!-- Checklist Items -->
+          <div class="space-y-3">
+            <div class="p-4 border border-border rounded-xl bg-background">
+              <div class="flex items-start justify-between mb-2">
+                <span class="font-medium text-sm">Smoke detectors functional</span>
+                <div class="flex gap-2">
+                  <button class="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center touch-feedback" onclick="markItem(this, 'pass')">
+                    <i class="w-4 h-4 text-green-600" data-lucide="check"></i>
+                  </button>
+                  <button class="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center touch-feedback" onclick="markItem(this, 'fail')">
+                    <i class="w-4 h-4 text-red-600" data-lucide="x"></i>
+                  </button>
+                </div>
+              </div>
+              <label class="flex items-center gap-2 mb-2 cursor-pointer">
+                <input class="w-4 h-4 rounded border-border text-accent" type="checkbox"/>
+                <span class="text-xs text-muted-foreground">Requires action</span>
+              </label>
+              <textarea class="w-full p-3 bg-surface border border-border rounded-lg text-sm resize-none focus:outline-none focus:border-primary" placeholder="Notes (optional)" rows="2"></textarea>
+            </div>
+
+            <div class="p-4 border border-border rounded-xl bg-background">
+              <div class="flex items-start justify-between mb-2">
+                <span class="font-medium text-sm">Walls &amp; ceiling - no damage</span>
+                <div class="flex gap-2">
+                  <button class="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center touch-feedback" onclick="markItem(this, 'pass')">
+                    <i class="w-4 h-4 text-green-600" data-lucide="check"></i>
+                  </button>
+                  <button class="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center touch-feedback" onclick="markItem(this, 'fail')">
+                    <i class="w-4 h-4 text-red-600" data-lucide="x"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="p-4 border border-border rounded-xl bg-background">
+              <div class="flex items-start justify-between mb-2">
+                <span class="font-medium text-sm">Flooring condition</span>
+                <div class="flex gap-2">
+                  <button class="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center touch-feedback" onclick="markItem(this, 'pass')">
+                    <i class="w-4 h-4 text-green-600" data-lucide="check"></i>
+                  </button>
+                  <button class="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center touch-feedback" onclick="markItem(this, 'fail')">
+                    <i class="w-4 h-4 text-red-600" data-lucide="x"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="mt-6 flex gap-3">
+            <button class="flex-1 py-3 bg-muted rounded-xl font-medium text-sm touch-feedback" onclick="saveDraft()">Save Draft</button>
+            <button class="flex-1 py-3 bg-accent text-white rounded-xl font-medium text-sm touch-feedback" onclick="submitInspection()">Submit</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Maintenance Request Modal -->
+    <div class="fixed inset-0 bg-black/50 z-50 hidden" id="maintenance-modal">
+      <div class="absolute inset-x-0 bottom-0 max-w-md mx-auto bg-surface rounded-t-2xl slide-up-modal p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-semibold">New Request</h3>
+          <button class="p-2 hover:bg-muted rounded-lg" onclick="closeMaintenanceModal()">
+            <i class="w-5 h-5 text-muted-foreground" data-lucide="x"></i>
+          </button>
+        </div>
+        
+        <form id="maintenance-form" onsubmit="submitMaintenance(event)">
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-medium text-muted-foreground mb-1">Issue Type</label>
+              <select name="category" class="w-full p-3 bg-background border border-border rounded-xl text-sm focus:outline-none focus:border-primary">
+                <option value="plumbing">Plumbing</option>
+                <option value="electrical">Electrical</option>
+                <option value="appliance">Appliance</option>
+                <option value="hvac">HVAC (Heat/AC)</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            
+            <div>
+              <label class="block text-xs font-medium text-muted-foreground mb-1">Description</label>
+              <textarea name="description" rows="3" class="w-full p-3 bg-background border border-border rounded-xl text-sm resize-none focus:outline-none focus:border-primary" placeholder="Describe the issue..."></textarea>
+            </div>
+            
+            <div>
+              <label class="block text-xs font-medium text-muted-foreground mb-1">Priority</label>
+              <div class="flex gap-2">
+                <label class="flex-1 cursor-pointer">
+                  <input type="radio" name="priority" value="low" class="peer hidden">
+                  <div class="p-2 text-center border border-border rounded-lg text-xs font-medium peer-checked:bg-primary peer-checked:text-white peer-checked:border-primary transition-colors">Low</div>
+                </label>
+                <label class="flex-1 cursor-pointer">
+                  <input type="radio" name="priority" value="medium" class="peer hidden" checked>
+                  <div class="p-2 text-center border border-border rounded-lg text-xs font-medium peer-checked:bg-primary peer-checked:text-white peer-checked:border-primary transition-colors">Medium</div>
+                </label>
+                <label class="flex-1 cursor-pointer">
+                  <input type="radio" name="priority" value="high" class="peer hidden">
+                  <div class="p-2 text-center border border-border rounded-lg text-xs font-medium peer-checked:bg-primary peer-checked:text-white peer-checked:border-primary transition-colors">High</div>
+                </label>
+              </div>
+            </div>
+          </div>
+          
+          <div class="mt-6">
+            <button type="submit" class="w-full py-3 bg-accent text-white rounded-xl font-medium text-sm touch-feedback">Submit Request</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div class="fixed inset-0 bg-black/50 z-50 hidden flex items-end justify-center" id="success-modal">
+      <div class="bg-surface w-full max-w-md rounded-t-2xl p-6 slide-up-modal">
+        <div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+          <i class="w-6 h-6 text-green-600" data-lucide="check-circle"></i>
+        </div>
+        <h3 class="text-lg font-semibold text-center mb-2">Inspection Submitted</h3>
+        <p class="text-sm text-muted-foreground text-center mb-6">Thank you! Your inspection has been received. A property manager will review it shortly.</p>
+        <button class="w-full py-3 bg-primary text-white rounded-xl font-medium text-sm touch-feedback" onclick="closeSuccess()">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mock API for development/demo without backend -->
+  <script src="js/mock-api.js"></script>
+  <script src="js/tenant-portal.js" defer></script>
+</body>
+</html>

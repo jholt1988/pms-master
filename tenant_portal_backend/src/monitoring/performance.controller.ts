@@ -1,6 +1,7 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { Roles } from '../auth/roles.decorator';
 import { QueryMonitorService } from './query-monitor';
 
@@ -12,7 +13,7 @@ import { QueryMonitorService } from './query-monitor';
  * In a production setup, this would integrate with an APM service (New Relic, Datadog, etc.)
  */
 @Controller('api/monitoring/performance')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 @Roles('ADMIN', 'PROPERTY_MANAGER')
 export class PerformanceController {
   constructor(private readonly queryMonitor: QueryMonitorService) {}

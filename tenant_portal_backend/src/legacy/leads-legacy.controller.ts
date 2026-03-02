@@ -11,6 +11,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { LeasingService } from '../leasing/leasing.service';
 import { RolesGuard } from '../auth/roles.guard';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { Roles } from '../auth/roles.decorator';
 import { LeadStatus, Role } from '@prisma/client';
 
@@ -22,7 +23,7 @@ interface AuthenticatedRequest {
 }
 
 @Controller('api/leads')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 @Roles(Role.PROPERTY_MANAGER)
 export class LeadsLegacyController {
   constructor(private readonly leasingService: LeasingService) {}
@@ -35,6 +36,7 @@ export class LeadsLegacyController {
     @Query('dateTo') dateTo?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
+    @Request() req?: AuthenticatedRequest,
   ) {
     const filters: any = {};
     if (status) filters.status = this.parseStatus(status);
@@ -44,7 +46,8 @@ export class LeadsLegacyController {
     if (limit) filters.limit = Number(limit);
     if (offset) filters.offset = Number(offset);
 
-    const result = await this.leasingService.getLeads(filters);
+    const orgId = (req as any)?.org?.orgId as string | undefined;
+    const result = await this.leasingService.getLeads({ ...filters, orgId });
     return {
       success: true,
       leads: result.leads,
@@ -56,10 +59,13 @@ export class LeadsLegacyController {
   async getStats(
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo') dateTo?: string,
+    @Request() req?: AuthenticatedRequest,
   ) {
+    const orgId = (req as any)?.org?.orgId as string | undefined;
     const stats = await this.leasingService.getLeadStatistics(
       dateFrom ? new Date(dateFrom) : undefined,
       dateTo ? new Date(dateTo) : undefined,
+      orgId,
     );
     return {
       success: true,
@@ -68,8 +74,9 @@ export class LeadsLegacyController {
   }
 
   @Get(':id/messages')
-  async getMessages(@Param('id') id: string) {
-    const messages = await this.leasingService.getConversationHistory(id);
+  async getMessages(@Param('id') id: string, @Request() req?: AuthenticatedRequest) {
+    const orgId = (req as any)?.org?.orgId as string | undefined;
+    const messages = await this.leasingService.getConversationHistory(id, orgId);
     return {
       success: true,
       messages,
@@ -82,7 +89,8 @@ export class LeadsLegacyController {
     if (!status) {
       throw new BadRequestException('Status is required');
     }
-    const lead = await this.leasingService.updateLeadStatus(id, status as LeadStatus);
+    const orgId = (req as any)?.org?.orgId as string | undefined;
+    const lead = await this.leasingService.updateLeadStatus(id, status as LeadStatus, orgId);
     return {
       success: true,
       lead,

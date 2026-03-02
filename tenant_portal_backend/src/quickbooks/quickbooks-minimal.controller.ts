@@ -11,16 +11,19 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
+import { Inject } from '@nestjs/common';
 import { QuickBooksMinimalService } from './quickbooks-minimal.service';
+import { AbstractQuickBooksService } from './quickbooks.types';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 
 @ApiTags('QuickBooks Integration')
 @ApiBearerAuth()
 @Controller('quickbooks')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), OrgContextGuard)
 export class QuickBooksController {
   private readonly logger = new Logger(QuickBooksController.name);
 
-  constructor(private readonly quickBooksService: QuickBooksMinimalService) {}
+  constructor(@Inject(AbstractQuickBooksService) private readonly quickBooksService: AbstractQuickBooksService) {}
 
   @Get('auth-url')
   @ApiOperation({ summary: 'Get QuickBooks authorization URL' })
@@ -37,9 +40,14 @@ export class QuickBooksController {
   async getAuthUrl(@Request() req: any) {
     try {
       const userId = req.user.id;
+      const orgId = req.org?.orgId as string | undefined;
       this.logger.log(`Generating QuickBooks auth URL for user ${userId}`);
       
-      const authUrl = await this.quickBooksService.getAuthorizationUrl(userId);
+      if (!orgId) {
+        throw new HttpException('Missing organization context', HttpStatus.BAD_REQUEST);
+      }
+
+      const authUrl = await this.quickBooksService.getAuthorizationUrl(userId, orgId);
       
       return {
         authUrl,
@@ -120,9 +128,14 @@ export class QuickBooksController {
   async getStatus(@Request() req: any) {
     try {
       const userId = req.user.id;
+      const orgId = req.org?.orgId as string | undefined;
       this.logger.log(`Getting QuickBooks status for user ${userId}`);
       
-      const status = await this.quickBooksService.getConnectionStatus(userId);
+      if (!orgId) {
+        throw new HttpException('Missing organization context', HttpStatus.BAD_REQUEST);
+      }
+
+      const status = await this.quickBooksService.getConnectionStatus(userId, orgId);
       return status;
     } catch (error) {
       this.logger.error('Failed to get connection status', error);
@@ -149,9 +162,14 @@ export class QuickBooksController {
   async syncData(@Request() req: any) {
     try {
       const userId = req.user.id;
+      const orgId = req.org?.orgId as string | undefined;
       this.logger.log(`Starting QuickBooks sync for user ${userId}`);
       
-      const result = await this.quickBooksService.basicSync(userId);
+      if (!orgId) {
+        throw new HttpException('Missing organization context', HttpStatus.BAD_REQUEST);
+      }
+
+      const result = await this.quickBooksService.basicSync(userId, orgId);
       
       if (result.success) {
         this.logger.log(`QuickBooks sync completed for user ${userId}`);
@@ -184,9 +202,14 @@ export class QuickBooksController {
   async disconnect(@Request() req: any) {
     try {
       const userId = req.user.id;
+      const orgId = req.org?.orgId as string | undefined;
       this.logger.log(`Disconnecting QuickBooks for user ${userId}`);
       
-      const result = await this.quickBooksService.disconnectQuickBooks(userId);
+      if (!orgId) {
+        throw new HttpException('Missing organization context', HttpStatus.BAD_REQUEST);
+      }
+
+      const result = await this.quickBooksService.disconnectQuickBooks(userId, orgId);
       
       this.logger.log(`QuickBooks disconnection result for user ${userId}: ${result.success}`);
       return result;

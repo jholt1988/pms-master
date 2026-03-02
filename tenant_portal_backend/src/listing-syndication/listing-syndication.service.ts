@@ -35,13 +35,14 @@ export class ListingSyndicationService {
     };
   }
 
-  async upsertChannelCredential(dto: UpsertChannelCredentialDto) {
+  async upsertChannelCredential(dto: UpsertChannelCredentialDto, orgId?: string) {
     const { channel, ...config } = dto;
     return this.prisma.syndicationCredential.upsert({
-      where: { channel },
+      where: { channel, ...(orgId ? { organizationId: orgId } : {}) },
       create: {
         channel,
         config,
+        ...(orgId ? { organizationId: orgId } : {}),
       },
       update: {
         config,
@@ -49,13 +50,14 @@ export class ListingSyndicationService {
     });
   }
 
-  async listChannelCredentials() {
+  async listChannelCredentials(orgId?: string) {
     return this.prisma.syndicationCredential.findMany({
+      where: orgId ? { organizationId: orgId } : undefined,
       orderBy: { channel: 'asc' },
     });
   }
 
-  async queueSyndication(propertyId: string , dto?: SyndicationActionDto) {
+  async queueSyndication(propertyId: string , dto?: SyndicationActionDto, orgId?: string) {
    
     const channels = dto?.channels?.length
       ? dto.channels
@@ -71,12 +73,12 @@ export class ListingSyndicationService {
       });
     }
 
-    await this.schedulePendingJobs();
+    await this.schedulePendingJobs(orgId);
 
-    return this.getPropertyStatus(propertyId);
+    return this.getPropertyStatus(propertyId, orgId);
   }
 
-  async pauseSyndication(propertyId: string , dto?: SyndicationActionDto) {
+  async pauseSyndication(propertyId: string , dto?: SyndicationActionDto, orgId?: string) {
    
     const channels = dto?.channels?.length
       ? dto.channels
@@ -92,12 +94,12 @@ export class ListingSyndicationService {
       },
     });
 
-    return this.getPropertyStatus(propertyId);
+    return this.getPropertyStatus(propertyId, orgId);
   }
 
-  async getPropertyStatus(propertyId: string ) {
+  async getPropertyStatus(propertyId: string , orgId?: string) {
    
-    const property = await this.prisma.property.findUnique({ where: { id: propertyId } });
+    const property = await this.prisma.property.findFirst({ where: { id: propertyId, ...(orgId ? { organizationId: orgId } : {}) } });
 
     if (!property) {
       throw new NotFoundException('Property not found');
@@ -111,20 +113,20 @@ export class ListingSyndicationService {
     return queue;
   }
 
-  async refreshEnabledProperties() {
+  async refreshEnabledProperties(orgId?: string) {
     const properties = await this.prisma.propertyMarketingProfile.findMany({
-      where: { isSyndicationEnabled: true },
+      where: { isSyndicationEnabled: true, ...(orgId ? { property: { organizationId: orgId } } : {}) },
       select: { propertyId: true },
     });
 
     for (const record of properties) {
-      await this.queueSyndication(record.propertyId);
+      await this.queueSyndication(record.propertyId, undefined, orgId);
     }
   }
 
-  async schedulePendingJobs() {
+  async schedulePendingJobs(orgId?: string) {
     const pendingEntries = await this.prisma.syndicationQueue.findMany({
-      where: { status: SyndicationStatus.PENDING },
+      where: { status: SyndicationStatus.PENDING, ...(orgId ? { property: { organizationId: orgId } } : {}) },
     });
 
     for (const entry of pendingEntries) {
@@ -140,9 +142,9 @@ export class ListingSyndicationService {
     }
   }
 
-  async processQueueEntry(entryId: number) {
-    const queueEntry = await this.prisma.syndicationQueue.findUnique({
-      where: { id: entryId },
+  async processQueueEntry(entryId: number, orgId?: string) {
+    const queueEntry = await this.prisma.syndicationQueue.findFirst({
+      where: { id: entryId, ...(orgId ? { property: { organizationId: orgId } } : {}) },
       include: {
         property: {
           include: {
@@ -164,7 +166,7 @@ export class ListingSyndicationService {
     }
 
     const adapter = this.adapters[queueEntry.channel];
-    const credential = await this.getCredentialForChannel(queueEntry.channel);
+    const credential = await this.getCredentialForChannel(queueEntry.channel, orgId ?? queueEntry.property?.organizationId);
     const snapshot = this.toSnapshot(queueEntry.property);
     const payload = adapter.buildPayload(snapshot);
 
@@ -216,8 +218,8 @@ export class ListingSyndicationService {
     }
   }
 
-  private async getCredentialForChannel(channel: SyndicationChannel): Promise<ChannelCredential> {
-    const credential = await this.prisma.syndicationCredential.findUnique({ where: { channel } });
+  private async getCredentialForChannel(channel: SyndicationChannel, orgId?: string): Promise<ChannelCredential> {
+    const credential = await this.prisma.syndicationCredential.findFirst({ where: { channel, ...(orgId ? { organizationId: orgId } : {}) } });
 
     if (!credential) {
       throw new Error(`Missing credentials for ${channel}`);
@@ -244,11 +246,7 @@ export class ListingSyndicationService {
     };
   }
 
-  private parseNumericId(value: string | number, field: string): number {
-    const parsed = typeof value === 'number' ? value : Number(value);
-    if (!Number.isFinite(parsed) || Number.isNaN(parsed) || !Number.isInteger(parsed)) {
-      throw new BadRequestException(`Invalid ${field} id: ${value}`);
-    }
-    return parsed;
+  private parseNumericId(value: string | number, field: string): string {
+    return String(value);
   }
 }

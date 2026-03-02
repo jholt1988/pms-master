@@ -34,6 +34,28 @@ const formatDateTime = (value?: string | null): string => {
   return date.toLocaleString();
 };
 
+const formatIsoDateTime = (value?: string | null): string => {
+  if (!value) {
+    return '';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  return date.toISOString();
+};
+
+const legalBadgeClass = (accepted: boolean) => (
+  accepted ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+);
+
+const csvEscape = (value: string) => {
+  if (value.includes('"') || value.includes(',') || value.includes('\n')) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+};
+
 // Get available status options based on current status
 const getAvailableStatusOptions = (currentStatus: string) => {
   const allOptions = [
@@ -100,6 +122,10 @@ const RentalApplicationsManagementPage = () => {
   const [savingNoteId, setSavingNoteId] = useState<number | null>(null);
   const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
   const [screeningId, setScreeningId] = useState<number | null>(null);
+  const [aiReviewingId, setAiReviewingId] = useState<number | null>(null);
+  const [aiReviewData, setAiReviewData] = useState<Record<number, any>>({});
+  const [termsFilter, setTermsFilter] = useState<'all' | 'accepted' | 'missing'>('all');
+  const [privacyFilter, setPrivacyFilter] = useState<'all' | 'accepted' | 'missing'>('all');
   const { token } = useAuth();
 
   useEffect(() => {
@@ -181,6 +207,23 @@ const RentalApplicationsManagementPage = () => {
     }
   };
 
+  const handleAiReview = async (id: number) => {
+    if (!token) return;
+    setError(null);
+    try {
+      setAiReviewingId(id);
+      const reviewData = await apiFetch(`/rental-applications/${id}/ai-review`, {
+        token,
+        method: 'POST',
+      });
+      setAiReviewData((prev) => ({ ...prev, [id]: reviewData }));
+    } catch (error: any) {
+      setError(`Failed to get AI review: ${error.message}`);
+    } finally {
+      setAiReviewingId(null);
+    }
+  };
+
   const handleAddNote = async (id: number) => {
     if (!token || !noteDrafts[id] || !noteDrafts[id].trim()) {
       return;
@@ -218,6 +261,53 @@ const RentalApplicationsManagementPage = () => {
     setExpanded((current) => (current === id ? null : id));
   };
 
+  const handleExportCsv = () => {
+    const rows = [
+      [
+        'Application ID',
+        'Applicant',
+        'Email',
+        'Phone',
+        'Property',
+        'Unit',
+        'Status',
+        'Submitted At',
+        'Terms Accepted At',
+        'Terms Version',
+        'Privacy Accepted At',
+        'Privacy Version',
+      ],
+      ...filteredApplications.map((application) => [
+        String(application.id ?? ''),
+        application.fullName ?? '',
+        application.email ?? '',
+        application.phoneNumber ?? '',
+        application.property?.name ?? '',
+        application.unit?.name ?? '',
+        application.status ?? '',
+        formatIsoDateTime(application.createdAt),
+        formatIsoDateTime(application.termsAcceptedAt),
+        application.termsVersion ?? '',
+        formatIsoDateTime(application.privacyAcceptedAt),
+        application.privacyVersion ?? '',
+      ]),
+    ];
+
+    const csv = rows
+      .map((row) => row.map((value) => csvEscape(String(value))).join(','))
+      .join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `rental-applications-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const stats = useMemo(() => {
     const pending = applications.filter((app) => app.status === 'PENDING').length;
     const approved = applications.filter((app) => app.status === 'APPROVED').length;
@@ -234,17 +324,68 @@ const RentalApplicationsManagementPage = () => {
     };
   }, [applications]);
 
+  const filteredApplications = useMemo(() => {
+    return applications.filter((application) => {
+      const termsAccepted = Boolean(application.termsAcceptedAt);
+      const privacyAccepted = Boolean(application.privacyAcceptedAt);
+
+      if (termsFilter === 'accepted' && !termsAccepted) return false;
+      if (termsFilter === 'missing' && termsAccepted) return false;
+      if (privacyFilter === 'accepted' && !privacyAccepted) return false;
+      if (privacyFilter === 'missing' && privacyAccepted) return false;
+      return true;
+    });
+  }, [applications, termsFilter, privacyFilter]);
+
   if (loading) {
     return <div className="p-4 text-sm text-gray-600">Loading rental applications…</div>;
   }
 
   return (
     <div className="space-y-8">
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold text-gray-900">Rental applications</h1>
-        <p className="text-sm text-gray-600">
-          Compare applicant profiles, run screening, and document decisions for every unit.
-        </p>
+      <header className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-2">
+            <h1 className="text-2xl font-semibold text-gray-900">Rental applications</h1>
+            <p className="text-sm text-gray-600">
+              Compare applicant profiles, run screening, and document decisions for every unit.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
+          >
+            Export CSV
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-3 text-sm">
+          <label className="flex items-center gap-2">
+            <span className="text-xs font-medium text-gray-600">Terms</span>
+            <select
+              value={termsFilter}
+              onChange={(event) => setTermsFilter(event.target.value as 'all' | 'accepted' | 'missing')}
+              className="rounded-md border border-gray-300 px-2 py-1 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="all">All</option>
+              <option value="accepted">Accepted</option>
+              <option value="missing">Missing</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-2">
+            <span className="text-xs font-medium text-gray-600">Privacy</span>
+            <select
+              value={privacyFilter}
+              onChange={(event) => setPrivacyFilter(event.target.value as 'all' | 'accepted' | 'missing')}
+              className="rounded-md border border-gray-300 px-2 py-1 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="all">All</option>
+              <option value="accepted">Accepted</option>
+              <option value="missing">Missing</option>
+            </select>
+          </label>
+          <span className="text-xs text-gray-500 self-center">Showing {filteredApplications.length} of {applications.length}</span>
+        </div>
       </header>
 
       {error && (
@@ -279,12 +420,12 @@ const RentalApplicationsManagementPage = () => {
       </section>
 
       <section className="space-y-4">
-        {applications.length === 0 ? (
+        {filteredApplications.length === 0 ? (
           <div className="rounded-lg border border-dashed border-gray-300 bg-white py-12 text-center text-sm text-gray-500">
             No applications submitted yet.
           </div>
         ) : (
-          applications.map((application) => {
+          filteredApplications.map((application) => {
             const isExpanded = expanded === application.id;
             const noteDraft = noteDrafts[application.id] ?? '';
             const screeningReasons: string[] = Array.isArray(application.screeningReasons)
@@ -324,6 +465,14 @@ const RentalApplicationsManagementPage = () => {
                           application.qualificationStatus}
                       </span>
                     )}
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${legalBadgeClass(Boolean(application.termsAcceptedAt))}`}>
+                        Terms {application.termsAcceptedAt ? 'Accepted' : 'Missing'}
+                      </span>
+                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${legalBadgeClass(Boolean(application.privacyAcceptedAt))}`}>
+                        Privacy {application.privacyAcceptedAt ? 'Accepted' : 'Missing'}
+                      </span>
+                    </div>
                     <button
                       type="button"
                       onClick={() => toggleExpanded(application.id)}
@@ -376,6 +525,14 @@ const RentalApplicationsManagementPage = () => {
                       : application.screenedAt
                         ? 'Re-run screening'
                         : 'Run screening'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAiReview(application.id)}
+                    disabled={aiReviewingId === application.id}
+                    className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100"
+                  >
+                    {aiReviewingId === application.id ? 'Analyzing…' : 'AI Pre-Screen'}
                   </button>
                 </div>
 
@@ -449,6 +606,59 @@ const RentalApplicationsManagementPage = () => {
                             the application.
                           </p>
                         )}
+                      </div>
+                      <div className="rounded-md border border-gray-200 bg-gray-50 p-4">
+                        <h3 className="text-sm font-semibold text-gray-900">AI Pre-Screen Insights</h3>
+                        {aiReviewData[application.id] ? (
+                          <dl className="mt-3 space-y-2 text-xs text-gray-600">
+                            <div>
+                              <dt className="font-medium text-gray-700">Recommendation</dt>
+                              <dd>{aiReviewData[application.id].recommendation.replace(/_/g, ' ')}</dd>
+                            </div>
+                            <div>
+                              <dt className="font-medium text-gray-700">Summary</dt>
+                              <dd>
+                                <ul className="mt-1 list-disc space-y-1 pl-4">
+                                  {aiReviewData[application.id].summary.split('\\n').map((line: string, index: number) => (
+                                    <li key={index}>{line.replace(/^- /, '')}</li>
+                                  ))}
+                                </ul>
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="font-medium text-gray-700">Checks</dt>
+                              <dd>{aiReviewData[application.id].checks_passed} / {aiReviewData[application.id].checks_total} passed</dd>
+                            </div>
+                          </dl>
+                        ) : (
+                          <p className="mt-3 text-xs text-gray-500">
+                            Click the "AI Pre-Screen" button to get an instant analysis.
+                          </p>
+                        )}
+                      </div>
+                    </section>
+
+                    <section className="grid gap-4 md:grid-cols-2">
+                      <div className="rounded-md border border-gray-200 bg-gray-50 p-4">
+                        <h3 className="text-sm font-semibold text-gray-900">Legal acceptance</h3>
+                        <dl className="mt-3 space-y-2 text-xs text-gray-600">
+                          <div>
+                            <dt className="font-medium text-gray-700">Terms</dt>
+                            <dd>
+                              {application.termsAcceptedAt
+                                ? `${formatDateTime(application.termsAcceptedAt)} (v${application.termsVersion ?? '—'})`
+                                : 'Not accepted'}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="font-medium text-gray-700">Privacy</dt>
+                            <dd>
+                              {application.privacyAcceptedAt
+                                ? `${formatDateTime(application.privacyAcceptedAt)} (v${application.privacyVersion ?? '—'})`
+                                : 'Not accepted'}
+                            </dd>
+                          </div>
+                        </dl>
                       </div>
                     </section>
 

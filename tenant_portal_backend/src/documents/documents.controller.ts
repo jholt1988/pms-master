@@ -20,6 +20,8 @@ import { DocumentsService } from './documents.service';
 import { DocumentCategory } from '@prisma/client'; // Renamed to avoid conflict
 import { Request, Response } from 'express';
 import { memoryStorage } from 'multer';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
+import { OrgId } from '../common/org-context/org-id.decorator';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -30,7 +32,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('documents')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), OrgContextGuard)
 export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
 
@@ -50,6 +52,7 @@ export class DocumentsController {
     @Body('description') description?: string,
     @Body('leaseId') leaseId?: string,
     @Body('propertyId') propertyId?: string,
+    @OrgId() orgId?: string,
   ) {
     if (!file) {
       throw new BadRequestException('No file provided');
@@ -64,6 +67,7 @@ export class DocumentsController {
         leaseId,
         propertyId,
       },
+      orgId,
     );
   }
 
@@ -75,6 +79,7 @@ export class DocumentsController {
     @Query('propertyId') propertyId?: string,
     @Query('skip') skip?: string,
     @Query('take') take?: string,
+    @OrgId() orgId?: string,
   ) {
     return this.documentsService.listDocuments({
       userId: req.user.sub,
@@ -83,6 +88,7 @@ export class DocumentsController {
       propertyId,
       skip: skip ? parseInt(skip, 10) : undefined,
       take: take ? parseInt(take, 10) : undefined,
+      orgId,
     });
   }
 
@@ -91,8 +97,9 @@ export class DocumentsController {
     @Param('id', ParseIntPipe) id: number,
     @Req() req: AuthenticatedRequest,
     @Res() res: Response,
+    @OrgId() orgId?: string,
   ) {
-    const fileStream = await this.documentsService.getFileStream(id, req.user.sub);
+    const fileStream = await this.documentsService.getFileStream(id, req.user.sub, orgId);
     res.setHeader('Content-Type', fileStream.mimeType);
     res.setHeader('Content-Disposition', `attachment; filename="${fileStream.fileName}"`);
     fileStream.stream.pipe(res);
@@ -103,12 +110,13 @@ export class DocumentsController {
     @Param('id', ParseIntPipe) id: number,
     @Req() req: AuthenticatedRequest,
     @Body('userIds') userIds: string[],
+    @OrgId() orgId?: string,
   ) {
-    return this.documentsService.shareDocument(id, userIds, req.user.sub);
+    return this.documentsService.shareDocument(id, userIds, req.user.sub, orgId);
   }
 
   @Delete(':id')
-  async deleteDocument(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest) {
-    return this.documentsService.deleteDocument(id, req.user.sub);
+  async deleteDocument(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest, @OrgId() orgId?: string) {
+    return this.documentsService.deleteDocument(id, req.user.sub, orgId);
   }
 }

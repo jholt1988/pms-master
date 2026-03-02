@@ -187,7 +187,9 @@ export const LeasingLandingPage: React.FC = () => {
                   </div>
                   <button
                     onClick={() => setShowBot(true)}
+                    onKeyDown={(e) => e.key === 'Enter' && setShowBot(true)}
                     className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+                    aria-label={`Ask about ${property.title}, ${property.rent} per month`}
                   >
                     Ask About This Property
                   </button>
@@ -198,10 +200,12 @@ export const LeasingLandingPage: React.FC = () => {
           <div className="text-center mt-8">
             <button
               onClick={() => setShowBot(true)}
+              onKeyDown={(e) => e.key === 'Enter' && setShowBot(true)}
               className="text-blue-600 font-semibold hover:underline inline-flex items-center gap-2"
+              aria-label="View all available properties"
             >
               View All Properties
-              <span>→</span>
+              <span aria-hidden="true">→</span>
             </button>
           </div>
         </div>
@@ -287,19 +291,19 @@ export const LeasingLandingPage: React.FC = () => {
             <div>
               <h4 className="font-semibold text-white mb-4">Quick Links</h4>
               <ul className="space-y-2 text-sm">
-                <li><button onClick={() => setShowBot(true)} className="hover:text-white">About Us</button></li>
-                <li><button onClick={() => setShowBot(true)} className="hover:text-white">Properties</button></li>
-                <li><button onClick={() => setShowBot(true)} className="hover:text-white">Amenities</button></li>
-                <li><button onClick={() => setShowBot(true)} className="hover:text-white">Contact</button></li>
+                <li><button onClick={() => setShowBot(true)} onKeyDown={(e) => e.key === 'Enter' && setShowBot(true)} className="hover:text-white focus:outline-none focus:underline" aria-label="Learn about us">About Us</button></li>
+                <li><button onClick={() => setShowBot(true)} onKeyDown={(e) => e.key === 'Enter' && setShowBot(true)} className="hover:text-white focus:outline-none focus:underline" aria-label="View properties">Properties</button></li>
+                <li><button onClick={() => setShowBot(true)} onKeyDown={(e) => e.key === 'Enter' && setShowBot(true)} className="hover:text-white focus:outline-none focus:underline" aria-label="View amenities">Amenities</button></li>
+                <li><button onClick={() => setShowBot(true)} onKeyDown={(e) => e.key === 'Enter' && setShowBot(true)} className="hover:text-white focus:outline-none focus:underline" aria-label="Contact us">Contact</button></li>
               </ul>
             </div>
             <div>
               <h4 className="font-semibold text-white mb-4">Resources</h4>
               <ul className="space-y-2 text-sm">
-                <li><button onClick={() => setShowBot(true)} className="hover:text-white">FAQ</button></li>
-                <li><button onClick={() => setShowBot(true)} className="hover:text-white">Application Process</button></li>
-                <li><button onClick={() => setShowBot(true)} className="hover:text-white">Pet Policy</button></li>
-                <li><button onClick={() => setShowBot(true)} className="hover:text-white">Resident Portal</button></li>
+                <li><button onClick={() => setShowBot(true)} onKeyDown={(e) => e.key === 'Enter' && setShowBot(true)} className="hover:text-white focus:outline-none focus:underline" aria-label="View FAQ">FAQ</button></li>
+                <li><button onClick={() => setShowBot(true)} onKeyDown={(e) => e.key === 'Enter' && setShowBot(true)} className="hover:text-white focus:outline-none focus:underline" aria-label="Learn about application process">Application Process</button></li>
+                <li><button onClick={() => setShowBot(true)} onKeyDown={(e) => e.key === 'Enter' && setShowBot(true)} className="hover:text-white focus:outline-none focus:underline" aria-label="View pet policy">Pet Policy</button></li>
+                <li><button onClick={() => setShowBot(true)} onKeyDown={(e) => e.key === 'Enter' && setShowBot(true)} className="hover:text-white focus:outline-none focus:underline" aria-label="Access resident portal">Resident Portal</button></li>
               </ul>
             </div>
           </div>

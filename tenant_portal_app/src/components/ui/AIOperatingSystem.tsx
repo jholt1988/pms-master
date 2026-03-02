@@ -10,7 +10,40 @@ export const AIOperatingSystem: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
+  const aiOverlayRef = useRef<HTMLDivElement>(null);
   const [isListening, setIsListening] = useState(false);
+
+  // Focus trap for AI overlay
+  useEffect(() => {
+    if (isOpen && aiOverlayRef.current) {
+      const focusableElements = aiOverlayRef.current.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      const firstElement = focusableElements[0] as HTMLElement;
+      const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Tab') {
+          if (e.shiftKey && document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement?.focus();
+          } else if (!e.shiftKey && document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement?.focus();
+          }
+        }
+        if (e.key === 'Escape') {
+          setIsOpen(false);
+        }
+      };
+
+      document.addEventListener('keydown', handleKeyDown);
+      firstElement?.focus();
+
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [isOpen]);
+
   const [isLoading, setIsLoading] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [sessionId, setSessionId] = useState<string | undefined>();
@@ -106,7 +139,7 @@ export const AIOperatingSystem: React.FC = () => {
       const context = {
         userId: String((user as any).sub ?? (user as any).id ?? ''),
         username: (user as any).username || '',
-        role: ((user as any).role as 'TENANT' | 'PROPERTY_MANAGER' | 'ADMIN') || 'TENANT',
+        role: ((user as any).role as 'TENANT' | 'PROPERTY_MANAGER' | 'OWNER' | 'ADMIN') || 'TENANT',
         currentPage: location.pathname,
         currentRoute: location.pathname,
       };
@@ -151,7 +184,7 @@ export const AIOperatingSystem: React.FC = () => {
       const context = {
         userId: userId,
         username: user?.username || 'Guest',
-        role: (user?.role as 'TENANT' | 'PROPERTY_MANAGER' | 'ADMIN') || undefined,
+        role: (user?.role as 'TENANT' | 'PROPERTY_MANAGER' | 'OWNER' | 'ADMIN') || undefined,
         currentPage: location.pathname,
         currentRoute: location.pathname,
       };
@@ -251,22 +284,32 @@ export const AIOperatingSystem: React.FC = () => {
       {/* --- HOLOGRAPHIC INTERFACE OVERLAY --- */}
       {/* Only renders when open. Uses a fixed positioning to overlay the screen content */}
       {isOpen && (
-        <div className="fixed  z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          <div className="fixed inset-0 z-[99] bg-black/60 backdrop-blur-sm" aria-hidden="true" onClick={() => setIsOpen(false)} />
+          <div 
+            ref={aiOverlayRef}
+            className="relative z-[101] w-full max-w-[95vw] h-[80vh] flex flex-col"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ai-os-title"
+          >
           
           {/* Main Glass Container */}
-          <div className="
-            w-full max-w-[95vw] h-[80vh] flex flex-col
-            bg-glass-surface backdrop-blur-xl border border-glass-highlight
-            rounded-3xl shadow-[0_0_100px_-20px_rgba(112,0,255,0.3)]
-            overflow-hidden animate-in zoom-in-95 duration-300
-          ">
+          <div 
+            className="
+              w-full h-full flex flex-col
+              bg-glass-surface backdrop-blur-xl border border-glass-highlight
+              rounded-3xl shadow-[0_0_100px_-20px_rgba(112,0,255,0.3)]
+              overflow-hidden animate-in zoom-in-95 duration-300
+            " onClick={(e) => e.stopPropagation()}
+          >
             
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-white/10 bg-white/5">
               <div className="flex items-center gap-3">
-                <Cpu className="text-neon-purple" size={20} />
+                <Cpu className="text-neon-purple" size={20} aria-hidden="true" />
                 <div>
-                  <h2 className="text-white font-sans text-lg tracking-wide">PMS.OS CO-PILOT</h2>
+                  <h2 id="ai-os-title" className="text-white font-sans text-lg tracking-wide">PMS.OS CO-PILOT</h2>
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
                     <span className="text-xs text-gray-400 font-mono">ONLINE • 98% TOKEN EFFICIENCY</span>
@@ -403,7 +446,7 @@ export const AIOperatingSystem: React.FC = () => {
                 ))}
               </div>
             </div>
-
+          </div>
           </div>
         </div>
       )}

@@ -11,7 +11,7 @@ The rental application follows a guided 3-step workflow designed to be completed
 #### Step 1: Application Landing Page (`/rental-application`)
 
 Before starting your application, you'll see:
-- **Process Timeline**: Visual breakdown of the 4 application steps
+- **Process Timeline**: Visual breakdown of the 4 form sections inside the application
   - Personal Information (3 minutes)
   - Employment Verification (5 minutes)
   - Rental History (4 minutes)
@@ -62,7 +62,7 @@ Complete the comprehensive application form with the following sections:
 - Pets (type, breed, weight)
 - Vehicles (make, model, license plate)
 - Background check consent
-- Terms and conditions agreement
+- Terms of Service + Privacy Policy agreement (store acceptance timestamp + version)
 
 **Form Features:**
 - Real-time validation

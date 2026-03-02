@@ -65,10 +65,32 @@ export class RentOptimizationService {
     this.logger.log(`RentOptimizationService initialized. ML Service URL: ${this.ML_SERVICE_URL}, USE_ML_SERVICE: ${this.USE_ML_SERVICE}`);
   }
 
+  private recommendationScope(orgId?: string): Prisma.RentRecommendationWhereInput | undefined {
+    if (!orgId) {
+      return undefined;
+    }
+    return { unit: { property: { organizationId: orgId } } };
+  }
+
+  private async assertUnitInOrg(unitId: number, orgId?: string) {
+    if (!orgId) return;
+    const unit = await this.prisma.unit.findFirst({
+      where: { id: unitId, property: { organizationId: orgId } },
+      select: { id: true },
+    });
+    if (!unit) {
+      throw ApiException.forbidden(
+        ErrorCode.AUTH_FORBIDDEN,
+        'Unit is not accessible for this organization',
+        { unitId: String(unitId) },
+      );
+    }
+  }
+
   async createRecommendation(data: MLPredictionResponse) {
     const { unit_id, recommended_rent, confidence_interval_low, confidence_interval_high, factors, market_comparables, model_version, reasoning } = data;
 
-    const unitId = this.parseNumericId(unit_id, 'unit');
+    const unitId = String(unit_id);
     const unitIdLabel = String(unitId);
     const unit = await this.prisma.unit.findUnique({
       where: { id: unitId },
@@ -101,8 +123,9 @@ export class RentOptimizationService {
     });
   }
 
-  async getAllRecommendations() {
+  async getAllRecommendations(orgId?: string) {
     return this.prisma.rentRecommendation.findMany({
+      where: this.recommendationScope(orgId),
       include: {
         unit: {
           include: {
@@ -129,9 +152,12 @@ export class RentOptimizationService {
     });
   }
 
-  async getRecommendation(id: string) {
-    const recommendation = await this.prisma.rentRecommendation.findUnique({
-      where: { id },
+  async getRecommendation(id: string, orgId?: string) {
+    const recommendation = await this.prisma.rentRecommendation.findFirst({
+      where: {
+        id,
+        ...(this.recommendationScope(orgId) ?? {}),
+      },
       include: {
         unit: {
           include: {
@@ -165,10 +191,14 @@ export class RentOptimizationService {
     return recommendation;
   }
 
-  async getRecommendationByUnit(unitId: string | number) {
-    const unitIdNum = this.parseNumericId(unitId, 'unit');
+  async getRecommendationByUnit(unitId: string | number, orgId?: string) {
+    const unitIdNum = String(unitId);
+    await this.assertUnitInOrg(unitIdNum, orgId);
     const recommendations = await this.prisma.rentRecommendation.findMany({
-      where: { unitId: unitIdNum },
+      where: {
+        unitId: unitIdNum,
+        ...(this.recommendationScope(orgId) ?? {}),
+      },
       include: {
         unit: {
           include: {
@@ -198,12 +228,13 @@ export class RentOptimizationService {
     return recommendations[0] || null;
   }
 
-  async generateRecommendations(unitIds: number[]) {
+  async generateRecommendations(unitIds: number[], orgId?: string) {
     const results = [];
 
     for (const unitId of unitIds) {
-      const unitIdNumeric = this.parseNumericId(unitId, 'unit');
+      const unitIdNumeric = String(unitId);
       const unitIdLabel = String(unitIdNumeric);
+      await this.assertUnitInOrg(unitIdNumeric, orgId);
       // Get unit details
       const unit = await this.prisma.unit.findUnique({
         where: { id: unitIdNumeric },
@@ -339,9 +370,12 @@ export class RentOptimizationService {
     return typeMap[type.toUpperCase()] || 'APARTMENT';
   }
 
-  async acceptRecommendation(id: string, userId: string) {
-    const recommendation = await this.prisma.rentRecommendation.findUnique({
-      where: { id },
+  async acceptRecommendation(id: string, userId: string, orgId?: string) {
+    const recommendation = await this.prisma.rentRecommendation.findFirst({
+      where: {
+        id,
+        ...(this.recommendationScope(orgId) ?? {}),
+      },
     });
 
     if (!recommendation) {
@@ -393,9 +427,12 @@ export class RentOptimizationService {
     return updated;
   }
 
-  async rejectRecommendation(id: string, userId: string) {
-    const recommendation = await this.prisma.rentRecommendation.findUnique({
-      where: { id },
+  async rejectRecommendation(id: string, userId: string, orgId?: string) {
+    const recommendation = await this.prisma.rentRecommendation.findFirst({
+      where: {
+        id,
+        ...(this.recommendationScope(orgId) ?? {}),
+      },
     });
 
     if (!recommendation) {
@@ -440,21 +477,23 @@ export class RentOptimizationService {
     return updated;
   }
 
-  async getStats() {
+  async getStats(orgId?: string) {
+    const scope = this.recommendationScope(orgId);
     const [total, pending, accepted, rejected] = await Promise.all([
-      this.prisma.rentRecommendation.count(),
+      this.prisma.rentRecommendation.count({ where: scope }),
       this.prisma.rentRecommendation.count({
-        where: { status: RentRecommendationStatus.PENDING },
+        where: { status: RentRecommendationStatus.PENDING, ...(scope ?? {}) },
       }),
       this.prisma.rentRecommendation.count({
-        where: { status: RentRecommendationStatus.ACCEPTED },
+        where: { status: RentRecommendationStatus.ACCEPTED, ...(scope ?? {}) },
       }),
       this.prisma.rentRecommendation.count({
-        where: { status: RentRecommendationStatus.REJECTED },
+        where: { status: RentRecommendationStatus.REJECTED, ...(scope ?? {}) },
       }),
     ]);
 
     const recommendations = await this.prisma.rentRecommendation.findMany({
+      where: scope,
       select: {
         currentRent: true,
         recommendedRent: true,
@@ -488,8 +527,9 @@ export class RentOptimizationService {
     };
   }
 
-  async getRecentRecommendations(limit: number = 10) {
+  async getRecentRecommendations(limit: number = 10, orgId?: string) {
     return this.prisma.rentRecommendation.findMany({
+      where: this.recommendationScope(orgId),
       include: {
         unit: {
           include: {
@@ -517,11 +557,14 @@ export class RentOptimizationService {
     });
   }
 
-  async getRecommendationsByStatus(status: string) {
+  async getRecommendationsByStatus(status: string, orgId?: string) {
     const statusEnum = status.toUpperCase() as RentRecommendationStatus;
     
     return this.prisma.rentRecommendation.findMany({
-      where: { status: statusEnum },
+      where: {
+        status: statusEnum,
+        ...(this.recommendationScope(orgId) ?? {}),
+      },
       include: {
         unit: {
           include: {
@@ -548,12 +591,13 @@ export class RentOptimizationService {
     });
   }
 
-  async getRecommendationsByProperty(propertyId: string | number) {
-    const propertyIdNum = this.parseNumericId(propertyId, 'property');
+  async getRecommendationsByProperty(propertyId: string | number, orgId?: string) {
+    const propertyIdNum = String(propertyId);
     return this.prisma.rentRecommendation.findMany({
       where: {
         unit: {
           propertyId: propertyIdNum,
+          ...(orgId ? { property: { organizationId: orgId } } : {}),
         },
       },
       include: {
@@ -582,9 +626,10 @@ export class RentOptimizationService {
     });
   }
 
-  async getComparison(unitId: string | number) {
-    const unitIdNumeric = this.parseNumericId(unitId, 'unit');
+  async getComparison(unitId: string | number, orgId?: string) {
+    const unitIdNumeric = String(unitId);
     const unitIdLabel = String(unitIdNumeric);
+    await this.assertUnitInOrg(unitIdNumeric, orgId);
     const unit = await this.prisma.unit.findUnique({
       where: { id: unitIdNumeric },
       include: {
@@ -602,7 +647,10 @@ export class RentOptimizationService {
     }
 
     const recommendations = await this.prisma.rentRecommendation.findMany({
-      where: { unitId: unitIdNumeric },
+      where: {
+        unitId: unitIdNumeric,
+        ...(this.recommendationScope(orgId) ?? {}),
+      },
       orderBy: {
         generatedAt: 'desc',
       },
@@ -651,11 +699,14 @@ export class RentOptimizationService {
     };
   }
 
-  async bulkGenerateByProperty(propertyId: string | number) {
-    const propertyIdNum = this.parseNumericId(propertyId, 'property');
+  async bulkGenerateByProperty(propertyId: string | number, orgId?: string) {
+    const propertyIdNum = String(propertyId);
     const propertyIdLabel = String(propertyIdNum);
     const units = await this.prisma.unit.findMany({
-      where: { propertyId: propertyIdNum },
+      where: {
+        propertyId: propertyIdNum,
+        ...(orgId ? { property: { organizationId: orgId } } : {}),
+      },
       select: { id: true },
     });
 
@@ -668,11 +719,12 @@ export class RentOptimizationService {
     }
 
     const unitIds = units.map((u) => u.id);
-    return this.generateRecommendations(unitIds);
+    return this.generateRecommendations(unitIds, orgId);
   }
 
-  async bulkGenerateAll() {
+  async bulkGenerateAll(orgId?: string) {
     const units = await this.prisma.unit.findMany({
+      where: orgId ? { property: { organizationId: orgId } } : undefined,
       select: { id: true },
     });
 
@@ -686,12 +738,15 @@ export class RentOptimizationService {
     const unitIds = units.map((u) => u.id);
     this.logger.log(`Generating recommendations for all ${unitIds.length} units`);
     
-    return this.generateRecommendations(unitIds);
+    return this.generateRecommendations(unitIds, orgId);
   }
 
-  async applyRecommendation(id: string, userId: string) {
-    const recommendation = await this.prisma.rentRecommendation.findUnique({
-      where: { id },
+  async applyRecommendation(id: string, userId: string, orgId?: string) {
+    const recommendation = await this.prisma.rentRecommendation.findFirst({
+      where: {
+        id,
+        ...(this.recommendationScope(orgId) ?? {}),
+      },
       include: {
         unit: {
           include: {
@@ -749,9 +804,12 @@ export class RentOptimizationService {
     };
   }
 
-  async updateRecommendation(id: string, recommendedRent: number, reasoning?: string) {
-    const recommendation = await this.prisma.rentRecommendation.findUnique({
-      where: { id },
+  async updateRecommendation(id: string, recommendedRent: number, reasoning?: string, orgId?: string) {
+    const recommendation = await this.prisma.rentRecommendation.findFirst({
+      where: {
+        id,
+        ...(this.recommendationScope(orgId) ?? {}),
+      },
     });
 
     if (!recommendation) {
@@ -804,9 +862,12 @@ export class RentOptimizationService {
     return updated;
   }
 
-  async deleteRecommendation(id: string) {
-    const recommendation = await this.prisma.rentRecommendation.findUnique({
-      where: { id },
+  async deleteRecommendation(id: string, orgId?: string) {
+    const recommendation = await this.prisma.rentRecommendation.findFirst({
+      where: {
+        id,
+        ...(this.recommendationScope(orgId) ?? {}),
+      },
     });
 
     if (!recommendation) {
@@ -876,11 +937,7 @@ export class RentOptimizationService {
     };
   }
 
-  private parseNumericId(value: string | number, field: string): number {
-    const parsed = typeof value === 'number' ? value : Number(value);
-    if (!Number.isFinite(parsed) || Number.isNaN(parsed) || !Number.isInteger(parsed)) {
-      throw new BadRequestException(`Invalid ${field} id: ${value}`);
-    }
-    return parsed;
+  private parseNumericId(value: string | number, field: string): string {
+    return String(value);
   }
 }

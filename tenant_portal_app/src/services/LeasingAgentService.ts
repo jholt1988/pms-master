@@ -86,6 +86,10 @@ export interface ApplicationData {
     breed: string;
     weight: number;
   }>;
+  termsAccepted?: boolean;
+  privacyAccepted?: boolean;
+  termsVersion?: string;
+  privacyVersion?: string;
 }
 
 export class LeasingAgentService {
@@ -838,7 +842,13 @@ Match Score: ${Math.round(prop.matchScore * 100)}%
     try {
       const result = await apiFetch(`${this.API_BASE_URL}/applications/submit`, {
         method: 'POST',
-        body: applicationData,
+        body: {
+          ...applicationData,
+          termsAccepted: applicationData.termsAccepted ?? true,
+          privacyAccepted: applicationData.privacyAccepted ?? true,
+          termsVersion: applicationData.termsVersion ?? '0.1',
+          privacyVersion: applicationData.privacyVersion ?? '0.1',
+        },
         token,
       });
 

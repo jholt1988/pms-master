@@ -12,6 +12,8 @@ import { SubmitApplicationDto } from './dto/submit-application.dto';
 import { SecurityEventsService } from '../security-events/security-events.service';
 import { AddRentalApplicationNoteDto } from './dto/add-note.dto';
 import { ApplicationLifecycleService, ApplicationLifecycleEventType } from './application-lifecycle.service';
+import { RentalApplicationAiService } from './rental-application.ai.service';
+import { AuditLogService } from '../shared/audit-log.service';
 
 @Injectable()
 export class RentalApplicationService {
@@ -19,11 +21,17 @@ export class RentalApplicationService {
     private readonly prisma: PrismaService,
     private readonly securityEvents: SecurityEventsService,
     private readonly lifecycleService: ApplicationLifecycleService,
+    private readonly aiService: RentalApplicationAiService,
+    private readonly auditLogService: AuditLogService,
   ) {}
   
   async submitApplication(data: SubmitApplicationDto, applicantId?: string) {
     const propertyId = data.propertyId
-    const unitId = this.parseNumericId(data.unitId, 'unit');
+    if (!data.termsAccepted || !data.privacyAccepted) {
+      throw new BadRequestException('Terms of Service and Privacy Policy must be accepted');
+    }
+    const acceptanceTimestamp = new Date();
+    const unitId = String(data.unitId);
     const references = this.buildReferences(data.references);
     const pastLandlords = this.buildPastLandlords(data.pastLandlords);
     const employments = this.buildEmployments(data.employments);
@@ -52,6 +60,10 @@ export class RentalApplicationService {
         dlIdUploaded: data.dlIdUploaded,
         bankruptcyFiledYear: data.bankruptcyFiledYear,
         rentalHistoryComments: data.rentalHistoryComments,
+        termsAcceptedAt: acceptanceTimestamp,
+        termsVersion: data.termsVersion,
+        privacyAcceptedAt: acceptanceTimestamp,
+        privacyVersion: data.privacyVersion,
         references: { create: references },
         pastLandlords: { create: pastLandlords },
         employments: { create: employments },
@@ -86,11 +98,42 @@ export class RentalApplicationService {
       }
     }
 
+    await this.securityEvents.logEvent({
+      type: SecurityEventType.APPLICATION_LEGAL_ACCEPTED,
+      success: true,
+      userId: applicantId ?? null,
+      username: application.email,
+      metadata: {
+        applicationId: application.id,
+        propertyId: application.propertyId,
+        unitId: application.unitId,
+        termsVersion: application.termsVersion,
+        privacyVersion: application.privacyVersion,
+        termsAcceptedAt: application.termsAcceptedAt,
+        privacyAcceptedAt: application.privacyAcceptedAt,
+      },
+    });
+
+    await this.auditLogService.record({
+      orgId: undefined,
+      actorId: applicantId ?? null,
+      module: 'rental-application',
+      action: 'SUBMIT',
+      entityType: 'rentalApplication',
+      entityId: application.id,
+      result: 'SUCCESS',
+      metadata: {
+        propertyId: application.propertyId,
+        unitId: application.unitId,
+      },
+    });
+
     return application;
   }
 
-  async getAllApplications() {
+  async getAllApplications(orgId?: string) {
     return this.prisma.rentalApplication.findMany({
+      where: orgId ? { property: { organizationId: orgId } } : undefined,
       include: {
         applicant: true,
         property: true,
@@ -125,9 +168,9 @@ export class RentalApplicationService {
     });
   }
 
-  async getApplicationById(id: number) {
-    return this.prisma.rentalApplication.findUnique({
-      where: { id },
+  async getApplicationById(id: number, orgId?: string) {
+    return this.prisma.rentalApplication.findFirst({
+      where: { id, ...(orgId ? { property: { organizationId: orgId } } : {}) },
       include: {
         applicant: true,
         property: true,
@@ -147,9 +190,10 @@ export class RentalApplicationService {
     id: number,
     status: ApplicationStatus,
     actor?: { userId: string; username: string; role: Role },
+    orgId?: string,
   ) {
-    const application = await this.prisma.rentalApplication.findUnique({
-      where: { id },
+    const application = await this.prisma.rentalApplication.findFirst({
+      where: { id, ...(orgId ? { property: { organizationId: orgId } } : {}) },
     });
 
     if (!application) {
@@ -175,7 +219,7 @@ export class RentalApplicationService {
     }
 
     // Return updated application
-    return this.prisma.rentalApplication.findUnique({
+    const updated = await this.prisma.rentalApplication.findUnique({
       where: { id },
       include: {
         applicant: true,
@@ -184,14 +228,31 @@ export class RentalApplicationService {
         manualNotes: { include: { author: true }, orderBy: { createdAt: 'desc' } },
       },
     });
+
+    await this.auditLogService.record({
+      orgId,
+      actorId: actor?.userId,
+      module: 'rental-application',
+      action: 'STATUS_UPDATE',
+      entityType: 'rentalApplication',
+      entityId: id,
+      result: 'SUCCESS',
+      metadata: {
+        fromStatus: application.status,
+        toStatus: status,
+      },
+    });
+
+    return updated;
   }
 
   async screenApplication(
     id: number,
     actor: { userId: string; username: string; role: Role },
+    orgId?: string,
   ) {
-    const application = await this.prisma.rentalApplication.findUnique({
-      where: { id },
+    const application = await this.prisma.rentalApplication.findFirst({
+      where: { id, ...(orgId ? { property: { organizationId: orgId } } : {}) },
       include: {
         unit: {
           include: {
@@ -274,6 +335,21 @@ export class RentalApplicationService {
         income: application.income,
         rentAmount,
         creditScore: application.creditScore,
+      },
+    });
+
+    await this.auditLogService.record({
+      orgId,
+      actorId: actor.userId,
+      module: 'rental-application',
+      action: 'SCREEN',
+      entityType: 'rentalApplication',
+      entityId: id,
+      result: 'SUCCESS',
+      metadata: {
+        score: evaluation.score,
+        recommendation: evaluation.recommendation,
+        qualificationStatus: evaluation.qualificationStatus,
       },
     });
 
@@ -361,9 +437,10 @@ export class RentalApplicationService {
     applicationId: number,
     dto: AddRentalApplicationNoteDto,
     actor: { userId: string; username: string; role: Role },
+    orgId?: string,
   ) {
-    const application = await this.prisma.rentalApplication.findUnique({
-      where: { id: applicationId },
+    const application = await this.prisma.rentalApplication.findFirst({
+      where: { id: applicationId, ...(orgId ? { property: { organizationId: orgId } } : {}) },
     });
 
     if (!application) {
@@ -400,21 +477,41 @@ export class RentalApplicationService {
       metadata: { applicationId },
     });
 
+    await this.auditLogService.record({
+      orgId,
+      actorId: actor.userId,
+      module: 'rental-application',
+      action: 'ADD_NOTE',
+      entityType: 'rentalApplication',
+      entityId: applicationId,
+      result: 'SUCCESS',
+      metadata: { noteId: note.id },
+    });
+
     return note;
   }
 
   /**
    * Get application lifecycle timeline
    */
-  async getApplicationTimeline(applicationId: number) {
+  async getApplicationTimeline(applicationId: number, orgId?: string) {
+    if (orgId) {
+      const exists = await this.prisma.rentalApplication.findFirst({
+        where: { id: applicationId, property: { organizationId: orgId } },
+        select: { id: true },
+      });
+      if (!exists) {
+        throw new BadRequestException('Application not found');
+      }
+    }
     return this.lifecycleService.getApplicationTimeline(applicationId);
   }
 
   /**
    * Get application lifecycle stage information
    */
-  async getApplicationLifecycleStage(applicationId: number) {
-    const application = await this.getApplicationById(applicationId);
+  async getApplicationLifecycleStage(applicationId: number, orgId?: string) {
+    const application = await this.getApplicationById(applicationId, orgId);
     if (!application) {
       throw new BadRequestException('Application not found');
     }
@@ -424,8 +521,8 @@ export class RentalApplicationService {
   /**
    * Get available status transitions for an application
    */
-  async getAvailableTransitions(applicationId: number, userRole: Role) {
-    const application = await this.getApplicationById(applicationId);
+  async getAvailableTransitions(applicationId: number, userRole: Role, orgId?: string) {
+    const application = await this.getApplicationById(applicationId, orgId);
     if (!application) {
       throw new BadRequestException('Application not found');
     }
@@ -547,11 +644,44 @@ export class RentalApplicationService {
     return Number.isNaN(parsed.getTime()) ? undefined : parsed;
   }
 
-  private parseNumericId(value: string | number, field: string): number {
-    const parsed = typeof value === 'string' ? Number(value) : value;
-    if (!Number.isFinite(parsed) || !Number.isInteger(parsed)) {
-      throw new BadRequestException(`Invalid ${field} identifier provided.`);
+  private parseNumericId(value: string | number, field: string): string {
+    return String(value);
+  }
+
+  async getAiReview(applicationId: number, orgId?: string) {
+    const application = await this.getApplicationById(applicationId, orgId);
+    if (!application) {
+      throw new BadRequestException('Application not found');
     }
-    return parsed;
+
+    const review = await this.aiService.getAiReview(String(application.id));
+
+    await this.auditLogService.record({
+      orgId,
+      actorId: null,
+      module: 'rental-application',
+      action: 'AI_REVIEW',
+      entityType: 'rentalApplication',
+      entityId: applicationId,
+      result: 'SUCCESS',
+      metadata: {
+        recommendation: review.recommendation,
+      },
+    });
+
+    // --- Blocked by database migration ---
+    // Once the migration is complete, uncomment this section to persist the review.
+    /*
+    await this.prisma.rentalApplication.update({
+      where: { id: applicationId },
+      data: {
+        ai_recommendation: review.recommendation,
+        ai_summary: review.summary,
+        ai_reviewed_at: new Date(),
+      },
+    });
+    */
+
+    return review;
   }
 }

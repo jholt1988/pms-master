@@ -6,6 +6,9 @@ import { QuickBooksController as QuickBooksMinimalController } from './quickbook
 
 import { QuickBooksController as QuickBooksFullController } from './quickbooks.controller';
 import { QuickBooksService } from './quickbooks.service';
+import { AbstractQuickBooksService } from './quickbooks.types';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
+import { AuditLogService } from '../shared/audit-log.service';
 
 const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
 
@@ -15,8 +18,21 @@ const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
     ? [QuickBooksMinimalController, QuickBooksFullController]
     : [QuickBooksMinimalController],
   providers: legacyEnabled
-    ? [QuickBooksMinimalService, QuickBooksService]
-    : [QuickBooksMinimalService],
-  exports: [QuickBooksMinimalService],
+    ? [
+        QuickBooksMinimalService,
+        QuickBooksService,
+        OrgContextGuard,
+        AuditLogService,
+        // Bind the abstract DI token to the full QuickBooksService when legacy mode is enabled
+        { provide: AbstractQuickBooksService, useClass: QuickBooksService },
+      ]
+    : [
+        QuickBooksMinimalService,
+        OrgContextGuard,
+        AuditLogService,
+        // Bind the abstract DI token to the minimal implementation by default
+        { provide: AbstractQuickBooksService, useClass: QuickBooksMinimalService },
+      ],
+  exports: [QuickBooksMinimalService, AbstractQuickBooksService],
 })
 export class QuickBooksModule {}

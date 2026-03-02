@@ -263,4 +263,18 @@ export class SubmitApplicationDto {
 
   @IsBoolean()
   dlIdUploaded!: boolean;
+
+  @IsBoolean()
+  termsAccepted!: boolean;
+
+  @IsString()
+  @IsNotEmpty()
+  termsVersion!: string;
+
+  @IsBoolean()
+  privacyAccepted!: boolean;
+
+  @IsString()
+  @IsNotEmpty()
+  privacyVersion!: string;
 }

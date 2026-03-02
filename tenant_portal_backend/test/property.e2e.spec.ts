@@ -4,7 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { TestDataFactory } from './factories';
-import { Role } from '@prisma/client';
+import { OrgRole, Role } from '@prisma/client';
 import { resetDatabase } from './utils/reset-database';
 
 describe('Property API (e2e)', () => {
@@ -12,6 +12,7 @@ describe('Property API (e2e)', () => {
   let prisma: PrismaService;
   let propertyManagerToken: string;
   let propertyManager: any;
+  let organization: any;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -32,6 +33,20 @@ describe('Property API (e2e)', () => {
       data: TestDataFactory.createPropertyManager({
         username: 'pm@test.com',
       }),
+    });
+
+    organization = await prisma.organization.create({
+      data: {
+        name: 'Test Org',
+      },
+    });
+
+    await prisma.userOrganization.create({
+      data: {
+        userId: propertyManager.id,
+        organizationId: organization.id,
+        role: OrgRole.ADMIN,
+      },
     });
 
     const loginResponse = await request(app.getHttpServer())
@@ -67,7 +82,9 @@ describe('Property API (e2e)', () => {
   describe('GET /property', () => {
     beforeEach(async () => {
       await prisma.property.create({
-        data: TestDataFactory.createProperty(),
+        data: TestDataFactory.createProperty({
+          organizationId: organization.id,
+        }),
       });
     });
 
@@ -86,6 +103,7 @@ describe('Property API (e2e)', () => {
       await prisma.property.create({
         data: TestDataFactory.createProperty({
           name: 'Public Property',
+          organizationId: organization.id,
         }),
       });
     });

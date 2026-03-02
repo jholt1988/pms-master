@@ -43,6 +43,9 @@ export class LeadApplicationsController {
         application,
       };
     } catch (error: any) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         error.message || 'Failed to submit application',
         HttpStatus.INTERNAL_SERVER_ERROR,

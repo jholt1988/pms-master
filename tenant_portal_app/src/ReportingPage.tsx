@@ -46,7 +46,8 @@ interface VacancyRateItem {
 type ReportType = 'rent-roll' | 'profit-loss' | 'maintenance-analytics' | 'vacancy-rate' | 'payment-history';
 
 export default function ReportingPage(): React.ReactElement {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isOwnerView = user?.role === 'OWNER';
   const [reportType, setReportType] = useState<ReportType>('rent-roll');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -275,6 +276,11 @@ export default function ReportingPage(): React.ReactElement {
   return (
     <div className="container mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6">Reports & Analytics</h1>
+      {isOwnerView && (
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
+          <span className="font-semibold">Owner view:</span> reports are read-only snapshots. Data refreshes nightly and reflects posted activity.
+        </div>
+      )}
 
       <div className="mb-6 flex gap-4">
         <select
