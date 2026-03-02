@@ -862,6 +862,7 @@ model Invoice {
   externalId  String?                   @unique
   lateFees    LateFee[]
   paymentPlan PaymentPlan?
+  paymentAttempts PaymentAttempt[]
   schedule    RecurringInvoiceSchedule? @relation(fields: [scheduleId], references: [id])
   scheduleId  Int?
 }
@@ -1481,8 +1482,28 @@ model AutopayEnrollment {
   paymentMethodId Int
   active          Boolean       @default(true)
   maxAmount       Float?
+  attempts        PaymentAttempt[]
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+}
+
+model PaymentAttempt {
+  id                  String               @id @default(uuid()) @db.Uuid
+  autopayEnrollment   AutopayEnrollment    @relation(fields: [autopayEnrollmentId], references: [id])
+  autopayEnrollmentId Int
+  invoice             Invoice              @relation(fields: [invoiceId], references: [id])
+  invoiceId           Int
+  status              PaymentAttemptStatus @default(SCHEDULED)
+  failureReason       String?
+  externalAttemptId   String?
+  scheduledFor        DateTime             @default(now())
+  attemptedAt         DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  @@unique([autopayEnrollmentId, invoiceId, scheduledFor])
+  @@index([status, scheduledFor])
 }
 
 model SecurityEvent {
@@ -1513,6 +1534,14 @@ model PasswordResetToken {
   @@index([token])
   @@index([userId])
   @@index([expiresAt])
+}
+
+enum PaymentAttemptStatus {
+  SCHEDULED
+  ATTEMPTING
+  SUCCEEDED
+  FAILED
+  NEEDS_AUTH
 }
 
 enum SecurityEventType {

@@ -106,6 +106,7 @@ export class BillingService {
       include: {
         lease: {
           include: {
+            unit: { include: { property: true } },
             invoices: {
               where: { status: 'UNPAID', dueDate: { lte: today } },
             },
@@ -117,27 +118,88 @@ export class BillingService {
     });
 
     for (const enrollment of autopayEnrollments) {
-      for (const invoice of enrollment.lease.invoices) {
-        if (enrollment.maxAmount && invoice.amount > enrollment.maxAmount) {
-          this.logger.warn(
-            `Skipping autopay for invoice ${invoice.id}: amount ${invoice.amount} exceeds cap ${enrollment.maxAmount}`,
-          );
-          continue;
-        }
+      const orgId = enrollment.lease.unit?.property?.organizationId;
+      const lockKey = `autopay-worker:${orgId ?? 'no-org'}:${enrollment.id}`;
+      let lockAcquired = false;
 
-        try {
-          await this.paymentsService.recordPaymentForInvoice({
-            invoiceId: invoice.id,
-            amount: invoice.amount,
-            leaseId: enrollment.leaseId,
-            userId: enrollment.lease.tenantId,
-            paymentMethodId: enrollment.paymentMethodId,
-            initiatedBy: 'AUTOPAY',
+      try {
+        const lockResult = await this.prisma.$queryRaw<Array<{ pg_try_advisory_lock: boolean }>>`
+          SELECT pg_try_advisory_lock(hashtext(${lockKey})) as "pg_try_advisory_lock"
+        `;
+        lockAcquired = lockResult[0]?.pg_try_advisory_lock ?? false;
+        if (!lockAcquired) continue;
+
+        for (const invoice of enrollment.lease.invoices) {
+          if (enrollment.maxAmount && invoice.amount > enrollment.maxAmount) {
+            await this.prisma.paymentAttempt.create({
+              data: {
+                autopayEnrollmentId: enrollment.id,
+                invoiceId: invoice.id,
+                status: 'FAILED',
+                failureReason: `Amount ${invoice.amount} exceeds cap ${enrollment.maxAmount}`,
+                scheduledFor: new Date(),
+                attemptedAt: new Date(),
+                completedAt: new Date(),
+              },
+            });
+            continue;
+          }
+
+          const attempt = await this.prisma.paymentAttempt.create({
+            data: {
+              autopayEnrollmentId: enrollment.id,
+              invoiceId: invoice.id,
+              status: 'SCHEDULED',
+              scheduledFor: new Date(),
+            },
           });
 
-          this.logger.log(`Autopay succeeded for invoice ${invoice.id}`);
-        } catch (error) {
-          this.logger.error(`Autopay failed for invoice ${invoice.id}`, error as Error);
+          await this.prisma.paymentAttempt.update({
+            where: { id: attempt.id },
+            data: {
+              status: 'ATTEMPTING',
+              attemptedAt: new Date(),
+            },
+          });
+
+          try {
+            const payment = await this.paymentsService.recordPaymentForInvoice({
+              invoiceId: invoice.id,
+              amount: invoice.amount,
+              leaseId: enrollment.leaseId,
+              userId: enrollment.lease.tenantId,
+              paymentMethodId: enrollment.paymentMethodId,
+              initiatedBy: 'AUTOPAY',
+            });
+
+            await this.prisma.paymentAttempt.update({
+              where: { id: attempt.id },
+              data: {
+                status: 'SUCCEEDED',
+                externalAttemptId: payment.externalId ?? undefined,
+                completedAt: new Date(),
+              },
+            });
+
+            this.logger.log(`Autopay succeeded for invoice ${invoice.id}`);
+          } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error);
+            const needsAuth = /authentication|required|3d secure|requires_action/i.test(reason);
+            await this.prisma.paymentAttempt.update({
+              where: { id: attempt.id },
+              data: {
+                status: needsAuth ? 'NEEDS_AUTH' : 'FAILED',
+                failureReason: reason,
+                completedAt: new Date(),
+              },
+            });
+
+            this.logger.error(`Autopay failed for invoice ${invoice.id}`, error as Error);
+          }
+        }
+      } finally {
+        if (lockAcquired) {
+          await this.prisma.$queryRaw`SELECT pg_advisory_unlock(hashtext(${lockKey}))`;
         }
       }
     }
