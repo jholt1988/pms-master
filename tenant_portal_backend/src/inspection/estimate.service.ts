@@ -252,6 +252,7 @@ export class EstimateService {
 
     // Normalize labor pricing so bid ranges are deterministic-ish and explainable.
     applyDeterministicLaborPricing(userLocation, estimateResult);
+    this.applyDeterministicEstimateRanges(estimateResult);
 
     // Save estimate to database
     const estimate = await this.prisma.repairEstimate.create({
@@ -356,6 +357,49 @@ export class EstimateService {
     return enriched;
   }
 
+  private applyDeterministicEstimateRanges(estimateResult: any): void {
+    if (!estimateResult?.line_items || !Array.isArray(estimateResult.line_items)) return;
+
+    // Sort by stable key to keep downstream output deterministic.
+    estimateResult.line_items = [...estimateResult.line_items].sort((a: any, b: any) => {
+      const ka = `${a.location || ''}|${a.category || ''}|${a.item_description || ''}`.toLowerCase();
+      const kb = `${b.location || ''}|${b.category || ''}|${b.item_description || ''}`.toLowerCase();
+      return ka.localeCompare(kb);
+    });
+
+    let lowTotal = 0;
+    let highTotal = 0;
+
+    for (const item of estimateResult.line_items) {
+      const total = Number(item.total_cost ?? (Number(item.labor_cost || 0) + Number(item.material_cost || 0)));
+      const low = Math.round(total * 0.9 * 100) / 100;
+      const high = Math.round(total * 1.15 * 100) / 100;
+
+      item.bid_low_total = typeof item.bid_low_total === 'number' ? item.bid_low_total : low;
+      item.bid_high_total = typeof item.bid_high_total === 'number' ? item.bid_high_total : high;
+      item.confidence_reason =
+        item.confidence_reason ||
+        `Deterministic range derived from normalized labor/material costs with a 10% low / 15% high adjustment band.`;
+
+      lowTotal += Number(item.bid_low_total || 0);
+      highTotal += Number(item.bid_high_total || 0);
+    }
+
+    if (estimateResult.estimate_summary) {
+      estimateResult.estimate_summary.bid_low_total =
+        typeof estimateResult.estimate_summary.bid_low_total === 'number'
+          ? estimateResult.estimate_summary.bid_low_total
+          : Math.round(lowTotal * 100) / 100;
+      estimateResult.estimate_summary.bid_high_total =
+        typeof estimateResult.estimate_summary.bid_high_total === 'number'
+          ? estimateResult.estimate_summary.bid_high_total
+          : Math.round(highTotal * 100) / 100;
+      estimateResult.estimate_summary.confidence_reason =
+        estimateResult.estimate_summary.confidence_reason ||
+        'Estimate range is deterministic for identical action-item inputs and pricing assumptions.';
+    }
+  }
+
   /**
    * Generate estimate for maintenance request (without inspection)
    */
@@ -383,6 +427,10 @@ export class EstimateService {
 
     const agent = createEnhancedEstimateAgent(userLocation);
     const estimateResult = await agent.generateEstimate([inventoryItem]);
+
+    // Keep ranges deterministic for repeatability and explainability.
+    applyDeterministicLaborPricing(userLocation, estimateResult);
+    this.applyDeterministicEstimateRanges(estimateResult);
 
     // Save and link to maintenance request
     const estimate = await this.prisma.repairEstimate.create({
