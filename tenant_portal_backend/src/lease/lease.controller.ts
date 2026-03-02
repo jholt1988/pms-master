@@ -73,13 +73,13 @@ export class LeaseController {
   @Get(':id')
   @Roles(Role.PROPERTY_MANAGER)
   getLeaseById(@Param('id') id: string, @OrgId() orgId?: string) {
-    return this.leaseService.getLeaseById(Number(id), orgId);
+    return this.leaseService.getLeaseById(id, orgId);
   }
 
   @Get(':id/history')
   @Roles(Role.PROPERTY_MANAGER)
   getLeaseHistory(@Param('id') id: string, @OrgId() orgId?: string) {
-    return this.leaseService.getLeaseHistory(Number(id), orgId);
+    return this.leaseService.getLeaseHistory(id, orgId);
   }
 
   @Put(':id')
@@ -90,7 +90,7 @@ export class LeaseController {
     @Request() req: AuthenticatedRequest,
     @OrgId() orgId?: string,
   ) {
-    return this.leaseService.updateLease(Number(id), data, req.user.userId, orgId);
+    return this.leaseService.updateLease(id, data, req.user.userId, orgId);
   }
 
   @Put(':id/status')
@@ -101,7 +101,7 @@ export class LeaseController {
     @Request() req: AuthenticatedRequest,
     @OrgId() orgId?: string,
   ) {
-    return this.leaseService.updateLeaseStatus(Number(id), data, req.user.userId, orgId);
+    return this.leaseService.updateLeaseStatus(id, data, req.user.userId, orgId);
   }
 
   @Post(':id/renewal-offers')
@@ -112,7 +112,7 @@ export class LeaseController {
     @Request() req: AuthenticatedRequest,
     @OrgId() orgId?: string,
   ) {
-    return this.leaseService.createRenewalOffer(Number(id), dto, req.user.userId, orgId);
+    return this.leaseService.createRenewalOffer(id, dto, req.user.userId, orgId);
   }
 
   @Post(':id/notices')
@@ -123,7 +123,7 @@ export class LeaseController {
     @Request() req: AuthenticatedRequest,
     @OrgId() orgId?: string,
   ) {
-    return this.leaseService.recordLeaseNotice(Number(id), dto, req.user.userId, orgId);
+    return this.leaseService.recordLeaseNotice(id, dto, req.user.userId, orgId);
   }
 
   @Post(':id/renewal-offers/:offerId/respond')
@@ -136,8 +136,8 @@ export class LeaseController {
     @OrgId() orgId?: string,
   ) {
     return this.leaseService.respondToRenewalOffer(
-      Number(id),
-      Number(offerId),
+      id,
+      offerId,
       dto,
       req.user.userId,
       orgId,
@@ -152,7 +152,7 @@ export class LeaseController {
     @Request() req: AuthenticatedRequest,
     @OrgId() orgId?: string,
   ) {
-    return this.leaseService.submitTenantNotice(Number(id), dto, req.user.userId, orgId);
+    return this.leaseService.submitTenantNotice(id, dto, req.user.userId, orgId);
   }
 
   @Get('ai-metrics')

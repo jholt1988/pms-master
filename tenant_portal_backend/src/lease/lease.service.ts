@@ -55,6 +55,10 @@ export class LeaseService {
       orderBy: { createdAt: 'desc' },
       take: 5,
     },
+    documents: {
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    },
   };
 
   async createLease(dto: CreateLeaseDto, orgId?: string) {

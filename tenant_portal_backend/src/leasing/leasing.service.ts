@@ -447,5 +447,6 @@ export class LeasingService {
       throw new BadRequestException(`Invalid ${field} id: ${value}`);
     }
     return String(value);
-  
+  }
 }
+

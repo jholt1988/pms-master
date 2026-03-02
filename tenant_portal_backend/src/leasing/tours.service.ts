@@ -42,7 +42,7 @@ export class ToursService {
         property: true,
         unit: true,
       },
-    })) as any;
+    }) as any;
 
     // Send tour confirmation email to lead
     if (tour.lead.email) {

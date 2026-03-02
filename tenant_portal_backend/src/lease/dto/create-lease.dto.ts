@@ -27,8 +27,8 @@ export class CreateLeaseDto {
   @IsUUID()
   tenantId!: string;
 
-  @IsInt()
-  unitId!: number;
+  @IsUUID()
+  unitId!: string;
 
   @IsOptional()
   @IsEnum(LeaseStatus)
