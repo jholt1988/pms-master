@@ -305,12 +305,14 @@ const MessagingPage = () => {
                     value={newMessage}
                     onChange={(event) => setNewMessage(event.target.value)}
                     placeholder="Write a message…"
+                    aria-label="Message content"
                     className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                   <button
                     type="button"
                     onClick={handleSendMessage}
                     disabled={sending || !newMessage.trim()}
+                    aria-label="Send message"
                     className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-300"
                   >
                     {sending ? 'Sending…' : 'Send'}

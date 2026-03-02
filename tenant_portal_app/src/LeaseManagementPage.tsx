@@ -1380,6 +1380,7 @@ function LeaseManagementPage(): React.ReactElement {
         <div className="grid gap-3 md:grid-cols-3">
           <select
             value={assignmentForm.tenantId}
+            aria-label="Select tenant"
             onChange={(event) => setAssignmentForm((prev) => ({ ...prev, tenantId: event.target.value }))}
             className="rounded border border-gray-300 px-3 py-2 text-sm"
           >
@@ -1390,6 +1391,7 @@ function LeaseManagementPage(): React.ReactElement {
           </select>
           <select
             value={assignmentForm.unitId}
+            aria-label="Select available unit"
             onChange={(event) => setAssignmentForm((prev) => ({ ...prev, unitId: event.target.value }))}
             className="rounded border border-gray-300 px-3 py-2 text-sm"
           >
@@ -1400,6 +1402,7 @@ function LeaseManagementPage(): React.ReactElement {
           </select>
           <select
             value={assignmentForm.status}
+            aria-label="Select lease status"
             onChange={(event) => setAssignmentForm((prev) => ({ ...prev, status: event.target.value as LeaseStatus }))}
             className="rounded border border-gray-300 px-3 py-2 text-sm"
           >
@@ -1407,10 +1410,10 @@ function LeaseManagementPage(): React.ReactElement {
             <option value="ACTIVE">Active</option>
             <option value="PENDING_APPROVAL">Pending approval</option>
           </select>
-          <input type="date" value={assignmentForm.startDate} onChange={(e)=>setAssignmentForm((p)=>({...p,startDate:e.target.value}))} className="rounded border border-gray-300 px-3 py-2 text-sm" />
-          <input type="date" value={assignmentForm.endDate} onChange={(e)=>setAssignmentForm((p)=>({...p,endDate:e.target.value}))} className="rounded border border-gray-300 px-3 py-2 text-sm" />
-          <input type="number" placeholder="Rent amount" value={assignmentForm.rentAmount} onChange={(e)=>setAssignmentForm((p)=>({...p,rentAmount:e.target.value}))} className="rounded border border-gray-300 px-3 py-2 text-sm" />
-          <input type="number" placeholder="Deposit amount" value={assignmentForm.depositAmount} onChange={(e)=>setAssignmentForm((p)=>({...p,depositAmount:e.target.value}))} className="rounded border border-gray-300 px-3 py-2 text-sm" />
+          <input type="date" aria-label="Lease start date" value={assignmentForm.startDate} onChange={(e)=>setAssignmentForm((p)=>({...p,startDate:e.target.value}))} className="rounded border border-gray-300 px-3 py-2 text-sm" />
+          <input type="date" aria-label="Lease end date" value={assignmentForm.endDate} onChange={(e)=>setAssignmentForm((p)=>({...p,endDate:e.target.value}))} className="rounded border border-gray-300 px-3 py-2 text-sm" />
+          <input type="number" aria-label="Rent amount" placeholder="Rent amount" value={assignmentForm.rentAmount} onChange={(e)=>setAssignmentForm((p)=>({...p,rentAmount:e.target.value}))} className="rounded border border-gray-300 px-3 py-2 text-sm" />
+          <input type="number" aria-label="Deposit amount" placeholder="Deposit amount" value={assignmentForm.depositAmount} onChange={(e)=>setAssignmentForm((p)=>({...p,depositAmount:e.target.value}))} className="rounded border border-gray-300 px-3 py-2 text-sm" />
         </div>
         <button
           type="button"
