@@ -25,6 +25,7 @@ const MessagingPage = () => {
   const [selectedConversation, setSelectedConversation] = useState<any | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [attachmentUrls, setAttachmentUrls] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -133,9 +134,17 @@ const MessagingPage = () => {
       await apiFetch('/messaging/messages', {
         token,
         method: 'POST',
-        body: { conversationId: selectedConversation.id, content: newMessage.trim() },
+        body: {
+          conversationId: selectedConversation.id,
+          content: newMessage.trim(),
+          attachmentUrls: attachmentUrls
+            .split(/\r?\n|,/)
+            .map((v) => v.trim())
+            .filter(Boolean),
+        },
       });
       setNewMessage('');
+      setAttachmentUrls('');
       fetchMessages(selectedConversation.id);
     } catch (error: any) {
       setError(error.message);
@@ -274,6 +283,13 @@ const MessagingPage = () => {
                             {isCurrentUser ? 'You' : authorName}
                           </p>
                           <p className="mt-1 whitespace-pre-wrap text-sm">{message.content}</p>
+                          {Array.isArray(message.metadata?.attachments) && message.metadata.attachments.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {message.metadata.attachments.map((url: string, idx: number) => (
+                                <a key={`${message.id}-att-${idx}`} href={url} target="_blank" rel="noreferrer" className="text-xs text-indigo-600 underline">Attachment {idx + 1}</a>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         <span className="mt-1 text-xs text-gray-500">
                           {formatDateTime(message.createdAt ?? message.sentAt ?? message.updatedAt)}

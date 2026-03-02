@@ -29,6 +29,7 @@ import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '@prisma/client';
+import { AuditLogService } from '../shared/audit-log.service';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -44,6 +45,7 @@ export class MessagingController {
   constructor(
     private readonly messagingService: MessagingService,
     private readonly bulkMessagingService: BulkMessagingService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   /**
@@ -99,7 +101,18 @@ export class MessagingController {
     @Request() req: AuthenticatedRequest,
     @OrgId() orgId?: string,
   ) {
-    return this.messagingService.createConversation(dto, req.user.userId, orgId);
+    const conversation = await this.messagingService.createConversation(dto, req.user.userId, orgId);
+    await this.auditLogService.record({
+      orgId,
+      actorId: req.user.userId,
+      module: 'MESSAGING',
+      action: 'CONVERSATION_CREATED',
+      entityType: 'Conversation',
+      entityId: conversation.id,
+      result: 'SUCCESS',
+      metadata: { participantCount: dto.participantIds.length },
+    });
+    return conversation;
   }
 
   @Get('conversations/:id')
@@ -161,7 +174,22 @@ export class MessagingController {
     @Request() req: AuthenticatedRequest,
     @OrgId() orgId?: string,
   ) {
-    return this.messagingService.sendMessage(dto, req.user.userId, orgId);
+    const message = await this.messagingService.sendMessage(dto, req.user.userId, orgId);
+    await this.auditLogService.record({
+      orgId,
+      actorId: req.user.userId,
+      module: 'MESSAGING',
+      action: 'MESSAGE_SENT',
+      entityType: 'Message',
+      entityId: message.id,
+      result: 'SUCCESS',
+      metadata: {
+        conversationId: message.conversationId,
+        hasAttachments: Array.isArray(dto.attachmentUrls) && dto.attachmentUrls.length > 0,
+        attachmentCount: dto.attachmentUrls?.length ?? 0,
+      },
+    });
+    return message;
   }
 
   /**
