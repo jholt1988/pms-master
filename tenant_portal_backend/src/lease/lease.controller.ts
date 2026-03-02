@@ -14,6 +14,7 @@ import { CreateRenewalOfferDto } from './dto/create-renewal-offer.dto';
 import { RecordLeaseNoticeDto } from './dto/record-lease-notice.dto';
 import { RespondRenewalOfferDto } from './dto/respond-renewal-offer.dto';
 import { TenantSubmitNoticeDto } from './dto/tenant-submit-notice.dto';
+import { AuditLogService } from '../shared/audit-log.service';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -30,12 +31,18 @@ export class LeaseController {
   constructor(
     private readonly leaseService: LeaseService,
     private readonly aiMetrics: AILeaseRenewalMetricsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   @Post()
   @Roles(Role.PROPERTY_MANAGER)
-  createLease(@Body() data: CreateLeaseDto, @OrgId() orgId: string) {
-    return this.leaseService.createLease(data, orgId);
+  async createLease(@Body() data: CreateLeaseDto, @Request() req: AuthenticatedRequest, @OrgId() orgId: string) {
+    const lease = await this.leaseService.createLease(data, orgId);
+    await this.auditLogService.record({
+      orgId, actorId: String(req?.user?.userId ?? ''), module: 'LEASE', action: 'LEASE_CREATED',
+      entityType: 'Lease', entityId: lease.id, result: 'SUCCESS', metadata: { tenantId: data.tenantId, unitId: data.unitId }
+    });
+    return lease;
   }
 
   @Get()
@@ -90,7 +97,9 @@ export class LeaseController {
     @Request() req: AuthenticatedRequest,
     @OrgId() orgId?: string,
   ) {
-    return this.leaseService.updateLease(id, data, req.user.userId, orgId);
+    const lease = await this.leaseService.updateLease(id, data, req.user.userId, orgId);
+    await this.auditLogService.record({ orgId, actorId: String(req.user.userId), module: 'LEASE', action: 'LEASE_UPDATED', entityType: 'Lease', entityId: lease.id, result: 'SUCCESS' });
+    return lease;
   }
 
   @Put(':id/status')
@@ -101,7 +110,9 @@ export class LeaseController {
     @Request() req: AuthenticatedRequest,
     @OrgId() orgId?: string,
   ) {
-    return this.leaseService.updateLeaseStatus(id, data, req.user.userId, orgId);
+    const lease = await this.leaseService.updateLeaseStatus(id, data, req.user.userId, orgId);
+    await this.auditLogService.record({ orgId, actorId: String(req.user.userId), module: 'LEASE', action: 'LEASE_STATUS_UPDATED', entityType: 'Lease', entityId: lease.id, result: 'SUCCESS', metadata: { status: data.status } });
+    return lease;
   }
 
   @Post(':id/renewal-offers')
@@ -123,7 +134,9 @@ export class LeaseController {
     @Request() req: AuthenticatedRequest,
     @OrgId() orgId?: string,
   ) {
-    return this.leaseService.recordLeaseNotice(id, dto, req.user.userId, orgId);
+    const notice = await this.leaseService.recordLeaseNotice(id, dto, req.user.userId, orgId);
+    await this.auditLogService.record({ orgId, actorId: String(req.user.userId), module: 'LEASE', action: 'LEASE_NOTICE_RECORDED', entityType: 'LeaseNotice', entityId: notice.id, result: 'SUCCESS', metadata: { leaseId: id } });
+    return notice;
   }
 
   @Post(':id/renewal-offers/:offerId/respond')

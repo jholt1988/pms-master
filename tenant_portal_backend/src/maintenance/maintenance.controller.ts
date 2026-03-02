@@ -15,6 +15,7 @@ import { ApiException } from '../common/errors';
 import { ErrorCode } from '../common/errors/error-codes.enum';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
+import { AuditLogService } from '../shared/audit-log.service';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -32,6 +33,7 @@ export class MaintenanceController {
   constructor(
     private readonly maintenanceService: MaintenanceService,
     private readonly aiMetrics: AIMaintenanceMetricsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   @Get()
@@ -96,7 +98,18 @@ export class MaintenanceController {
 
     // Tenant creates are always derived from lease/unit/property
     if (req.user.role === Role.TENANT) {
-      return this.maintenanceService.create(req.user.userId, req.user.role, dto, orgId);
+      const created = await this.maintenanceService.create(req.user.userId, req.user.role, dto, orgId);
+    await this.auditLogService.record({
+      orgId,
+      actorId: req.user.userId,
+      module: 'MAINTENANCE',
+      action: 'REQUEST_CREATED',
+      entityType: 'MaintenanceRequest',
+      entityId: created.id,
+      result: 'SUCCESS',
+      metadata: { priority: dto.priority, category: dto.category },
+    });
+    return created;
     }
 
     // Owner creates must be tied to a specific property in-org.
@@ -108,7 +121,18 @@ export class MaintenanceController {
       );
     }
 
-    return this.maintenanceService.create(req.user.userId, req.user.role, dto, orgId);
+    const created = await this.maintenanceService.create(req.user.userId, req.user.role, dto, orgId);
+    await this.auditLogService.record({
+      orgId,
+      actorId: req.user.userId,
+      module: 'MAINTENANCE',
+      action: 'REQUEST_CREATED',
+      entityType: 'MaintenanceRequest',
+      entityId: created.id,
+      result: 'SUCCESS',
+      metadata: { priority: dto.priority, category: dto.category },
+    });
+    return created;
   }
 
   @Patch(':id/status')
@@ -120,7 +144,7 @@ export class MaintenanceController {
   ) {
     const orgId = (req as any).org?.orgId as string | undefined;
     const orgRole = (req as any).org?.orgRole as OrgRole | undefined;
-    return this.maintenanceService.updateStatusScoped(
+    const updated = await this.maintenanceService.updateStatusScoped(
       id,
       updateStatusDto,
       req.user.userId,
@@ -128,6 +152,17 @@ export class MaintenanceController {
       orgId,
       orgRole,
     );
+    await this.auditLogService.record({
+      orgId,
+      actorId: req.user.userId,
+      module: 'MAINTENANCE',
+      action: 'STATUS_UPDATED',
+      entityType: 'MaintenanceRequest',
+      entityId: updated.id,
+      result: 'SUCCESS',
+      metadata: { status: updateStatusDto.status },
+    });
+    return updated;
   }
 
   @Put(':id/status')
@@ -139,7 +174,7 @@ export class MaintenanceController {
   ) {
     const orgId = (req as any).org?.orgId as string | undefined;
     const orgRole = (req as any).org?.orgRole as OrgRole | undefined;
-    return this.maintenanceService.updateStatusScoped(
+    const updated = await this.maintenanceService.updateStatusScoped(
       id,
       updateStatusDto,
       req.user.userId,
@@ -147,6 +182,17 @@ export class MaintenanceController {
       orgId,
       orgRole,
     );
+    await this.auditLogService.record({
+      orgId,
+      actorId: req.user.userId,
+      module: 'MAINTENANCE',
+      action: 'STATUS_UPDATED',
+      entityType: 'MaintenanceRequest',
+      entityId: updated.id,
+      result: 'SUCCESS',
+      metadata: { status: updateStatusDto.status },
+    });
+    return updated;
   }
 
   @Patch(':id/assign')
@@ -158,7 +204,7 @@ export class MaintenanceController {
   ) {
     const orgId = (req as any).org?.orgId as string | undefined;
     const orgRole = (req as any).org?.orgRole as OrgRole | undefined;
-    return this.maintenanceService.assignTechnicianScoped(
+    const assigned = await this.maintenanceService.assignTechnicianScoped(
       id,
       dto,
       req.user.userId,
@@ -166,6 +212,17 @@ export class MaintenanceController {
       orgId,
       orgRole,
     );
+    await this.auditLogService.record({
+      orgId,
+      actorId: req.user.userId,
+      module: 'MAINTENANCE',
+      action: 'ASSIGNED',
+      entityType: 'MaintenanceRequest',
+      entityId: assigned.id,
+      result: 'SUCCESS',
+      metadata: { technicianId: dto.technicianId ?? null },
+    });
+    return assigned;
   }
 
   @Post(':id/notes')
