@@ -15,6 +15,8 @@ export interface ProcessPaymentDto {
   paymentMethodId: string;
   description?: string;
   metadata?: Record<string, string>;
+  connectedAccountId?: string;
+  applicationFeeAmountCents?: number;
 }
 
 export interface SetupPaymentMethodDto {
@@ -163,6 +165,14 @@ export class StripeService {
           enabled: true,
           allow_redirects: 'never',
         },
+        ...(dto.connectedAccountId
+          ? {
+              transfer_data: { destination: dto.connectedAccountId },
+              ...(typeof dto.applicationFeeAmountCents === 'number'
+                ? { application_fee_amount: dto.applicationFeeAmountCents }
+                : {}),
+            }
+          : {}),
       });
 
       this.logger.log(`Created payment intent ${paymentIntent.id} for $${dto.amount}`);

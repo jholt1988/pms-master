@@ -1,4 +1,4 @@
-import { IsDateString, IsInt, IsNumber, IsOptional, IsPositive, IsString } from 'class-validator';
+import { IsDateString, IsNumber, IsOptional, IsPositive, IsString, IsUUID } from 'class-validator';
 
 export class CreatePaymentDto {
   @IsNumber()
@@ -9,10 +9,8 @@ export class CreatePaymentDto {
   @IsNumber()
   invoiceId?: number;
 
-  @IsNumber()
-  @IsInt()
-  @IsPositive()
-  leaseId!: number;
+  @IsUUID()
+  leaseId!: string;
 
   @IsOptional()
   @IsDateString()
