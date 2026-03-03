@@ -21,11 +21,14 @@
     "test:coverage": "jest --coverage",
     "test:e2e": "jest --config test/jest-e2e.json --runInBand",
     "test:e2e:coverage": "jest --config test/jest-e2e.json --runInBand --coverage",
+    "test:e2e:property-os": "jest --config test/jest-e2e.json test/property-os-v16-e2e.spec.ts --runInBand",
     "test:quickbooks": "ts-node scripts/test-quickbooks-integration.ts",
     "test:quickbooks:interactive": "ts-node scripts/test-quickbooks-integration.ts --interactive",
     "check:esignature": "ts-node scripts/check-esignature-config.ts",
     "diagnose:esignature": "ts-node scripts/diagnose-esignature-config.ts",
-    "test:endpoints": "ts-node scripts/test-endpoints.ts"
+    "test:endpoints": "ts-node scripts/test-endpoints.ts",
+    "test:property-os-contract": "jest test/property-os-v16-contract.spec.ts --runInBand",
+    "test:parity:property-os": "jest test/property-os-v16-parity.spec.ts --runInBand"
   },
   "keywords": [],
   "author": "",
@@ -51,6 +54,7 @@
     "@sentry/profiling-node": "^10.25.0",
     "@types/docusign-esign": "^5.19.9",
     "@types/nodemailer": "^7.0.3",
+    "ajv": "^8.18.0",
     "axios": "^1.13.2",
     "bcrypt": "^6.0.0",
     "bull": "^4.16.5",
@@ -103,6 +107,6 @@
     "supertest": "^7.1.4",
     "ts-jest": "^29.4.5",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.0.4"
   }
 }

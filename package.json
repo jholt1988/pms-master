@@ -1,0 +1,20 @@
+{
+  "name": "pms-master",
+  "private": true,
+  "scripts": {
+    "property-os": "pnpm --filter property-os",
+    "build": "pnpm -r build",
+    "dev": "pnpm -r dev",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint"
+  },
+  "dependencies": {
+    "dotenv": "^17.3.1"
+  },
+  "devDependencies": {
+    "pnpm": "^8.0.0",
+    "typescript": "^5.0.4",
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.5"
+  }
+}

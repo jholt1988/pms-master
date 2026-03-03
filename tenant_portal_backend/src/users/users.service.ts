@@ -1,15 +1,20 @@
-import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, Role, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { normalizeEmail } from '../utils/normalizeEmail';
 import { normalizePhone } from '../utils/normalizePhone';
+import { DefaultApi as MilApiClient } from '../../../packages/mil-client';
 
 @Injectable()
 export class UsersService {
   private readonly saltRounds = 10;
+  private readonly logger = new Logger(UsersService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly milApiClient: MilApiClient,
+  ) {}
   private readonly elevatedRoles: Role[] = [Role.PROPERTY_MANAGER, Role.ADMIN];
 
   async findOne(username: string): Promise<User | null> {
@@ -55,6 +60,16 @@ export class UsersService {
         },
       });
     }
+
+    // ---- MIL Integration ----
+    try {
+        await this.milApiClient.milTenantTenantIdCryptoStatusGet(user.id);
+        this.logger.log(`Provisioned tenant crypto keys in MIL for new user: ${user.id}`);
+    } catch(error) {
+        this.logger.error(`Failed to provision MIL crypto keys for new user ${user.id}`, error);
+        // Do not fail the creation if MIL is down, just log the error.
+    }
+    // -------------------------
 
     return user;
   }
@@ -183,6 +198,17 @@ export class UsersService {
         throw new ForbiddenException('User not in organization');
       }
     }
+    
+    // ---- MIL Integration ----
+    try {
+        await this.milApiClient.milTenantTenantIdCryptoDeletePost(id);
+        this.logger.log(`Triggered crypto-delete in MIL for deleted user: ${id}`);
+    } catch(error) {
+        this.logger.error(`Failed to trigger crypto-delete in MIL for user ${id}`, error);
+        // Do not fail the deletion if MIL is down, just log the error.
+        // A background job could retry this later.
+    }
+    // -------------------------
 
     await this.prisma.user.delete({ where: { id } });
   }

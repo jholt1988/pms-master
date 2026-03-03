@@ -1,0 +1,51 @@
+name: 'Property OS - Simulation (Quick)'
+
+on:
+  pull_request:
+    branches:
+      - 'main'
+      - 'develop'
+    paths:
+      - 'tenant_portal_backend/src/property-os/**'
+      - 'tools/simulation/property-os-v1.6/**'
+
+jobs:
+  simulation-quick-run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build backend
+        run: pnpm --filter tenant_portal_backend build
+
+      - name: Start backend service (in background)
+        run: |
+          pnpm --filter tenant_portal_backend start &
+          sleep 10 # Give server time to start
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Run Simulation Harness (Quick)
+        run: |
+          ./scripts/pms/run-property-os-sim.sh http://localhost:3000/api/v1/property-os/v16/analyze 200
+
+      - name: Upload Simulation Report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: sim-report-quick-run
+          path: reports/sim/property-os-v1.6/

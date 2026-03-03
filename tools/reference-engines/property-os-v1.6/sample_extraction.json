@@ -1,0 +1,21 @@
+{
+  "expected_rent_amount": 1250.0,
+  "due_date": "2026-03-01T00:00:00Z",
+  "cycle_horizon_days": 30.0,
+  "eligible_event_count": 4,
+  "crossings_days": {
+    "0.3": 3.8,
+    "0.7": 8.5,
+    "0.9": 13.0,
+    "1.0": 13.0
+  },
+  "transitions_days": {
+    "0a0b": 3.8,
+    "0b1": 8.5,
+    "12": 13.0,
+    "23": 13.0,
+    "censored_at": 30.0
+  },
+  "state_day_5": "0b",
+  "state_day_15": "3"
+}

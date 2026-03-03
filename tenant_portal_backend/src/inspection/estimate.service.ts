@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { isUUID } from 'class-validator';
 import { EmailService } from '../email/email.service';
@@ -26,6 +26,20 @@ import {
 } from './agents/estimate-tools';
 import { getLaborRateForTrade } from './pricing/labor-pricing.service';
 import { TradeCategory } from './pricing/pricing.types';
+import Ajv from 'ajv';
+import * as propertyOsSchema from '../../../contracts/property-os/v1.6/property_os_model_contract_api_v1_6_schemas.json';
+
+const ajv = new Ajv({ strict: false, validateFormats: false });
+// v1.6 schema file exposes OpenAPI-style components.schemas (not JSON-Schema definitions)
+const componentSchemas = (propertyOsSchema as any)?.components?.schemas ?? {};
+for (const [name, schema] of Object.entries(componentSchemas)) {
+  ajv.addSchema(schema as object, `#/components/schemas/${name}`);
+}
+const confidenceSchema = componentSchemas.Confidence;
+const validatePropertyOsOutput = confidenceSchema
+  ? ajv.compile(confidenceSchema)
+  : (() => true) as any;
+
 
 function midpoint(low: number, high: number) {
   return (low + high) / 2;
@@ -177,6 +191,8 @@ function autoDowngradeConfidence(
 
 @Injectable()
 export class EstimateService {
+  private readonly logger = new Logger(EstimateService.name);
+
   constructor(
     private prisma: PrismaService,
     private emailService: EmailService,
@@ -325,6 +341,20 @@ export class EstimateService {
     );
     enriched.confidenceLevel = adjustedConfidence;
     enriched.confidenceReason = adjustedReason;
+
+    // ---- Property OS Model Integration (Placeholder) ----
+    const propertyOsData = await this.getPropertyOsModelData(inspectionId);
+
+    // Validate the output against the contract schema before attaching it
+    const isValid = validatePropertyOsOutput(propertyOsData?.confidence);
+    if (!isValid) {
+        this.logger.error('PropertyOS confidence output failed schema validation', validatePropertyOsOutput.errors);
+        // In a real scenario, you might want to avoid attaching invalid model data
+        // or attach an error object instead. For now, we'll log and continue.
+    }
+
+    enriched.propertyOs = propertyOsData;
+    // ----------------------------------------------------
 
     if (Array.isArray(enriched.lineItems) && Array.isArray(estimateResult.line_items)) {
       enriched.lineItems = enriched.lineItems.map((li: any, idx: number) => {
@@ -954,5 +984,31 @@ export class EstimateService {
       throw new BadRequestException(`Invalid ${field} identifier provided.`);
     }
     return value;
+  }
+
+  /**
+   * Placeholder for calling the Property OS model service.
+   * In a real implementation, this would be an HTTP call to that service.
+   */
+  private async getPropertyOsModelData(inspectionId: number): Promise<any> {
+    // Simulate a network call
+    await new Promise(resolve => setTimeout(resolve, 150));
+
+    // Return a realistic, hardcoded data structure for now.
+    return {
+      version: '1.6.0',
+      confidence: 0.88,
+      reversal_adjustment: -0.05,
+      es15_mae: 0.03,
+      milestones: {
+        payment_due: { probability: 0.99, predicted_at: '2026-03-10T00:00:00Z' },
+        late_fee_assessed: { probability: 0.15, predicted_at: '2026-03-15T00:00:00Z' },
+        eviction_filed: { probability: 0.02, predicted_at: '2026-04-20T00:00:00Z' },
+      },
+      ledger: {
+        settled_at: '2026-03-01T14:30:00Z',
+        transaction_count: 4,
+      }
+    };
   }
 }

@@ -625,6 +625,15 @@
               </div>
               <i data-lucide="chevron-right" class="w-5 h-5 text-muted-foreground"></i>
             </button>
+            <button class="w-full bg-surface rounded-xl p-4 border border-border flex items-center justify-between touch-feedback card-hover" onclick="AdminApp.loadSecurityPage()">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center">
+                        <i data-lucide="key-round" class="w-5 h-5 text-red-600"></i>
+                    </div>
+                    <span class="font-medium text-sm">Security</span>
+                </div>
+                <i data-lucide="chevron-right" class="w-5 h-5 text-muted-foreground"></i>
+            </button>
             <button class="w-full bg-surface rounded-xl p-4 border border-border flex items-center justify-between touch-feedback card-hover">
               <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center">
@@ -656,6 +665,16 @@
             Sign Out
           </button>
         </div>
+      </div>
+
+      <!-- Estimate Detail Page (New) -->
+      <div id="page-estimate-detail" class="page">
+        <!-- Content will be rendered here by renderEstimateDetail() -->
+      </div>
+
+      <!-- Security Page (New) -->
+      <div id="page-security" class="page">
+        <!-- Content will be rendered here by renderSecurityStatus() -->
       </div>
     </main>
 

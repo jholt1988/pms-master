@@ -1,0 +1,104 @@
+{
+  "components": {
+    "schemas": {
+      "ReversalAdjustment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "as_of",
+          "half_life_days",
+          "disruption_score",
+          "penalty_evidence",
+          "penalty_drift",
+          "penalty_unit_richness",
+          "applied",
+          "event_count_considered",
+          "amount_ratio_considered",
+          "sys"
+        ],
+        "properties": {
+          "as_of": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "half_life_days": {
+            "type": "number",
+            "minimum": 0
+          },
+          "disruption_score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "penalty_evidence": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+          },
+          "penalty_drift": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+          },
+          "penalty_unit_richness": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+          },
+          "applied": {
+            "type": "boolean"
+          },
+          "event_count_considered": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "amount_ratio_considered": {
+            "type": "number",
+            "minimum": 0
+          },
+          "sys": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      },
+      "Confidence": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "overall",
+          "evidence",
+          "drift",
+          "unit_richness",
+          "reversal_adjustment"
+        ],
+        "properties": {
+          "overall": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "evidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "drift": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "unit_richness": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "reversal_adjustment": {
+            "$ref": "#/components/schemas/ReversalAdjustment"
+          }
+        }
+      }
+    }
+  }
+}

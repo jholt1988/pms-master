@@ -1,0 +1,25 @@
+{
+  "name": "@propertyos/pmre",
+  "private": true,
+  "scripts": {
+    "dev": "nest start --watch --port 3002",
+    "build": "nest build"
+  },
+  "dependencies": {
+    "@nestjs/common": "^10.4.4",
+    "@nestjs/core": "^10.4.4",
+    "@nestjs/platform-express": "^10.4.4",
+    "@nestjs/swagger": "^7.4.2",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "@prisma/client": "^5.20.0",
+    "@propertyos/contracts": "workspace:*",
+    "@propertyos/crypto": "workspace:*"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^10.4.2",
+    "prisma": "^5.20.0",
+    "typescript": "^5.6.3",
+    "ts-node": "^10.9.2"
+  }
+}

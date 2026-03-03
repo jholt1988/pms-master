@@ -15,11 +15,12 @@ import { apiFetch } from './services/apiClient';
 // Import your existing feature widgets
 // Note: You will need to update these components later to remove their own 
 // white backgrounds so they blend into the GlassCard.
-import { MaintenanceCard } from "./components/ui/MaintenanceCard";
 import { PaymentsCard } from "./components/ui/PaymentsCard";
 import { RentEstimatorCard } from "./components/ui/RentEstimatorCard";
 import { RentalApplicationsCard } from "./components/ui/RentalApplicationsCard";
 import { MessagingCard } from "./components/ui/MessagingCard";
+import { ActionIntentFeed } from './components/ui/ActionIntentFeed';
+import { ProactiveMaintenanceCard } from './components/ui/ProactiveMaintenanceCard';
 
 interface DashboardMetrics {
   occupancy: {
@@ -47,6 +48,13 @@ interface DashboardMetrics {
     legalAccepted?: number;
     legalMissing?: number;
   };
+  proactiveMaintenance: Array<{
+    id: string;
+    title: string;
+    unit: string;
+    probability: number;
+    milestone: string;
+  }>;
 }
 
 const formatCurrency = (amount: number) => {
@@ -151,11 +159,18 @@ const KPITicker = ({
   );
 };
 
+type EngineHealth = {
+  status: 'ok' | 'degraded';
+  detail: string;
+  checkedAt: string;
+};
+
 const MainDashboard = () => {
   const { token, user } = useAuth();
   const navigate = useNavigate();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [engineHealth, setEngineHealth] = useState<EngineHealth | null>(null);
   const isOwnerView = user?.role === 'OWNER';
 
   useEffect(() => {
@@ -175,6 +190,22 @@ const MainDashboard = () => {
           financials: { monthlyRevenue: 0, collectedThisMonth: 0, outstanding: 0 },
           maintenance: { total: 0, pending: 0, inProgress: 0, overdue: 0 },
           applications: { total: 0, pending: 0, approved: 0, rejected: 0, legalAccepted: 0, legalMissing: 0 },
+          proactiveMaintenance: [
+            { id: 'hvac-1', title: 'HVAC Failure Imminent', unit: 'Unit 101', probability: 0.85, milestone: 'ES15' },
+            { id: 'wh-1', title: 'Water Heater Leak Risk', unit: 'Unit 204', probability: 0.62, milestone: 'ES15' },
+          ],
+        });
+      }
+
+      try {
+        const health = await apiFetch('/property-os/v16/engine-health', { token });
+        setEngineHealth(health);
+      } catch (healthError) {
+        console.error('Error fetching Property OS engine health:', healthError);
+        setEngineHealth({
+          status: 'degraded',
+          detail: 'Engine health unavailable',
+          checkedAt: new Date().toISOString(),
         });
       } finally {
         setLoading(false);
@@ -194,10 +225,21 @@ const MainDashboard = () => {
           </h1>
           <p className="text-gray-400 text-sm">Real-time portfolio telemetry</p>
         </div>
-        <div className="mt-4 md:mt-0">
+        <div className="mt-4 md:mt-0 flex flex-col items-end gap-2">
           <div className="flex items-center gap-2 text-xs font-mono text-neon-purple bg-neon-purple/10 px-3 py-1 rounded border border-neon-purple/30 animate-pulse-slow">
             <Activity size={12} />
             SYSTEM OPTIMIZED
+          </div>
+          <div
+            className={`flex items-center gap-2 text-xs font-mono px-3 py-1 rounded border ${
+              engineHealth?.status === 'ok'
+                ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/30'
+                : 'text-amber-300 bg-amber-500/10 border-amber-500/30'
+            }`}
+            title={engineHealth?.detail ?? 'Property OS engine health unknown'}
+          >
+            <span className={`inline-block h-2 w-2 rounded-full ${engineHealth?.status === 'ok' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+            PROPERTY OS ENGINE {engineHealth?.status === 'ok' ? 'HEALTHY' : 'DEGRADED'}
           </div>
         </div>
       </div>
@@ -224,9 +266,11 @@ const MainDashboard = () => {
                 <AlertTriangle className="text-neon-pink" size={18} />
                 Critical Attention
               </h3>
-              <span className="text-xs bg-neon-pink/20 text-neon-pink px-2 py-1 rounded font-mono uppercase tracking-wider">2 Urgent</span>
+              <span className="text-xs bg-neon-pink/20 text-neon-pink px-2 py-1 rounded font-mono uppercase tracking-wider">
+                {metrics?.proactiveMaintenance?.length ?? 0} Insights
+              </span>
             </div>
-            <MaintenanceCard /> 
+            <ProactiveMaintenanceCard suggestions={metrics?.proactiveMaintenance ?? []} /> 
           </GlassCard>
         </div>
 
@@ -315,6 +359,13 @@ const MainDashboard = () => {
               </div>
             </div>
             <RentalApplicationsCard />
+          </GlassCard>
+        </div>
+        
+        {/* BLOCK F: ActionIntent Feed (Full Width Bottom) */}
+        <div className="md:col-span-12">
+          <GlassCard glowColor="purple">
+            <ActionIntentFeed />
           </GlassCard>
         </div>
 

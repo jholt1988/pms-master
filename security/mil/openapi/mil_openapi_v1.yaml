@@ -1,0 +1,337 @@
+openapi: 3.0.3
+info:
+  title: Model Integrity Layer (MIL) API
+  version: "1.0.0"
+servers:
+  - url: /
+paths:
+  /mil/evaluate:
+    post:
+      summary: Evaluate a model target with MIL governance (sync or async)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MilEvaluateRequest'
+      responses:
+        "200":
+          description: Sync completed or async queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MilEvaluateResponse'
+        "409":
+          description: Tenant blocked (rekey overdue/maintenance/crypto deleted)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /mil/evaluate/{evaluation_id}:
+    get:
+      summary: Get evaluation status/result
+      parameters:
+        - in: path
+          name: evaluation_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MilEvaluationStatusResponse'
+  /mil/lineage/evaluation/{evaluation_id}:
+    get:
+      summary: Get lineage hashes/digests for an evaluation (no decryption)
+      parameters:
+        - in: path
+          name: evaluation_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Lineage
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MilLineageEvaluationResponse'
+  /mil/lineage/verify:
+    post:
+      summary: Verify chain continuity for a tenant and return signed attestation (allowed when overdue)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MilLineageVerifyRequest'
+      responses:
+        "200":
+          description: Signed attestation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MilLineageVerifyResponse'
+  /.well-known/mil-attestation-keys.json:
+    get:
+      summary: Public keys for verifying MIL attestations
+      responses:
+        "200":
+          description: Key set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttestationKeySet'
+  /mil/tenant/{tenant_id}/crypto-status:
+    get:
+      summary: Get tenant crypto governance status
+      parameters:
+        - in: path
+          name: tenant_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantCryptoStatusResponse'
+  /mil/tenant/{tenant_id}/rekey/schedule:
+    post:
+      summary: Schedule a tenant re-key maintenance job
+      parameters:
+        - in: path
+          name: tenant_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RekeyScheduleRequest'
+      responses:
+        "200":
+          description: Scheduled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RekeyJobResponse'
+  /mil/tenant/{tenant_id}/rekey/run:
+    post:
+      summary: Run re-key job (maintenance freeze; everything pauses)
+      parameters:
+        - in: path
+          name: tenant_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RekeyRunRequest'
+      responses:
+        "200":
+          description: Completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RekeyJobResponse'
+  /mil/tenant/{tenant_id}/crypto-delete:
+    post:
+      summary: Crypto-delete tenant payload key (payloads unrecoverable; hash continuity preserved)
+      parameters:
+        - in: path
+          name: tenant_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Done
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericOk'
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error: { type: string }
+        message: { type: string }
+        details: { type: object, additionalProperties: true }
+    GenericOk:
+      type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean }
+    MilEvaluateRequest:
+      type: object
+      additionalProperties: false
+      required: [tenant_id, target_id, mode, request_id, payload]
+      properties:
+        tenant_id: { type: string }
+        target_id: { type: string }
+        mode: { type: string, enum: [sync_http, async_job] }
+        request_id: { type: string }
+        payload: { type: object, additionalProperties: true }
+    MilEvaluateResponse:
+      type: object
+      additionalProperties: false
+      required: [status, evaluation_id]
+      properties:
+        status: { type: string, enum: [COMPLETED, QUEUED] }
+        evaluation_id: { type: string, format: uuid }
+        result: { type: object, additionalProperties: true }
+        lineage:
+          $ref: '#/components/schemas/LineageSummary'
+    MilEvaluationStatusResponse:
+      type: object
+      additionalProperties: false
+      required: [status, tenant_state, evaluation_id]
+      properties:
+        status: { type: string, enum: [QUEUED, RUNNING, COMPLETED, FAILED, BLOCKED] }
+        tenant_state: { type: string, enum: [ACTIVE, REKEY_REQUIRED, REKEY_OVERDUE, REKEYING_MAINTENANCE, CRYPTO_DELETED] }
+        evaluation_id: { type: string, format: uuid }
+        result: { type: object, additionalProperties: true }
+        lineage:
+          $ref: '#/components/schemas/LineageSummary'
+        error:
+          $ref: '#/components/schemas/ErrorResponse'
+    LineageSummary:
+      type: object
+      additionalProperties: false
+      required: [chain_id, tenant_id, record_hash, prev_hash, trace_root_hash, trace_steps]
+      properties:
+        chain_id: { type: string }
+        tenant_id: { type: string }
+        record_hash: { type: string }
+        prev_hash: { type: string }
+        trace_root_hash: { type: string }
+        trace_steps: { type: integer, minimum: 0 }
+    MilLineageEvaluationResponse:
+      type: object
+      additionalProperties: false
+      required: [tenant_id, evaluation_id, record_hash, prev_hash, trace_root_hash, trace_steps, steps]
+      properties:
+        tenant_id: { type: string }
+        evaluation_id: { type: string, format: uuid }
+        record_hash: { type: string }
+        prev_hash: { type: string }
+        trace_root_hash: { type: string }
+        trace_steps: { type: integer }
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/LineageStepSummary'
+    LineageStepSummary:
+      type: object
+      additionalProperties: false
+      required: [step_seq, step_type, step_hash, prev_step_hash, payload_digest, enc_version]
+      properties:
+        step_seq: { type: integer, minimum: 0 }
+        step_type: { type: string }
+        step_hash: { type: string }
+        prev_step_hash: { type: string }
+        payload_digest: { type: string }
+        enc_version: { type: integer, minimum: 1 }
+    MilLineageVerifyRequest:
+      type: object
+      additionalProperties: false
+      required: [tenant_id, from_hash, to_hash]
+      properties:
+        tenant_id: { type: string }
+        from_hash: { type: string }
+        to_hash: { type: string }
+    MilLineageVerifyResponse:
+      type: object
+      additionalProperties: false
+      required: [result, signature]
+      properties:
+        result:
+          $ref: '#/components/schemas/LineageVerifyAttestation'
+        signature:
+          $ref: '#/components/schemas/SignatureEnvelope'
+    LineageVerifyAttestation:
+      type: object
+      additionalProperties: false
+      required: [schema, as_of, tenant_id, chain_id, from_hash, to_hash, chain_valid, records_verified, break_detected, first_invalid_hash, server_nonce]
+      properties:
+        schema: { type: string }
+        as_of: { type: string, format: date-time }
+        tenant_id: { type: string }
+        chain_id: { type: string }
+        from_hash: { type: string }
+        to_hash: { type: string }
+        chain_valid: { type: boolean }
+        records_verified: { type: integer, minimum: 0 }
+        break_detected: { type: boolean }
+        first_invalid_hash: { type: string, nullable: true }
+        server_nonce: { type: string }
+    SignatureEnvelope:
+      type: object
+      additionalProperties: false
+      required: [alg, kid, sig]
+      properties:
+        alg: { type: string, enum: [Ed25519] }
+        kid: { type: string }
+        sig: { type: string }
+    AttestationKeySet:
+      type: object
+      additionalProperties: false
+      required: [keys]
+      properties:
+        keys:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttestationPublicKey'
+    AttestationPublicKey:
+      type: object
+      additionalProperties: false
+      required: [kid, alg, public_key_base64, created_at]
+      properties:
+        kid: { type: string }
+        alg: { type: string, enum: [Ed25519] }
+        public_key_base64: { type: string }
+        created_at: { type: string, format: date-time }
+        retired_at: { type: string, format: date-time, nullable: true }
+    TenantCryptoStatusResponse:
+      type: object
+      additionalProperties: false
+      required: [tenant_id, state, kms_key_id]
+      properties:
+        tenant_id: { type: string }
+        state: { type: string, enum: [ACTIVE, REKEY_REQUIRED, REKEY_OVERDUE, REKEYING_MAINTENANCE, CRYPTO_DELETED] }
+        kms_key_id: { type: string }
+        rekey_deadline: { type: string, format: date-time, nullable: true }
+    RekeyScheduleRequest:
+      type: object
+      additionalProperties: false
+      required: [trigger_type, scheduled_start]
+      properties:
+        trigger_type: { type: string, enum: [KEY_AGE_THRESHOLD, CRYPTO_POLICY_UPDATE, SECURITY_INCIDENT_RESPONSE, TENANT_REQUESTED] }
+        scheduled_start: { type: string, format: date-time }
+        scheduled_end: { type: string, format: date-time, nullable: true }
+        reason: { type: string, nullable: true }
+    RekeyRunRequest:
+      type: object
+      additionalProperties: false
+      required: [job_id, new_kms_key_id]
+      properties:
+        job_id: { type: string, format: uuid }
+        new_kms_key_id: { type: string }
+    RekeyJobResponse:
+      type: object
+      additionalProperties: false
+      required: [tenant_id, job_id, status]
+      properties:
+        tenant_id: { type: string }
+        job_id: { type: string, format: uuid }
+        status: { type: string, enum: [SCHEDULED, READY, RUNNING, COMPLETED, FAILED, ABORTED] }
+        old_kms_key_id: { type: string, nullable: true }
+        new_kms_key_id: { type: string, nullable: true }
+        result_summary: { type: object, additionalProperties: true, nullable: true }

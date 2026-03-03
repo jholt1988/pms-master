@@ -1,6 +1,7 @@
 
-import { Controller, Get } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Post } from '@nestjs/common';
 import { AppService } from './app.service';
+import { assertConfidenceV16Invariants, validateConfidenceV16 } from './property-os/v16-contract';
 
 @Controller()
 export class AppController {
@@ -11,6 +12,38 @@ export class AppController {
     return this.appService.getHello();
   }
 
+  @Post('property-os/v16/validate-confidence')
+  validatePropertyOsV16Confidence(@Body() body: unknown) {
+    try {
+      const confidence = validateConfidenceV16(body);
+      assertConfidenceV16Invariants(confidence);
+      return { valid: true, confidence };
+    } catch (error: any) {
+      throw new BadRequestException({
+        valid: false,
+        message: error?.message ?? 'Invalid Property OS v1.6 confidence payload',
+      });
+    }
+  }
+
+  @Post('property-os/v16/validate-response')
+  validatePropertyOsV16Response(@Body() body: any) {
+    try {
+      const confidence = validateConfidenceV16(body?.confidence);
+      assertConfidenceV16Invariants(confidence);
+      return {
+        valid: true,
+        model_version: body?.model_version,
+        unit_id: body?.unit_id,
+        cycle_id: body?.cycle_id,
+        confidence,
+      };https://github.com/jholt1988/pms-master/pull/25/conflict?name=tenant_portal_backend%252Fsrc%252Fapp.controller.ts&ancestor_oid=4c132440fe2c115e19956b55935aa0bd170cb33c&base_oid=9d0eec09acf46405d5b41e4fc48344ec1ff490af&head_oid=cacaf2dd8291a4907efaca722894beac0b8925a5
+    } catch (error: any) {
+      throw new BadRequestException({
+        valid: false,
+        message: error?.message ?? 'Invalid Property OS v1.6 response payload',
+      });
+    }
   @Get('health')
   getHealth() {
     return {

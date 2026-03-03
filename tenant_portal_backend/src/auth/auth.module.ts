@@ -11,6 +11,8 @@ import { PasswordPolicyService } from './password-policy.service';
 import { SecurityEventsModule } from '../security-events/security-events.module';
 import { EmailModule } from '../email/email.module';
 import { PrismaModule } from '../prisma/prisma.module';
+import { DefaultApi as MilApiClient } from '../../../packages/mil-client';
+import { HttpModule } from '@nestjs/axios';
 
 @Module({
   imports: [
@@ -20,6 +22,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     SecurityEventsModule,
     EmailModule,
     PrismaModule,
+    HttpModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -44,7 +47,19 @@ import { PrismaModule } from '../prisma/prisma.module';
       },
     }),
   ],
-  providers: [AuthService, JwtStrategy, PasswordPolicyService],
+  providers: [
+    AuthService, 
+    JwtStrategy, 
+    PasswordPolicyService,
+    {
+      provide: MilApiClient,
+      useFactory: (configService: ConfigService) => {
+        const milServiceUrl = configService.get<string>('MIL_SERVICE_URL', 'http://localhost:8080');
+        return new MilApiClient(undefined, milServiceUrl);
+      },
+      inject: [ConfigService],
+    },
+  ],
   controllers: [AuthController],
 })
 export class AuthModule {}

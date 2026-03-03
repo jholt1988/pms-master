@@ -13,6 +13,8 @@ import { addHours, addMinutes } from 'date-fns';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { randomBytes } from 'crypto';
+import { DefaultApi as MilApiClient } from '../../../packages/mil-client';
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -23,6 +25,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
+    private readonly milApiClient: MilApiClient,
   ) { }
 
   private readonly logger = new Logger(AuthService.name);
@@ -198,7 +201,7 @@ export class AuthService {
         role: dto.role ?? 'TENANT',
         email: dto.email,
         firstName: dto.firstName,
-        lastName: dto.lastName,
+lastName: dto.lastName,
       });
     } catch (error: unknown) {
       const prismaError = error as { code?: string };
@@ -215,6 +218,17 @@ export class AuthService {
       username: user.username,
       metadata: { source: 'REGISTER' },
     });
+    
+    // ---- MIL Integration ----
+    try {
+        await this.milApiClient.milTenantTenantIdCryptoStatusGet(user.id);
+        this.logger.log(`Provisioned tenant crypto keys in MIL for new user: ${user.id}`);
+    } catch(error) {
+        this.logger.error(`Failed to provision MIL crypto keys for new user ${user.id}`, error);
+        // Do not fail the registration if MIL is down, just log the error.
+        // A background job could retry this later.
+    }
+    // -------------------------
 
     return {
       id: user.id,

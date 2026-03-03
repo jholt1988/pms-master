@@ -2,26 +2,27 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { visualizer } from 'rollup-plugin-visualizer';
-
 // Only include visualizer in production builds to avoid dev overhead
 const isProduction = process.env.NODE_ENV === 'production';
 
-export default defineConfig({
-  plugins: [
-    react(),
-    tailwindcss(),
-    // Bundle analyzer - only in production builds
-    // Run `npm run build` then check `dist/stats.html`
-    ...(isProduction ? [
+export default defineConfig(async () => {
+  const plugins = [react(), tailwindcss()];
+
+  if (isProduction) {
+    // Lazy import avoids ESM/CJS config-resolution issues in some environments.
+    const { visualizer } = await import('rollup-plugin-visualizer');
+    plugins.push(
       visualizer({
         filename: 'dist/stats.html',
         open: false,
         gzipSize: true,
         brotliSize: true,
       })
-    ] : []),
-  ],
+    );
+  }
+
+  return {
+    plugins,
   build: {
     rollupOptions: {
       output: {
@@ -82,4 +83,5 @@ export default defineConfig({
       }
     }
   },
+};
 });
