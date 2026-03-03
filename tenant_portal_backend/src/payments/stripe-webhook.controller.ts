@@ -10,7 +10,7 @@ export class StripeWebhookController {
 
   @Post()
   async handleWebhook(
-    @Req() req: Request,
+    @Req() req: Request & { rawBody?: Buffer },
     @Res() res: Response,
     @Headers('stripe-signature') signature: string,
   ) {
@@ -19,13 +19,15 @@ export class StripeWebhookController {
       return res.status(400).send('Missing Stripe signature');
     }
 
+    const payload = req.rawBody ?? Buffer.from(JSON.stringify(req.body ?? {}));
+
     try {
-      await this.stripeService.handleWebhook(signature, req.body);
-      this.logger.log('Webhook processed successfully');
-      res.status(200).send('OK');
+      const result = await this.stripeService.handleWebhook(signature, payload);
+      this.logger.log(`Webhook processed successfully (${result.eventId})`);
+      return res.status(200).json({ ok: true, ...result });
     } catch (error) {
       this.logger.error('Webhook processing failed:', error);
-      res.status(400).send('Webhook processing failed');
+      return res.status(400).send('Webhook processing failed');
     }
   }
 }

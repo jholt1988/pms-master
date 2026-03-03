@@ -134,6 +134,12 @@ async function main() {
   // Lease (id type varies; many schemas have id as string/uuid)
   const leaseId = typeof unit.id === 'string' ? uuid() : 1;
   let lease;
+
+  // Some schemas enforce unique tenantId on Lease.
+  try {
+    await prisma.lease.deleteMany({ where: { tenantId: tenant.id } });
+  } catch (_) {}
+  try {
   const existingLease = await prisma.lease.findFirst({ where: { tenantId: tenant.id } });
   if (existingLease) {
     lease = existingLease;
@@ -170,6 +176,9 @@ async function main() {
         startDate: new Date('2026-01-01'),
         endDate: new Date('2026-12-31'),
         rentAmount: 1350,
+        noticePeriodDays: 30,
+        depositAmount: 600,
+        autoRenew: false,
       },
     });
   }

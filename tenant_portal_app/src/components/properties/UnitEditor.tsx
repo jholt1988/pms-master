@@ -10,10 +10,13 @@ import {
   Card,
   CardBody,
   Chip,
+  Select,
+  SelectItem,
 } from '@nextui-org/react';
 
 interface UnitFormData {
   name: string;
+  status: 'ACTIVE' | 'MANAGED' | 'ARCHIVED';
   bedrooms: string;
   bathrooms: string;
   squareFeet: string;
@@ -28,6 +31,7 @@ interface UnitEditorProps {
   onSubmit: (unit: UnitFormData) => Promise<void>;
   initialData?: {
     name: string;
+    status?: 'ACTIVE' | 'MANAGED' | 'ARCHIVED';
     bedrooms?: number;
     bathrooms?: number;
     squareFeet?: number;
@@ -78,6 +82,7 @@ export const UnitEditor: React.FC<UnitEditorProps> = ({
 }) => {
   const [formData, setFormData] = useState<UnitFormData>({
     name: '',
+    status: 'MANAGED',
     bedrooms: '',
     bathrooms: '',
     squareFeet: '',
@@ -98,6 +103,7 @@ export const UnitEditor: React.FC<UnitEditorProps> = ({
 
       setFormData({
         name: initialData.name || '',
+        status: initialData.status || 'MANAGED',
         bedrooms: initialData.bedrooms?.toString() || '',
         bathrooms: initialData.bathrooms?.toString() || '',
         squareFeet: initialData.squareFeet?.toString() || '',
@@ -108,6 +114,7 @@ export const UnitEditor: React.FC<UnitEditorProps> = ({
     } else {
       setFormData({
         name: '',
+        status: 'MANAGED',
         bedrooms: '',
         bathrooms: '',
         squareFeet: '',
@@ -179,7 +186,7 @@ export const UnitEditor: React.FC<UnitEditorProps> = ({
 
           <Card className="bg-[#1a1a1a] border-white/30">
             <CardBody className="space-y-4 p-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <Input
                   size="md"
                   value={formData.name}
@@ -201,6 +208,18 @@ export const UnitEditor: React.FC<UnitEditorProps> = ({
                     input: "text-white",
                   }}
                 />
+                <Select
+                  label="Status"
+                  selectedKeys={[formData.status]}
+                  onSelectionChange={(keys) => {
+                    const selected = Array.from(keys)[0] as 'ACTIVE' | 'MANAGED' | 'ARCHIVED' | undefined;
+                    setFormData({ ...formData, status: selected ?? 'MANAGED' });
+                  }}
+                >
+                  <SelectItem key="ACTIVE" value="ACTIVE">Active</SelectItem>
+                  <SelectItem key="MANAGED" value="MANAGED">Managed</SelectItem>
+                  <SelectItem key="ARCHIVED" value="ARCHIVED">Archived</SelectItem>
+                </Select>
               </div>
 
               <div className="grid grid-cols-3 gap-4">

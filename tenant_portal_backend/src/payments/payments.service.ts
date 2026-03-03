@@ -5,6 +5,8 @@ import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { AIPaymentService } from './ai-payment.service';
 import { EmailService } from '../email/email.service';
+import { StripeService } from './stripe.service';
+import { calculateFee } from '../billing/fee-engine';
 
 @Injectable()
 export class PaymentsService {
@@ -14,6 +16,7 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly aiPaymentService: AIPaymentService,
     private readonly emailService: EmailService,
+    private readonly stripeService: StripeService,
   ) { }
 
   async createInvoice(dto: CreateInvoiceDto, orgId: string): Promise<Invoice> {
@@ -112,15 +115,92 @@ export class PaymentsService {
       }
     }
 
+    let externalId = dto['externalId'] as string | undefined;
+    let resolvedStatus = dto.status ?? 'COMPLETED';
+
+    if (dto.paymentMethodId) {
+      const method = await this.prisma.paymentMethod.findUnique({ where: { id: dto.paymentMethodId } });
+      if (!method || method.userId !== lease.tenantId) {
+        throw new BadRequestException('Payment method is invalid for this lease tenant');
+      }
+
+      if (method.provider === 'STRIPE' && method.providerCustomerId && method.providerPaymentMethodId) {
+        const orgIdForLease = lease.unit?.property?.organizationId;
+        let connectedAccountId: string | undefined;
+        let applicationFeeAmountCents: number | undefined;
+        let tierSnapshot: Record<string, unknown> | undefined;
+
+        if (orgIdForLease) {
+          const org = await this.prisma.organization.findUnique({
+            where: { id: orgIdForLease },
+            select: { stripeConnectedAccountId: true },
+          });
+          connectedAccountId = org?.stripeConnectedAccountId ?? undefined;
+
+          const activeCycle = await this.prisma.orgPlanCycle.findFirst({
+            where: { organizationId: orgIdForLease, status: 'ACTIVE' },
+            include: { activeFeeSchedule: true },
+            orderBy: { startsAt: 'desc' },
+          });
+
+          if (activeCycle?.activeFeeSchedule?.feeConfig) {
+            const feeConfig = activeCycle.activeFeeSchedule.feeConfig as Record<string, any>;
+            const tiers = Array.isArray(feeConfig.tiers) ? feeConfig.tiers : undefined;
+            const flatPercent = typeof feeConfig.baseManagementFeePct === 'number'
+              ? feeConfig.baseManagementFeePct
+              : typeof feeConfig.percent === 'number'
+              ? feeConfig.percent
+              : 0;
+            const minimumFee = typeof feeConfig.minimumFee === 'number' ? feeConfig.minimumFee : 0;
+
+            const fee = calculateFee({
+              amount: dto.amount,
+              tiers,
+              flatPercent,
+              minimumFee,
+              enforceFeeLessThanAmount: true,
+            });
+            applicationFeeAmountCents = Math.max(0, Math.round(fee.finalFee * 100));
+            tierSnapshot = {
+              tiers: tiers ?? null,
+              flatPercent,
+              minimumFee,
+              computed: fee,
+            };
+          }
+        }
+
+        const intent = await this.stripeService.processPayment({
+          amount: dto.amount,
+          customerId: method.providerCustomerId,
+          paymentMethodId: method.providerPaymentMethodId,
+          description: `Lease payment ${leaseId}`,
+          metadata: {
+            leaseId,
+            tenantId: lease.tenantId,
+            ...(orgIdForLease ? { organizationId: orgIdForLease } : {}),
+            ...(typeof applicationFeeAmountCents === 'number' ? { platform_fee_minor: String(applicationFeeAmountCents) } : {}),
+            ...(tierSnapshot ? { tier_snapshot: JSON.stringify(tierSnapshot) } : {}),
+            ...(dto.invoiceId ? { invoiceId: String(dto.invoiceId) } : {}),
+          },
+          connectedAccountId,
+          applicationFeeAmountCents,
+        });
+
+        externalId = intent.id;
+        resolvedStatus = intent.status === 'succeeded' ? 'COMPLETED' : 'PENDING';
+      }
+    }
+
     const payment = await this.prisma.payment.create({
       data: {
         amount: dto.amount,
-        status: dto.status ?? 'COMPLETED',
+        status: resolvedStatus,
         paymentDate: dto.paymentDate ? new Date(dto.paymentDate) : new Date(),
         invoice: dto.invoiceId ? { connect: { id: dto.invoiceId } } : undefined,
         lease: { connect: { id: leaseId } },
         user: { connect: { id: lease.tenantId } },
-        externalId: dto['externalId'] as string | undefined,
+        externalId,
         paymentMethod: dto.paymentMethodId ? { connect: { id: dto.paymentMethodId } } : undefined,
       },
       include: {
@@ -236,12 +316,11 @@ export class PaymentsService {
     });
   }
 
-  private parseLeaseId(leaseId: string | number): number {
-    const normalized = typeof leaseId === 'string' ? Number(leaseId) : leaseId;
-    if (!Number.isFinite(normalized) || !Number.isInteger(normalized)) {
+  private parseLeaseId(leaseId: string | number): string {
+    if (typeof leaseId !== 'string' || leaseId.length < 8) {
       throw new BadRequestException('Invalid lease identifier provided.');
     }
-    return normalized;
+    return leaseId;
   }
 
   /**

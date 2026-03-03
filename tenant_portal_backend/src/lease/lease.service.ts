@@ -1,4 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { isUUID } from 'class-validator';
 import {
   LeaseNoticeDeliveryMethod,
   LeaseNoticeType,
@@ -53,6 +54,10 @@ export class LeaseService {
       },
       orderBy: { createdAt: 'desc' },
       take: 5,
+    },
+    documents: {
+      orderBy: { createdAt: 'desc' },
+      take: 20,
     },
   };
 
@@ -578,12 +583,11 @@ export class LeaseService {
     return String(id);
   }
 
-  private normalizeNumericId(id: string | number): number {
-    const parsed = typeof id === 'string' ? Number(id) : id;
-    if (!Number.isFinite(parsed) || !Number.isInteger(parsed)) {
-      throw new BadRequestException('Invalid numeric identifier provided.');
+  private normalizeNumericId(id: string | number): string {
+    if (typeof id !== 'string' || !isUUID(id)) {
+      throw new BadRequestException('Invalid identifier provided.');
     }
-    return parsed;
+    return id;
   }
 
   async logHistory(

@@ -8,6 +8,7 @@ import { MaintenanceLegacyController } from '../legacy/maintenance-legacy.contro
 import { ConfigModule } from '@nestjs/config';
 import { SystemUserService } from '../shared/system-user.service';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
+import { AuditLogService } from '../shared/audit-log.service';
 
 const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
 
@@ -20,6 +21,7 @@ const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
     AIMaintenanceMetricsService,
     SystemUserService,
     OrgContextGuard,
+    AuditLogService,
   ],
   exports: [MaintenanceService, AIMaintenanceService, AIMaintenanceMetricsService],
 })

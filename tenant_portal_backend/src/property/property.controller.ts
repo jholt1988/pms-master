@@ -15,6 +15,7 @@ import {
   UsePipes,
   Query,
   Delete,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { PropertyService } from './property.service';
@@ -63,7 +64,7 @@ export class PropertyController {
     @Body() dto: CreateUnitDto,
     @OrgId() orgId: string,
   ) {
-    return this.propertyService.createUnit(propertyId, dto.name, orgId);
+    return this.propertyService.createUnit(propertyId, dto, orgId);
   }
 
   @Get()

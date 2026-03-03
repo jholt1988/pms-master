@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { apiFetch } from './services/apiClient';
+import { EmptyState, LoadingState, FeedbackBanner } from './components/ui';
 
 interface SecurityEvent {
   id: number;
@@ -74,11 +75,11 @@ export default function AuditLogPage(): React.ReactElement {
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   if (!token) {
-    return <div className="p-4">Please sign in as a property manager to view audit logs.</div>;
+    return <EmptyState variant="inline" title="Sign in required" message="Please sign in as a property manager to view audit logs." />;
   }
 
   if (loading) {
-    return <div className="p-4">Loading...</div>;
+    return <LoadingState variant="inline" message="Loading audit logs…" />;
   }
 
   return (
@@ -90,11 +91,7 @@ export default function AuditLogPage(): React.ReactElement {
         </p>
       </header>
 
-      {error && (
-        <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          {error}
-        </div>
-      )}
+      {error && <FeedbackBanner tone="error" message={error} />}
 
       <section className="flex flex-wrap items-center gap-2">
         <button
@@ -153,7 +150,7 @@ export default function AuditLogPage(): React.ReactElement {
               {filteredEvents.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-500">
-                    No audit activity recorded for this filter.
+                    <EmptyState variant="inline" title="No audit activity yet" message="Security and operational events will appear here once activity occurs." />
                   </td>
                 </tr>
               ) : (

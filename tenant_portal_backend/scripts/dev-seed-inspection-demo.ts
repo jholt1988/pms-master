@@ -1,4 +1,4 @@
-import { PrismaClient, Role, LeaseStatus, InspectionType, InspectionStatus } from '@prisma/client';
+import { PrismaClient, Role, LeaseStatus, InspectionType, InspectionStatus, OrgRole } from '@prisma/client';
 import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -20,9 +20,16 @@ async function main() {
 
   console.log('🌱 Inspection demo seed starting...');
 
+  const ORG_ID = '11111111-1111-4111-8111-111111111111';
   const PROPERTY_ID = '22222222-2222-4222-8222-222222222222';
   const UNIT_ID = '33333333-3333-4333-8333-333333333333';
   const LEASE_ID = '44444444-4444-4444-8444-444444444444';
+
+  const org = await prisma.organization.upsert({
+    where: { id: ORG_ID },
+    update: { name: 'Demo Org - Wichita' },
+    create: { id: ORG_ID, name: 'Demo Org - Wichita' },
+  });
 
   const admin = await prisma.user.upsert({
     where: { username: adminUsername },
@@ -46,6 +53,7 @@ async function main() {
       city: 'Wichita',
       state: 'KS',
       zipCode: '67202',
+      organizationId: org.id,
     },
     create: {
       id: PROPERTY_ID,
@@ -54,6 +62,7 @@ async function main() {
       city: 'Wichita',
       state: 'KS',
       zipCode: '67202',
+      organizationId: org.id,
     },
   });
 
@@ -81,6 +90,21 @@ async function main() {
       lastName: 'Tenant',
     },
   });
+
+  await prisma.userOrganization.upsert({
+    where: { userId_organizationId: { userId: admin.id, organizationId: org.id } },
+    update: { role: OrgRole.ADMIN },
+    create: { userId: admin.id, organizationId: org.id, role: OrgRole.ADMIN },
+  });
+
+  await prisma.userOrganization.upsert({
+    where: { userId_organizationId: { userId: tenant.id, organizationId: org.id } },
+    update: { role: OrgRole.MEMBER },
+    create: { userId: tenant.id, organizationId: org.id, role: OrgRole.MEMBER },
+  });
+
+  // Remove any existing lease for this tenant to satisfy unique tenantId constraint
+  await prisma.lease.deleteMany({ where: { tenantId: tenant.id } });
 
   const lease = await prisma.lease.upsert({
     where: { id: LEASE_ID },

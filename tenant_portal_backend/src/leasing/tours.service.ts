@@ -4,6 +4,7 @@
  */
 
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { isUUID } from 'class-validator';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 
@@ -19,8 +20,8 @@ export class ToursService {
    */
   async scheduleTour(data: {
     leadId: string;
-    propertyId: string | number;
-    unitId?: string | number;
+    propertyId: string;
+    unitId?: string;
     scheduledDate: Date;
     scheduledTime: string;
     notes?: string;
@@ -41,7 +42,7 @@ export class ToursService {
         property: true,
         unit: true,
       },
-    });
+    }) as any;
 
     // Send tour confirmation email to lead
     if (tour.lead.email) {
@@ -182,6 +183,9 @@ export class ToursService {
   }
 
   private parseNumericId(value: string | number, field: string): string {
+    if (typeof value !== 'string' || !isUUID(value)) {
+      throw new BadRequestException(`Invalid ${field} id: ${value}`);
+    }
     return String(value);
   }
 }

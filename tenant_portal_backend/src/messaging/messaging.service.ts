@@ -228,6 +228,7 @@ export class MessagingService {
           senderId,
           conversationId: dto.conversationId,
           content: dto.content,
+          metadata: dto.attachmentUrls?.length ? { attachments: dto.attachmentUrls } : undefined,
         },
         include: {
           sender: {
@@ -277,6 +278,7 @@ export class MessagingService {
             senderId,
             conversationId: existingConversation.id,
             content: dto.content,
+            metadata: dto.attachmentUrls?.length ? { attachments: dto.attachmentUrls } : undefined,
           },
           include: {
             sender: {
@@ -305,6 +307,7 @@ export class MessagingService {
             senderId,
             conversationId: conversation.id,
             content: dto.content,
+            metadata: dto.attachmentUrls?.length ? { attachments: dto.attachmentUrls } : undefined,
           },
           include: {
             sender: {

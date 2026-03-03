@@ -4,6 +4,7 @@ import { useAuth } from './AuthContext';
 import { apiFetch } from './services/apiClient';
 import BulkMessageComposer from './components/messages/BulkMessageComposer';
 import BulkMessageStatusPanel from './components/messages/BulkMessageStatusPanel';
+import { EmptyState, LoadingState, FeedbackBanner } from './components/ui';
 
 const formatDateTime = (value?: string | null): string => {
   if (!value) {
@@ -25,6 +26,7 @@ const MessagingPage = () => {
   const [selectedConversation, setSelectedConversation] = useState<any | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [attachmentUrls, setAttachmentUrls] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -133,9 +135,17 @@ const MessagingPage = () => {
       await apiFetch('/messaging/messages', {
         token,
         method: 'POST',
-        body: { conversationId: selectedConversation.id, content: newMessage.trim() },
+        body: {
+          conversationId: selectedConversation.id,
+          content: newMessage.trim(),
+          attachmentUrls: attachmentUrls
+            .split(/\r?\n|,/)
+            .map((v) => v.trim())
+            .filter(Boolean),
+        },
       });
       setNewMessage('');
+      setAttachmentUrls('');
       fetchMessages(selectedConversation.id);
     } catch (error: any) {
       setError(error.message);
@@ -145,11 +155,11 @@ const MessagingPage = () => {
   };
 
   if (!token) {
-    return <div className="p-4 text-sm text-gray-600">Sign in to access your inbox.</div>;
+    return <EmptyState variant="inline" title="Sign in required" message="Sign in to access your inbox." />;
   }
 
   if (loading) {
-    return <div className="p-4 text-sm text-gray-600">Loading conversations…</div>;
+    return <LoadingState variant="inline" message="Loading conversations…" />;
   }
 
   const getConversationTitle = (conversation: any): string => {
@@ -195,9 +205,7 @@ const MessagingPage = () => {
         </p>
       </header>
 
-      {error && (
-        <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
-      )}
+      {error && <FeedbackBanner tone="error" message={error} />}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,2fr)]">
         <aside className="rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -207,7 +215,7 @@ const MessagingPage = () => {
           </div>
           <ul className="max-h-112 divide-y divide-gray-100 overflow-y-auto text-sm">
             {conversations.length === 0 ? (
-              <li className="px-4 py-6 text-center text-gray-500">No conversations yet.</li>
+              <li className="px-4 py-6 text-center text-gray-500"><EmptyState variant="inline" title="No conversations yet" message="Start a new conversation to begin messaging." /></li>
             ) : (
               conversations.map((conversation) => {
                 const selected = selectedConversation?.id === conversation.id;
@@ -274,6 +282,13 @@ const MessagingPage = () => {
                             {isCurrentUser ? 'You' : authorName}
                           </p>
                           <p className="mt-1 whitespace-pre-wrap text-sm">{message.content}</p>
+                          {Array.isArray(message.metadata?.attachments) && message.metadata.attachments.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {message.metadata.attachments.map((url: string, idx: number) => (
+                                <a key={`${message.id}-att-${idx}`} href={url} target="_blank" rel="noreferrer" className="text-xs text-indigo-600 underline">Attachment {idx + 1}</a>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         <span className="mt-1 text-xs text-gray-500">
                           {formatDateTime(message.createdAt ?? message.sentAt ?? message.updatedAt)}
@@ -290,12 +305,14 @@ const MessagingPage = () => {
                     value={newMessage}
                     onChange={(event) => setNewMessage(event.target.value)}
                     placeholder="Write a message…"
+                    aria-label="Message content"
                     className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                   <button
                     type="button"
                     onClick={handleSendMessage}
                     disabled={sending || !newMessage.trim()}
+                    aria-label="Send message"
                     className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-300"
                   >
                     {sending ? 'Sending…' : 'Send'}

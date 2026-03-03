@@ -26,9 +26,10 @@ import {
 } from './dto/messaging.dto';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
-import { OrgId } from '../common/org-context/org-id.decorator';
+import { OrgIdOptional } from '../common/org-context/org-id-optional.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '@prisma/client';
+import { AuditLogService } from '../shared/audit-log.service';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -44,6 +45,7 @@ export class MessagingController {
   constructor(
     private readonly messagingService: MessagingService,
     private readonly bulkMessagingService: BulkMessagingService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   /**
@@ -97,16 +99,27 @@ export class MessagingController {
   async createConversation(
     @Body() dto: CreateConversationDto,
     @Request() req: AuthenticatedRequest,
-    @OrgId() orgId?: string,
+    @OrgIdOptional() orgId?: string,
   ) {
-    return this.messagingService.createConversation(dto, req.user.userId, orgId);
+    const conversation = await this.messagingService.createConversation(dto, req.user.userId, orgId);
+    await this.auditLogService.record({
+      orgId,
+      actorId: req.user.userId,
+      module: 'MESSAGING',
+      action: 'CONVERSATION_CREATED',
+      entityType: 'Conversation',
+      entityId: conversation.id,
+      result: 'SUCCESS',
+      metadata: { participantCount: dto.participantIds.length },
+    });
+    return conversation;
   }
 
   @Get('conversations/:id')
   async getConversation(
     @Param('id', ParseIntPipe) conversationId: number,
     @Request() req: AuthenticatedRequest,
-    @OrgId() orgId?: string,
+    @OrgIdOptional() orgId?: string,
   ) {
     return this.messagingService.getConversationById(conversationId, req.user.userId, orgId);
   }
@@ -120,7 +133,7 @@ export class MessagingController {
     @Param('id', ParseIntPipe) conversationId: number,
     @Request() req: AuthenticatedRequest,
     @Query() query: GetMessagesQueryDto,
-    @OrgId() orgId?: string,
+    @OrgIdOptional() orgId?: string,
   ) {
     const result = await this.messagingService.getConversationMessages(
       conversationId,
@@ -140,13 +153,28 @@ export class MessagingController {
     @Param('id', ParseIntPipe) conversationId: number,
     @Request() req: AuthenticatedRequest,
     @Body() dto: CreateMessageDto,
-    @OrgId() orgId?: string,
+    @OrgIdOptional() orgId?: string,
   ) {
-    return this.messagingService.sendMessage(
+    const message = await this.messagingService.sendMessage(
       { ...dto, conversationId },
       req.user.userId,
       orgId,
     );
+    await this.auditLogService.record({
+      orgId,
+      actorId: req.user.userId,
+      module: 'MESSAGING',
+      action: 'MESSAGE_SENT',
+      entityType: 'Message',
+      entityId: message.id,
+      result: 'SUCCESS',
+      metadata: {
+        conversationId: message.conversationId,
+        hasAttachments: Array.isArray(dto.attachmentUrls) && dto.attachmentUrls.length > 0,
+        attachmentCount: dto.attachmentUrls?.length ?? 0,
+      },
+    });
+    return message;
   }
 
   /**
@@ -159,9 +187,24 @@ export class MessagingController {
   async sendMessage(
     @Body() dto: CreateMessageDto,
     @Request() req: AuthenticatedRequest,
-    @OrgId() orgId?: string,
+    @OrgIdOptional() orgId?: string,
   ) {
-    return this.messagingService.sendMessage(dto, req.user.userId, orgId);
+    const message = await this.messagingService.sendMessage(dto, req.user.userId, orgId);
+    await this.auditLogService.record({
+      orgId,
+      actorId: req.user.userId,
+      module: 'MESSAGING',
+      action: 'MESSAGE_SENT',
+      entityType: 'Message',
+      entityId: message.id,
+      result: 'SUCCESS',
+      metadata: {
+        conversationId: message.conversationId,
+        hasAttachments: Array.isArray(dto.attachmentUrls) && dto.attachmentUrls.length > 0,
+        attachmentCount: dto.attachmentUrls?.length ?? 0,
+      },
+    });
+    return message;
   }
 
   /**
@@ -169,7 +212,7 @@ export class MessagingController {
    * GET /api/messaging/property-managers
    */
   @Get('property-managers')
-  async getPropertyManagers(@OrgId() orgId?: string) {
+  async getPropertyManagers(@OrgIdOptional() orgId?: string) {
     return this.messagingService.findPropertyManagers(orgId);
   }
 
@@ -180,7 +223,7 @@ export class MessagingController {
   @Get('tenants')
   @UseGuards(RolesGuard)
   @Roles(Role.PROPERTY_MANAGER)
-  async getTenants(@OrgId() orgId?: string) {
+  async getTenants(@OrgIdOptional() orgId?: string) {
     return this.messagingService.findAllTenants(orgId);
   }
 
@@ -191,7 +234,7 @@ export class MessagingController {
   @Get('users')
   @UseGuards(RolesGuard)
   @Roles(Role.PROPERTY_MANAGER)
-  async getAllUsers(@OrgId() orgId?: string) {
+  async getAllUsers(@OrgIdOptional() orgId?: string) {
     return this.messagingService.findAllUsers(orgId);
   }
 
@@ -214,7 +257,7 @@ export class MessagingController {
   async previewBulk(
     @Body() dto: CreateBulkMessageDto,
     @Request() req: AuthenticatedRequest,
-    @OrgId() orgId?: string,
+    @OrgIdOptional() orgId?: string,
   ) {
     return this.bulkMessagingService.previewBulkMessage(dto, req.user.userId, orgId);
   }
@@ -229,7 +272,7 @@ export class MessagingController {
   async queueBulk(
     @Body() dto: CreateBulkMessageDto,
     @Request() req: AuthenticatedRequest,
-    @OrgId() orgId?: string,
+    @OrgIdOptional() orgId?: string,
   ) {
     return this.bulkMessagingService.queueBulkMessage(dto, req.user.userId, orgId);
   }
@@ -240,7 +283,7 @@ export class MessagingController {
   @Get('bulk')
   @UseGuards(RolesGuard)
   @Roles(Role.PROPERTY_MANAGER)
-  async listBulkBatches(@OrgId() orgId?: string) {
+  async listBulkBatches(@OrgIdOptional() orgId?: string) {
     return this.bulkMessagingService.listBatches(orgId);
   }
 
@@ -250,7 +293,7 @@ export class MessagingController {
   @Get('bulk/:id')
   @UseGuards(RolesGuard)
   @Roles(Role.PROPERTY_MANAGER)
-  async getBulkBatch(@Param('id', ParseIntPipe) id: number, @OrgId() orgId?: string) {
+  async getBulkBatch(@Param('id', ParseIntPipe) id: number, @OrgIdOptional() orgId?: string) {
     return this.bulkMessagingService.getBatchById(id, orgId);
   }
 
@@ -260,7 +303,7 @@ export class MessagingController {
   @Get('bulk/:id/recipients')
   @UseGuards(RolesGuard)
   @Roles(Role.PROPERTY_MANAGER)
-  async getBulkRecipients(@Param('id', ParseIntPipe) id: number, @OrgId() orgId?: string) {
+  async getBulkRecipients(@Param('id', ParseIntPipe) id: number, @OrgIdOptional() orgId?: string) {
     return this.bulkMessagingService.getRecipientStatuses(id, orgId);
   }
 
@@ -270,7 +313,7 @@ export class MessagingController {
   @Get('bulk/:id/report')
   @UseGuards(RolesGuard)
   @Roles(Role.PROPERTY_MANAGER)
-  async getBulkReport(@Param('id', ParseIntPipe) id: number, @OrgId() orgId?: string) {
+  async getBulkReport(@Param('id', ParseIntPipe) id: number, @OrgIdOptional() orgId?: string) {
     return this.bulkMessagingService.getDeliveryReport(id, orgId);
   }
 
@@ -281,7 +324,7 @@ export class MessagingController {
   @Get('admin/conversations')
   @UseGuards(RolesGuard)
   @Roles(Role.PROPERTY_MANAGER)
-  async getAllConversations(@Query() query: GetConversationsQueryDto, @OrgId() orgId?: string) {
+  async getAllConversations(@Query() query: GetConversationsQueryDto, @OrgIdOptional() orgId?: string) {
     return this.messagingService.getAllConversations(query, orgId);
   }
 
@@ -293,7 +336,7 @@ export class MessagingController {
   async searchConversations(
     @Query('q') searchTerm: string,
     @Request() req: AuthenticatedRequest,
-    @OrgId() orgId?: string,
+    @OrgIdOptional() orgId?: string,
   ) {
     // Property managers can search all, tenants only their own
     const userId = req.user.role === 'PROPERTY_MANAGER' ? undefined : req.user.userId;
@@ -307,7 +350,7 @@ export class MessagingController {
   @Get('stats')
   @UseGuards(RolesGuard)
   @Roles(Role.PROPERTY_MANAGER)
-  async getStats(@OrgId() orgId?: string) {
+  async getStats(@OrgIdOptional() orgId?: string) {
     return this.messagingService.getConversationStats(orgId);
   }
 }

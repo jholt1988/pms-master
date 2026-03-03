@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { apiFetch } from './services/apiClient';
+import { EmptyState, LoadingState, FeedbackBanner } from './components/ui';
 
 type LeaseStatus =
   | 'DRAFT'
@@ -145,6 +146,27 @@ interface NoticeFormState {
   message: string;
   acknowledgedAt: string;
 }
+interface AssignTenantOption {
+  id: string;
+  username: string;
+  email?: string;
+}
+
+interface AssignUnitOption {
+  id: string;
+  label: string;
+}
+
+interface LeaseAssignmentFormState {
+  tenantId: string;
+  unitId: string;
+  startDate: string;
+  endDate: string;
+  rentAmount: string;
+  depositAmount: string;
+  status: LeaseStatus;
+}
+
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -360,6 +382,18 @@ function LeaseManagementPage(): React.ReactElement {
   const [statusSavingId, setStatusSavingId] = useState<number | null>(null);
   const [renewalSavingId, setRenewalSavingId] = useState<number | null>(null);
   const [noticeSavingId, setNoticeSavingId] = useState<number | null>(null);
+  const [tenantOptions, setTenantOptions] = useState<AssignTenantOption[]>([]);
+  const [unitOptions, setUnitOptions] = useState<AssignUnitOption[]>([]);
+  const [assignSaving, setAssignSaving] = useState(false);
+  const [assignmentForm, setAssignmentForm] = useState<LeaseAssignmentFormState>({
+    tenantId: '',
+    unitId: '',
+    startDate: new Date().toISOString().slice(0, 10),
+    endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().slice(0, 10),
+    rentAmount: '',
+    depositAmount: '',
+    status: 'ACTIVE',
+  });
 
   const headers = useMemo(
     () => (token ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } : undefined),
@@ -393,10 +427,23 @@ function LeaseManagementPage(): React.ReactElement {
     const load = async () => {
       setLoading(true);
       try {
-        const data = (await apiFetch('/leases', { token })) as Lease[];
+        const [data, usersResponse, properties] = await Promise.all([
+          apiFetch('/leases', { token }) as Promise<Lease[]>,
+          apiFetch('/users?role=TENANT&take=200', { token }) as Promise<{ data?: AssignTenantOption[] }>,
+          apiFetch('/properties', { token }) as Promise<Array<{ id: string; name: string; units?: Array<{ id: string; name: string }> }> ,
+        ]);
         if (!cancelled) {
           setLeases(data);
           hydrateForms(data);
+          setTenantOptions(usersResponse?.data ?? []);
+          const leasedUnitIds = new Set(data.map((lease: any) => lease?.unit?.id).filter(Boolean));
+          const units = (properties ?? []).flatMap((property) =>
+            (property.units ?? []).map((unit) => ({
+              id: unit.id,
+              label: `${property.name} · ${unit.name}`,
+            })),
+          ).filter((unit) => !leasedUnitIds.has(unit.id));
+          setUnitOptions(units);
         }
       } catch (err) {
         if (!cancelled) {
@@ -437,6 +484,38 @@ function LeaseManagementPage(): React.ReactElement {
       ...prev,
       [updated.id]: createNoticeFormState(),
     }));
+  };
+
+  const handleCreateLease = async () => {
+    if (!token) return;
+    if (!assignmentForm.tenantId || !assignmentForm.unitId || !assignmentForm.rentAmount) {
+      setError('Select tenant/unit and enter rent amount to assign lease.');
+      return;
+    }
+
+    setAssignSaving(true);
+    clearAlerts();
+    try {
+      const payload = {
+        tenantId: assignmentForm.tenantId,
+        unitId: assignmentForm.unitId,
+        startDate: new Date(`${assignmentForm.startDate}T00:00:00.000Z`).toISOString(),
+        endDate: new Date(`${assignmentForm.endDate}T00:00:00.000Z`).toISOString(),
+        rentAmount: Number(assignmentForm.rentAmount),
+        depositAmount: assignmentForm.depositAmount ? Number(assignmentForm.depositAmount) : 0,
+        status: assignmentForm.status,
+      };
+
+      const created = (await apiFetch('/leases', { token, method: 'POST', body: payload })) as Lease;
+      applyLeaseUpdate(created);
+      setFeedback('Lease assigned successfully. Tenant can now access lease details and docs.');
+      setAssignmentForm((prev) => ({ ...prev, tenantId: '', unitId: '', rentAmount: '', depositAmount: '' }));
+      setUnitOptions((prev) => prev.filter((u) => u.id !== payload.unitId));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to assign lease.');
+    } finally {
+      setAssignSaving(false);
+    }
   };
 
   const clearAlerts = () => {
@@ -758,11 +837,11 @@ function LeaseManagementPage(): React.ReactElement {
   );
 
   if (!token) {
-    return <div className="p-4 text-sm text-gray-600">Please sign in to manage leases.</div>;
+    return <EmptyState variant="inline" title="Sign in required" message="Please sign in to manage leases." />;
   }
 
   if (loading) {
-    return <div className="p-4 text-sm text-gray-600">Loading lease lifecycle…</div>;
+    return <LoadingState variant="inline" message="Loading lease lifecycle…" />;
   }
 
   const renderLeaseCard = (lease: Lease) => {
@@ -1290,14 +1369,61 @@ function LeaseManagementPage(): React.ReactElement {
         </p>
       </header>
 
-      {error && (
-        <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
-      )}
-      {feedback && (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          {feedback}
+      {error && <FeedbackBanner tone="error" message={error} />}
+      {feedback && <FeedbackBanner tone="success" message={feedback} />}
+
+      <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">Assign lease</h2>
+          <span className="text-xs text-gray-500">Minimal PM flow</span>
         </div>
-      )}
+        <div className="grid gap-3 md:grid-cols-3">
+          <select
+            value={assignmentForm.tenantId}
+            aria-label="Select tenant"
+            onChange={(event) => setAssignmentForm((prev) => ({ ...prev, tenantId: event.target.value }))}
+            className="rounded border border-gray-300 px-3 py-2 text-sm"
+          >
+            <option value="">Select tenant</option>
+            {tenantOptions.map((tenant) => (
+              <option key={tenant.id} value={tenant.id}>{tenant.username}</option>
+            ))}
+          </select>
+          <select
+            value={assignmentForm.unitId}
+            aria-label="Select available unit"
+            onChange={(event) => setAssignmentForm((prev) => ({ ...prev, unitId: event.target.value }))}
+            className="rounded border border-gray-300 px-3 py-2 text-sm"
+          >
+            <option value="">Select available unit</option>
+            {unitOptions.map((unit) => (
+              <option key={unit.id} value={unit.id}>{unit.label}</option>
+            ))}
+          </select>
+          <select
+            value={assignmentForm.status}
+            aria-label="Select lease status"
+            onChange={(event) => setAssignmentForm((prev) => ({ ...prev, status: event.target.value as LeaseStatus }))}
+            className="rounded border border-gray-300 px-3 py-2 text-sm"
+          >
+            <option value="DRAFT">Draft</option>
+            <option value="ACTIVE">Active</option>
+            <option value="PENDING_APPROVAL">Pending approval</option>
+          </select>
+          <input type="date" aria-label="Lease start date" value={assignmentForm.startDate} onChange={(e)=>setAssignmentForm((p)=>({...p,startDate:e.target.value}))} className="rounded border border-gray-300 px-3 py-2 text-sm" />
+          <input type="date" aria-label="Lease end date" value={assignmentForm.endDate} onChange={(e)=>setAssignmentForm((p)=>({...p,endDate:e.target.value}))} className="rounded border border-gray-300 px-3 py-2 text-sm" />
+          <input type="number" aria-label="Rent amount" placeholder="Rent amount" value={assignmentForm.rentAmount} onChange={(e)=>setAssignmentForm((p)=>({...p,rentAmount:e.target.value}))} className="rounded border border-gray-300 px-3 py-2 text-sm" />
+          <input type="number" aria-label="Deposit amount" placeholder="Deposit amount" value={assignmentForm.depositAmount} onChange={(e)=>setAssignmentForm((p)=>({...p,depositAmount:e.target.value}))} className="rounded border border-gray-300 px-3 py-2 text-sm" />
+        </div>
+        <button
+          type="button"
+          onClick={handleCreateLease}
+          disabled={assignSaving}
+          className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-60"
+        >
+          {assignSaving ? 'Assigning…' : 'Assign lease'}
+        </button>
+      </section>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <article className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">

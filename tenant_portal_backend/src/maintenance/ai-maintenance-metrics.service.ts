@@ -5,7 +5,7 @@ export interface AIMaintenanceMetric {
   success: boolean;
   responseTime: number; // milliseconds
   timestamp: Date;
-  requestId?: number;
+  requestId?: string;
   fallbackUsed?: boolean;
   error?: string;
 }

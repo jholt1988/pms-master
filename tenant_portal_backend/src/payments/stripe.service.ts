@@ -15,11 +15,29 @@ export interface ProcessPaymentDto {
   paymentMethodId: string;
   description?: string;
   metadata?: Record<string, string>;
+  connectedAccountId?: string;
+  applicationFeeAmountCents?: number;
 }
 
 export interface SetupPaymentMethodDto {
   customerId: string;
   paymentMethodId: string;
+}
+
+export interface CreateConnectedAccountDto {
+  organizationId: string;
+  email?: string;
+  country?: string;
+  businessType?: 'individual' | 'company';
+}
+
+export interface ConnectedAccountStatus {
+  accountId: string;
+  onboardingStatus: 'NOT_STARTED' | 'PENDING' | 'IN_REVIEW' | 'COMPLETED' | 'RESTRICTED';
+  chargesEnabled: boolean;
+  payoutsEnabled: boolean;
+  detailsSubmitted: boolean;
+  capabilities?: Record<string, unknown>;
 }
 
 @Injectable()
@@ -147,6 +165,14 @@ export class StripeService {
           enabled: true,
           allow_redirects: 'never',
         },
+        ...(dto.connectedAccountId
+          ? {
+              transfer_data: { destination: dto.connectedAccountId },
+              ...(typeof dto.applicationFeeAmountCents === 'number'
+                ? { application_fee_amount: dto.applicationFeeAmountCents }
+                : {}),
+            }
+          : {}),
       });
 
       this.logger.log(`Created payment intent ${paymentIntent.id} for $${dto.amount}`);
@@ -170,10 +196,11 @@ export class StripeService {
       return {
         id: `mock_setup_${customerId}`,
         object: 'setup_intent',
-        status: 'succeeded',
+        status: 'requires_confirmation',
         usage: 'off_session',
         customer: customerId,
         payment_method_types: ['card'],
+        client_secret: `seti_mock_${customerId}_secret`,
       } as Stripe.SetupIntent;
     }
 
@@ -215,10 +242,10 @@ export class StripeService {
   /**
    * Handle Stripe webhooks
    */
-  async handleWebhook(signature: string, payload: Buffer): Promise<void> {
+  async handleWebhook(signature: string, payload: Buffer): Promise<{ eventId: string; deduped: boolean; organizationId?: string }> {
     if (this.isStripeDisabled) {
-      this.logger.log('Stripe webhook ignored because integration is disabled in this environment.');
-      return;
+      // In disabled mode we can't verify signatures, but keep endpoint non-fatal.
+      return { eventId: `mock_${Date.now()}`, deduped: false };
     }
 
     if (!process.env.STRIPE_WEBHOOK_SECRET) {
@@ -238,26 +265,81 @@ export class StripeService {
       throw new BadRequestException('Invalid webhook signature');
     }
 
+    // Idempotency guard
+    const existing = await this.prisma.stripeWebhookEvent.findUnique({ where: { eventId: event.id } });
+    if (existing) {
+      this.logger.log(`Ignoring duplicate Stripe event ${event.id}`);
+      return { eventId: event.id, deduped: true, organizationId: existing.organizationId ?? undefined };
+    }
+
+    const stripeAccountId = (event as any).account as string | undefined;
+    const metadataOrgId = (event.data?.object as any)?.metadata?.organizationId as string | undefined;
+
+    let organizationId: string | undefined;
+    if (metadataOrgId) {
+      organizationId = metadataOrgId;
+    } else if (stripeAccountId) {
+      const org = await this.prisma.organization.findFirst({
+        where: { stripeConnectedAccountId: stripeAccountId },
+        select: { id: true },
+      });
+      organizationId = org?.id;
+    }
+
     this.logger.log(`Received Stripe webhook: ${event.type}`);
 
     switch (event.type) {
       case 'payment_intent.succeeded':
-        await this.handlePaymentSuccess(event.data.object as Stripe.PaymentIntent);
+        await this.handlePaymentSuccess(event.data.object as Stripe.PaymentIntent, event.id);
         break;
       case 'payment_intent.payment_failed':
         await this.handlePaymentFailure(event.data.object as Stripe.PaymentIntent);
         break;
-      case 'customer.subscription.created':
-      case 'customer.subscription.updated':
-      case 'customer.subscription.deleted':
-        // Handle subscription events if needed
+      case 'account.updated': {
+        const account = event.data.object as Stripe.Account;
+        const org = await this.prisma.organization.findFirst({
+          where: { stripeConnectedAccountId: account.id },
+          select: { id: true },
+        });
+        if (org) {
+          organizationId = org.id;
+          await this.prisma.organization.update({
+            where: { id: org.id },
+            data: {
+              stripeOnboardingStatus:
+                account.charges_enabled && account.payouts_enabled
+                  ? 'COMPLETED'
+                  : account.details_submitted
+                  ? 'PENDING'
+                  : 'NOT_STARTED',
+              stripeChargesEnabled: Boolean(account.charges_enabled),
+              stripePayoutsEnabled: Boolean(account.payouts_enabled),
+              stripeDetailsSubmitted: Boolean(account.details_submitted),
+              stripeCapabilities: (account.capabilities as any) ?? undefined,
+              stripeLastOnboardingCheckAt: new Date(),
+            },
+          });
+        }
         break;
+      }
       default:
         this.logger.log(`Unhandled webhook event type: ${event.type}`);
     }
+
+    await this.prisma.stripeWebhookEvent.create({
+      data: {
+        eventId: event.id,
+        eventType: event.type,
+        stripeAccountId,
+        organizationId,
+        payload: event as any,
+      },
+    });
+
+    return { eventId: event.id, deduped: false, organizationId };
   }
 
-  private async handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent): Promise<void> {
+  private async handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent, sourceEventId: string): Promise<void> {
     try {
       const payment = await this.prisma.payment.findFirst({
         where: { externalId: paymentIntent.id },
@@ -271,6 +353,44 @@ export class StripeService {
             paymentDate: new Date(),
           },
         });
+
+        const existingLedger = await this.prisma.paymentLedgerEntry.findUnique({
+          where: { sourceEventId },
+          select: { id: true },
+        });
+
+        if (!existingLedger) {
+          const metadata = (paymentIntent.metadata ?? {}) as Record<string, string>;
+          const organizationId = metadata.organizationId || undefined;
+          const leaseId = metadata.leaseId || undefined;
+          const platformFeeMinor =
+            typeof paymentIntent.application_fee_amount === 'number'
+              ? paymentIntent.application_fee_amount
+              : Number(metadata.platform_fee_minor ?? 0) || 0;
+          const grossAmountMinor = Number(paymentIntent.amount ?? Math.round(Number(payment.amount) * 100));
+          const netAmountMinor = Math.max(0, grossAmountMinor - platformFeeMinor);
+
+          let tierSnapshot: Record<string, unknown> | undefined;
+          try {
+            tierSnapshot = metadata.tier_snapshot ? JSON.parse(metadata.tier_snapshot) : undefined;
+          } catch {
+            tierSnapshot = undefined;
+          }
+
+          await this.prisma.paymentLedgerEntry.create({
+            data: {
+              paymentId: payment.id,
+              organizationId,
+              leaseId,
+              sourceEventId,
+              currency: paymentIntent.currency ?? 'usd',
+              grossAmountMinor,
+              platformFeeMinor,
+              netAmountMinor,
+              tierSnapshot: tierSnapshot as any,
+            },
+          });
+        }
 
         this.logger.log(`Updated payment ${payment.id} to COMPLETED`);
       } else {
@@ -300,6 +420,81 @@ export class StripeService {
     } catch (error) {
       this.logger.error(`Failed to handle payment failure for ${paymentIntent.id}:`, error);
     }
+  }
+
+  async createConnectedAccount(dto: CreateConnectedAccountDto): Promise<{ accountId: string }> {
+    if (this.isStripeDisabled) {
+      return { accountId: `mock_acct_${dto.organizationId.slice(0, 8)}` };
+    }
+
+    const account = await this.stripe!.accounts.create({
+      type: 'express',
+      country: dto.country ?? 'US',
+      email: dto.email,
+      business_type: dto.businessType ?? 'company',
+      metadata: {
+        organizationId: dto.organizationId,
+      },
+      capabilities: {
+        card_payments: { requested: true },
+        transfers: { requested: true },
+      },
+    });
+
+    return { accountId: account.id };
+  }
+
+  async createConnectedAccountOnboardingLink(params: {
+    accountId: string;
+    refreshUrl: string;
+    returnUrl: string;
+  }): Promise<{ url: string; expiresAt?: number }> {
+    if (this.isStripeDisabled) {
+      return {
+        url: `${params.returnUrl}?mock_onboarding=1&account=${params.accountId}`,
+      };
+    }
+
+    const link = await this.stripe!.accountLinks.create({
+      account: params.accountId,
+      refresh_url: params.refreshUrl,
+      return_url: params.returnUrl,
+      type: 'account_onboarding',
+    });
+
+    return { url: link.url, expiresAt: link.expires_at };
+  }
+
+  async getConnectedAccountStatus(accountId: string): Promise<ConnectedAccountStatus> {
+    if (this.isStripeDisabled) {
+      return {
+        accountId,
+        onboardingStatus: 'PENDING',
+        chargesEnabled: false,
+        payoutsEnabled: false,
+        detailsSubmitted: false,
+        capabilities: { card_payments: 'inactive', transfers: 'inactive' },
+      };
+    }
+
+    const account = await this.stripe!.accounts.retrieve(accountId);
+    const requirements = (account as any).requirements;
+    const disabledReason = requirements?.disabled_reason as string | undefined;
+
+    let onboardingStatus: ConnectedAccountStatus['onboardingStatus'] = 'NOT_STARTED';
+    if (account.details_submitted) onboardingStatus = 'PENDING';
+    if (disabledReason?.includes('under_review')) onboardingStatus = 'IN_REVIEW';
+    if (account.charges_enabled && account.payouts_enabled) onboardingStatus = 'COMPLETED';
+    if (disabledReason) onboardingStatus = 'RESTRICTED';
+
+    return {
+      accountId: account.id,
+      onboardingStatus,
+      chargesEnabled: Boolean(account.charges_enabled),
+      payoutsEnabled: Boolean(account.payouts_enabled),
+      detailsSubmitted: Boolean(account.details_submitted),
+      capabilities: account.capabilities as Record<string, unknown>,
+    };
   }
 
   /**

@@ -215,15 +215,15 @@ Respond with ONLY one word: HIGH, MEDIUM, or LOW`;
     orgId?: string,
   ): Promise<TechnicianMatch | null> {
     const request =
-      typeof requestOrId === 'object'
+      (typeof requestOrId === 'object'
         ? requestOrId
         : await this.prisma.maintenanceRequest.findUnique({
-          where: { id: this.normalizeRequestId(requestOrId) },
-          include: {
-            property: { select: { latitude: true, longitude: true } },
-            asset: { select: { category: true } },
-          },
-        });
+            where: { id: this.normalizeRequestId(requestOrId) },
+            include: {
+              property: { select: { latitude: true, longitude: true } },
+              asset: { select: { category: true } },
+            },
+          })) as any;
 
     if (!request) {
       throw new Error(`Maintenance request ${requestOrId} not found`);
@@ -538,14 +538,11 @@ Respond with ONLY one word: HIGH, MEDIUM, or LOW`;
     return prediction.riskLevel === 'CRITICAL' || prediction.probability > 0.8;
   }
 
-  private normalizeRequestId(requestId: string | number): number {
-    const normalized =
-      typeof requestId === 'string' ? Number(requestId) : requestId;
-
-    if (!Number.isFinite(normalized)) {
+  private normalizeRequestId(requestId: string | number): string {
+    if (typeof requestId !== 'string') {
       throw new Error(`Invalid maintenance request ID: ${requestId}`);
     }
 
-    return normalized;
+    return requestId;
   }
 }
