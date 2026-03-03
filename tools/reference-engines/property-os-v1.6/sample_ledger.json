@@ -1,0 +1,54 @@
+{
+  "events": [
+    {
+      "event_id": "e1",
+      "settled_at": "2026-03-02T04:48:00Z",
+      "amount": 200.0,
+      "currency": "USD",
+      "category": "rent",
+      "applied_to": "rent_balance",
+      "is_settled": true,
+      "is_reversal": false
+    },
+    {
+      "event_id": "e2",
+      "settled_at": "2026-03-04T19:12:00Z",
+      "amount": 250.0,
+      "currency": "USD",
+      "category": "rent",
+      "applied_to": "rent_balance",
+      "is_settled": true,
+      "is_reversal": false
+    },
+    {
+      "event_id": "e3",
+      "settled_at": "2026-03-09T12:00:00Z",
+      "amount": 500.0,
+      "currency": "USD",
+      "category": "rent",
+      "applied_to": "rent_balance",
+      "is_settled": true,
+      "is_reversal": false
+    },
+    {
+      "event_id": "e4",
+      "settled_at": "2026-03-14T00:00:00Z",
+      "amount": 300.0,
+      "currency": "USD",
+      "category": "rent",
+      "applied_to": "rent_balance",
+      "is_settled": true,
+      "is_reversal": false
+    },
+    {
+      "event_id": "fee1",
+      "settled_at": "2026-03-03T00:00:00Z",
+      "amount": 45.0,
+      "currency": "USD",
+      "category": "fee",
+      "applied_to": "fees",
+      "is_settled": true,
+      "is_reversal": false
+    }
+  ]
+}

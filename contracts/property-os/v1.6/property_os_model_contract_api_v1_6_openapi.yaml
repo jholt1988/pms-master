@@ -1,0 +1,9 @@
+openapi: 3.0.3
+info:
+  title: Property OS Model Contract API
+  version: '1.6'
+paths: {}
+components:
+  schemas:
+    Confidence:
+      $ref: './property_os_model_contract_api_v1_6_schemas.json#/components/schemas/Confidence'

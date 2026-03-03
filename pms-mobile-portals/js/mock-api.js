@@ -1,6 +1,8 @@
 // Mock API Interceptor for Development
 const MOCK_DELAY = 600;
 
+window.MockApi = {}; // Create namespace for direct calls
+
 // Helper to mimic API responses
 function mockResponse(data, status = 200) {
     return Promise.resolve({
@@ -202,6 +204,56 @@ window.fetch = async (url, options) => {
     // Fallback for unhandled API routes
     console.warn(`[MockAPI] Unhandled route: ${url}`);
     return mockError(404, 'Endpoint not found in mock');
+};
+
+// New function to provide mock estimate data, attached to the global MockApi object
+window.MockApi.getEstimateDetail = async () => {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    return {
+        id: 123,
+        inspectionId: 456,
+        totalProjectCost: 1150.75,
+        bidLowTotal: 950.00,
+        bidHighTotal: 1350.00,
+        status: 'DRAFT',
+        confidenceLevel: 'MEDIUM',
+        confidenceReason: 'Auto-downgraded: Inspection notes are brief (45 chars), reducing certainty.',
+        propertyOs: {
+            version: '1.6.0',
+            confidence: 0.88,
+            reversal_adjustment: -0.05,
+            es15_mae: 0.03,
+            milestones: {
+                payment_due: { probability: 0.99, predicted_at: '2026-03-10T00:00:00Z' },
+                late_fee_assessed: { probability: 0.15, predicted_at: '2026-03-15T00:00:00Z' },
+                eviction_filed: { probability: 0.02, predicted_at: '2026-04-20T00:00:00Z' },
+            },
+            ledger: {
+                settled_at: '2026-03-01T14:30:00Z',
+                transaction_count: 4,
+            }
+        },
+        lineItems: [
+            { itemDescription: 'Replace kitchen faucet', location: 'Kitchen', category: 'Plumbing', totalCost: 350.00 },
+            { itemDescription: 'Repair drywall hole', location: 'Living Room', category: 'Carpentry', totalCost: 225.50 },
+            { itemDescription: 'Replace light fixture', location: 'Bedroom 1', category: 'Electrical', totalCost: 175.25 },
+            { itemDescription: 'Deep clean carpets', location: 'All Rooms', category: 'General', totalCost: 400.00 }
+        ]
+    };
+};
+
+window.MockApi.getMilStatus = async () => {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return {
+        service_status: "OPERATIONAL",
+        recent_rekey_jobs: [
+            { id: 'job_1', tenant_id: 'tenant_abc_123', status: 'COMPLETED', updated_at: new Date(Date.now() - 3600000).toISOString() },
+            { id: 'job_2', tenant_id: 'tenant_def_456', status: 'RUNNING', updated_at: new Date().toISOString() },
+            { id: 'job_3', tenant_id: 'tenant_ghi_789', status: 'FAILED', updated_at: new Date(Date.now() - 86400000).toISOString() }
+        ]
+    };
 };
 
 console.log('✅ Mock API Loaded. All /api requests will be intercepted.');

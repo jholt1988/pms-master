@@ -42,13 +42,14 @@ export class SecurityEventsService {
         },
       });
     } catch (error: unknown) {
-      const prismaError = error as { code?: string };
+      const prismaError = error as { code?: string; message?: string };
       if (prismaError?.code === 'P2025' || prismaError?.code === 'P2003') {
         this.logger.warn(
           `Security event could not relate to user ${params.userId ?? 'unknown'}`,
         );
         return;
       }
+
       throw error;
     }
   }

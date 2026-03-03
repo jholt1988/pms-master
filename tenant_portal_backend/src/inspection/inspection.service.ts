@@ -23,11 +23,14 @@ import {
 import { createDefaultInspectionRooms, getChecklistTemplate } from '../../prisma/seed-inspection-templates';
 import { isUUID } from 'class-validator';
 
+import { PropertyOsService } from '../property-os/property-os.service';
+
 @Injectable()
 export class InspectionService {
   constructor(
     private prisma: PrismaService,
     private emailService: EmailService,
+    private propertyOsService: PropertyOsService,
   ) {}
 
   private async assertInspectionInOrg(inspectionId: number, orgId?: string) {
@@ -815,6 +818,16 @@ Respond in JSON format:
 
     // Send completion notification
     await this.sendInspectionCompletedNotification(updatedInspection);
+
+    // Trigger Property OS analysis
+    try {
+      console.log(`Sending inspection ${updatedInspection.id} to Property OS for analysis...`);
+      const analysisResult = await this.propertyOsService.runV16Analysis(updatedInspection);
+      console.log(`Property OS analysis for inspection ${updatedInspection.id} complete.`, analysisResult);
+      // TODO: Wire analysisResult into analytics pipeline
+    } catch (error) {
+      console.error(`Failed to run Property OS analysis for inspection ${updatedInspection.id}:`, error);
+    }
 
     return updatedInspection;
   }

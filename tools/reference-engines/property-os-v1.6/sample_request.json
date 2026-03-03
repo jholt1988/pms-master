@@ -1,0 +1,268 @@
+{
+  "model_version": "1.6",
+  "unit_id": "U-1001",
+  "property_id": "P-77",
+  "cycle_id": "2026-03",
+  "due_date": "2026-03-01T00:00:00Z",
+  "cycle_horizon_days": 30.0,
+  "expected_rent_amount": 1250.0,
+  "context_id": "seg_demo_midwest_B",
+  "context_type": "segment",
+  "features": {
+    "unauthorized_partial_rate_90d": 0.1,
+    "authorized_partial_rate_90d": 0.08,
+    "residual_plans": [
+      {
+        "type": "authorized",
+        "days_since_end": 12
+      },
+      {
+        "type": "unauthorized",
+        "days_since_end": 40
+      }
+    ],
+    "unit_history_months": 3.0,
+    "data_quality_score": 0.95,
+    "reversals": [
+      {
+        "amount": 125.0,
+        "settled_at": "2026-02-20T00:00:00Z"
+      },
+      {
+        "amount": 60.0,
+        "settled_at": "2026-02-28T00:00:00Z"
+      }
+    ]
+  },
+  "prior_pack": {
+    "prior_pack_id": "pack_demo_1",
+    "model_version": "1.5",
+    "context_id": "seg_demo_midwest_B",
+    "context_type": "segment",
+    "published_at": "2026-02-28T00:00:00Z",
+    "valid_from": "2026-02-28T00:00:00Z",
+    "expires_at": "2026-03-07T00:00:00Z",
+    "baseline_intensity": {
+      "components": [
+        {
+          "weight": 0.6,
+          "shape_k": 2.2,
+          "scale_theta": 1.2,
+          "mean_day": 2.64
+        },
+        {
+          "weight": 0.25,
+          "shape_k": 4.0,
+          "scale_theta": 2.2,
+          "mean_day": 8.8
+        },
+        {
+          "weight": 0.15,
+          "shape_k": 6.5,
+          "scale_theta": 3.0,
+          "mean_day": 19.5
+        }
+      ],
+      "normalized_over_cycle": true,
+      "cycle_horizon_days": 30.0,
+      "derived": {
+        "peak_day": 2.0,
+        "mass_0_5": 0.62,
+        "mass_6_15": 0.28,
+        "mass_16_35": 0.1
+      }
+    },
+    "kappa": {
+      "kappa_0a0b": 1.2,
+      "kappa_0b1": 0.9,
+      "kappa_12": 0.65,
+      "kappa_23": 0.4,
+      "deltas_weekly": {
+        "kappa_0a0b": 0.02,
+        "kappa_0b1": -0.01,
+        "kappa_12": 0.0,
+        "kappa_23": 0.01
+      },
+      "learning_stats": {
+        "n_events": {
+          "0a0b": 120.0,
+          "0b1": 95.0,
+          "12": 80.0,
+          "23": 72.0
+        },
+        "exposure_integral": {
+          "0a0b": 105.0,
+          "0b1": 112.0,
+          "12": 122.0,
+          "23": 180.0
+        }
+      }
+    },
+    "residual_risk_priors": {
+      "r0_authorized": 0.18,
+      "r0_unauthorized": 0.35,
+      "delta_weekly": {
+        "r0_authorized": 0.0,
+        "r0_unauthorized": 0.01
+      }
+    },
+    "bucket_priors": {
+      "day": 15,
+      "priors": [
+        {
+          "bucket": "0a",
+          "range_low": 0.0,
+          "range_high": 0.3,
+          "c_bar": 0.12,
+          "delta_weekly": 0.01,
+          "alpha": 2.0,
+          "beta": 10.0,
+          "n_bucket": 50.0,
+          "confidence": {
+            "overall": 0.62,
+            "evidence": 0.7,
+            "drift": 0.95,
+            "unit_richness": 0.93
+          }
+        },
+        {
+          "bucket": "0b",
+          "range_low": 0.3,
+          "range_high": 0.7,
+          "c_bar": 0.48,
+          "delta_weekly": -0.01,
+          "alpha": 6.0,
+          "beta": 7.0,
+          "n_bucket": 80.0,
+          "confidence": {
+            "overall": 0.71,
+            "evidence": 0.8,
+            "drift": 0.95,
+            "unit_richness": 0.94
+          }
+        },
+        {
+          "bucket": "1",
+          "range_low": 0.7,
+          "range_high": 0.9,
+          "c_bar": 0.82,
+          "delta_weekly": 0.0,
+          "alpha": 9.0,
+          "beta": 3.0,
+          "n_bucket": 110.0,
+          "confidence": {
+            "overall": 0.79,
+            "evidence": 0.85,
+            "drift": 0.95,
+            "unit_richness": 0.97
+          }
+        },
+        {
+          "bucket": "2",
+          "range_low": 0.9,
+          "range_high": 1.0,
+          "c_bar": 0.95,
+          "delta_weekly": 0.0,
+          "alpha": 14.0,
+          "beta": 2.0,
+          "n_bucket": 160.0,
+          "confidence": {
+            "overall": 0.86,
+            "evidence": 0.9,
+            "drift": 0.95,
+            "unit_richness": 0.99
+          }
+        }
+      ]
+    },
+    "regime": {
+      "context_id": "seg_demo_midwest_B",
+      "context_type": "segment",
+      "regime_state": "NORMAL",
+      "regime_multiplier": 1.0,
+      "variance_inflation": 0.0,
+      "drift": {
+        "js_divergence_baseline": 0.012,
+        "log_kappa_drift": 0.018,
+        "composite_drift": 0.015,
+        "threshold_watch": 0.05,
+        "threshold_shift": 0.1
+      },
+      "as_of": "2026-02-28T00:00:00Z"
+    },
+    "confidence": {
+      "overall": 0.82,
+      "evidence": 0.9,
+      "drift": 0.93,
+      "unit_richness": 0.98
+    },
+    "changelog": "Demo pack for reference engine.",
+    "versioning": {
+      "model_version": "1.5",
+      "pack_semver": "1.5.1",
+      "backward_compatible_with": [
+        "1.5.0"
+      ],
+      "minimum_node_version": "0.1.0",
+      "fail_closed_on_mismatch": true
+    }
+  },
+  "evaluation_horizons_days": [
+    5,
+    15
+  ],
+  "ledger": {
+    "events": [
+      {
+        "event_id": "e1",
+        "settled_at": "2026-03-02T04:48:00Z",
+        "amount": 200.0,
+        "currency": "USD",
+        "category": "rent",
+        "applied_to": "rent_balance",
+        "is_settled": true,
+        "is_reversal": false
+      },
+      {
+        "event_id": "e2",
+        "settled_at": "2026-03-04T19:12:00Z",
+        "amount": 250.0,
+        "currency": "USD",
+        "category": "rent",
+        "applied_to": "rent_balance",
+        "is_settled": true,
+        "is_reversal": false
+      },
+      {
+        "event_id": "e3",
+        "settled_at": "2026-03-09T12:00:00Z",
+        "amount": 500.0,
+        "currency": "USD",
+        "category": "rent",
+        "applied_to": "rent_balance",
+        "is_settled": true,
+        "is_reversal": false
+      },
+      {
+        "event_id": "e4",
+        "settled_at": "2026-03-14T00:00:00Z",
+        "amount": 300.0,
+        "currency": "USD",
+        "category": "rent",
+        "applied_to": "rent_balance",
+        "is_settled": true,
+        "is_reversal": false
+      },
+      {
+        "event_id": "fee1",
+        "settled_at": "2026-03-03T00:00:00Z",
+        "amount": 45.0,
+        "currency": "USD",
+        "category": "fee",
+        "applied_to": "fees",
+        "is_settled": true,
+        "is_reversal": false
+      }
+    ]
+  }
+}

@@ -1,0 +1,1 @@
+-- Placeholder migration restored to match remote history.

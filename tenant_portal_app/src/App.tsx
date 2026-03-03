@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'rea
 import { NextUIProvider } from '@nextui-org/system';
 import { Card, CardBody } from '@nextui-org/card';
 import { Button } from '@nextui-org/button';
+import { ROLES } from './constants/roles';
 import { useAuth } from './AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { PageErrorBoundaryWithNav } from './components/PageErrorBoundary';
@@ -150,7 +151,7 @@ const RoleBasedShell = () => {
   
   // Render the same AppShell for all roles (twin layout)
   // DockNavigation will show role-appropriate items
-  if (user.role === 'PROPERTY_MANAGER' || user.role === 'OWNER' || user.role === 'ADMIN' || user.role === 'TENANT') {
+  if ([ROLES.PM, ROLES.OWNER, ROLES.ADMIN, ROLES.TENANT, ROLES.OPERATOR].includes(user.role as any)) {
     return <AppShell />;
   }
   
@@ -168,7 +169,7 @@ const DashboardRouter = () => {
     return <TenantDashboard />;
   }
   
-  if (user?.role === 'PROPERTY_MANAGER' || user?.role === 'OWNER' || user?.role === 'ADMIN') {
+  if ([ROLES.PM, ROLES.OWNER, ROLES.ADMIN, ROLES.OPERATOR].includes(user.role as any)) {
     return <MainDashboard />;
   }
   
@@ -234,7 +235,7 @@ export default function App({className}: {className: string}): React.ReactElemen
                 </PageErrorBoundaryWithNav>
               } />
 
-              <Route element={<RequireRole allowedRoles={['PROPERTY_MANAGER', 'ADMIN']} />}>
+              <Route element={<RequireRole allowedRoles={[ROLES.PM, ROLES.ADMIN, ROLES.OPERATOR]} />}>
                 <Route path="properties" element={<PropertyManagementPage />} />
                 <Route path="properties/search" element={<PropertySearchPage />} />
                 <Route path="schedule" element={<SchedulePage />} />
@@ -257,7 +258,7 @@ export default function App({className}: {className: string}): React.ReactElemen
                 <Route path="quickbooks" element={<QuickBooksPage />} />
               </Route>
 
-              <Route element={<RequireRole allowedRoles={['OWNER']} />}>
+              <Route element={<RequireRole allowedRoles={[ROLES.OWNER]} />}>
                 <Route path="properties" element={<PropertyManagementPage />} />
                 <Route path="properties/search" element={<PropertySearchPage />} />
                 <Route path="maintenance-management" element={<MaintenanceManagementPage />} />
@@ -267,7 +268,7 @@ export default function App({className}: {className: string}): React.ReactElemen
                 <Route path="inspections/:id" element={<InspectionDetailPage />} />
               </Route>
 
-              <Route element={<RequireRole allowedRoles={['TENANT']} />}>
+              <Route element={<RequireRole allowedRoles={[ROLES.TENANT]} />}>
                 <Route path="my-lease" element={
                   <PageErrorBoundaryWithNav pageName="My Lease">
                     <MyLeasePage />

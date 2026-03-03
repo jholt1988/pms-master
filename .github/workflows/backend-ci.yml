@@ -110,6 +110,21 @@ jobs:
           NODE_ENV: test
         run: npm run test:e2e:coverage
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Property OS Simulation Harness (Quick Run)
+        id: sim_harness
+        run: |
+          # Assuming the harness has a requirements.txt, install it
+          if [ -f "tools/simulation/property-os-v1.6/requirements.txt" ]; then
+            pip install -r "tools/simulation/property-os-v1.6/requirements.txt"
+          fi
+          ./scripts/pms/run-property-os-sim.sh --n 200 --seed 42
+        working-directory: ./pms-master
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:

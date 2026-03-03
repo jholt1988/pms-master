@@ -89,6 +89,12 @@ const AdminApp = {
             this.renderDemoAccountSwitcher();
             await ApiClient.ensureAuth();
             await this.loadDashboard();
+
+            // --- DEMO: Show the new estimate page on load ---
+            const mockEstimate = await window.MockApi.getEstimateDetail();
+            this.renderEstimateDetail(mockEstimate);
+            // --- END DEMO ---
+
         } catch (e) {
             console.error("Admin load failed", e);
         }
@@ -343,6 +349,202 @@ const AdminApp = {
         });
         
         if (window.lucide) lucide.createIcons();
+    },
+
+    renderEstimateDetail(estimate) {
+        const container = document.getElementById('page-estimate-detail');
+        if (!container) return;
+
+        // Helper to format currency
+        const formatCurrency = (amount) => amount ? `$${amount.toFixed(2)}` : 'N/A';
+
+        // Helper for the new Property OS card
+        const renderPropertyOsCard = (propertyOs) => {
+            if (!propertyOs) return '';
+
+            const formatPercent = (val) => `${(val * 100).toFixed(1)}%`;
+
+            // Render milestones
+            const milestonesHtml = Object.entries(propertyOs.milestones || {}).map(([key, value]) => `
+                <div class="flex items-center justify-between text-xs">
+                    <span class="text-muted-foreground">${key.replace(/_/g, ' ')}</span>
+                    <span class="font-medium">${formatPercent(value.probability)}</span>
+                </div>
+            `).join('');
+
+            return `
+                <div class="mt-6">
+                    <h3 class="font-semibold text-sm mb-3">Property OS Analysis</h3>
+                    <div class="bg-surface rounded-xl p-4 border border-border">
+                        <div class="grid grid-cols-3 gap-4 text-center">
+                            <div>
+                                <p class="text-lg font-bold text-blue-600">${formatPercent(propertyOs.confidence)}</p>
+                                <p class="text-[10px] text-muted-foreground">Confidence</p>
+                            </div>
+                            <div>
+                                <p class="text-lg font-bold text-orange-600">${formatPercent(propertyOs.reversal_adjustment)}</p>
+                                <p class="text-[10px] text-muted-foreground">Reversal Adj.</p>
+                            </div>
+                            <div>
+                                <p class="text-lg font-bold text-green-600">${formatPercent(propertyOs.es15_mae)}</p>
+                                <p class="text-[10px] text-muted-foreground">ES15 MAE</p>
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-border space-y-2">
+                            <h4 class="text-xs font-medium text-muted-foreground mb-1">Milestone Probabilities</h4>
+                            ${milestonesHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+        
+        // Main estimate details
+        const lineItemsHtml = (estimate.lineItems || []).map(item => `
+            <div class="border-b border-border last:border-b-0 py-3">
+                <div class="flex justify-between items-start">
+                    <p class="font-medium text-sm">${item.itemDescription}</p>
+                    <p class="font-bold text-sm">${formatCurrency(item.totalCost)}</p>
+                </div>
+                <p class="text-xs text-muted-foreground">${item.location} • ${item.category}</p>
+            </div>
+        `).join('');
+
+        const html = `
+            <div class="mt-4" style="animation: slideUp 0.4s ease-out;">
+                <!-- Header -->
+                <div class="flex items-center gap-3 mb-4">
+                    <button class="p-2 rounded-full hover:bg-muted" onclick="showPage('dashboard')">
+                        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                    </button>
+                    <div>
+                        <h2 class="font-semibold text-lg">Repair Estimate</h2>
+                        <p class="text-xs text-muted-foreground">Inspection #${estimate.inspectionId}</p>
+                    </div>
+                </div>
+
+                <!-- Summary Card -->
+                <div class="bg-primary text-white rounded-2xl p-5 shadow-lg">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-sm text-white/70">Total Estimated Cost</span>
+                        <span class="px-2 py-1 bg-${estimate.status === 'APPROVED' ? 'green' : 'amber'}-500/80 text-white text-xs rounded-full font-medium">${estimate.status}</span>
+                    </div>
+                    <p class="text-4xl font-bold">${formatCurrency(estimate.totalProjectCost)}</p>
+                    <div class="mt-2 text-sm text-white/70">
+                        Bid Range: ${formatCurrency(estimate.bidLowTotal)} - ${formatCurrency(estimate.bidHighTotal)}
+                    </div>
+                </div>
+
+                <!-- Confidence Section -->
+                <div class="mt-4 bg-surface rounded-xl p-4 border border-border">
+                    <p class="text-sm font-medium mb-1">${estimate.confidenceLevel}</p>
+                    <p class="text-xs text-muted-foreground">${estimate.confidenceReason}</p>
+                </div>
+
+                <!-- Property OS Card -->
+                ${renderPropertyOsCard(estimate.propertyOs)}
+
+                <!-- Line Items -->
+                <div class="mt-6">
+                    <h3 class="font-semibold text-sm mb-2">Line Items (${estimate.lineItems?.length || 0})</h3>
+                    <div class="bg-surface rounded-xl p-4 border border-border">
+                        ${lineItemsHtml}
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="mt-6 flex items-center gap-3">
+                    <button class="flex-1 py-3 bg-accent text-white rounded-xl text-sm font-semibold touch-feedback">Approve Estimate</button>
+                    <button class="flex-1 py-3 bg-muted text-muted-foreground rounded-xl text-sm font-semibold touch-feedback">Request Revision</button>
+                </div>
+            </div>
+        `;
+
+        container.innerHTML = html;
+        if (window.lucide) lucide.createIcons();
+        showPage('estimate-detail');
+    },
+
+    async loadSecurityPage() {
+        try {
+            const status = await window.MockApi.getMilStatus();
+            this.renderSecurityStatus(status);
+        } catch (e) {
+            console.error("Failed to load MIL security status", e);
+            const container = document.getElementById('page-security');
+            if (container) {
+                container.innerHTML = '<p class="p-4 text-red-600">Could not load security status.</p>';
+            }
+        }
+    },
+
+    renderSecurityStatus(status) {
+        const container = document.getElementById('page-security');
+        if (!container) return;
+
+        const jobHtml = status.recent_rekey_jobs.map(job => {
+            let bgColor = 'bg-blue-100';
+            let textColor = 'text-blue-700';
+            let icon = 'loader-2';
+
+            if (job.status === 'COMPLETED') {
+                bgColor = 'bg-green-100';
+                textColor = 'text-green-700';
+                icon = 'check-circle';
+            } else if (job.status === 'FAILED') {
+                bgColor = 'bg-red-100';
+                textColor = 'text-red-700';
+                icon = 'x-circle';
+            }
+
+            return `
+                <div class="bg-surface rounded-xl p-4 border border-border">
+                    <div class="flex items-start gap-3">
+                        <div class="w-10 h-10 rounded-full ${bgColor} flex items-center justify-center shrink-0">
+                            <i data-lucide="${icon}" class="w-5 h-5 ${textColor} ${job.status === 'RUNNING' ? 'animate-spin' : ''}"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between">
+                                <p class="font-medium text-sm">Tenant Rekey Job</p>
+                                <span class="px-2 py-1 ${bgColor} ${textColor} text-xs rounded-full font-medium">${job.status}</span>
+                            </div>
+                            <p class="text-xs text-muted-foreground mt-1">Tenant ID: ${job.tenant_id}</p>
+                            <p class="text-xs text-muted-foreground">${new Date(job.updated_at).toLocaleString()}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        const html = `
+            <div class="mt-4" style="animation: slideUp 0.4s ease-out;">
+                <div class="flex items-center gap-3 mb-4">
+                    <button class="p-2 rounded-full hover:bg-muted" onclick="showPage('more')">
+                        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                    </button>
+                    <h2 class="font-semibold text-lg">MIL Security Status</h2>
+                </div>
+
+                <div class="bg-surface rounded-xl p-4 border border-border mb-6">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-muted-foreground">Service Status</span>
+                        <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                            <span class="text-sm font-semibold text-green-700">${status.service_status}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 class="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Recent Rekey Jobs</h3>
+                <div class="space-y-3">
+                    ${jobHtml}
+                </div>
+            </div>
+        `;
+
+        container.innerHTML = html;
+        if (window.lucide) lucide.createIcons();
+        showPage('security');
     }
 };
 

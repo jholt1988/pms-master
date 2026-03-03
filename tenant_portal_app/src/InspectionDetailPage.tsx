@@ -220,6 +220,9 @@ const normalizeLineItems = (items: any[] | undefined) => {
 
 const normalizeEstimate = (estimate: any): Estimate => {
   const normalized = estimate ?? {};
+  // Handle nested confidence block from Property OS
+  const confidence = normalized.confidence ?? {};
+
   return {
     id: normalized.id ?? normalized.estimate_id ?? 0,
     currency: normalized.currency ?? normalized.currency_code ?? 'USD',
@@ -232,8 +235,9 @@ const normalizeEstimate = (estimate: any): Estimate => {
     itemsToReplace: parseNumber(normalized.itemsToReplace ?? normalized.items_to_replace) ?? 0,
     bidLowTotal: parseNumber(normalized.bidLowTotal ?? normalized.bid_low_total),
     bidHighTotal: parseNumber(normalized.bidHighTotal ?? normalized.bid_high_total),
-    confidenceLevel: normalizeConfidenceLevel(normalized.confidenceLevel ?? normalized.confidence_level ?? normalized.confidence),
-    confidenceReason: normalized.confidenceReason ?? normalized.confidence_reason ?? normalized.confidence_explanation,
+    confidenceLevel: normalizeConfidenceLevel(confidence.level ?? normalized.confidenceLevel ?? normalized.confidence_level ?? normalized.confidence),
+    confidenceReason: confidence.reason ?? normalized.confidenceReason ?? normalized.confidence_reason ?? normalized.confidence_explanation,
+    reversalAdjustment: parseNumber(confidence.reversal_adjustment ?? normalized.reversalAdjustment),
     lineItems: normalizeLineItems(normalized.lineItems ?? normalized.line_items ?? normalized.items ?? []),
   };
 };
@@ -283,6 +287,7 @@ type Estimate = {
   bidHighTotal?: number;
   confidenceLevel?: 'VERY_HIGH' | 'HIGH' | 'MEDIUM' | 'LOW' | 'VERY_LOW';
   confidenceReason?: string;
+  reversalAdjustment?: number; // Added field
 
   lineItems?: Array<{
     id: number;
@@ -491,6 +496,7 @@ function EstimatePanel({ estimate, embedded = false, token, canManage = false }:
               <div><span className="font-semibold">Cost:</span> {formatCurrency(e.totalProjectCost ?? 0, currency)}{hasRange ? ` (range ${formatCurrency(e.bidLowTotal as number, currency)}–${formatCurrency(e.bidHighTotal as number, currency)})` : ''}</div>
               <div><span className="font-semibold">Timeline:</span> {timelineSummary}</div>
               <div><span className="font-semibold">Confidence:</span> {confidenceSummary}</div>
+              {typeof e.reversalAdjustment === 'number' && <div><span className="font-semibold">Reversal Adj:</span> {e.reversalAdjustment.toFixed(3)}</div>}
             </div>
             <div className="mt-2 text-xs text-foreground-600 whitespace-pre-wrap"><span className="font-semibold">Rationale:</span> {rationaleSummary}</div>
           </CardBody>

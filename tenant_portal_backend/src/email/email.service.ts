@@ -25,6 +25,15 @@ export class EmailService implements OnModuleInit {
   }
 
   async onModuleInit() {
+    const verifyOnStartup =
+      (this.configService.get<string>('SMTP_VERIFY_ON_STARTUP') || '').toLowerCase() === 'true';
+
+    // In development, skip SMTP verify by default unless explicitly enabled.
+    if (this.isDevelopment && !verifyOnStartup) {
+      this.logger.log('Skipping SMTP verification on startup (development mode).');
+      return;
+    }
+
     // Verify transporter connection in non-test environments
     if (!this.isTest && this.smtpConfigured) {
       try {

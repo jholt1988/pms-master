@@ -1,0 +1,93 @@
+{
+  "model_version": "1.6",
+  "unit_id": "U-1001",
+  "cycle_id": "2026-03",
+  "context_id": "seg_demo_midwest_B",
+  "context_type": "segment",
+  "prior_pack_id": "pack_demo_1",
+  "as_of": "2026-02-28T21:49:26.530622+00:00",
+  "horizons": {
+    "day_5": {
+      "p_lt_30": 0.3331854258562968,
+      "p_ge_70": 0.24492804803525978,
+      "p_ge_90": 0.04840101547405623,
+      "p_eq_100": 0.004617471075117233
+    },
+    "day_15": {
+      "p_lt_30": 0.19597041550967864,
+      "p_ge_70": 0.40941837515707324,
+      "p_ge_90": 0.11923886704729544,
+      "p_eq_100": 0.01725590641645083
+    }
+  },
+  "es15": {
+    "expected_shortfall_amount": 543.7290674913855,
+    "normalized_ns15": 0.5650167460068916,
+    "ci95_low": 495.7721637386453,
+    "ci95_high": 591.6859712441258
+  },
+  "confidence": {
+    "evidence": 0.18134618837703834,
+    "drift": 0.6989162325646573,
+    "unit_richness": 0.2008552852511997,
+    "overall": 0.0254575627630068,
+    "reversal_adjustment": {
+      "as_of": "2026-02-28T21:49:26.530542+00:00",
+      "half_life_days": 30.0,
+      "disruption_score": 0.8536219144644172,
+      "penalty_evidence": 0.18136497728566436,
+      "penalty_drift": 0.8430539015308387,
+      "penalty_unit_richness": 0.6342798481616833,
+      "applied": true,
+      "event_count_considered": 2,
+      "amount_ratio_considered": 0.148,
+      "sys": 0.2
+    }
+  },
+  "explainability": {
+    "lambda_mix": 0.3333333333333333,
+    "drivers": [
+      {
+        "factor": "unauthorized_partial_rate_90d",
+        "effect_log_multiplier": 0.125,
+        "note": "beta_u=1.25"
+      },
+      {
+        "factor": "authorized_partial_rate_90d",
+        "effect_log_multiplier": 0.027999999999999997,
+        "note": "beta_a=0.35"
+      },
+      {
+        "factor": "residual_risk_union_90d",
+        "effect_log_multiplier": 0.2881,
+        "note": "r_combined=0.3201, beta_r=0.9"
+      },
+      {
+        "factor": "regime_NORMAL",
+        "effect_log_multiplier": 0.0,
+        "note": "m_regime=1.0"
+      }
+    ]
+  },
+  "observed_milestones": {
+    "expected_rent_amount": 1250.0,
+    "due_date": "2026-03-01T00:00:00Z",
+    "cycle_horizon_days": 30.0,
+    "eligible_event_count": 4,
+    "crossings_days": {
+      "0.3": 3.8,
+      "0.7": 8.5,
+      "0.9": 13.0,
+      "1.0": 13.0
+    },
+    "transitions_days": {
+      "0a0b": 3.8,
+      "0b1": 8.5,
+      "12": 13.0,
+      "23": 13.0,
+      "censored_at": 30.0
+    },
+    "state_day_5": "0b",
+    "state_day_15": "3"
+  }
+}

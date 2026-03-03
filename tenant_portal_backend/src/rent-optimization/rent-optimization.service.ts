@@ -5,6 +5,7 @@ import type { Prisma } from '@prisma/client';
 import axios from 'axios';
 import { ApiException } from '../common/errors';
 import { ErrorCode } from '../common/errors/error-codes.enum';
+import { assertConfidenceV16Invariants, validateConfidenceV16 } from '../property-os/v16-contract';
 
 interface MLPredictionRequest {
   unit_id: string;
@@ -53,6 +54,7 @@ interface MLPredictionResponse {
   model_version: string;
   market_trend: string;
   seasonality_factor?: number;
+  confidence?: unknown;
 }
 
 @Injectable()
@@ -338,6 +340,16 @@ export class RentOptimizationService {
           },
         }
       );
+
+      // Optional Property OS v1.6 contract validation when ML payload includes confidence block.
+      if (
+        typeof response.data?.model_version === 'string' &&
+        response.data.model_version.startsWith('1.6') &&
+        response.data?.confidence
+      ) {
+        const confidence = validateConfidenceV16(response.data.confidence);
+        assertConfidenceV16Invariants(confidence);
+      }
 
       // Transform ML response to our format
       return {

@@ -35,11 +35,20 @@ const EventDescription = ({ event }: { event: SecurityEvent }) => (
   </div>
 );
 
+type AuditPreset = 'ALL' | 'PROPERTY_OS';
+
+const PROPERTY_OS_EVENT_TYPES = new Set([
+  'PROPERTY_OS_ANALYSIS_REQUEST',
+  'PROPERTY_OS_ANALYSIS_SUCCESS',
+  'PROPERTY_OS_ANALYSIS_FAILURE',
+]);
+
 export default function AuditLogPage(): React.ReactElement {
   const { token } = useAuth();
   const [events, setEvents] = useState<SecurityEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [preset, setPreset] = useState<AuditPreset>('ALL');
 
   useEffect(() => {
     const loadEvents = async () => {
@@ -59,6 +68,10 @@ export default function AuditLogPage(): React.ReactElement {
     };
     loadEvents();
   }, [token]);
+
+  const filteredEvents = [...events]
+    .filter((event) => (preset === 'PROPERTY_OS' ? PROPERTY_OS_EVENT_TYPES.has(event.type) : true))
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   if (!token) {
     return <div className="p-4">Please sign in as a property manager to view audit logs.</div>;
@@ -83,21 +96,42 @@ export default function AuditLogPage(): React.ReactElement {
         </div>
       )}
 
+      <section className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setPreset('ALL')}
+          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+            preset === 'ALL' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'
+          }`}
+        >
+          All events
+        </button>
+        <button
+          type="button"
+          onClick={() => setPreset('PROPERTY_OS')}
+          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+            preset === 'PROPERTY_OS' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'
+          }`}
+        >
+          Property OS only
+        </button>
+      </section>
+
       <section className="grid gap-4 sm:grid-cols-3">
         <article className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
           <p className="text-sm font-medium text-gray-500">Events captured</p>
-          <p className="mt-2 text-2xl font-semibold text-gray-900">{events.length}</p>
+          <p className="mt-2 text-2xl font-semibold text-gray-900">{filteredEvents.length}</p>
         </article>
         <article className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
           <p className="text-sm font-medium text-gray-500">Successful</p>
           <p className="mt-2 text-2xl font-semibold text-emerald-600">
-            {events.filter((event) => event.success).length}
+            {filteredEvents.filter((event) => event.success).length}
           </p>
         </article>
         <article className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
           <p className="text-sm font-medium text-gray-500">Failed</p>
           <p className="mt-2 text-2xl font-semibold text-rose-600">
-            {events.filter((event) => !event.success).length}
+            {filteredEvents.filter((event) => !event.success).length}
           </p>
         </article>
       </section>
@@ -116,19 +150,14 @@ export default function AuditLogPage(): React.ReactElement {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
-              {events.length === 0 ? (
+              {filteredEvents.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-500">
-                    No audit activity recorded yet.
+                    No audit activity recorded for this filter.
                   </td>
                 </tr>
               ) : (
-                [...events]
-                  .sort(
-                    (a, b) =>
-                      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-                  )
-                  .map((event) => (
+                filteredEvents.map((event) => (
                     <tr key={event.id} className="align-top">
                       <td className="px-4 py-3">
                         <EventDescription event={event} />
