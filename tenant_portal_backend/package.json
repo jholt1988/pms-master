@@ -11,7 +11,7 @@
     "seed:inspection-demo": "ts-node scripts/dev-seed-inspection-demo.ts",
     "seed:inspection-demo:robust": "node scripts/seed-inspection-demo-robust.js",
     "seed:verify:demo": "ts-node scripts/verify-demo-seed.ts",
-    "build": "tsc --ignoreDeprecations 6.0",
+    "build": "tsc",
     "db:seed": "ts-node prisma/seed.ts",
     "db:seed:demo": "ts-node prisma/seed-demo.ts",
     "db:seed:admin": "node prisma/seedAdmin.js",
