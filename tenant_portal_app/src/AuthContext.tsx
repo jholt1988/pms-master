@@ -4,7 +4,7 @@ import { jwtDecode } from 'jwt-decode';
 type JwtPayload = {
   sub?: number;
   username?: string;
-  role?: 'TENANT' | 'PM' | 'OWNER' | 'ADMIN' | 'OPERATOR' | string;
+  role?: 'TENANT' | 'PM' | 'PROPERTY_MANAGER' | 'OWNER' | 'ADMIN' | 'OPERATOR' | string;
   exp?: number;
   iat?: number;
   [key: string]: unknown;
@@ -51,9 +51,22 @@ const storage = {
  * @param token - JWT token string
  * @returns true if token is expired or will expire within 60 seconds
  */
+const normalizeRole = (role: unknown): JwtPayload['role'] => {
+  if (role === 'PROPERTY_MANAGER') return 'PM';
+  return typeof role === 'string' ? role : undefined;
+};
+
+const decodeToken = (token: string): JwtPayload => {
+  const decoded = jwtDecode<JwtPayload>(token);
+  return {
+    ...decoded,
+    role: normalizeRole(decoded.role),
+  };
+};
+
 const isTokenExpired = (token: string): boolean => {
   try {
-    const decoded = jwtDecode<JwtPayload>(token);
+    const decoded = decodeToken(token);
     if (!decoded.exp) return false;
     
     // Check if token expires in next 60 seconds (buffer for clock skew)
@@ -87,7 +100,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const storedToken = storage.getItem('token');
       if (storedToken && !isTokenExpired(storedToken)) {
-        return jwtDecode<JwtPayload>(storedToken);
+        return decodeToken(storedToken);
       }
       storage.removeItem('token');
     } catch {
@@ -113,7 +126,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         storage.setItem('token', token);
-        const decoded = jwtDecode<JwtPayload>(token);
+        const decoded = decodeToken(token);
         // Use startTransition to defer state update and avoid cascading renders
         startTransition(() => {
           setUser(decoded);
@@ -141,7 +154,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (!token) return;
     
     try {
-      const decoded = jwtDecode<JwtPayload>(token);
+      const decoded = decodeToken(token);
       if (!decoded.exp) return;
       
       const expirationTime = decoded.exp * 1000;
