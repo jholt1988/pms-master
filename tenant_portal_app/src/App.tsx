@@ -153,8 +153,8 @@ const RoleBasedShell = () => {
     return <AppShell />;
   }
   
-  // Unknown role - redirect to login
-  return <Navigate to="/login" replace />;
+  // Unknown role - avoid login redirect loop when token exists
+  return <Navigate to="/unauthorized" replace />;
 };
 
 // Dashboard router - handles role-based dashboard rendering
@@ -180,8 +180,8 @@ export default function App({className}: {className: string}): React.ReactElemen
 
   return (
     <ErrorBoundary>
-      <NextUIProvider className={className}>
-        <BrowserRouter>
+      <BrowserRouter>
+        <NextUIProvider className={className}>
           <Suspense fallback={<PageLoader />}>
             <Routes>
           <Route path="/login" element={!token ? <LoginPage /> : <Navigate to="/" replace />} />
@@ -297,8 +297,8 @@ export default function App({className}: {className: string}): React.ReactElemen
           <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </Suspense>
-        </BrowserRouter>
-      </NextUIProvider>
+        </NextUIProvider>
+      </BrowserRouter>
     </ErrorBoundary>
   );
 }
