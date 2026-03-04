@@ -7,7 +7,7 @@ import React, { ReactElement } from 'react';
 import { render, RenderOptions } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from '../AuthContext';
-import { NextUIProvider } from '@nextui-org/system';
+import { NextUIProvider } from '@nextui-org/react';
 
 /**
  * Custom render function that includes all providers

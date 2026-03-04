@@ -1,9 +1,7 @@
 import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 // Optimized NextUI imports - using individual package imports for better tree-shaking
-import { NextUIProvider } from '@nextui-org/system';
-import { Card, CardBody } from '@nextui-org/card';
-import { Button } from '@nextui-org/button';
+import { NextUIProvider, Card, CardBody, Button } from '@nextui-org/react';
 import { ROLES } from './constants/roles';
 import { useAuth } from './AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';

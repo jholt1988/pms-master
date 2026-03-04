@@ -47,6 +47,7 @@ export class AppController {
       });
     }
   }
+
   @Get('health')
   getHealth() {
     return {
