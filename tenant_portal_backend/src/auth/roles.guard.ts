@@ -1,8 +1,7 @@
 
 import { Injectable, CanActivate, ExecutionContext, Logger } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Role } from '@prisma/client';
-import { ROLES_KEY } from './roles.decorator';
+import { AppRole, ROLES_KEY } from './roles.decorator';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -11,7 +10,7 @@ export class RolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
+    const requiredRoles = this.reflector.getAllAndOverride<AppRole[]>(ROLES_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
@@ -19,7 +18,7 @@ export class RolesGuard implements CanActivate {
       return true;
     }
     const { user } = context.switchToHttp().getRequest();
-    if (user.role === Role.ADMIN) {
+    if (user?.role === 'ADMIN') {
       return true;
     }
    else if (!user?.role) {
@@ -38,7 +37,7 @@ export class RolesGuard implements CanActivate {
   }
 
   // Dev-only debug to help diagnose 403s without spamming prod logs
-  private debug(reason: string, requiredRoles: Role[], user: any) {
+  private debug(reason: string, requiredRoles: AppRole[], user: any) {
     if (process.env.NODE_ENV === 'production') {
       return;
     }

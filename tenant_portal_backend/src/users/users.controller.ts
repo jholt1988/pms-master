@@ -21,14 +21,13 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
-import { Role } from '@prisma/client';
 import { Request } from 'express';
 
 interface AuthenticatedRequest extends Request {
   user: {
     sub: string;
     username: string;
-    role: Role;
+    role: 'TENANT' | 'PROPERTY_MANAGER' | 'OWNER' | 'ADMIN';
   };
 }
 
@@ -38,7 +37,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
-  @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
   async listUsers(@Query() query: ListUsersDto, @OrgId() orgId?: string) {
     const users = await this.usersService.findAll(query.skip, query.take, query.role, orgId);
     const total = await this.usersService.count(query.role, orgId);
@@ -51,7 +50,7 @@ export class UsersController {
   }
 
   @Get(':id')
-  @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
   async getUser(@Param('id') id: string, @OrgId() orgId?: string) {
     const user = await this.usersService.findById(id, orgId);
     if (!user) {
@@ -63,13 +62,13 @@ export class UsersController {
   }
 
   @Post()
-  @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
   async createUser(@Body() createUserDto: CreateUserDto, @Req() req: AuthenticatedRequest, @OrgId() orgId?: string) {
     return this.usersService.create(createUserDto, req.user.role, orgId);
   }
 
   @Put(':id')
-  @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
   async updateUser(
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
@@ -80,7 +79,7 @@ export class UsersController {
   }
 
   @Delete(':id')
-  @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
   async deleteUser(@Param('id') id: string, @Req() req: AuthenticatedRequest, @OrgId() orgId?: string) {
     await this.usersService.delete(id, req.user.sub, orgId);
     return { success: true };
