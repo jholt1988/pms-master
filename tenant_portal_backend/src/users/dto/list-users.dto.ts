@@ -1,6 +1,8 @@
-import { IsOptional, IsEnum, IsInt, Min } from 'class-validator';
+import { IsOptional, IsInt, Min, IsIn } from 'class-validator';
 import { Type } from 'class-transformer';
-import { Role } from '@prisma/client';
+
+const ROLE_VALUES = ['TENANT', 'PROPERTY_MANAGER', 'OWNER', 'ADMIN'] as const;
+type RoleValue = (typeof ROLE_VALUES)[number];
 
 export class ListUsersDto {
   @IsOptional()
@@ -16,7 +18,7 @@ export class ListUsersDto {
   take?: number;
 
   @IsOptional()
-  @IsEnum(Role)
-  role?: Role;
+  @IsIn(ROLE_VALUES)
+  role?: RoleValue;
 }
 

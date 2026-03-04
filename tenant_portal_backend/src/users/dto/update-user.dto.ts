@@ -1,5 +1,7 @@
-import { IsString, IsEnum, IsOptional, MinLength, IsEmail } from 'class-validator';
-import { Role } from '@prisma/client';
+import { IsString, IsOptional, MinLength, IsEmail, IsIn } from 'class-validator';
+
+const ROLE_VALUES = ['TENANT', 'PROPERTY_MANAGER', 'OWNER', 'ADMIN'] as const;
+type RoleValue = (typeof ROLE_VALUES)[number];
 
 export class UpdateUserDto {
   @IsString()
@@ -7,9 +9,9 @@ export class UpdateUserDto {
   @MinLength(8)
   password?: string;
 
-  @IsEnum(Role)
+  @IsIn(ROLE_VALUES)
   @IsOptional()
-  role?: Role;
+  role?: RoleValue;
 
   @IsEmail()
   @IsOptional()
