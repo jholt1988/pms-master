@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, UseGuards, Request, Query, Param, Optional
 import { AuthGuard } from '@nestjs/passport';
 import { PaymentsService } from './payments.service';
 import { AIPaymentMetricsService } from './ai-payment-metrics.service';
-import { Invoice, Payment, Role } from '@prisma/client';
+import { Invoice, Payment } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
@@ -30,7 +30,7 @@ export class PaymentsController {
   ) {}
 
   @Post('invoices')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async createInvoice(@Body() body: CreateInvoiceDto, @Request() req: AuthenticatedRequest, @OrgId() orgId: string): Promise<Invoice> {
     const invoice = await this.paymentsService.createInvoice(body, orgId);
     await this.auditLogService.record({
@@ -47,7 +47,7 @@ export class PaymentsController {
   }
 
   @Get('invoices')
-  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  @Roles('PROPERTY_MANAGER', 'TENANT')
   async getInvoices(
     @Request() req: AuthenticatedRequest,
     @Query('leaseId') leaseId?: string,
@@ -57,7 +57,7 @@ export class PaymentsController {
   }
 
   @Post()
-  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  @Roles('PROPERTY_MANAGER', 'TENANT')
   async createPayment(
     @Body() body: CreatePaymentDto,
     @Request() req: AuthenticatedRequest,
@@ -78,7 +78,7 @@ export class PaymentsController {
   }
 
   @Get()
-  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  @Roles('PROPERTY_MANAGER', 'TENANT')
   async getPayments(
     @Request() req: AuthenticatedRequest,
     @Query('leaseId') leaseId?: string,
@@ -89,7 +89,7 @@ export class PaymentsController {
 
   // Back-compat alias for older UIs
   @Get('history')
-  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  @Roles('PROPERTY_MANAGER', 'TENANT')
   async getPaymentHistory(
     @Request() req: AuthenticatedRequest,
     @Query('leaseId') leaseId?: string,
@@ -99,13 +99,13 @@ export class PaymentsController {
   }
 
   @Get('ai-metrics')
-  @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
   async getAIMetrics() {
     return this.aiMetrics ? this.aiMetrics.getMetrics() : {};
   }
 
   @Get('invoices/:id')
-  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  @Roles('PROPERTY_MANAGER', 'TENANT')
   async getInvoiceById(
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
@@ -115,7 +115,7 @@ export class PaymentsController {
   }
 
   @Post('payment-plans')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async createPaymentPlan(
     @Body() dto: CreatePaymentPlanDto,
     @Request() req: AuthenticatedRequest,
@@ -140,7 +140,7 @@ export class PaymentsController {
   }
 
   @Get('payment-plans')
-  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  @Roles('PROPERTY_MANAGER', 'TENANT')
   async getPaymentPlans(
     @Request() req: AuthenticatedRequest,
     @Query('invoiceId') invoiceId?: string,
@@ -151,7 +151,7 @@ export class PaymentsController {
   }
 
   @Get('payment-plans/:id')
-  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  @Roles('PROPERTY_MANAGER', 'TENANT')
   async getPaymentPlanById(
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
@@ -161,7 +161,7 @@ export class PaymentsController {
   }
 
   @Get(':id')
-  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  @Roles('PROPERTY_MANAGER', 'TENANT')
   async getPaymentById(
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,

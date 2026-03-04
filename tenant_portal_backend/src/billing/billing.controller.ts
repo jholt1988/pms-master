@@ -23,14 +23,14 @@ export class BillingController {
   constructor(private readonly billingService: BillingService) {}
 
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   @Get('schedules')
   async listSchedules(@OrgId() orgId: string) {
     return this.billingService.listSchedules(orgId);
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   @Post('schedules')
   async upsertSchedule(@Body() dto: UpsertScheduleDto, @Req() req: AuthenticatedRequest, @OrgId() orgId: string) {
     return this.billingService.upsertSchedule(
@@ -41,7 +41,7 @@ export class BillingController {
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   @Patch('schedules/:leaseId/deactivate')
   async deactivate(@Param('leaseId') leaseId: string, @Req() req: AuthenticatedRequest, @OrgId() orgId: string) {
     return this.billingService.deactivateSchedule(
@@ -52,7 +52,7 @@ export class BillingController {
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.TENANT, Role.PROPERTY_MANAGER)
+  @Roles('TENANT', 'PROPERTY_MANAGER')
   @Get('autopay')
   async getAutopay(@Req() req: AuthenticatedRequest, @Query('leaseId') leaseId?: string) {
     if (req.user.role === Role.TENANT) {
@@ -74,7 +74,7 @@ export class BillingController {
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.TENANT, Role.PROPERTY_MANAGER)
+  @Roles('TENANT', 'PROPERTY_MANAGER')
   @Post('autopay')
   async configureAutopay(@Body() dto: ConfigureAutopayDto, @Req() req: AuthenticatedRequest) {
     const orgId = (req as any).org?.orgId as string | undefined;
@@ -86,7 +86,7 @@ export class BillingController {
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.TENANT, Role.PROPERTY_MANAGER)
+  @Roles('TENANT', 'PROPERTY_MANAGER')
   @Patch('autopay/:leaseId/disable')
   async disableAutopay(@Param('leaseId') leaseId: string, @Req() req: AuthenticatedRequest) {
     const orgId = (req as any).org?.orgId as string | undefined;
@@ -98,7 +98,7 @@ export class BillingController {
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.TENANT, Role.PROPERTY_MANAGER)
+  @Roles('TENANT', 'PROPERTY_MANAGER')
   @Get('autopay/needs-auth-attempts')
   async listNeedsAuthAttempts(@Req() req: AuthenticatedRequest) {
     if (req.user.role === Role.TENANT) {
@@ -108,7 +108,7 @@ export class BillingController {
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.TENANT, Role.PROPERTY_MANAGER)
+  @Roles('TENANT', 'PROPERTY_MANAGER')
   @Post('autopay/needs-auth-attempts/:attemptId/recover')
   async recoverNeedsAuthAttempt(@Param('attemptId') attemptId: string, @Req() req: AuthenticatedRequest) {
     const orgId = (req as any).org?.orgId as string | undefined;
@@ -120,14 +120,14 @@ export class BillingController {
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   @Get('connected-account')
   async getConnectedAccount(@OrgId() orgId: string) {
     return this.billingService.getConnectedAccount(orgId);
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   @Patch('connected-account')
   async upsertConnectedAccount(
     @OrgId() orgId: string,
@@ -146,7 +146,7 @@ export class BillingController {
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   @Post('connected-account/onboarding-link')
   async createOnboardingLink(
     @OrgId() orgId: string,
@@ -156,14 +156,14 @@ export class BillingController {
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   @Post('connected-account/refresh')
   async refreshConnectedAccountStatus(@OrgId() orgId: string) {
     return this.billingService.refreshConnectedAccountStatus(orgId);
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   @Post('fee-schedules/versions')
   async createFeeScheduleVersion(
     @OrgId() orgId: string,
@@ -174,7 +174,7 @@ export class BillingController {
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   @Post('plan-cycles')
   async createPlanCycle(
     @OrgId() orgId: string,
@@ -184,7 +184,7 @@ export class BillingController {
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   @Post('pricing-snapshots')
   async createPricingSnapshot(
     @OrgId() orgId: string,
@@ -201,14 +201,14 @@ export class BillingController {
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   @Get('pricing-snapshots')
   async listPricingSnapshots(@OrgId() orgId: string, @Query('planCycleId') planCycleId?: string) {
     return this.billingService.listPricingSnapshots(orgId, planCycleId);
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   @Post('run')
   async runBilling() {
     return this.billingService.manualRun();

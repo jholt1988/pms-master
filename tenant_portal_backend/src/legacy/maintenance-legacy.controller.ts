@@ -4,7 +4,7 @@ import { MaintenanceService } from '../maintenance/maintenance.service';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { Roles } from '../auth/roles.decorator';
-import { Role } from '@prisma/client';
+
 import { AssignTechnicianDto } from '../maintenance/dto/assign-technician.dto';
 
 interface AuthenticatedRequest {
@@ -16,7 +16,7 @@ interface AuthenticatedRequest {
 
 @Controller('api')
 @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-@Roles(Role.PROPERTY_MANAGER)
+@Roles('PROPERTY_MANAGER')
 export class MaintenanceLegacyController {
   constructor(private readonly maintenanceService: MaintenanceService) {}
 

@@ -35,7 +35,7 @@ export class LeaseController {
   ) {}
 
   @Post()
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async createLease(@Body() data: CreateLeaseDto, @Request() req: AuthenticatedRequest, @OrgId() orgId: string) {
     const lease = await this.leaseService.createLease(data, orgId);
     await this.auditLogService.record({
@@ -46,13 +46,13 @@ export class LeaseController {
   }
 
   @Get()
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   getAllLeases(@OrgId() orgId?: string) {
     return this.leaseService.getAllLeases(orgId);
   }
 
   @Get('my-lease')
-  @Roles(Role.TENANT)
+  @Roles('TENANT')
   async getMyLease(@Request() req: AuthenticatedRequest) {
     // Verify user is authenticated and has TENANT role
     // The RolesGuard should handle this, but we add an extra check for safety
@@ -78,19 +78,19 @@ export class LeaseController {
   }
 
   @Get(':id')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   getLeaseById(@Param('id') id: string, @OrgId() orgId?: string) {
     return this.leaseService.getLeaseById(id, orgId);
   }
 
   @Get(':id/history')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   getLeaseHistory(@Param('id') id: string, @OrgId() orgId?: string) {
     return this.leaseService.getLeaseHistory(id, orgId);
   }
 
   @Put(':id')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async updateLease(
     @Param('id') id: string,
     @Body() data: UpdateLeaseDto,
@@ -103,7 +103,7 @@ export class LeaseController {
   }
 
   @Put(':id/status')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async updateLeaseStatus(
     @Param('id') id: string,
     @Body() data: UpdateLeaseStatusDto,
@@ -116,7 +116,7 @@ export class LeaseController {
   }
 
   @Post(':id/renewal-offers')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   createRenewalOffer(
     @Param('id') id: string,
     @Body() dto: CreateRenewalOfferDto,
@@ -127,7 +127,7 @@ export class LeaseController {
   }
 
   @Post(':id/notices')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async recordLeaseNotice(
     @Param('id') id: string,
     @Body() dto: RecordLeaseNoticeDto,
@@ -140,7 +140,7 @@ export class LeaseController {
   }
 
   @Post(':id/renewal-offers/:offerId/respond')
-  @Roles(Role.TENANT)
+  @Roles('TENANT')
   respondToRenewalOffer(
     @Param('id') id: string,
     @Param('offerId') offerId: string,
@@ -158,7 +158,7 @@ export class LeaseController {
   }
 
   @Post(':id/tenant-notices')
-  @Roles(Role.TENANT)
+  @Roles('TENANT')
   submitTenantNotice(
     @Param('id') id: string,
     @Body() dto: TenantSubmitNoticeDto,
@@ -169,7 +169,7 @@ export class LeaseController {
   }
 
   @Get('ai-metrics')
-  @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
   getAIMetrics() {
     return this.aiMetrics.getMetrics();
   }

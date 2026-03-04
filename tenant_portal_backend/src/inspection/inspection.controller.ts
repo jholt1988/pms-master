@@ -22,7 +22,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { Roles } from '../auth/roles.decorator';
-import { Role } from '@prisma/client';
+
 import { FileInterceptor } from '@nestjs/platform-express';
 import { InspectionService } from './inspection.service';
 import { EstimateService } from './estimate.service';
@@ -51,7 +51,7 @@ export class InspectionController {
   // Inspection CRUD operations
 
   @Post()
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   @HttpCode(HttpStatus.CREATED)
   async createInspection(
     @Body() dto: CreateInspectionDto,
@@ -62,7 +62,7 @@ export class InspectionController {
   }
 
   @Post('with-rooms')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   @HttpCode(HttpStatus.CREATED)
   async createInspectionWithRooms(
     @Body() dto: CreateInspectionWithRoomsDto,
@@ -73,7 +73,7 @@ export class InspectionController {
   }
 
   @Get()
-  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  @Roles('PROPERTY_MANAGER', 'TENANT')
   async getInspections(@Query() query: InspectionQueryDto, @Request() req: any) {
     // Back-compat: some clients expect `{ data: [...] }`, others expect `{ inspections, total, ... }`.
     // Return both shapes until we finish contract normalization.
@@ -101,14 +101,14 @@ export class InspectionController {
   }
 
   @Get(':id')
-  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  @Roles('PROPERTY_MANAGER', 'TENANT')
   async getInspection(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
     const orgId = (req as any).org?.orgId as string | undefined;
     return this.inspectionService.getInspectionById(id, req.user, orgId);
   }
 
   @Patch(':id')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async updateInspection(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateInspectionDto,
@@ -118,14 +118,14 @@ export class InspectionController {
   }
 
   @Post(':id/complete')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   @HttpCode(HttpStatus.OK)
   async completeInspection(@Param('id', ParseIntPipe) id: number, @OrgId() orgId: string) {
     return this.inspectionService.completeInspection(id, orgId);
   }
 
   @Patch(':id/status')
-  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  @Roles('PROPERTY_MANAGER', 'TENANT')
   @HttpCode(HttpStatus.OK)
   async updateInspectionStatus(
     @Param('id', ParseIntPipe) id: number,
@@ -137,7 +137,7 @@ export class InspectionController {
   }
 
   @Delete(':id')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteInspection(@Param('id', ParseIntPipe) id: number, @OrgId() orgId: string) {
     await this.inspectionService.deleteInspection(id, orgId);
@@ -146,7 +146,7 @@ export class InspectionController {
   // Room operations
 
   @Post(':id/rooms')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   @HttpCode(HttpStatus.CREATED)
   async createRoom(
     @Param('id', ParseIntPipe) inspectionId: number,
@@ -159,7 +159,7 @@ export class InspectionController {
   // Checklist item operations
 
   @Patch('items/:itemId')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async updateChecklistItem(
     @Param('itemId', ParseIntPipe) itemId: number,
     @Body() dto: UpdateChecklistItemDto,
@@ -169,7 +169,7 @@ export class InspectionController {
   }
 
   @Patch('rooms/:roomId/items')
-  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  @Roles('PROPERTY_MANAGER', 'TENANT')
   async updateRoomChecklistItems(
     @Param('roomId', ParseIntPipe) roomId: number,
     @Body() dto: UpdateRoomChecklistItemsDto,
@@ -181,7 +181,7 @@ export class InspectionController {
 
   @Post('items/:itemId/photos')
   @HttpCode(HttpStatus.CREATED)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async addPhotoToChecklistItem(
     @Param('itemId', ParseIntPipe) itemId: number,
     @Body() dto: UploadPhotoDto,
@@ -195,7 +195,7 @@ export class InspectionController {
   @Post('items/:itemId/photos/upload')
   @UseInterceptors(FileInterceptor('file'))
   @HttpCode(HttpStatus.CREATED)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async uploadPhoto(
     @Param('itemId', ParseIntPipe) itemId: number,
     @UploadedFile() file: Express.Multer.File,
@@ -226,7 +226,7 @@ export class InspectionController {
   // Delete photo endpoint
   @Delete('photos/:photoId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async deletePhoto(
     @Param('photoId', ParseIntPipe) photoId: number,
     @OrgId() orgId: string,
@@ -237,7 +237,7 @@ export class InspectionController {
   // AI Photo Analysis endpoint
   @Post('items/:itemId/analyze')
   @HttpCode(HttpStatus.OK)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async analyzePhotos(
     @Param('itemId', ParseIntPipe) itemId: number,
     @Request() req: any,
@@ -249,7 +249,7 @@ export class InspectionController {
   // Signature operations
 
   @Post(':id/signatures')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   @HttpCode(HttpStatus.CREATED)
   async addSignature(
     @Param('id', ParseIntPipe) inspectionId: number,
@@ -280,7 +280,7 @@ export class InspectionController {
   // Estimate operations
 
   @Post(':id/estimate')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   @HttpCode(HttpStatus.CREATED)
   async generateEstimate(
     @Param('id', ParseIntPipe) inspectionId: number,
@@ -291,7 +291,7 @@ export class InspectionController {
   }
 
   @Get(':id/estimates')
-  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  @Roles('PROPERTY_MANAGER', 'TENANT')
   async getInspectionEstimates(@Param('id', ParseIntPipe) inspectionId: number, @Request() req: any) {
     const orgId = (req as any).org?.orgId as string | undefined;
     return this.estimateService.getEstimates({ inspectionId, orgId });

@@ -4,14 +4,14 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
-import { Role } from '@prisma/client';
+
 import { ListingSyndicationService } from './listing-syndication.service';
 import { SyndicationActionDto } from './dto/syndication-action.dto';
 import { UpsertChannelCredentialDto } from './dto/channel-credential.dto';
 
 @Controller('api/listings/syndication')
 @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-@Roles(Role.PROPERTY_MANAGER)
+@Roles('PROPERTY_MANAGER')
 export class ListingSyndicationController {
   constructor(private readonly listingSyndicationService: ListingSyndicationService) {}
 

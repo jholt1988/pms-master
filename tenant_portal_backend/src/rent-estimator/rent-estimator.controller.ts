@@ -3,14 +3,14 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RentEstimatorService } from './rent-estimator.service';
 import { Roles } from '../auth/roles.decorator';
-import { Role } from '@prisma/client';
+
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 
 @Controller('rent-estimator')
 @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-@Roles(Role.PROPERTY_MANAGER)
+@Roles('PROPERTY_MANAGER')
 export class RentEstimatorController {
   constructor(private readonly rentEstimatorService: RentEstimatorService) {}
 

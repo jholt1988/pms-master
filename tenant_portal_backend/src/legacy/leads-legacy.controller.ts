@@ -13,7 +13,7 @@ import { LeasingService } from '../leasing/leasing.service';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { Roles } from '../auth/roles.decorator';
-import { LeadStatus, Role } from '@prisma/client';
+import { LeadStatus } from '@prisma/client';
 
 interface AuthenticatedRequest {
   user: {
@@ -24,7 +24,7 @@ interface AuthenticatedRequest {
 
 @Controller('api/leads')
 @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-@Roles(Role.PROPERTY_MANAGER)
+@Roles('PROPERTY_MANAGER')
 export class LeadsLegacyController {
   constructor(private readonly leasingService: LeasingService) {}
 

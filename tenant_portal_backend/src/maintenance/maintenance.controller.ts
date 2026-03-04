@@ -52,7 +52,7 @@ export class MaintenanceController {
   }
 
   @Get('ai-metrics')
-  @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
   async getAIMetrics() {
     return this.aiMetrics.getMetrics();
   }
@@ -136,7 +136,7 @@ export class MaintenanceController {
   }
 
   @Patch(':id/status')
-  @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
   async updateStatus(
     @Param('id') id: string,
     @Body() updateStatusDto: UpdateMaintenanceStatusDto,
@@ -166,7 +166,7 @@ export class MaintenanceController {
   }
 
   @Put(':id/status')
-  @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
   async replaceStatus(
     @Param('id') id: string,
     @Body() updateStatusDto: UpdateMaintenanceStatusDto,
@@ -196,7 +196,7 @@ export class MaintenanceController {
   }
 
   @Patch(':id/assign')
-  @Roles(Role.PROPERTY_MANAGER, Role.ADMIN)
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
   async assignTechnician(
     @Param('id') id: string,
     @Body() dto: AssignTechnicianDto,
@@ -278,7 +278,7 @@ export class MaintenanceController {
   }
 
   @Post(':id/confirm-complete')
-  @Roles(Role.TENANT)
+  @Roles('TENANT')
   async confirmComplete(
     @Param('id') id: string,
     @Body() dto: ConfirmMaintenanceCompleteDto,
@@ -288,13 +288,13 @@ export class MaintenanceController {
   }
 
   @Get('technicians')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   listTechnicians(@OrgId() orgId?: string) {
     return this.maintenanceService.listTechnicians(orgId);
   }
 
   @Post('technicians')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   createTechnician(
     @Body() body: { name: string; phone?: string; email?: string; userId?: string; role?: string },
     @OrgId() orgId?: string,
@@ -303,7 +303,7 @@ export class MaintenanceController {
   }
 
   @Get('assets')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   listAssets(
     @Query('propertyId') propertyId?: string,
     @Query('unitId') unitId?: string,
@@ -314,7 +314,7 @@ export class MaintenanceController {
   }
 
   @Post('assets')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   createAsset(
     @Body()
     body: {
@@ -333,7 +333,7 @@ export class MaintenanceController {
   }
 
   @Get('sla-policies')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   getSlaPolicies(@Query('propertyId') propertyId?: string, @OrgId() orgId?: string) {
     return this.maintenanceService.getSlaPolicies(propertyId, orgId);
   }

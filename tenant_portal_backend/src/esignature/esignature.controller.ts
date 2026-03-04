@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, Request, Res, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { Role } from '@prisma/client';
+
 import { Request as ExpressRequest, Response } from 'express';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
@@ -24,13 +24,13 @@ export class EsignatureController {
   constructor(private readonly esignatureService: EsignatureService) {}
 
   @Get('leases/:leaseId/envelopes')
-  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  @Roles('PROPERTY_MANAGER', 'TENANT')
   getLeaseEnvelopes(@Param('leaseId') leaseId: string, @Request() req: AuthenticatedRequest) {
     return this.esignatureService.listLeaseEnvelopes(leaseId, req.user);
   }
 
   @Post('leases/:leaseId/envelopes')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   createEnvelope(
     @Param('leaseId') leaseId: string,
     @Body() dto: CreateEnvelopeDto,
@@ -40,7 +40,7 @@ export class EsignatureController {
   }
 
   @Post('envelopes/:envelopeId/recipient-view')
-  @Roles(Role.TENANT)
+  @Roles('TENANT')
   createRecipientView(
     @Param('envelopeId') envelopeId: string,
     @Body() dto: RecipientViewDto,
@@ -50,7 +50,7 @@ export class EsignatureController {
   }
 
   @Get('envelopes/:envelopeId')
-  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  @Roles('PROPERTY_MANAGER', 'TENANT')
   getEnvelope(
     @Param('envelopeId', ParseIntPipe) envelopeId: number,
     @Request() req: AuthenticatedRequest,
@@ -59,7 +59,7 @@ export class EsignatureController {
   }
 
   @Patch('envelopes/:envelopeId/void')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   voidEnvelope(
     @Param('envelopeId', ParseIntPipe) envelopeId: number,
     @Body() dto: VoidEnvelopeDto,
@@ -69,7 +69,7 @@ export class EsignatureController {
   }
 
   @Post('envelopes/:envelopeId/refresh')
-  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  @Roles('PROPERTY_MANAGER', 'TENANT')
   refreshEnvelopeStatus(
     @Param('envelopeId', ParseIntPipe) envelopeId: number,
     @Request() req: AuthenticatedRequest,
@@ -78,7 +78,7 @@ export class EsignatureController {
   }
 
   @Post('envelopes/:envelopeId/resend')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   resendNotifications(
     @Param('envelopeId', ParseIntPipe) envelopeId: number,
     @Request() req: AuthenticatedRequest,
@@ -87,7 +87,7 @@ export class EsignatureController {
   }
 
   @Get('envelopes/:envelopeId/documents/signed')
-  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  @Roles('PROPERTY_MANAGER', 'TENANT')
   async downloadSignedDocument(
     @Param('envelopeId', ParseIntPipe) envelopeId: number,
     @Request() req: AuthenticatedRequest,
@@ -100,7 +100,7 @@ export class EsignatureController {
   }
 
   @Get('envelopes/:envelopeId/documents/certificate')
-  @Roles(Role.PROPERTY_MANAGER, Role.TENANT)
+  @Roles('PROPERTY_MANAGER', 'TENANT')
   async downloadCertificate(
     @Param('envelopeId', ParseIntPipe) envelopeId: number,
     @Request() req: AuthenticatedRequest,

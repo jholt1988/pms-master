@@ -20,7 +20,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { PropertyService } from './property.service';
 import { Roles } from '../auth/roles.decorator';
-import { Role } from '@prisma/client';
+
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
@@ -49,7 +49,7 @@ export class PropertyController {
 
   @Post()
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   @HttpCode(HttpStatus.CREATED)
   createProperty(@Body() dto: CreatePropertyDto, @OrgId() orgId: string) {
     return this.propertyService.createProperty(dto, orgId);
@@ -57,7 +57,7 @@ export class PropertyController {
 
   @Post(':id/units')
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   @HttpCode(HttpStatus.CREATED)
   createUnit(
     @Param('id', ParseUUIDPipe) propertyId: string,
@@ -69,7 +69,7 @@ export class PropertyController {
 
   @Get()
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER, Role.OWNER)
+  @Roles('PROPERTY_MANAGER', 'OWNER')
   getAllProperties(@OrgId() orgId: string) {
     return this.propertyService.getAllProperties(orgId);
   }
@@ -81,7 +81,7 @@ export class PropertyController {
 
   @Get('search')
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER, Role.OWNER)
+  @Roles('PROPERTY_MANAGER', 'OWNER')
   searchProperties(@Query() query: PropertySearchQueryDto, @OrgId() orgId: string) {
     return this.propertyService.searchProperties(query, orgId);
   }
@@ -93,21 +93,21 @@ export class PropertyController {
 
   @Get('saved-filters')
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER, Role.OWNER)
+  @Roles('PROPERTY_MANAGER', 'OWNER')
   getSavedFilters(@Request() req: AuthenticatedRequest) {
     return this.propertyService.getSavedFilters(req.user.userId);
   }
 
   @Post('saved-filters')
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   saveFilter(@Body() dto: SavePropertyFilterDto, @Request() req: AuthenticatedRequest) {
     return this.propertyService.savePropertyFilter(req.user.userId, dto);
   }
 
   @Delete('saved-filters/:id')
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   @HttpCode(HttpStatus.NO_CONTENT)
   deleteFilter(@Param('id', ParseIntPipe) id: number, @Request() req: AuthenticatedRequest) {
     return this.propertyService.deleteSavedFilter(req.user.userId, id);
@@ -115,21 +115,21 @@ export class PropertyController {
 
   @Get(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER, Role.OWNER)
+  @Roles('PROPERTY_MANAGER', 'OWNER')
   getPropertyById(@Param('id', ParseUUIDPipe) id: string, @OrgId() orgId: string) {
     return this.propertyService.getPropertyById(id, orgId);
   }
 
   @Get(':id/marketing')
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER, Role.OWNER)
+  @Roles('PROPERTY_MANAGER', 'OWNER')
   getMarketingProfile(@Param('id', ParseUUIDPipe) id: string, @OrgId() orgId: string) {
     return this.propertyService.getMarketingProfile(id, orgId);
   }
 
   @Post(':id/marketing')
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   updateMarketingProfile(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdatePropertyMarketingDto,
@@ -140,7 +140,7 @@ export class PropertyController {
 
   @Patch(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   updateProperty(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdatePropertyDto,
@@ -151,7 +151,7 @@ export class PropertyController {
 
   @Patch(':id/units/:unitId')
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   updateUnit(
     @Param('id', ParseUUIDPipe) propertyId: string,
     @Param('unitId', ParseUUIDPipe) unitId: string,

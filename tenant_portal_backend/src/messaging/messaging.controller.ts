@@ -28,7 +28,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgIdOptional } from '../common/org-context/org-id-optional.decorator';
 import { Roles } from '../auth/roles.decorator';
-import { Role } from '@prisma/client';
+
 import { AuditLogService } from '../shared/audit-log.service';
 
 interface AuthenticatedRequest extends Request {
@@ -222,7 +222,7 @@ export class MessagingController {
    */
   @Get('tenants')
   @UseGuards(RolesGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async getTenants(@OrgIdOptional() orgId?: string) {
     return this.messagingService.findAllTenants(orgId);
   }
@@ -233,7 +233,7 @@ export class MessagingController {
    */
   @Get('users')
   @UseGuards(RolesGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async getAllUsers(@OrgIdOptional() orgId?: string) {
     return this.messagingService.findAllUsers(orgId);
   }
@@ -243,7 +243,7 @@ export class MessagingController {
    */
   @Get('templates')
   @UseGuards(RolesGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async getTemplates() {
     return this.bulkMessagingService.getTemplates();
   }
@@ -253,7 +253,7 @@ export class MessagingController {
    */
   @Post('bulk/preview')
   @UseGuards(RolesGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async previewBulk(
     @Body() dto: CreateBulkMessageDto,
     @Request() req: AuthenticatedRequest,
@@ -268,7 +268,7 @@ export class MessagingController {
   @Post('bulk')
   @HttpCode(HttpStatus.ACCEPTED)
   @UseGuards(RolesGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async queueBulk(
     @Body() dto: CreateBulkMessageDto,
     @Request() req: AuthenticatedRequest,
@@ -282,7 +282,7 @@ export class MessagingController {
    */
   @Get('bulk')
   @UseGuards(RolesGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async listBulkBatches(@OrgIdOptional() orgId?: string) {
     return this.bulkMessagingService.listBatches(orgId);
   }
@@ -292,7 +292,7 @@ export class MessagingController {
    */
   @Get('bulk/:id')
   @UseGuards(RolesGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async getBulkBatch(@Param('id', ParseIntPipe) id: number, @OrgIdOptional() orgId?: string) {
     return this.bulkMessagingService.getBatchById(id, orgId);
   }
@@ -302,7 +302,7 @@ export class MessagingController {
    */
   @Get('bulk/:id/recipients')
   @UseGuards(RolesGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async getBulkRecipients(@Param('id', ParseIntPipe) id: number, @OrgIdOptional() orgId?: string) {
     return this.bulkMessagingService.getRecipientStatuses(id, orgId);
   }
@@ -312,7 +312,7 @@ export class MessagingController {
    */
   @Get('bulk/:id/report')
   @UseGuards(RolesGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async getBulkReport(@Param('id', ParseIntPipe) id: number, @OrgIdOptional() orgId?: string) {
     return this.bulkMessagingService.getDeliveryReport(id, orgId);
   }
@@ -323,7 +323,7 @@ export class MessagingController {
    */
   @Get('admin/conversations')
   @UseGuards(RolesGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async getAllConversations(@Query() query: GetConversationsQueryDto, @OrgIdOptional() orgId?: string) {
     return this.messagingService.getAllConversations(query, orgId);
   }
@@ -349,7 +349,7 @@ export class MessagingController {
    */
   @Get('stats')
   @UseGuards(RolesGuard)
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async getStats(@OrgIdOptional() orgId?: string) {
     return this.messagingService.getConversationStats(orgId);
   }

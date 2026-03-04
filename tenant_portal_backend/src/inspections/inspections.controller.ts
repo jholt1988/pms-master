@@ -20,7 +20,7 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
-import { Role, InspectionType, InspectionStatus } from '@prisma/client';
+import { InspectionType, InspectionStatus } from '@prisma/client';
 import { InspectionsService } from './inspections.service';
 import { CreateInspectionDto } from './dto/create-inspection.dto';
 import { UpdateInspectionDto } from './dto/update-inspection.dto';
@@ -60,7 +60,7 @@ export class InspectionsController {
   }
 
   @Post()
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async create(
     @Body() dto: CreateInspectionDto,
     @Req() req: AuthenticatedRequest,
@@ -110,7 +110,7 @@ export class InspectionsController {
   }
 
   @Put(':id')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateInspectionDto,
@@ -129,7 +129,7 @@ export class InspectionsController {
   }
 
   @Put(':id/complete')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async complete(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: CompleteInspectionDto,
@@ -140,7 +140,7 @@ export class InspectionsController {
   }
 
   @Post(':id/photos')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   @UseInterceptors(
     FileInterceptor('photo', {
       storage: memoryStorage(),
@@ -173,7 +173,7 @@ export class InspectionsController {
   }
 
   @Delete(':id')
-  @Roles(Role.PROPERTY_MANAGER)
+  @Roles('PROPERTY_MANAGER')
   async delete(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest, @OrgId() orgId?: string) {
     return this.inspectionsService.delete(id, req.user.sub, orgId);
   }
