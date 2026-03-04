@@ -7,6 +7,7 @@ import { assertConfidenceV16Invariants, validateConfidenceV16 } from './property
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
+
   @Get()
   getHello(): string {
     return this.appService.getHello();
@@ -37,13 +38,15 @@ export class AppController {
         unit_id: body?.unit_id,
         cycle_id: body?.cycle_id,
         confidence,
-      };https://github.com/jholt1988/pms-master/pull/25/conflict?name=tenant_portal_backend%252Fsrc%252Fapp.controller.ts&ancestor_oid=4c132440fe2c115e19956b55935aa0bd170cb33c&base_oid=9d0eec09acf46405d5b41e4fc48344ec1ff490af&head_oid=cacaf2dd8291a4907efaca722894beac0b8925a5
+      };
+    
     } catch (error: any) {
       throw new BadRequestException({
         valid: false,
         message: error?.message ?? 'Invalid Property OS v1.6 response payload',
       });
     }
+  }
   @Get('health')
   getHealth() {
     return {

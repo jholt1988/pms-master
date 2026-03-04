@@ -1,16 +1,30 @@
 packages:
-  - 'ai_prescreening_service'
-  - 'contracts'
-  - 'docs'
-  - 'migrations'
-  - 'packages/*'
-  - 'pms-mobile-portals'
-  - 'rent_optimization_ml'
-  - 'scripts'
-  - 'security'
-  - 'services/*'
-  - 'tenant_portal'
-  - 'tenant_portal_app'
-  - 'tenant_portal_backend'
-  - 'tenant_portal_mobile'
-  - 'tools'
+  - ai_prescreening_service
+  - contracts
+  - docs
+  - migrations
+  - packages/*
+  - pms-mobile-portals
+  - rent_optimization_ml
+  - scripts
+  - security
+  - services/*
+  - tenant_portal
+  - tenant_portal_app
+  - tenant_portal_backend
+  - tenant_portal_mobile
+  - tools
+
+onlyBuiltDependencies:
+  - '@nestjs/core'
+  - '@prisma/client'
+  - '@prisma/engines'
+  - '@root/acme'
+  - '@scarf/scarf'
+  - '@sentry-internal/node-cpu-profiler'
+  - bcrypt
+  - esbuild
+  - msgpackr-extract
+  - msw
+  - prisma
+  - unrs-resolver
