@@ -41,7 +41,12 @@ const MessagingPage = () => {
     async (conversationId: number) => {
       try {
         const data = await apiFetch(`/messaging/conversations/${conversationId}`, { token: token ?? undefined });
-        setMessages(data.messages || data || []);
+        const normalizedMessages = Array.isArray((data as any)?.messages)
+          ? (data as any).messages
+          : Array.isArray(data)
+            ? data
+            : [];
+        setMessages(normalizedMessages);
       } catch (error: any) {
         setError(error.message || 'Failed to fetch messages');
       }

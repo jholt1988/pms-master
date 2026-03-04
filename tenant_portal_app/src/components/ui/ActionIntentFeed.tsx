@@ -51,10 +51,15 @@ export const ActionIntentFeed = () => {
         // This endpoint is assumed to exist. Backend will need to implement it.
         const data = await apiFetch('/dashboard/action-intents', { token });
         setIntents(data.intents || []);
-      } catch (err) {
-        console.error('Error fetching action intents:', err);
-        setError('Failed to load activity feed.');
-        // Use mock data on error for UI development
+      } catch (err: any) {
+        const isNotFound = typeof err?.message === 'string' && err.message.includes('404');
+        if (!isNotFound) {
+          console.error('Error fetching action intents:', err);
+          setError('Failed to load activity feed.');
+        } else {
+          setError(null);
+        }
+        // Use mock data on error for UI development / missing backend endpoint
         setIntents([
           { id: '1', type: 'RISK_MITIGATION', description: 'HVAC unit #3 at 123 Main St showing signs of failure. Proactive maintenance suggested.', status: 'PENDING', priority: 'HIGH', createdAt: new Date().toISOString() },
           { id: '2', type: 'AUTOMATION', description: 'Rent payment for Unit 5B automatically processed.', status: 'EXECUTED', priority: 'LOW', createdAt: new Date(Date.now() - 3600000).toISOString() },

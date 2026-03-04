@@ -111,7 +111,14 @@ const MaintenancePage: React.FC = () => {
       setIsLoading(true);
       setError(null);
       const data = await apiFetch('/maintenance', { token });
-      setRequests(data);
+      const normalized = Array.isArray(data)
+        ? data
+        : Array.isArray((data as any)?.requests)
+          ? (data as any).requests
+          : Array.isArray((data as any)?.data)
+            ? (data as any).data
+            : [];
+      setRequests(normalized);
     } catch (err) {
       console.error('Failed to fetch maintenance requests', err);
       setError('Failed to load maintenance requests. Please try again later.');
@@ -125,7 +132,7 @@ const MaintenancePage: React.FC = () => {
   }, [token]);
 
   const filteredRequests = useMemo(() => {
-    let filtered = requests;
+    let filtered: MaintenanceRequest[] = Array.isArray(requests) ? [...requests] : [];
 
     // Filter by tab - Backend uses uppercase status
     if (selectedTab !== 'all') {

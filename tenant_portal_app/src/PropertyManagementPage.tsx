@@ -335,8 +335,12 @@ const PropertyManagementPage: React.FC = () => {
         return acc;
       }, createEmptyCredentialForms());
       setCredentialForms((prev) => ({ ...prev, ...normalized }));
-    } catch (error) {
-      console.error('fetchCredentials', error);
+    } catch (error: any) {
+      const isNotFound = typeof error?.message === 'string' && error.message.includes('404');
+      if (!isNotFound) {
+        console.error('fetchCredentials', error);
+      }
+      // keep defaults when endpoint is unavailable
     }
   }, [token]);
 

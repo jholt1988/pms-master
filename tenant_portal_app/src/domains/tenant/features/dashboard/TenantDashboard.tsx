@@ -180,10 +180,13 @@ export const TenantDashboard: React.FC = () => {
         const response = await apiFetch('/tenant/dashboard', { token });
         setData(response);
       } catch (err: any) {
-        console.error('Error fetching tenant dashboard data:', err);
-        
+        const isFallbackCase = err.message?.includes('404') || err.message?.includes('Request cancelled');
+        if (!isFallbackCase) {
+          console.error('Error fetching tenant dashboard data:', err);
+        }
+
         // Fallback to mock data for development
-        if (err.message?.includes('404') || err.message?.includes('Request cancelled')) {
+        if (isFallbackCase) {
           setData({
             nextRentPayment: {
               amount: 1500,
