@@ -57,5 +57,10 @@
     "jest-expo": "~54.0.13",
     "typescript": "^5.0.4"
   },
+  "peerDependencies": {
+     "react": "19.2.0",
+     "react-dom": "19.2."
+
+  },
   "private": true
 }
