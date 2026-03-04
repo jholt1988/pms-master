@@ -119,7 +119,12 @@ async function bootstrap() {
   console.log(`🌐 CORS: Configured for origins: ${process.env.ALLOWED_ORIGINS || 'http://localhost:3000'}`);
   console.log(`📊 Monitoring: Sentry error tracking initialized`);
   console.log(`⚡ Performance: Performance monitoring middleware active`);
-  console.log(`⏰ Jobs: Scheduled background jobs active`);
+  const schedulerDisabled = process.env.DISABLE_WORKFLOW_SCHEDULER === 'true';
+  console.log(
+    schedulerDisabled
+      ? `⏰ Jobs: Workflow scheduler disabled (DISABLE_WORKFLOW_SCHEDULER=true)`
+      : `⏰ Jobs: Scheduled background jobs active`,
+  );
   console.log(`🚀 Application is running on: http://localhost:3001`);
 }
 bootstrap();
