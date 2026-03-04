@@ -1,21 +1,7 @@
-import {
-  IsString,
-  IsNotEmpty,
-  MinLength,
-  IsOptional,
-  IsNumber,
-  IsArray,
-  ValidateNested,
-  IsBoolean,
-  IsEnum,
-  IsUrl,
-  IsInt,
-  Min,
-  Max,
-  IsIn,
-} from 'class-validator';
+import { IsString, IsNotEmpty, MinLength, IsOptional, IsNumber, IsArray, ValidateNested, IsBoolean, IsUrl, IsInt, Min, Max, IsIn } from 'class-validator';
 import { Type, Transform, TransformFnParams } from 'class-transformer';
 import { PropertyAvailabilityStatus, UnitStatus } from '@prisma/client';
+import { IsEnumSafe } from '../../common/validation/is-enum-safe.decorator';
 
 const transformCsvToArray = ({ value }: TransformFnParams) => {
   if (value === undefined || value === null || value === '') {
@@ -132,7 +118,7 @@ export class CreateUnitDto {
   unitNumber?: string;
 
   @IsOptional()
-  @IsEnum(UnitStatus)
+  @IsEnumSafe(UnitStatus)
   status?: UnitStatus;
 
   @IsOptional()
@@ -186,7 +172,7 @@ export class UpdateUnitDto {
   unitNumber?: string;
 
   @IsOptional()
-  @IsEnum(UnitStatus)
+  @IsEnumSafe(UnitStatus)
   status?: UnitStatus;
 
   @IsOptional()
@@ -358,7 +344,7 @@ export class UpdatePropertyMarketingDto {
   maxRent?: number;
 
   @IsOptional()
-  @IsEnum(PropertyAvailabilityStatus)
+  @IsEnumSafe(PropertyAvailabilityStatus)
   availabilityStatus?: PropertyAvailabilityStatus;
 
   @IsOptional()
@@ -414,7 +400,7 @@ export class PropertySearchQueryDto {
 
   @IsOptional()
   @Transform(transformCsvToArray)
-  @IsEnum(PropertyAvailabilityStatus, { each: true })
+  @IsEnumSafe(PropertyAvailabilityStatus, { each: true })
   availabilityStatuses?: PropertyAvailabilityStatus[];
 
   @IsOptional()

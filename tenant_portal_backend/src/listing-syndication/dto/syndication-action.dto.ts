@@ -1,9 +1,10 @@
-import { IsArray, IsEnum, IsOptional } from 'class-validator';
+import { IsArray, IsOptional } from 'class-validator';
 import { SyndicationChannel } from '@prisma/client';
+import { IsEnumSafe } from '../../common/validation/is-enum-safe.decorator';
 
 export class SyndicationActionDto {
   @IsOptional()
   @IsArray()
-  @IsEnum(SyndicationChannel, { each: true })
+  @IsEnumSafe(SyndicationChannel, { each: true })
   channels?: SyndicationChannel[];
 }

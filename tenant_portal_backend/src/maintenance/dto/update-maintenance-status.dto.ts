@@ -1,8 +1,9 @@
-import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { Status } from '@prisma/client';
+import { IsEnumSafe } from '../../common/validation/is-enum-safe.decorator';
 
 export class UpdateMaintenanceStatusDto {
-  @IsEnum(Status)
+  @IsEnumSafe(Status)
   status!: Status;
 
   @IsOptional()

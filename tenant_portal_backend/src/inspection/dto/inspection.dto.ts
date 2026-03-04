@@ -1,18 +1,6 @@
-import { 
-  IsString, 
-  IsInt, 
-  IsOptional, 
-  IsEnum, 
-  IsDateString, 
-  IsBoolean, 
-  IsArray, 
-  ValidateNested,
-  IsNumber,
-  Min,
-  Max,
-  IsUUID
-} from 'class-validator';
+import { IsString, IsInt, IsOptional, IsDateString, IsBoolean, IsArray, ValidateNested, IsNumber, Min, Max, IsUUID } from 'class-validator';
 import { Type } from 'class-transformer';
+import { IsEnumSafe } from '../../common/validation/is-enum-safe.decorator';
 import { 
   InspectionType, 
   InspectionStatus, 
@@ -34,7 +22,7 @@ export class CreateInspectionDto {
   @IsOptional()
   leaseId?: string;
 
-  @IsEnum(InspectionType)
+  @IsEnumSafe(InspectionType)
   type!: InspectionType;
 
   @IsDateString()
@@ -58,7 +46,7 @@ export class CreateInspectionDto {
 }
 
 export class UpdateInspectionDto {
-  @IsEnum(InspectionStatus)
+  @IsEnumSafe(InspectionStatus)
   @IsOptional()
   status?: InspectionStatus;
 
@@ -100,7 +88,7 @@ export class CreateRoomDto {
   @IsString()
   name!: string;
 
-  @IsEnum(RoomType)
+  @IsEnumSafe(RoomType)
   roomType!: RoomType;
 }
 
@@ -111,7 +99,7 @@ export class CreateChecklistItemDto {
   @IsString()
   itemName!: string;
 
-  @IsEnum(InspectionCondition)
+  @IsEnumSafe(InspectionCondition)
   @IsOptional()
   condition?: InspectionCondition;
 
@@ -131,7 +119,7 @@ export class CreateChecklistItemDto {
 }
 
 export class UpdateChecklistItemDto {
-  @IsEnum(InspectionCondition)
+  @IsEnumSafe(InspectionCondition)
   @IsOptional()
   condition?: InspectionCondition;
 
@@ -154,7 +142,7 @@ export class CreateChecklistSubItemDto {
   @IsString()
   name!: string;
 
-  @IsEnum(InspectionCondition)
+  @IsEnumSafe(InspectionCondition)
   @IsOptional()
   condition?: InspectionCondition;
 
@@ -285,7 +273,7 @@ export class CreateEstimateLineItemDto {
 }
 
 export class UpdateEstimateDto {
-  @IsEnum(EstimateStatus)
+  @IsEnumSafe(EstimateStatus)
   @IsOptional()
   status?: EstimateStatus;
 
@@ -325,11 +313,11 @@ export class InspectionQueryDto {
   @IsOptional()
   leaseId?: string;
 
-  @IsEnum(InspectionStatus)
+  @IsEnumSafe(InspectionStatus)
   @IsOptional()
   status?: InspectionStatus;
 
-  @IsEnum(InspectionType)
+  @IsEnumSafe(InspectionType)
   @IsOptional()
   type?: InspectionType;
 
@@ -369,7 +357,7 @@ export class EstimateQueryDto {
   @IsOptional()
   propertyId?: string;
 
-  @IsEnum(EstimateStatus)
+  @IsEnumSafe(EstimateStatus)
   @IsOptional()
   status?: EstimateStatus;
 

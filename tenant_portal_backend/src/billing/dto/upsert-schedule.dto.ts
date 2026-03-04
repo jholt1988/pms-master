@@ -1,5 +1,6 @@
-import { IsBoolean, IsDateString, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsUUID, Max, Min } from 'class-validator';
+import { IsBoolean, IsDateString, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsUUID, Max, Min } from 'class-validator';
 import { BillingFrequency } from '@prisma/client';
+import { IsEnumSafe } from '../../common/validation/is-enum-safe.decorator';
 
 export class UpsertScheduleDto {
   @IsUUID()
@@ -12,7 +13,7 @@ export class UpsertScheduleDto {
   @IsNotEmpty()
   description?: string;
 
-  @IsEnum(BillingFrequency)
+  @IsEnumSafe(BillingFrequency)
   frequency: BillingFrequency = BillingFrequency.MONTHLY;
 
   @IsOptional()

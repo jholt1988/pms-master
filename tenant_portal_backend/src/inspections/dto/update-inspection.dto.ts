@@ -1,5 +1,6 @@
-import { IsEnum, IsDateString, IsOptional, IsString } from 'class-validator';
+import { IsDateString, IsOptional, IsString } from 'class-validator';
 import { InspectionStatus } from '@prisma/client';
+import { IsEnumSafe } from '../../common/validation/is-enum-safe.decorator';
 
 export class UpdateInspectionDto {
   @IsOptional()
@@ -11,7 +12,7 @@ export class UpdateInspectionDto {
   notes?: string;
 
   @IsOptional()
-  @IsEnum(InspectionStatus)
+  @IsEnumSafe(InspectionStatus)
   status?: InspectionStatus;
 }
 

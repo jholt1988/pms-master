@@ -1,8 +1,9 @@
-import { IsBoolean, IsEnum, IsInt, IsISO8601, IsNumber, IsOptional, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsISO8601, IsNumber, IsOptional, MaxLength, Min } from 'class-validator';
 import { LeaseStatus, LeaseTerminationParty } from '@prisma/client';
+import { IsEnumSafe } from '../../common/validation/is-enum-safe.decorator';
 
 export class UpdateLeaseStatusDto {
-  @IsEnum(LeaseStatus)
+  @IsEnumSafe(LeaseStatus)
   status!: LeaseStatus;
 
   @IsOptional()
@@ -31,7 +32,7 @@ export class UpdateLeaseStatusDto {
   terminationEffectiveAt?: string;
 
   @IsOptional()
-  @IsEnum(LeaseTerminationParty)
+  @IsEnumSafe(LeaseTerminationParty)
   terminationRequestedBy?: LeaseTerminationParty;
 
   @IsOptional()

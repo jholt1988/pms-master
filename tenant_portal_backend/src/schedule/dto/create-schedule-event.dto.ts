@@ -1,4 +1,5 @@
-import { IsString, IsEnum, IsOptional, IsUUID, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsUUID, IsDateString } from 'class-validator';
+import { IsEnumSafe } from '../../common/validation/is-enum-safe.decorator';
 
 export enum EventType {
   TOUR = 'TOUR',
@@ -18,7 +19,7 @@ export enum EventPriority {
 }
 
 export class CreateScheduleEventDto {
-  @IsEnum(EventType)
+  @IsEnumSafe(EventType)
   type!: EventType;
 
   @IsString()
@@ -27,7 +28,7 @@ export class CreateScheduleEventDto {
   @IsDateString()
   date!: string;
 
-  @IsEnum(EventPriority)
+  @IsEnumSafe(EventPriority)
   priority!: EventPriority;
 
   @IsOptional()

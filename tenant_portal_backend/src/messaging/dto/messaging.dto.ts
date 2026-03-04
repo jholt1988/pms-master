@@ -1,19 +1,7 @@
-import {
-  IsString,
-  IsNotEmpty,
-  IsInt,
-  IsOptional,
-  IsArray,
-  ArrayMinSize,
-  IsEnum,
-  IsDateString,
-  IsObject,
-  ValidateNested,
-  IsPositive,
-  IsUUID,
-} from 'class-validator';
+import { IsString, IsNotEmpty, IsInt, IsOptional, IsArray, ArrayMinSize, IsDateString, IsObject, ValidateNested, IsPositive, IsUUID } from 'class-validator';
 import { Type } from 'class-transformer';
 import { BulkSendStrategy, LeaseStatus, Role } from '@prisma/client';
+import { IsEnumSafe } from '../../common/validation/is-enum-safe.decorator';
 
 export class CreateMessageDto {
   @IsString()
@@ -68,7 +56,7 @@ export class GetMessagesQueryDto {
 export class RecipientFilterDto {
   @IsOptional()
   @IsArray()
-  @IsEnum(Role, { each: true })
+  @IsEnumSafe(Role, { each: true })
   roles?: Role[];
 
   @IsOptional()
@@ -78,7 +66,7 @@ export class RecipientFilterDto {
 
   @IsOptional()
   @IsArray()
-  @IsEnum(LeaseStatus, { each: true })
+  @IsEnumSafe(LeaseStatus, { each: true })
   leaseStatuses?: LeaseStatus[];
 
   @IsOptional()
@@ -110,7 +98,7 @@ export class CreateBulkMessageDto {
   recipientIds?: string[];
 
   @IsOptional()
-  @IsEnum(BulkSendStrategy)
+  @IsEnumSafe(BulkSendStrategy)
   sendStrategy?: BulkSendStrategy = BulkSendStrategy.IMMEDIATE;
 
   @IsOptional()

@@ -1,11 +1,12 @@
-import { IsEnum, IsISO8601, IsOptional, MaxLength } from 'class-validator';
+import { IsISO8601, IsOptional, MaxLength } from 'class-validator';
 import { LeaseNoticeDeliveryMethod, LeaseNoticeType } from '@prisma/client';
+import { IsEnumSafe } from '../../common/validation/is-enum-safe.decorator';
 
 export class RecordLeaseNoticeDto {
-  @IsEnum(LeaseNoticeType)
+  @IsEnumSafe(LeaseNoticeType)
   type!: LeaseNoticeType;
 
-  @IsEnum(LeaseNoticeDeliveryMethod)
+  @IsEnumSafe(LeaseNoticeDeliveryMethod)
   deliveryMethod!: LeaseNoticeDeliveryMethod;
 
   @IsOptional()

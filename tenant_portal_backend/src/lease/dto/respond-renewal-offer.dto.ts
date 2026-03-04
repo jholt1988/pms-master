@@ -1,4 +1,5 @@
-import { IsEnum, IsOptional, MaxLength } from 'class-validator';
+import { IsOptional, MaxLength } from 'class-validator';
+import { IsEnumSafe } from '../../common/validation/is-enum-safe.decorator';
 
 export enum RenewalDecision {
   ACCEPTED = 'ACCEPTED',
@@ -6,7 +7,7 @@ export enum RenewalDecision {
 }
 
 export class RespondRenewalOfferDto {
-  @IsEnum(RenewalDecision)
+  @IsEnumSafe(RenewalDecision)
   decision!: RenewalDecision;
 
   @IsOptional()

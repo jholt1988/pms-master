@@ -1,4 +1,5 @@
-import { IsEnum, IsInt, IsString, IsOptional, IsBoolean, IsDateString, IsNumber, Min, Max, IsUUID } from 'class-validator';
+import { IsInt, IsString, IsOptional, IsBoolean, IsDateString, IsNumber, Min, Max, IsUUID } from 'class-validator';
+import { IsEnumSafe } from '../../common/validation/is-enum-safe.decorator';
 
 // Enums (simplified)
 export enum InspectionStatus {
@@ -95,7 +96,7 @@ export class CreateChecklistItemDto {
   itemName!: string;
 
   @IsOptional()
-  @IsEnum(InspectionCondition)
+  @IsEnumSafe(InspectionCondition)
   condition?: InspectionCondition;
 
   @IsOptional()
@@ -114,11 +115,11 @@ export class CreateChecklistItemDto {
 
   // Structured action inputs (optional)
   @IsOptional()
-  @IsEnum(SeverityLevel)
+  @IsEnumSafe(SeverityLevel)
   severity?: SeverityLevel;
 
   @IsOptional()
-  @IsEnum(InspectionIssueType)
+  @IsEnumSafe(InspectionIssueType)
   issueType?: InspectionIssueType;
 
   @IsOptional()
@@ -127,7 +128,7 @@ export class CreateChecklistItemDto {
   measurementValue?: number;
 
   @IsOptional()
-  @IsEnum(MeasurementUnit)
+  @IsEnumSafe(MeasurementUnit)
   measurementUnit?: MeasurementUnit;
 
   @IsOptional()
@@ -137,7 +138,7 @@ export class CreateChecklistItemDto {
 
 export class UpdateChecklistItemDto {
   @IsOptional()
-  @IsEnum(InspectionCondition)
+  @IsEnumSafe(InspectionCondition)
   condition?: InspectionCondition;
 
   @IsOptional()
@@ -156,11 +157,11 @@ export class UpdateChecklistItemDto {
 
   // Structured action inputs (optional)
   @IsOptional()
-  @IsEnum(SeverityLevel)
+  @IsEnumSafe(SeverityLevel)
   severity?: SeverityLevel;
 
   @IsOptional()
-  @IsEnum(InspectionIssueType)
+  @IsEnumSafe(InspectionIssueType)
   issueType?: InspectionIssueType;
 
   @IsOptional()
@@ -169,7 +170,7 @@ export class UpdateChecklistItemDto {
   measurementValue?: number;
 
   @IsOptional()
-  @IsEnum(MeasurementUnit)
+  @IsEnumSafe(MeasurementUnit)
   measurementUnit?: MeasurementUnit;
 
   @IsOptional()
@@ -186,15 +187,15 @@ export class UpdateChecklistItemBatchEntryDto {
   requiresAction?: boolean;
 
   @IsOptional()
-  @IsEnum(InspectionCondition)
+  @IsEnumSafe(InspectionCondition)
   condition?: InspectionCondition;
 
   @IsOptional()
-  @IsEnum(SeverityLevel)
+  @IsEnumSafe(SeverityLevel)
   severity?: SeverityLevel;
 
   @IsOptional()
-  @IsEnum(InspectionIssueType)
+  @IsEnumSafe(InspectionIssueType)
   issueType?: InspectionIssueType;
 
   @IsOptional()
@@ -203,7 +204,7 @@ export class UpdateChecklistItemBatchEntryDto {
   measurementValue?: number;
 
   @IsOptional()
-  @IsEnum(MeasurementUnit)
+  @IsEnumSafe(MeasurementUnit)
   measurementUnit?: MeasurementUnit;
 
   @IsOptional()
@@ -281,7 +282,7 @@ export class UpdateInspectionDto {
 }
 
 export class UpdateInspectionStatusDto {
-  @IsEnum(InspectionStatus)
+  @IsEnumSafe(InspectionStatus)
   status!: InspectionStatus;
 }
 

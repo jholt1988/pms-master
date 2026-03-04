@@ -1,5 +1,6 @@
-import { IsEnum, IsInt, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsInt, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import { MaintenancePriority } from '@prisma/client';
+import { IsEnumSafe } from '../../common/validation/is-enum-safe.decorator';
 
 export class CreateMaintenanceRequestDto {
   @IsString()
@@ -10,7 +11,7 @@ export class CreateMaintenanceRequestDto {
   description!: string;
 
   @IsOptional()
-  @IsEnum(MaintenancePriority)
+  @IsEnumSafe(MaintenancePriority)
   priority?: MaintenancePriority;
 
   @IsOptional()

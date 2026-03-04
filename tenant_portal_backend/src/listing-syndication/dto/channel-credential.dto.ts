@@ -1,8 +1,9 @@
-import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsOptional, IsString } from 'class-validator';
 import { SyndicationChannel } from '@prisma/client';
+import { IsEnumSafe } from '../../common/validation/is-enum-safe.decorator';
 
 export class UpsertChannelCredentialDto {
-  @IsEnum(SyndicationChannel)
+  @IsEnumSafe(SyndicationChannel)
   channel: SyndicationChannel;
 
   @IsOptional()

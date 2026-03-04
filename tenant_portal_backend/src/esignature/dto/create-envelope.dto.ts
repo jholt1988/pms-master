@@ -1,6 +1,7 @@
 import { EsignProvider } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsArray, IsEnum, IsOptional, IsString, ValidateNested, IsEmail, IsUUID } from 'class-validator';
+import { IsArray, IsOptional, IsString, ValidateNested, IsEmail, IsUUID } from 'class-validator';
+import { IsEnumSafe } from '../../common/validation/is-enum-safe.decorator';
 
 export class EnvelopeRecipientDto {
   @IsString()
@@ -35,6 +36,6 @@ export class CreateEnvelopeDto {
   recipients!: EnvelopeRecipientDto[];
 
   @IsOptional()
-  @IsEnum(EsignProvider)
+  @IsEnumSafe(EsignProvider)
   provider?: EsignProvider;
 }

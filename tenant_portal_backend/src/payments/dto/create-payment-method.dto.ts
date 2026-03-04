@@ -1,12 +1,13 @@
 import { Type } from 'class-transformer';
-import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsNumber, IsOptional, IsString } from 'class-validator';
 import { PaymentMethodType, PaymentProvider } from '@prisma/client';
+import { IsEnumSafe } from '../../common/validation/is-enum-safe.decorator';
 
 export class CreatePaymentMethodDto {
-  @IsEnum(PaymentMethodType)
+  @IsEnumSafe(PaymentMethodType)
   type!: PaymentMethodType;
 
-  @IsEnum(PaymentProvider)
+  @IsEnumSafe(PaymentProvider)
   provider!: PaymentProvider;
 
   @IsOptional()

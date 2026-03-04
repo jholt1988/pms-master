@@ -1,17 +1,7 @@
 import { Type } from 'class-transformer';
-import {
-  IsBoolean,
-  IsEnum,
-  IsInt,
-  IsISO8601,
-  IsNumber,
-  IsOptional,
-  IsPositive,
-  IsUUID,
-  MaxLength,
-  Min,
-} from 'class-validator';
+import { IsBoolean, IsInt, IsISO8601, IsNumber, IsOptional, IsPositive, IsUUID, MaxLength, Min } from 'class-validator';
 import { LeaseStatus } from '@prisma/client';
+import { IsEnumSafe } from '../../common/validation/is-enum-safe.decorator';
 
 export class CreateLeaseDto {
   @IsISO8601()
@@ -31,7 +21,7 @@ export class CreateLeaseDto {
   unitId!: string;
 
   @IsOptional()
-  @IsEnum(LeaseStatus)
+  @IsEnumSafe(LeaseStatus)
   status?: LeaseStatus;
 
   @IsOptional()
