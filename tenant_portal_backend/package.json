@@ -4,6 +4,7 @@
   "description": "",
   "main": "src/index.ts",
   "scripts": {
+    "dev": "ts-node --transpile-only src/index.ts",
     "start": "ts-node --transpile-only src/index.ts",
     "start:check": "ts-node --transpile-only src/index.ts",
     "seed:check": "ts-node scripts/check-seed-coverage.ts",
@@ -88,6 +89,7 @@
     "stripe": "^19.3.1",
     "swagger-ui-express": "^5.0.1",
     "uuid": "^9.0.1",
+    "winston": "^3.19.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {

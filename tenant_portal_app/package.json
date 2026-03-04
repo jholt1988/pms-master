@@ -28,7 +28,8 @@
     "web-vitals": "^5.1.0"
   },
   "scripts": {
-    "start": "vite ",
+    "dev": "vite",
+    "start": "vite",
     "build": "vite build",
     "msw:init": "msw init public/ --save",
     "msw:setup": "node scripts/setup-msw.js",

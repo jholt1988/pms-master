@@ -4,7 +4,8 @@
   "scripts": {
     "property-os": "pnpm --filter property-os",
     "build": "pnpm -r build",
-    "dev": "pnpm -r dev",
+    "dev": "pnpm -r --parallel --filter tenant_portal_backend --filter tenant_portal_app dev",
+    "dev:workspace": "pnpm -r dev",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
     "bg:workflow": "bash scripts/background-workflow.sh",

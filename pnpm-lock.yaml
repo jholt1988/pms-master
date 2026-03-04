@@ -474,6 +474,9 @@ importers:
       uuid:
         specifier: ^9.0.1
         version: 9.0.1
+      winston:
+        specifier: ^3.19.0
+        version: 3.19.0
       zod:
         specifier: ^3.25.76
         version: 3.25.76
