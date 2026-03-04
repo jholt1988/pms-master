@@ -9,12 +9,13 @@
     "lint": "pnpm -r lint"
   },
   "dependencies": {
+    "@types/node": "^24.11.0",
     "dotenv": "^17.3.1"
   },
   "devDependencies": {
-    "pnpm": "^8.0.0",
-    "typescript": "^5.0.4",
     "eslint": "^8.57.0",
-    "prettier": "^3.2.5"
+    "pnpm": "^8.0.0",
+    "prettier": "^3.2.5",
+    "typescript": "^5.0.4"
   }
 }
