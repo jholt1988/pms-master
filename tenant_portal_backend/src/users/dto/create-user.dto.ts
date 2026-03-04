@@ -1,5 +1,7 @@
-import { IsString, IsNotEmpty, IsEnum, IsOptional, MinLength } from 'class-validator';
-import { Role } from '@prisma/client';
+import { IsString, IsNotEmpty, IsOptional, MinLength, IsIn } from 'class-validator';
+
+const ROLE_VALUES = ['TENANT', 'PROPERTY_MANAGER', 'OWNER', 'ADMIN'] as const;
+type RoleValue = (typeof ROLE_VALUES)[number];
 
 export class CreateUserDto {
   @IsString()
@@ -11,9 +13,9 @@ export class CreateUserDto {
   @MinLength(8)
   password!: string;
 
-  @IsEnum(Role)
+  @IsIn(ROLE_VALUES)
   @IsOptional()
-  role?: Role;
+  role?: RoleValue;
 
   @IsString()
   @IsNotEmpty()
