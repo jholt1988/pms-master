@@ -6,7 +6,9 @@
     "build": "pnpm -r build",
     "dev": "pnpm -r dev",
     "test": "pnpm -r test",
-    "lint": "pnpm -r lint"
+    "lint": "pnpm -r lint",
+    "bg:workflow": "bash scripts/background-workflow.sh",
+    "bg:workflow:quick": "bash scripts/background-workflow.sh --quick"
   },
   "dependencies": {
     "@types/node": "^24.11.0",
