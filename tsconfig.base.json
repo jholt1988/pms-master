@@ -4,6 +4,8 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "lib": ["ES2020", "DOM"],
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
