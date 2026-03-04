@@ -229,9 +229,9 @@ const PaymentsPage: React.FC = () => {
         apiFetch('/payments/history', { token }).catch(() => [])
       ]);
 
-      setInvoices(invoicesData);
-      setPaymentMethods(methodsData);
-      setPaymentHistory(historyData);
+      setInvoices(Array.isArray(invoicesData) ? invoicesData : (Array.isArray((invoicesData as any)?.invoices) ? (invoicesData as any).invoices : []));
+      setPaymentMethods(Array.isArray(methodsData) ? methodsData : (Array.isArray((methodsData as any)?.paymentMethods) ? (methodsData as any).paymentMethods : []));
+      setPaymentHistory(Array.isArray(historyData) ? historyData : (Array.isArray((historyData as any)?.payments) ? (historyData as any).payments : []));
 
       // Fetch Autopay separately as it might 404
       try {
