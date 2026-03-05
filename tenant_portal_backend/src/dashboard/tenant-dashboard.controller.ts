@@ -13,7 +13,7 @@ interface AuthenticatedRequest extends Request {
   };
 }
 
-@Controller('api/tenant')
+@Controller('tenant')
 @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 @Roles('TENANT')
 export class TenantDashboardController {

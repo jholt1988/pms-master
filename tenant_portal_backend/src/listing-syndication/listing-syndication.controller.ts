@@ -9,7 +9,7 @@ import { ListingSyndicationService } from './listing-syndication.service';
 import { SyndicationActionDto } from './dto/syndication-action.dto';
 import { UpsertChannelCredentialDto } from './dto/channel-credential.dto';
 
-@Controller('api/listings/syndication')
+@Controller('listings/syndication')
 @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 @Roles('PROPERTY_MANAGER')
 export class ListingSyndicationController {
