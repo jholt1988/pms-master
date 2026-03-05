@@ -65,9 +65,14 @@ const getPriorityColor = (priority: MaintenanceRequest['priority']) => {
 export default function MaintenanceManagementPage(): React.ReactElement {
   const { token, user } = useAuth();
   const isOwnerView = user?.role === 'OWNER';
+  const isPmAdminView = user?.role === 'PROPERTY_MANAGER' || user?.role === 'ADMIN';
   const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | undefined>(undefined);
+  const [diagnostics, setDiagnostics] = useState<any | null>(null);
+  const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
+  const [featureData, setFeatureData] = useState<any | null>(null);
+  const [featureLoading, setFeatureLoading] = useState(false);
   const { selectedItem: selectedRequest, showDetail, selectItem: selectRequest, clearSelection } = useMasterDetail<MaintenanceRequest>();
   const viewport = useViewportCategory();
 
@@ -104,14 +109,55 @@ export default function MaintenanceManagementPage(): React.ReactElement {
     clearSelection();
   };
 
+  const fetchDiagnostics = async () => {
+    if (!token) return;
+    setDiagnosticsLoading(true);
+    try {
+      const data = await apiFetch('/maintenance/diagnostics/data-quality', { token });
+      setDiagnostics(data);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to load diagnostics');
+    } finally {
+      setDiagnosticsLoading(false);
+    }
+  };
+
+  const fetchFeatures = async (requestId: number) => {
+    if (!token) return;
+    setFeatureLoading(true);
+    try {
+      const data = await apiFetch(`/maintenance/ai/features/${String(requestId)}`, { token });
+      setFeatureData(data);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to load AI features');
+    } finally {
+      setFeatureLoading(false);
+    }
+  };
+
   const master = (
     <div className="p-4 sm:p-6 w-full">
-      <h1 className="text-2xl sm:text-3xl font-bold mb-6 text-white">Maintenance Requests</h1>
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <h1 className="text-2xl sm:text-3xl font-bold text-white">Maintenance Requests</h1>
+        {isPmAdminView && (
+          <Button size="sm" variant="bordered" onPress={fetchDiagnostics} isLoading={diagnosticsLoading}>
+            Data Quality Diagnostics
+          </Button>
+        )}
+      </div>
       {isOwnerView && (
         <div className="mb-6 rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-xs text-gray-300">
           <span className="font-mono text-neon-blue uppercase tracking-wider">Owner view</span>
           <span className="ml-2">Read-only ticket status. Updates are managed by the property manager.</span>
         </div>
+      )}
+      {diagnostics && (
+        <Card className="mb-4 bg-white/5 border-white/10">
+          <CardBody>
+            <p className="text-sm font-medium text-white mb-2">Diagnostics Snapshot</p>
+            <pre className="text-xs text-gray-300 overflow-auto max-h-48">{JSON.stringify(diagnostics, null, 2)}</pre>
+          </CardBody>
+        </Card>
       )}
       {loading ? (
         <div className="flex items-center justify-center py-12">
@@ -166,7 +212,19 @@ export default function MaintenanceManagementPage(): React.ReactElement {
             </CardHeader>
             <CardBody>
               <p>{selectedRequest.description}</p>
-              {/* Add more details and actions here */}
+              {isPmAdminView && (
+                <div className="mt-4">
+                  <Button size="sm" variant="bordered" onPress={() => fetchFeatures(selectedRequest.id)} isLoading={featureLoading}>
+                    View AI Features
+                  </Button>
+                </div>
+              )}
+              {featureData && (
+                <div className="mt-4">
+                  <p className="text-sm font-medium text-white mb-2">AI Features</p>
+                  <pre className="text-xs text-gray-300 overflow-auto max-h-56">{JSON.stringify(featureData, null, 2)}</pre>
+                </div>
+              )}
             </CardBody>
           </Card>
         </>
