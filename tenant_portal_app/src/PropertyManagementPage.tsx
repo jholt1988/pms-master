@@ -260,9 +260,15 @@ const PropertyManagementPage: React.FC = () => {
     setErrorMessage(null);
     try {
       const data = await apiFetch('/properties', { token });
-      // Handle both array and object formats
-      const properties = Array.isArray(data) ? data : (data?.data ?? data ?? []);
-      setProperties(properties);
+      // Handle common response envelopes safely
+      const normalizedProperties = Array.isArray(data)
+        ? data
+        : Array.isArray((data as any)?.data)
+          ? (data as any).data
+          : Array.isArray((data as any)?.items)
+            ? (data as any).items
+            : [];
+      setProperties(normalizedProperties as Property[]);
     } catch (error) {
       console.error('fetchProperties', error);
       setErrorMessage('Unable to load properties right now.');

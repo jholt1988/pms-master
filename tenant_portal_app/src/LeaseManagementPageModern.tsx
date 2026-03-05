@@ -53,9 +53,15 @@ const LeaseManagementPageModern = () => {
     try {
       const data = await apiFetch('/leases', { token });
       console.log('Leases data received:', data);
-      // Handle both { data: [...] } and [...] formats
-      const leases = Array.isArray(data) ? data : (data?.data ?? data ?? []);
-      setLeases(leases);
+      // Handle common response envelopes safely
+      const normalizedLeases = Array.isArray(data)
+        ? data
+        : Array.isArray((data as any)?.data)
+          ? (data as any).data
+          : Array.isArray((data as any)?.items)
+            ? (data as any).items
+            : [];
+      setLeases(normalizedLeases as Lease[]);
     } catch (err: any) {
       console.error('Error fetching leases:', err);
       setError(err.message ?? 'Failed to load leases');
