@@ -77,9 +77,15 @@ export default function MaintenanceManagementPage(): React.ReactElement {
     try {
       const data = await apiFetch('/maintenance', { token: token || undefined });
       console.log('Maintenance data received:', data);
-      // Handle both { data: [...] } and [...] formats
-      const requests = Array.isArray(data) ? data : (data?.data || data || []);
-      setRequests(requests);
+      // Handle common response envelopes safely
+      const normalizedRequests = Array.isArray(data)
+        ? data
+        : Array.isArray((data as any)?.data)
+          ? (data as any).data
+          : Array.isArray((data as any)?.items)
+            ? (data as any).items
+            : [];
+      setRequests(normalizedRequests as MaintenanceRequest[]);
     } catch (err: unknown) {
       console.error('Error fetching maintenance requests:', err);
       setRequests([]);

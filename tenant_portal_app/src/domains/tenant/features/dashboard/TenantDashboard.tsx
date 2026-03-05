@@ -159,6 +159,39 @@ const getActivityColor = (type: string) => {
   }
 };
 
+const normalizeDashboardData = (raw: Partial<DashboardData> | null | undefined): DashboardData => ({
+  nextRentPayment: raw?.nextRentPayment,
+  maintenanceRequests: {
+    total: raw?.maintenanceRequests?.total ?? 0,
+    pending: raw?.maintenanceRequests?.pending ?? 0,
+    inProgress: raw?.maintenanceRequests?.inProgress ?? 0,
+    completed: raw?.maintenanceRequests?.completed ?? 0,
+    urgent: raw?.maintenanceRequests?.urgent ?? 0,
+  },
+  lease: raw?.lease,
+  recentActivity: raw?.recentActivity ?? [],
+  paymentHistory: raw?.paymentHistory
+    ? {
+        totalPaid: raw.paymentHistory.totalPaid ?? 0,
+        lastPaymentDate: raw.paymentHistory.lastPaymentDate,
+        nextPaymentDate: raw.paymentHistory.nextPaymentDate,
+        paymentMethods: raw.paymentHistory.paymentMethods ?? 0,
+      }
+    : undefined,
+  messages: raw?.messages
+    ? {
+        unread: raw.messages.unread ?? 0,
+        recent: raw.messages.recent ?? [],
+      }
+    : undefined,
+  documents: raw?.documents
+    ? {
+        pending: raw.documents.pending ?? 0,
+        recent: raw.documents.recent ?? [],
+      }
+    : undefined,
+});
+
 export const TenantDashboard: React.FC = () => {
   const { token, user } = useAuth();
   const navigate = useNavigate();
@@ -179,7 +212,7 @@ export const TenantDashboard: React.FC = () => {
       try {
         // Try to fetch from API endpoint
         const response = await apiFetch('/tenant/dashboard', { token });
-        setData(response);
+        setData(normalizeDashboardData(response));
       } catch (err: any) {
         const isFallbackCase = err.message?.includes('404') || err.message?.includes('Request cancelled');
         if (!isFallbackCase) {
