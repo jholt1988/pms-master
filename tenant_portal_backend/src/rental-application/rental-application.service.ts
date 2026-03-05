@@ -669,9 +669,7 @@ export class RentalApplicationService {
       },
     });
 
-    // --- Blocked by database migration ---
-    // Once the migration is complete, uncomment this section to persist the review.
-    /*
+    // Persist review data
     await this.prisma.rentalApplication.update({
       where: { id: applicationId },
       data: {
@@ -680,7 +678,6 @@ export class RentalApplicationService {
         ai_reviewed_at: new Date(),
       },
     });
-    */
 
     return review;
   }
