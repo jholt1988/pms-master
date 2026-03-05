@@ -606,7 +606,7 @@ export class EstimateService {
     estimates: RepairEstimate[];
     total: number;
   }> {
-    const inspectionId = query.inspectionId ? String(query.inspectionId) : undefined;
+    const inspectionId = query.inspectionId !== undefined ? Number(query.inspectionId) : undefined;
     const maintenanceRequestId = query.maintenanceRequestId
       ? this.parseUuidId(query.maintenanceRequestId, 'maintenance request')
       : undefined;

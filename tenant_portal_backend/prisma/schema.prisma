@@ -2077,6 +2077,53 @@ model AgentToolCall {
   @@index([toolName, createdAt])
 }
 
+model ModelAccessTrace {
+  id            String   @id @default(uuid()) @db.Uuid
+  traceId       String
+  requestId     String?
+  operation     String
+  result        String
+  orgId         String?  @db.Uuid
+  tenantId      String?  @db.Uuid
+  actorUserId   String?  @db.Uuid
+  actorRole     String?
+  module        String
+  action        String
+  entityType    String
+  entityId      String?
+  modelProvider String?
+  modelName     String?
+  modelVersion  String?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+
+  @@index([traceId, createdAt])
+  @@index([orgId, createdAt])
+  @@index([tenantId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([operation, result, createdAt])
+}
+
+model MilAuditEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  traceId    String?
+  orgId      String?  @db.Uuid
+  actorId    String?  @db.Uuid
+  module     String
+  action     String
+  entityType String
+  entityId   String?
+  result     String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([traceId, createdAt])
+  @@index([orgId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([module, action, createdAt])
+  @@index([result, createdAt])
+}
+
 enum CommunicationChannel {
   UI
   SMS

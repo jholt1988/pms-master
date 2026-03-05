@@ -430,7 +430,7 @@ function LeaseManagementPage(): React.ReactElement {
         const [data, usersResponse, properties] = await Promise.all([
           apiFetch('/leases', { token }) as Promise<Lease[]>,
           apiFetch('/users?role=TENANT&take=200', { token }) as Promise<{ data?: AssignTenantOption[] }>,
-          apiFetch('/properties', { token }) as Promise<Array<{ id: string; name: string; units?: Array<{ id: string; name: string }> }> ,
+          apiFetch('/properties', { token }) as Promise<Array<{ id: string; name: string; units?: Array<{ id: string; name: string }> }>>, 
         ]);
         if (!cancelled) {
           setLeases(data);

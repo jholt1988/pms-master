@@ -185,7 +185,6 @@ export class QuickBooksController {
         metadata: {
           syncedItems: result.syncedItems,
           message: result.message,
-          errors: result.errors,
         },
       });
 

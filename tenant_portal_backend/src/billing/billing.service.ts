@@ -520,10 +520,10 @@ export class BillingService {
       success: true,
       userId: actor.userId,
       username: actor.username,
-      metadata: { leaseId: leaseIdNum, action: 'DEACTIVATE_SCHEDULE' },
+      metadata: { leaseId: leaseIdStr, action: 'DEACTIVATE_SCHEDULE' },
     });
 
-    return { leaseId: leaseIdNum, active: false };
+    return { leaseId: leaseIdStr, active: false };
   }
 
   async getAutopayForTenant(userId: string) {

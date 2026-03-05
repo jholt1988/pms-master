@@ -1,0 +1,38 @@
+
+> tenant_portal_backend@1.0.0 ml:readiness
+> ts-node scripts/ml-data-readiness-audit.ts
+
+
+ML Data-Readiness Audit (2026-03-05T06:50:51.093Z)
+Overall score: 20.8%
+
+Inspection MIL coverage: 12.5% (population 7)
+  - Completed inspections: 0.0% (0/7)
+  - Completed inspections linked to lease: 0.0% (0/0)
+  - Completed inspections with completedDate: 0.0% (0/0)
+  - Completed inspections with >=1 room: 0.0% (0/0)
+  - Completed inspections with >=1 checklist item: 0.0% (0/0)
+  - Checklist items with condition label: 100.0% (42/42)
+  - Checklist items with photo evidence: 0.0% (0/42)
+  - Completed inspections with signatures: 0.0% (0/0)
+
+Maintenance survival coverage: 37.5% (population 60)
+  - Requests with priority: 100.0% (60/60)
+  - Requests with createdAt timestamp: 100.0% (60/60)
+  - Closed requests with completedAt timestamp: 100.0% (12/12)
+  - Requests linked to asset: 0.0% (0/60)
+  - Requests with SLA policy: 0.0% (0/60)
+  - Requests with state-change history: 0.0% (0/60)
+  - Requests with photo evidence: 0.0% (0/60)
+  - Assets with installDate: 0.0% (0/4)
+
+Payment NBA coverage: 12.5% (population 0)
+  - Invoices with dueDate: 0.0% (0/0)
+  - Invoices linked to lease: 0.0% (0/0)
+  - Invoices with status: 0.0% (0/0)
+  - Payments with status: 100.0% (72/72)
+  - Payments linked to invoice: 0.0% (0/72)
+  - Payments with payment method: 0.0% (0/72)
+  - Invoices with payment attempt records: 0.0% (0/0)
+  - Attempts with terminal status timestamp: 0.0% (0/0)
+

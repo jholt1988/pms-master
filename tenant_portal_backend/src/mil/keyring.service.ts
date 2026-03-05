@@ -1,18 +1,23 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-// This service would be adapted from 'pms-master/security/mil/src/persistence/tenant_keyring.ts'
-// It will manage fetching and rotating tenant-specific encryption keys.
+import { createHash, createHmac } from 'crypto';
+import { MilKeyMaterial } from './mil-envelope.types';
 
 @Injectable()
 export class KeyringService {
-  constructor(private prisma: PrismaService) {}
+  // Phase 0: deterministic tenant key derivation from master secret.
+  // Future phase: replace with DB-backed tenant key versions + rotation lifecycle.
+  getActiveKey(tenantId: string): MilKeyMaterial {
+    const master = process.env.MIL_MASTER_KEY || process.env.JWT_SECRET || 'dev-only-change-me';
+    const version = process.env.MIL_KEY_VERSION || 'v1';
+    const keyId = `${tenantId}:${version}`;
 
-  async getActiveKey(tenantId: string): Promise<string> {
-    // In a real implementation, this would query the 'TenantKeyring' table
-    // created by the MIL migrations and handle key rotation.
-    console.log(`Fetching active encryption key for tenant: ${tenantId}`);
-    
-    // For now, return a mock key.
-    return `mock-key-for-tenant-${tenantId}`;
+    const derived = createHmac('sha256', master)
+      .update(`mil:${tenantId}:${version}`)
+      .digest();
+
+    // AES-256 key must be 32 bytes.
+    const key = createHash('sha256').update(derived).digest();
+
+    return { keyId, key };
   }
 }

@@ -32,14 +32,6 @@ export class RentalApplicationService {
     }
     const acceptanceTimestamp = new Date();
     const unitId = String(data.unitId);
-    const references = this.buildReferences(data.references);
-    const pastLandlords = this.buildPastLandlords(data.pastLandlords);
-    const employments = this.buildEmployments(data.employments);
-    const additionalIncomes = this.buildAdditionalIncomes(data.additionalIncomes);
-    const pets = this.buildPets(data.pets);
-    const vehicles = this.buildVehicles(data.vehicles);
-    const negativeAspects = this.normalizeString(data.negativeAspectsExplanation);
-
     const application = await this.prisma.rentalApplication.create({
       data: {
         property: { connect: { id: propertyId } },
@@ -50,26 +42,15 @@ export class RentalApplicationService {
         phoneNumber: data.phoneNumber,
         income: data.income,
         previousAddress: data.previousAddress,
+        employmentStatus: data.employments?.[0]?.employmentType ?? 'UNSPECIFIED',
         creditScore: data.creditScore,
         monthlyDebt: data.monthlyDebt,
-        authorizeCreditCheck: data.authorizeCreditCheck,
-        authorizeBackgroundCheck: data.authorizeBackgroundCheck,
-        authorizeEmploymentVerification: data.authorizeEmploymentVerification,
-        negativeAspectsExplanation: negativeAspects,
-        ssCardUploaded: data.ssCardUploaded,
-        dlIdUploaded: data.dlIdUploaded,
         bankruptcyFiledYear: data.bankruptcyFiledYear,
         rentalHistoryComments: data.rentalHistoryComments,
         termsAcceptedAt: acceptanceTimestamp,
         termsVersion: data.termsVersion,
         privacyAcceptedAt: acceptanceTimestamp,
         privacyVersion: data.privacyVersion,
-        references: { create: references },
-        pastLandlords: { create: pastLandlords },
-        employments: { create: employments },
-        additionalIncomes: { create: additionalIncomes },
-        pets: { create: pets },
-        vehicles: { create: vehicles },
         status: ApplicationStatus.PENDING,
       },
     });
@@ -138,12 +119,6 @@ export class RentalApplicationService {
         applicant: true,
         property: true,
         unit: true,
-        references: true,
-        pastLandlords: true,
-        employments: true,
-        additionalIncomes: true,
-        pets: true,
-        vehicles: true,
         manualNotes: { include: { author: true }, orderBy: { createdAt: 'desc' } },
       },
       orderBy: { createdAt: 'desc' },
@@ -156,12 +131,6 @@ export class RentalApplicationService {
       include: {
         property: true,
         unit: true,
-        references: true,
-        pastLandlords: true,
-        employments: true,
-        additionalIncomes: true,
-        pets: true,
-        vehicles: true,
         manualNotes: true,
       },
       orderBy: { createdAt: 'desc' },
@@ -175,12 +144,6 @@ export class RentalApplicationService {
         applicant: true,
         property: true,
         unit: true,
-        references: true,
-        pastLandlords: true,
-        employments: true,
-        additionalIncomes: true,
-        pets: true,
-        vehicles: true,
         manualNotes: { include: { author: true }, orderBy: { createdAt: 'desc' } },
       },
     });

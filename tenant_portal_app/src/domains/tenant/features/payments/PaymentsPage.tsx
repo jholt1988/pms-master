@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { PageHeader } from '../../../../components/ui/PageHeader';
+import { DegradedStateCard } from '../../../../components/ui/DegradedStateCard';
 import { apiFetch } from '../../../../services/apiClient';
 import { useAuth } from '../../../../AuthContext';
 import { loadStripe } from '@stripe/stripe-js';
@@ -218,11 +219,13 @@ const PaymentsPage: React.FC = () => {
   const [selectedMethodId, setSelectedMethodId] = useState<string>('');
 
   const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const fetchData = async () => {
     if (!token) return;
     try {
       setIsLoading(true);
+      setFetchError(null);
       const [invoicesData, methodsData, historyData] = await Promise.all([
         apiFetch('/payments/invoices', { token }).catch(() => []),
         apiFetch('/payments/payment-methods', { token }).catch(() => []),
@@ -255,6 +258,7 @@ const PaymentsPage: React.FC = () => {
 
     } catch (err) {
       console.error('Failed to fetch payment data', err);
+      setFetchError(err instanceof Error ? err.message : 'Unable to load payment data right now.');
     } finally {
       setIsLoading(false);
     }
@@ -348,6 +352,15 @@ const PaymentsPage: React.FC = () => {
         title="Payments & Billing"
         subtitle="Manage your invoices, payment methods, and billing history"
       />
+
+      {fetchError && (
+        <DegradedStateCard
+          title="Billing data is temporarily unavailable"
+          message={fetchError}
+          onRetry={fetchData}
+          supportHint="You can still use saved payment methods and retry invoice/history refresh from this page."
+        />
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

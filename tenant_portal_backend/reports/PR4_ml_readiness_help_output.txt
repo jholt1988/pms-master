@@ -1,0 +1,11 @@
+
+> tenant_portal_backend@1.0.0 ml:readiness:help
+> ts-node scripts/ml-data-readiness-audit.ts --help
+
+Usage:
+  ts-node scripts/ml-data-readiness-audit.ts [--json] [--out <markdown-file>]
+
+Examples:
+  ts-node scripts/ml-data-readiness-audit.ts
+  ts-node scripts/ml-data-readiness-audit.ts --json
+  ts-node scripts/ml-data-readiness-audit.ts --out reports/ml-data-readiness-latest.md

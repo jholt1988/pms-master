@@ -2,28 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import OpenAI from 'openai';
-
-interface PaymentRiskAssessment {
-  riskScore: number; // 0-100, higher = more risk
-  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-  failureProbability: number; // 0-1
-  factors: string[];
-  recommendedActions: string[];
-  optimalRetryTime?: Date;
-  suggestPaymentPlan: boolean;
-  paymentPlanSuggestion?: {
-    installments: number;
-    amountPerInstallment: number;
-    totalAmount: number;
-  };
-}
-
-interface PaymentReminderTiming {
-  optimalTime: Date;
-  channel: 'EMAIL' | 'SMS' | 'PUSH';
-  urgency: 'LOW' | 'MEDIUM' | 'HIGH';
-  personalizedMessage?: string;
-}
+import {
+  defaultAIPaymentGuardrailPolicy,
+  PaymentReminderTimingResult,
+  PaymentRiskAssessmentResult,
+} from './ai';
 
 @Injectable()
 export class AIPaymentService {
@@ -73,7 +56,7 @@ export class AIPaymentService {
   async assessPaymentRisk(
     userId: string,
     invoiceId: number,
-  ): Promise<PaymentRiskAssessment> {
+  ): Promise<PaymentRiskAssessmentResult> {
     // Get user payment history
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -311,7 +294,7 @@ export class AIPaymentService {
   async determineReminderTiming(
     userId: string,
     invoiceId: number,
-  ): Promise<PaymentReminderTiming> {
+  ): Promise<PaymentReminderTimingResult> {
     const user = await this.prisma.user.findUnique({
         where: { id: userId },
       include: {
@@ -368,20 +351,52 @@ export class AIPaymentService {
     }
 
     // Calculate optimal time (2-3 days before due date, at user's preferred hour)
-    const optimalTime = new Date(invoice.dueDate);
-    optimalTime.setDate(optimalTime.getDate() - 2);
-    optimalTime.setHours(avgHour, 0, 0, 0);
+    const proposedOptimalTime = new Date(invoice.dueDate);
+    proposedOptimalTime.setDate(proposedOptimalTime.getDate() - 2);
+    proposedOptimalTime.setHours(avgHour, 0, 0, 0);
 
     // If optimal time is in the past, use tomorrow
-    if (optimalTime < new Date()) {
-      optimalTime.setDate(optimalTime.getDate() + 1);
+    if (proposedOptimalTime < new Date()) {
+      proposedOptimalTime.setDate(proposedOptimalTime.getDate() + 1);
     }
+
+    const guardrailContext = await this.getReminderGuardrailContext(userId);
+    const timingGuardrailDecision = defaultAIPaymentGuardrailPolicy.evaluate({
+      userId,
+      invoiceId: Number(invoice?.id ?? invoiceId),
+      operation: 'REMINDER_TIMING',
+      metadata: {
+        channel,
+        proposedSendTime: proposedOptimalTime,
+        quietHoursStart: guardrailContext.quietHoursStart,
+        quietHoursEnd: guardrailContext.quietHoursEnd,
+        reminderCount24h: guardrailContext.reminderCount24h,
+        maxReminders24h: guardrailContext.maxReminders24h,
+        consent: guardrailContext.consent,
+      },
+    });
+
+    let optimalTime = timingGuardrailDecision.adjustedSendTime ?? proposedOptimalTime;
+    if (optimalTime < new Date()) {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(optimalTime.getHours(), optimalTime.getMinutes(), 0, 0);
+      optimalTime = tomorrow;
+    }
+
+    channel = timingGuardrailDecision.adjustedChannel ?? channel;
 
     // Generate personalized message if AI is enabled
     let personalizedMessage: string | undefined;
-    if (this.openai && this.aiEnabled) {
+    if (this.openai && this.aiEnabled && timingGuardrailDecision.allow) {
       try {
-        personalizedMessage = await this.generatePersonalizedMessage(userId, invoice, urgency);
+        personalizedMessage = await this.generatePersonalizedMessage(
+          userId,
+          invoice,
+          urgency,
+          channel,
+          guardrailContext,
+        );
       } catch (error) {
         this.logger.warn('Failed to generate personalized message', error);
       }
@@ -402,6 +417,20 @@ export class AIPaymentService {
     userId: string,
     invoice: any,
     urgency: 'LOW' | 'MEDIUM' | 'HIGH',
+    channel: 'EMAIL' | 'SMS' | 'PUSH',
+    guardrailContext: {
+      quietHoursStart?: string | null;
+      quietHoursEnd?: string | null;
+      reminderCount24h: number;
+      maxReminders24h: number;
+      consent: {
+        emailEnabled?: boolean;
+        smsEnabled?: boolean;
+        pushEnabled?: boolean;
+        paymentDueTypeEnabled?: boolean;
+        aiPersonalizationEnabled?: boolean;
+      };
+    },
   ): Promise<string> {
     const dueDateString = invoice?.dueDate
       ? new Date(invoice.dueDate).toLocaleDateString()
@@ -409,6 +438,28 @@ export class AIPaymentService {
     const baseMessage = `Reminder: Your payment of $${Number(invoice.amount ?? 0).toFixed(2)} is due on ${dueDateString}`;
 
     if (!this.openai || !this.aiEnabled) {
+      return baseMessage;
+    }
+
+    const guardrailDecision = defaultAIPaymentGuardrailPolicy.evaluate({
+      userId,
+      invoiceId: Number(invoice?.id ?? 0),
+      operation: 'PERSONALIZED_MESSAGE',
+      metadata: {
+        urgency,
+        channel,
+        quietHoursStart: guardrailContext.quietHoursStart,
+        quietHoursEnd: guardrailContext.quietHoursEnd,
+        reminderCount24h: guardrailContext.reminderCount24h,
+        maxReminders24h: guardrailContext.maxReminders24h,
+        consent: guardrailContext.consent,
+      },
+    });
+
+    if (!guardrailDecision.allow) {
+      this.logger.warn(
+        `AI payment message blocked by guardrail policy (${guardrailDecision.policyVersion}): ${guardrailDecision.reason}`,
+      );
       return baseMessage;
     }
 
@@ -444,6 +495,52 @@ Keep it brief (1-2 sentences), professional, and friendly. Don't be pushy.`;
       this.logger.error('Failed to generate personalized message', error);
       return baseMessage;
     }
+  }
+
+  private async getReminderGuardrailContext(userId: string): Promise<{
+    quietHoursStart?: string | null;
+    quietHoursEnd?: string | null;
+    reminderCount24h: number;
+    maxReminders24h: number;
+    consent: {
+      emailEnabled?: boolean;
+      smsEnabled?: boolean;
+      pushEnabled?: boolean;
+      paymentDueTypeEnabled?: boolean;
+      aiPersonalizationEnabled?: boolean;
+    };
+  }> {
+    const [preferences, reminderCount24h] = await Promise.all([
+      this.prisma.notificationPreference.findUnique({ where: { userId } }),
+      this.prisma.notification.count({
+        where: {
+          userId,
+          type: 'PAYMENT_DUE',
+          createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+        },
+      }),
+    ]);
+
+    const notificationTypes =
+      preferences?.notificationTypes && typeof preferences.notificationTypes === 'object'
+        ? (preferences.notificationTypes as Record<string, boolean>)
+        : null;
+
+    const paymentDueTypeEnabled = notificationTypes?.PAYMENT_DUE ?? true;
+
+    return {
+      quietHoursStart: preferences?.quietHoursStart,
+      quietHoursEnd: preferences?.quietHoursEnd,
+      reminderCount24h,
+      maxReminders24h: Number(this.configService.get<string>('AI_PAYMENT_REMINDER_MAX_24H', '3')),
+      consent: {
+        emailEnabled: preferences?.emailEnabled,
+        smsEnabled: preferences?.smsEnabled,
+        pushEnabled: preferences?.pushEnabled,
+        paymentDueTypeEnabled,
+        aiPersonalizationEnabled: this.configService.get<string>('AI_PAYMENT_PERSONALIZATION_ENABLED', 'true') !== 'false',
+      },
+    };
   }
 }
 

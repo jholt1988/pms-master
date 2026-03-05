@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, Request, UseGuards, Put } from '@nestjs/common';
+import { isUUID } from 'class-validator';
 import { AuthGuard } from '@nestjs/passport';
 import { MaintenanceService } from './maintenance.service';
 import { AIMaintenanceMetricsService } from './ai-maintenance-metrics.service';
@@ -16,6 +17,8 @@ import { ErrorCode } from '../common/errors/error-codes.enum';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { AuditLogService } from '../shared/audit-log.service';
+import { MaintenanceFeatureExtractionService } from './ai/maintenance-feature-extraction.service';
+import { MaintenanceDataQualityService } from './ai/maintenance-data-quality.service';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -34,6 +37,8 @@ export class MaintenanceController {
     private readonly maintenanceService: MaintenanceService,
     private readonly aiMetrics: AIMaintenanceMetricsService,
     private readonly auditLogService: AuditLogService,
+    private readonly featureExtractionService: MaintenanceFeatureExtractionService,
+    private readonly dataQualityService: MaintenanceDataQualityService,
   ) {}
 
   @Get()
@@ -55,6 +60,32 @@ export class MaintenanceController {
   @Roles('PROPERTY_MANAGER', 'ADMIN')
   async getAIMetrics() {
     return this.aiMetrics.getMetrics();
+  }
+
+  @Get('diagnostics/data-quality')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async getDataQualityDiagnostics() {
+    return this.dataQualityService.getReport();
+  }
+
+  @Get('ai/features/:id')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async getMaintenanceFeatures(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const request = await this.maintenanceService.findById(id);
+
+    const orgId = (req as any).org?.orgId as string | undefined;
+    if (!orgId || request.property?.organizationId !== orgId) {
+      throw ApiException.forbidden(
+        ErrorCode.AUTH_FORBIDDEN,
+        'You do not have access to this maintenance request',
+        { userId: req.user.userId, requestId: id, orgId },
+      );
+    }
+
+    return this.featureExtractionService.extractFeatures(request as any);
   }
 
   @Get(':id')
@@ -309,7 +340,7 @@ export class MaintenanceController {
     @Query('unitId') unitId?: string,
     @OrgId() orgId?: string,
   ) {
-    const parsedUnitId = this.parseOptionalNumber(unitId, 'unitId');
+    const parsedUnitId = this.parseOptionalUuid(unitId, 'unitId');
     return this.maintenanceService.listAssets(propertyId, parsedUnitId, orgId);
   }
 
@@ -356,7 +387,7 @@ export class MaintenanceController {
       filters.propertyId = propertyId;
     }
 
-    const unitId = this.parseOptionalNumber(query.unitId, 'unitId');
+    const unitId = this.parseOptionalUuid(query.unitId, 'unitId');
     if (unitId !== undefined) {
       filters.unitId = unitId;
     }
@@ -440,6 +471,21 @@ export class MaintenanceController {
       `Invalid boolean value: ${value}`,
       { value },
     );
+  }
+
+  private parseOptionalUuid(value: string | undefined, field: string): string | undefined {
+    if (value === undefined || value === '') {
+      return undefined;
+    }
+    const normalized = value.trim();
+    if (!isUUID(normalized)) {
+      throw ApiException.badRequest(
+        ErrorCode.VALIDATION_INVALID_FORMAT,
+        `Invalid ${field} value: ${value}`,
+        { field, value },
+      );
+    }
+    return normalized;
   }
 
   private parseOptionalNumber(

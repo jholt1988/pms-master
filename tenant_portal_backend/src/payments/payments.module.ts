@@ -11,6 +11,7 @@ import { StripeService } from './stripe.service';
 import { EmailModule } from '../email/email.module';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { AuditLogService } from '../shared/audit-log.service';
+import { PaymentStrategyRegistry } from './ai/payment-strategy.registry';
 
 @Module({
   imports: [PrismaModule, ConfigModule, EmailModule],
@@ -23,6 +24,7 @@ import { AuditLogService } from '../shared/audit-log.service';
     StripeService,
     OrgContextGuard,
     AuditLogService,
+    PaymentStrategyRegistry,
   ],
   exports: [
     PaymentsService,
@@ -30,6 +32,7 @@ import { AuditLogService } from '../shared/audit-log.service';
     AIPaymentService,
     AIPaymentMetricsService,
     StripeService,
+    PaymentStrategyRegistry,
   ],
 })
 export class PaymentsModule { }

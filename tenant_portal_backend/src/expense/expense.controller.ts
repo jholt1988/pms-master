@@ -3,7 +3,7 @@ import { Controller, Get, Post, Body, UseGuards, Request, Param, Put, Delete, Qu
 import { AuthGuard } from '@nestjs/passport';
 import { ExpenseService } from './expense.service';
 import { Roles } from '../auth/roles.decorator';
-import { ExpenseCategory } from '@prisma/client';
+import { ExpenseCategory, Role } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';

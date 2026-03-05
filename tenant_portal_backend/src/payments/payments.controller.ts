@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, UseGuards, Request, Query, Param, Optional
 import { AuthGuard } from '@nestjs/passport';
 import { PaymentsService } from './payments.service';
 import { AIPaymentMetricsService } from './ai-payment-metrics.service';
-import { Invoice, Payment } from '@prisma/client';
+import { Invoice, Payment, Role } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';

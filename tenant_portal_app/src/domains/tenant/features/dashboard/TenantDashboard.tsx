@@ -40,6 +40,7 @@ import { GlassCard } from '../../../../components/ui/GlassCard';
 import { StatusBadge } from '../../../../components/ui/StatusBadge';
 import { LoadingState } from '../../../../components/ui/LoadingState';
 import { EmptyState } from '../../../../components/ui/EmptyState';
+import { DegradedStateCard } from '../../../../components/ui/DegradedStateCard';
 import { apiFetch } from '../../../../services/apiClient';
 
 interface DashboardData {
@@ -272,19 +273,16 @@ export const TenantDashboard: React.FC = () => {
 
   if (error) {
     return (
-      <div className="p-6">
+      <div className="p-6 space-y-4">
         <PageHeader
           title="Dashboard"
           subtitle="Welcome back!"
         />
-        <EmptyState
-          title="Unable to Load Dashboard"
+        <DegradedStateCard
+          title="Dashboard is temporarily unavailable"
           message={error}
-          action={{
-            label: "Retry",
-            onClick: () => window.location.reload(),
-            color: "primary"
-          }}
+          onRetry={() => window.location.reload()}
+          supportHint="You can still open Maintenance, Payments, Messaging, and Lease pages from navigation while we retry this feed."
         />
       </div>
     );

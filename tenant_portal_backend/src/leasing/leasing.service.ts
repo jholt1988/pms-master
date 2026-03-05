@@ -159,7 +159,12 @@ export class LeasingService {
       };
 
       if (where.OR && Array.isArray(where.OR)) {
-        where.AND = [...(where.AND ?? []), searchClause];
+        const andConditions = Array.isArray(where.AND)
+          ? where.AND
+          : where.AND
+            ? [where.AND]
+            : [];
+        where.AND = [...andConditions, searchClause];
       } else {
         Object.assign(where, searchClause);
       }

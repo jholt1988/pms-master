@@ -13,7 +13,7 @@ import { LeasingService } from '../leasing/leasing.service';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { Roles } from '../auth/roles.decorator';
-import { LeadStatus } from '@prisma/client';
+import { LeadStatus, Role } from '@prisma/client';
 
 interface AuthenticatedRequest {
   user: {

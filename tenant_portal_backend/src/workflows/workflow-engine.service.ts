@@ -61,16 +61,18 @@ export class WorkflowEngineService {
   ) {
     this.registerDefaultWorkflows();
     // Clear expired cache entries periodically
-    if (this.workflowCache) {
-      setInterval(() => {
+    if (this.workflowCache && typeof (this.workflowCache as any).clearExpiredEntries === 'function') {
+      const cacheCleanupTimer = setInterval(() => {
         this.workflowCache!.clearExpiredEntries();
       }, 60000); // Every minute
+      cacheCleanupTimer.unref?.();
     }
     // Clear expired rate limit entries periodically
-    if (this.rateLimiter) {
-      setInterval(() => {
+    if (this.rateLimiter && typeof (this.rateLimiter as any).clearExpiredEntries === 'function') {
+      const rateLimitCleanupTimer = setInterval(() => {
         this.rateLimiter!.clearExpiredEntries();
       }, 60000); // Every minute
+      rateLimitCleanupTimer.unref?.();
     }
   }
 
@@ -545,11 +547,10 @@ export class WorkflowEngineService {
   ): Promise<any> {
     this.logger.log(`Executing ASSIGN_TECHNICIAN step: ${step.id}`);
     
-    const requestId = this.toNumericId(
+    const requestId = this.normalizeInputId(
       step.input?.requestId || execution.output?.maintenanceRequestId,
-      'maintenance request',
     );
-    if (requestId === undefined) {
+    if (!requestId) {
       throw new Error('Request ID is required for technician assignment');
     }
 
@@ -608,11 +609,10 @@ export class WorkflowEngineService {
   ): Promise<any> {
     this.logger.log(`Executing ASSIGN_PRIORITY_AI step: ${step.id}`, { correlationId });
 
-    const requestId = this.toNumericId(
+    const requestId = this.normalizeInputId(
       step.input?.requestId || execution.output?.maintenanceRequestId,
-      'maintenance request',
     );
-    if (requestId === undefined) {
+    if (!requestId) {
       throw new WorkflowError(
         WorkflowErrorCode.INVALID_INPUT,
         'Request ID is required for AI priority assignment',

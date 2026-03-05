@@ -9,6 +9,7 @@ import {
   downloadCertificate,
 } from '../../../../services/EsignatureApi';
 import { apiFetch } from '../../../../services/apiClient';
+import { DegradedStateCard } from '../../../../components/ui/DegradedStateCard';
 
 type LeaseStatus =
   | 'DRAFT'
@@ -402,16 +403,33 @@ const MyLeasePage: React.FC = () => {
 
   if (error && !lease) {
     return (
-      <div className="p-4 text-sm text-red-600">
-        {error}
+      <div className="container mx-auto space-y-4 p-4">
+        <header>
+          <h1 className="text-2xl font-semibold text-gray-900">My Lease</h1>
+          <p className="text-sm text-gray-600">Lease details and renewal actions</p>
+        </header>
+        <DegradedStateCard
+          title="Lease details are temporarily unavailable"
+          message={error}
+          onRetry={() => window.location.reload()}
+          supportHint="You can still access Payments, Maintenance, and Messaging from the main navigation while lease data reloads."
+        />
       </div>
     );
   }
 
   if (!lease) {
     return (
-      <div className="p-4 text-sm text-gray-600">
-        We could not find an active lease tied to your account. Please contact your property manager.
+      <div className="container mx-auto space-y-4 p-4">
+        <header>
+          <h1 className="text-2xl font-semibold text-gray-900">My Lease</h1>
+        </header>
+        <DegradedStateCard
+          title="No active lease found"
+          message="We could not find an active lease tied to your account."
+          onRetry={() => window.location.reload()}
+          supportHint="Please contact your property manager if this account should already have an active lease."
+        />
       </div>
     );
   }

@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma, Role, User } from '@prisma/client';
+import { OrgRole, Prisma, Role, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { normalizeEmail } from '../utils/normalizeEmail';
 import { normalizePhone } from '../utils/normalizePhone';
@@ -52,11 +52,18 @@ export class UsersService {
     const user = await this.prisma.user.create({ data });
 
     if (orgId) {
+      const membershipRole: OrgRole =
+        data.role === Role.OWNER
+          ? OrgRole.OWNER
+          : data.role === Role.ADMIN || data.role === Role.PROPERTY_MANAGER
+            ? OrgRole.ADMIN
+            : OrgRole.MEMBER;
+
       await this.prisma.userOrganization.create({
         data: {
           userId: user.id,
           organizationId: orgId,
-          role: data.role as Role,
+          role: membershipRole,
         },
       });
     }

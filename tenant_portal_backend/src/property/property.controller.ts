@@ -18,6 +18,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Role } from '@prisma/client';
 import { PropertyService } from './property.service';
 import { Roles } from '../auth/roles.decorator';
 

@@ -37,12 +37,22 @@ export class ListingSyndicationService {
 
   async upsertChannelCredential(dto: UpsertChannelCredentialDto, orgId?: string) {
     const { channel, ...config } = dto;
+
+    if (!orgId) {
+      throw new BadRequestException('Organization context is required for credential upsert');
+    }
+
     return this.prisma.syndicationCredential.upsert({
-      where: { channel, ...(orgId ? { organizationId: orgId } : {}) },
+      where: {
+        organizationId_channel: {
+          organizationId: orgId,
+          channel,
+        },
+      },
       create: {
+        organizationId: orgId,
         channel,
         config,
-        ...(orgId ? { organizationId: orgId } : {}),
       },
       update: {
         config,

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { isUUID } from 'class-validator';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -33,7 +33,7 @@ interface MaintenanceListFilters {
   status?: Status;
   priority?: MaintenancePriority;
   propertyId?: string;
-  unitId?: number;
+  unitId?: string;
   assigneeId?: number;
   unassigned?: boolean;
   overdue?: boolean;
@@ -85,7 +85,7 @@ export class MaintenanceService {
     // PM/Admin rule: may supply propertyId/unitId; if orgId is present, enforce property org scope.
     // Legacy signature uses the old "derive from user->lease include" behavior.
 
-    let leaseId: number | undefined;
+    let leaseId: string | undefined;
     let propertyId: string | undefined;
     let unitId: string | undefined;
 
@@ -277,7 +277,7 @@ export class MaintenanceService {
     return request;
   }
 
-  async getLeaseForTenant(userId: string): Promise<{ id: number } | null> {
+  async getLeaseForTenant(userId: string): Promise<{ id: string } | null> {
     return this.prisma.lease.findUnique({
       where: { tenantId: userId },
       select: { id: true },
@@ -359,7 +359,7 @@ export class MaintenanceService {
       where.propertyId = propertyId;
     }
     if (unitId !== undefined) {
-      where.unitId = Number(unitId);
+      where.unitId = unitId;
     }
     if (assigneeId !== undefined) {
       where.assigneeId = assigneeId;
@@ -436,7 +436,7 @@ export class MaintenanceService {
       where.propertyId = propertyId;
     }
     if (unitId !== undefined) {
-      where.unitId = Number(unitId);
+      where.unitId = unitId;
     }
     if (assigneeId !== undefined) {
       where.assigneeId = assigneeId;
@@ -645,7 +645,7 @@ export class MaintenanceService {
     if (!technicianId) {
       try {
         const startTime = Date.now();
-        const aiMatch = await this.aiMaintenanceService.assignTechnician(existing, orgId);
+        const aiMatch = await this.aiMaintenanceService.assignTechnician(existing, undefined);
         const responseTime = Date.now() - startTime;
 
         if (aiMatch) {
@@ -1057,7 +1057,7 @@ export class MaintenanceService {
     });
   }
 
-  async listAssets(propertyId?: string, unitId?: number, orgId?: string): Promise<MaintenanceAsset[]> {
+  async listAssets(propertyId?: string, unitId?: string, orgId?: string): Promise<MaintenanceAsset[]> {
     const where: Prisma.MaintenanceAssetWhereInput = {};
     if (propertyId !== undefined) {
       where.propertyId = propertyId;
@@ -1101,7 +1101,7 @@ export class MaintenanceService {
     return this.prisma.maintenanceAsset.create({
       data: {
         property: { connect: { id: data.propertyId } },
-        unit: data.unitId ? { connect: { id: Number(data.unitId) } } : undefined,
+        unit: data.unitId ? { connect: { id: data.unitId } } : undefined,
         name: data.name,
         category,
         manufacturer: data.manufacturer,

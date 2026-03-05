@@ -25,4 +25,9 @@ export class CreateMaintenanceRequestDto {
   @IsOptional()
   @IsInt()
   assetId?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  category?: string;
 }

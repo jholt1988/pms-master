@@ -11,6 +11,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { MessagingService } from '../messaging/messaging.service';
 import { BulkMessagingService } from '../messaging/bulk-messaging.service';
 import {

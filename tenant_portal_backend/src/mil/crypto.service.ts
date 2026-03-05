@@ -1,28 +1,43 @@
 import { Injectable } from '@nestjs/common';
-// This is a placeholder for the actual implementation which would be
-// adapted from 'pms-master/security/mil/src/core/crypto.ts'
-// For now, it will simulate the encryption/decryption process.
+import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEqual } from 'crypto';
+import { MilEnvelope } from './mil-envelope.types';
 
 @Injectable()
 export class CryptoService {
-  async encrypt(data: string, key: string): Promise<string> {
-    // In a real implementation, this would use a robust cryptographic library (e.g., crypto from Node.js)
-    console.log(`Encrypting data with key: ${key.substring(0, 8)}...`);
-    const envelope = {
-      iv: 'mock-iv', // Initialization vector
-      encryptedData: Buffer.from(data).toString('hex'), // Simulate encryption
-      keyId: key,
+  encrypt(data: string, key: Buffer, keyId: string): MilEnvelope {
+    const iv = randomBytes(12);
+    const cipher = createCipheriv('aes-256-gcm', key, iv);
+    const encrypted = Buffer.concat([cipher.update(data, 'utf8'), cipher.final()]);
+    const authTag = cipher.getAuthTag();
+
+    return {
+      encVersion: 'v1',
+      algorithm: 'aes-256-gcm',
+      keyId,
+      iv: iv.toString('base64'),
+      authTag: authTag.toString('base64'),
+      encryptedData: encrypted.toString('base64'),
+      payloadDigest: createHash('sha256').update(data, 'utf8').digest('hex'),
     };
-    return JSON.stringify(envelope);
   }
 
-  async decrypt(encryptedPayload: string, key: string): Promise<string> {
-    console.log(`Decrypting data with key: ${key.substring(0, 8)}...`);
-    const envelope = JSON.parse(encryptedPayload);
-    if (envelope.keyId !== key) {
-      throw new Error('Key mismatch during decryption');
+  decrypt(envelope: MilEnvelope, key: Buffer): string {
+    const iv = Buffer.from(envelope.iv, 'base64');
+    const authTag = Buffer.from(envelope.authTag, 'base64');
+    const encrypted = Buffer.from(envelope.encryptedData, 'base64');
+
+    const decipher = createDecipheriv('aes-256-gcm', key, iv);
+    decipher.setAuthTag(authTag);
+    const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
+
+    const digest = createHash('sha256').update(decrypted, 'utf8').digest('hex');
+    const expected = Buffer.from(envelope.payloadDigest, 'hex');
+    const actual = Buffer.from(digest, 'hex');
+
+    if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
+      throw new Error('MIL payload digest mismatch');
     }
-    // Simulate decryption
-    return Buffer.from(envelope.encryptedData, 'hex').toString('utf8');
+
+    return decrypted;
   }
 }

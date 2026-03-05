@@ -26,6 +26,12 @@ describe('AIPaymentService', () => {
     user: {
       findUnique: jest.fn(),
     },
+    notification: {
+      count: jest.fn(),
+    },
+    notificationPreference: {
+      findUnique: jest.fn(),
+    },
   };
 
   const mockConfigService = {
@@ -37,6 +43,15 @@ describe('AIPaymentService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockPrismaService.notification.count.mockResolvedValue(0);
+    mockPrismaService.notificationPreference.findUnique.mockResolvedValue({
+      emailEnabled: true,
+      smsEnabled: false,
+      pushEnabled: false,
+      quietHoursStart: null,
+      quietHoursEnd: null,
+      notificationTypes: null,
+    });
 
     const mockChatCompletions = {
       create: jest.fn(),
@@ -205,13 +220,21 @@ describe('AIPaymentService', () => {
       expect(['LOW', 'MEDIUM', 'HIGH']).toContain(timing.urgency);
     });
 
-    it('should use SMS for high urgency reminders', async () => {
+    it('should use SMS for high urgency reminders when SMS consent is enabled', async () => {
       const mockInvoice = {
         id: 1,
         amount: 1500,
         dueDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // Overdue
       };
 
+      mockPrismaService.notificationPreference.findUnique.mockResolvedValue({
+        emailEnabled: true,
+        smsEnabled: true,
+        pushEnabled: false,
+        quietHoursStart: null,
+        quietHoursEnd: null,
+        notificationTypes: null,
+      });
       mockPrismaService.user.findUnique.mockResolvedValue({ id: tenantId });
       mockPrismaService.invoice.findUnique.mockResolvedValue(mockInvoice);
 

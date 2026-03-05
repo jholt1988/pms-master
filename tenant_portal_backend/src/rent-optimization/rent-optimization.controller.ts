@@ -82,11 +82,11 @@ export class RentOptimizationController {
   @Post('generate')
   async generateRecommendations(@Body() dto: GenerateRecommendationsDto, @OrgId() orgId?: string) {
     const unitIds = dto.unitIds.map((id) => {
-      const parsed = Number(id);
-      if (!Number.isFinite(parsed) || Number.isNaN(parsed) || !Number.isInteger(parsed)) {
+      const normalized = String(id).trim();
+      if (!normalized) {
         throw new BadRequestException(`Invalid unit id: ${id}`);
       }
-      return parsed;
+      return normalized;
     });
     return this.rentOptimizationService.generateRecommendations(unitIds, orgId);
   }

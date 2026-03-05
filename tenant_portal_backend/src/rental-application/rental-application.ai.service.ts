@@ -36,10 +36,7 @@ export class RentalApplicationAiService {
       include: {
         unit: {
           include: {
-            lease: {
-              where: { status: 'ACTIVE' },
-              take: 1
-            }
+            lease: true,
           }
         },
         property: {
@@ -56,8 +53,8 @@ export class RentalApplicationAiService {
 
     // Determine rent amount (active lease or market rent)
     let rentAmount = 0;
-    if (application.unit?.lease?.[0]?.rentAmount) {
-      rentAmount = application.unit.lease[0].rentAmount;
+    if (application.unit?.lease?.rentAmount) {
+      rentAmount = application.unit.lease.rentAmount;
     } else if (application.property?.marketingProfile?.minRent) {
       rentAmount = application.property.marketingProfile.minRent;
     } else {

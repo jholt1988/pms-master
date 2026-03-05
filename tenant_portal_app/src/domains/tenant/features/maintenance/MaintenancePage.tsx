@@ -30,6 +30,7 @@ import { format } from 'date-fns';
 import { PageHeader } from '../../../../components/ui/PageHeader';
 import { SearchInput } from '../../../../components/ui/SearchInput';
 import { StatusBadge } from '../../../../components/ui/StatusBadge';
+import { DegradedStateCard } from '../../../../components/ui/DegradedStateCard';
 import { useAuth } from '../../../../AuthContext';
 import { apiFetch } from '../../../../services/apiClient';
 
@@ -261,11 +262,14 @@ const MaintenancePage: React.FC = () => {
       />
 
       {error && (
-        <Card className="mb-6 bg-danger-50 border-danger-100">
-          <CardBody className="text-danger-700">
-            {error}
-          </CardBody>
-        </Card>
+        <div className="mb-6">
+          <DegradedStateCard
+            title="Maintenance feed is unavailable"
+            message={error}
+            onRetry={fetchRequests}
+            supportHint="You can still submit a new request while existing request history is being retried."
+          />
+        </div>
       )}
 
       {/* Stats Cards */}

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CryptoService } from './crypto.service';
 import { KeyringService } from './keyring.service';
+import { MilEnvelope } from './mil-envelope.types';
 
 @Injectable()
 export class MilService {
@@ -9,17 +10,23 @@ export class MilService {
     private readonly keyringService: KeyringService,
   ) {}
 
-  // This service will orchestrate the key management and cryptographic operations
-  // by using the CryptoService and KeyringService.
-
-  async encryptPayload(tenantId: string, payload: object): Promise<string> {
-    const tenantKey = await this.keyringService.getActiveKey(tenantId);
-    return this.cryptoService.encrypt(JSON.stringify(payload), tenantKey);
+  encryptPayload(tenantId: string, payload: object): MilEnvelope {
+    const tenantKey = this.keyringService.getActiveKey(tenantId);
+    return this.cryptoService.encrypt(JSON.stringify(payload), tenantKey.key, tenantKey.keyId);
   }
 
-  async decryptPayload<T>(tenantId: string, encryptedPayload: string): Promise<T> {
-    const tenantKey = await this.keyringService.getActiveKey(tenantId);
-    const decrypted = await this.cryptoService.decrypt(encryptedPayload, tenantKey);
+  decryptPayload<T>(tenantId: string, encryptedPayload: MilEnvelope | string): T {
+    const envelope = typeof encryptedPayload === 'string'
+      ? JSON.parse(encryptedPayload) as MilEnvelope
+      : encryptedPayload;
+
+    const tenantKey = this.keyringService.getActiveKey(tenantId);
+
+    if (envelope.keyId !== tenantKey.keyId) {
+      throw new Error(`MIL key mismatch. Expected ${tenantKey.keyId}, got ${envelope.keyId}`);
+    }
+
+    const decrypted = this.cryptoService.decrypt(envelope, tenantKey.key);
     return JSON.parse(decrypted) as T;
   }
 }

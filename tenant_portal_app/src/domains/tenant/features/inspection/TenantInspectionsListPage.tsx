@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../../AuthContext';
 import { apiFetch } from '../../../../services/apiClient';
 import { Card, CardBody, Button } from '@nextui-org/react';
+import { DegradedStateCard } from '../../../../components/ui/DegradedStateCard';
 import { ClipboardList, Calendar } from 'lucide-react';
 
 interface Inspection {
@@ -96,20 +97,14 @@ export default function TenantInspectionsListPage(): React.ReactElement {
       )}
 
       {error && (
-        <Card className="border border-rose-500/20 bg-rose-500/5 mb-6">
-          <CardBody className="flex flex-row items-center gap-4">
-            <div className="p-2 bg-rose-500/10 rounded-full text-rose-500">
-              <ClipboardList className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="font-medium text-rose-700 dark:text-rose-400">Unable to load inspections</p>
-              <p className="text-sm text-rose-600/80 dark:text-rose-400/80">{error}</p>
-            </div>
-            <Button size="sm" color="danger" variant="flat" className="ml-auto" onPress={() => fetchInspections()}>
-              Retry
-            </Button>
-          </CardBody>
-        </Card>
+        <div className="mb-6">
+          <DegradedStateCard
+            title="Inspections are temporarily unavailable"
+            message={error}
+            onRetry={fetchInspections}
+            supportHint="You can continue using Dashboard, Payments, Maintenance, and Messaging while inspections reload."
+          />
+        </div>
       )}
 
       {!loading && !error && sorted.length === 0 && (

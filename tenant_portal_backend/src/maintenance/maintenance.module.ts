@@ -9,6 +9,8 @@ import { ConfigModule } from '@nestjs/config';
 import { SystemUserService } from '../shared/system-user.service';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { AuditLogService } from '../shared/audit-log.service';
+import { MaintenanceFeatureExtractionService } from './ai/maintenance-feature-extraction.service';
+import { MaintenanceDataQualityService } from './ai/maintenance-data-quality.service';
 
 const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
 
@@ -22,7 +24,15 @@ const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
     SystemUserService,
     OrgContextGuard,
     AuditLogService,
+    MaintenanceFeatureExtractionService,
+    MaintenanceDataQualityService,
   ],
-  exports: [MaintenanceService, AIMaintenanceService, AIMaintenanceMetricsService],
+  exports: [
+    MaintenanceService,
+    AIMaintenanceService,
+    AIMaintenanceMetricsService,
+    MaintenanceFeatureExtractionService,
+    MaintenanceDataQualityService,
+  ],
 })
 export class MaintenanceModule {}

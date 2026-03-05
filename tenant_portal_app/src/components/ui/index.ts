@@ -16,6 +16,7 @@ export { SearchInput } from './SearchInput';
 export { LoadingState } from './LoadingState';
 export { FeedbackBanner } from './FeedbackBanner';
 export { EmptyState } from './EmptyState';
+export { DegradedStateCard } from './DegradedStateCard';
 export { Sidebar } from './Sidebar';
 export { Topbar } from './Topbar';
 export { Content } from './Content';

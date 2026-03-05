@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, Request, Res, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Role } from '@prisma/client';
 
 import { Request as ExpressRequest, Response } from 'express';
 import { Roles } from '../auth/roles.decorator';

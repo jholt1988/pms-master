@@ -171,7 +171,7 @@ export default function InspectionManagementPage(): React.ReactElement {
     <div className="p-6">
       <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Inspection Management</h1>
+          <h2 className="text-2xl font-semibold">Overview</h2>
           <p className="text-sm text-foreground-500">Monitor upcoming, in-progress, and completed inspections.</p>
         </div>
         <Button

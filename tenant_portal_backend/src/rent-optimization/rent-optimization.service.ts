@@ -6,6 +6,7 @@ import axios from 'axios';
 import { ApiException } from '../common/errors';
 import { ErrorCode } from '../common/errors/error-codes.enum';
 import { assertConfidenceV16Invariants, validateConfidenceV16 } from '../property-os/v16-contract';
+import { MilSecurityAuditWrapperService } from '../mil/mil-security-audit-wrapper.service';
 
 interface MLPredictionRequest {
   unit_id: string;
@@ -63,7 +64,10 @@ export class RentOptimizationService {
   private readonly ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
   private readonly USE_ML_SERVICE = process.env.USE_ML_SERVICE === 'true';
   
-  constructor(private prisma: PrismaService) {
+  constructor(
+    private prisma: PrismaService,
+    private readonly milWrapper: MilSecurityAuditWrapperService,
+  ) {
     this.logger.log(`RentOptimizationService initialized. ML Service URL: ${this.ML_SERVICE_URL}, USE_ML_SERVICE: ${this.USE_ML_SERVICE}`);
   }
 
@@ -74,7 +78,7 @@ export class RentOptimizationService {
     return { unit: { property: { organizationId: orgId } } };
   }
 
-  private async assertUnitInOrg(unitId: number, orgId?: string) {
+  private async assertUnitInOrg(unitId: string, orgId?: string) {
     if (!orgId) return;
     const unit = await this.prisma.unit.findFirst({
       where: { id: unitId, property: { organizationId: orgId } },
@@ -230,7 +234,7 @@ export class RentOptimizationService {
     return recommendations[0] || null;
   }
 
-  async generateRecommendations(unitIds: number[], orgId?: string) {
+  async generateRecommendations(unitIds: string[], orgId?: string) {
     const results = [];
 
     for (const unitId of unitIds) {
@@ -259,7 +263,7 @@ export class RentOptimizationService {
       
       if (this.USE_ML_SERVICE) {
         try {
-          predictionData = await this.callMLService(unit);
+          predictionData = await this.callMLService(unit, orgId);
           this.logger.log(`ML service prediction for unit ${unitIdLabel}: $${predictionData.recommendedRent}`);
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
@@ -304,8 +308,25 @@ export class RentOptimizationService {
   /**
    * Call Python ML microservice for rent prediction
    */
-  private async callMLService(unit: any): Promise<any> {
+  private async callMLService(unit: any, orgId?: string): Promise<any> {
+    const trace = this.milWrapper.createTraceContext({
+      orgId,
+      tenantId: orgId,
+      module: 'rent-optimization',
+      action: 'predict',
+      entityType: 'unit',
+      entityId: unit?.id,
+      modelProvider: 'internal-ml-service',
+      modelName: 'rent-predictor',
+      modelVersion: 'unknown',
+    });
+
     try {
+      await this.milWrapper.assertAccess('model_invoke', trace);
+      await this.milWrapper.recordModelInvocation(trace, 'requested', {
+        mlServiceUrl: this.ML_SERVICE_URL,
+      });
+
       // Prepare request payload
       const request: MLPredictionRequest = {
         unit_id: unit.id.toString(),
@@ -351,6 +372,14 @@ export class RentOptimizationService {
         assertConfidenceV16Invariants(confidence);
       }
 
+      await this.milWrapper.recordModelInvocation(
+        { ...trace, modelVersion: response.data.model_version || 'unknown' },
+        'completed',
+        {
+          confidenceScore: response.data.confidence_score,
+        },
+      );
+
       // Transform ML response to our format
       return {
         recommendedRent: response.data.recommended_rent,
@@ -364,6 +393,9 @@ export class RentOptimizationService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error(`Error calling ML service: ${errorMessage}`);
+      await this.milWrapper.recordModelInvocation(trace, 'failed', {
+        errorMessage,
+      });
       throw error;
     }
   }
