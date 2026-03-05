@@ -65,7 +65,7 @@ const getPriorityColor = (priority: MaintenanceRequest['priority']) => {
 export default function MaintenanceManagementPage(): React.ReactElement {
   const { token, user } = useAuth();
   const isOwnerView = user?.role === 'OWNER';
-  const isPmAdminView = user?.role === 'PROPERTY_MANAGER' || user?.role === 'ADMIN';
+  const isPmAdminView = ['PM', 'PROPERTY_MANAGER', 'ADMIN', 'OPERATOR'].includes((user?.role as string) || '');
   const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | undefined>(undefined);
