@@ -1118,6 +1118,91 @@ export const handlers = [
     }, { status: 201 });
   }),
 
+  http.post(`${API_BASE}/messaging/threads`, async ({ request }) => {
+    await networkDelay();
+    if (!isAuthenticated(request)) {
+      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json() as any;
+
+    return HttpResponse.json({
+      id: Math.floor(Math.random() * 1000),
+      subject: body.subject ?? null,
+      participants: [
+        { id: 'self-user', username: 'you@test.com' },
+        { id: body.recipientId, username: 'recipient@test.com' },
+      ],
+      initialMessage: {
+        id: Math.floor(Math.random() * 1000),
+        content: body.content,
+        createdAt: new Date().toISOString(),
+        sender: { id: 'self-user', username: 'you@test.com' },
+      },
+      createdAt: new Date().toISOString(),
+    }, { status: 201 });
+  }),
+
+  http.get(`${API_BASE}/messaging/property-managers`, async ({ request }) => {
+    await networkDelay();
+    if (!isAuthenticated(request)) {
+      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
+    return HttpResponse.json([
+      { id: '11111111-1111-4111-8111-111111111111', username: 'pm@test.com', role: 'PROPERTY_MANAGER' },
+    ]);
+  }),
+
+  http.get(`${API_BASE}/messaging/tenants`, async ({ request }) => {
+    await networkDelay();
+    if (!isAuthenticated(request)) {
+      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
+    return HttpResponse.json([
+      { id: '22222222-2222-4222-8222-222222222222', username: 'tenant@test.com', role: 'TENANT' },
+    ]);
+  }),
+
+  http.post(`${API_BASE}/messaging/messages`, async ({ request }) => {
+    await networkDelay();
+    if (!isAuthenticated(request)) {
+      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json() as any;
+
+    return HttpResponse.json({
+      id: Math.floor(Math.random() * 1000),
+      conversationId: body.conversationId ?? 1,
+      content: body.content,
+      createdAt: new Date().toISOString(),
+      sender: { id: 'self-user', username: 'you@test.com' },
+    }, { status: 201 });
+  }),
+
+  http.get(`${API_BASE}/messaging/conversations/:id`, async ({ params, request }) => {
+    await networkDelay();
+    if (!isAuthenticated(request)) {
+      return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
+    return HttpResponse.json({
+      id: Number(params.id),
+      subject: 'Maintenance Question',
+      messages: [
+        {
+          id: 1,
+          conversationId: Number(params.id),
+          content: 'Hello, I have a question about my lease.',
+          createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+          sender: { id: '11111111-1111-4111-8111-111111111111', username: 'pm@test.com' },
+        },
+      ],
+    });
+  }),
+
   http.post(`${API_BASE}/messaging/conversations/:id/messages`, async ({ params, request }) => {
     await networkDelay();
     if (!isAuthenticated(request)) {

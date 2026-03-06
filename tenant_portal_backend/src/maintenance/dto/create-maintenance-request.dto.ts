@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsDateString, IsInt, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import { MaintenancePriority } from '@prisma/client';
 import { IsEnumSafe } from '../../common/validation/is-enum-safe.decorator';
 
@@ -21,6 +21,14 @@ export class CreateMaintenanceRequestDto {
   @IsOptional()
   @IsUUID()
   unitId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  leaseId?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dueDate?: string;
 
   @IsOptional()
   @IsInt()

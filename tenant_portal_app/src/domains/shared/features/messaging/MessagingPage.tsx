@@ -31,6 +31,12 @@ const MessagingPage = () => {
   const [bulkBatches, setBulkBatches] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [showNewThreadForm, setShowNewThreadForm] = useState(false);
+  const [threadRecipients, setThreadRecipients] = useState<any[]>([]);
+  const [threadRecipientId, setThreadRecipientId] = useState('');
+  const [threadSubject, setThreadSubject] = useState('');
+  const [threadMessage, setThreadMessage] = useState('');
+  const [creatingThread, setCreatingThread] = useState(false);
   const { token, user } = useAuth();
   const isPropertyManager = (user as { role?: string } | null)?.role === 'PROPERTY_MANAGER';
   const currentUserName = (user as { username?: string; name?: string } | null)?.username
@@ -111,6 +117,23 @@ const MessagingPage = () => {
     }
   }, [token, isPropertyManager, fetchBulkResources]);
 
+  useEffect(() => {
+    const fetchThreadRecipients = async () => {
+      if (!token) {
+        return;
+      }
+      try {
+        const endpoint = isPropertyManager ? '/messaging/tenants' : '/messaging/property-managers';
+        const data = await apiFetch(endpoint, { token });
+        setThreadRecipients(Array.isArray(data) ? data : []);
+      } catch {
+        setThreadRecipients([]);
+      }
+    };
+
+    fetchThreadRecipients();
+  }, [token, isPropertyManager]);
+
   const handleConversationClick = (conversation: any) => {
     setSelectedConversation(conversation);
     fetchMessages(conversation.id);
@@ -137,6 +160,39 @@ const MessagingPage = () => {
     }
   };
 
+  const handleCreateThread = async () => {
+    if (!token || !threadRecipientId || !threadMessage.trim()) {
+      return;
+    }
+
+    setCreatingThread(true);
+    setError(null);
+
+    try {
+      const thread = await apiFetch('/messaging/threads', {
+        token,
+        method: 'POST',
+        body: {
+          recipientId: threadRecipientId,
+          subject: threadSubject.trim() || undefined,
+          content: threadMessage.trim(),
+        },
+      });
+
+      setConversations((previous) => [thread, ...previous.filter((item) => item.id !== thread.id)]);
+      setSelectedConversation(thread);
+      setMessages(thread.initialMessage ? [thread.initialMessage] : []);
+      setThreadRecipientId('');
+      setThreadSubject('');
+      setThreadMessage('');
+      setShowNewThreadForm(false);
+    } catch (createError: any) {
+      setError(createError.message || 'Failed to start thread');
+    } finally {
+      setCreatingThread(false);
+    }
+  };
+
   if (!token) {
     return <div className="p-4 text-sm text-gray-600">Sign in to access your inbox.</div>;
   }
@@ -144,6 +200,14 @@ const MessagingPage = () => {
   if (loading) {
     return <div className="p-4 text-sm text-gray-600">Loading conversations…</div>;
   }
+
+  const getParticipantName = (participant: any): string => (
+    participant?.username
+    ?? participant?.name
+    ?? participant?.user?.username
+    ?? participant?.user?.name
+    ?? ''
+  );
 
   const getConversationTitle = (conversation: any): string => {
     if (!conversation) {
@@ -154,7 +218,7 @@ const MessagingPage = () => {
       conversation.subject ??
       (Array.isArray(conversation.participants)
         ? conversation.participants
-            .map((participant: any) => participant.username ?? participant.name)
+            .map((participant: any) => getParticipantName(participant))
             .filter(Boolean)
             .join(', ')
         : undefined) ??
@@ -195,8 +259,58 @@ const MessagingPage = () => {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,2fr)]">
         <aside className="rounded-lg border border-gray-200 bg-white shadow-sm">
           <div className="border-b border-gray-200 px-4 py-3">
-            <h2 className="text-sm font-semibold text-gray-900">Conversations</h2>
-            <p className="text-xs text-gray-500">Select a thread to view the conversation.</p>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900">Conversations</h2>
+                <p className="text-xs text-gray-500">Select a thread to view the conversation.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowNewThreadForm((value) => !value)}
+                className="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
+              >
+                {showNewThreadForm ? 'Cancel' : 'New thread'}
+              </button>
+            </div>
+
+            {showNewThreadForm && (
+              <div className="mt-3 space-y-2 rounded-md border border-gray-200 bg-gray-50 p-3">
+                <select
+                  value={threadRecipientId}
+                  onChange={(event) => setThreadRecipientId(event.target.value)}
+                  className="w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-xs"
+                >
+                  <option value="">Select recipient…</option>
+                  {threadRecipients.map((recipient) => (
+                    <option key={recipient.id} value={recipient.id}>
+                      {recipient.username ?? recipient.name ?? recipient.id}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  value={threadSubject}
+                  onChange={(event) => setThreadSubject(event.target.value)}
+                  placeholder="Subject (optional)"
+                  className="w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-xs"
+                />
+                <textarea
+                  rows={2}
+                  value={threadMessage}
+                  onChange={(event) => setThreadMessage(event.target.value)}
+                  placeholder="Write your first message…"
+                  className="w-full rounded-md border border-gray-300 bg-white px-2 py-2 text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={handleCreateThread}
+                  disabled={creatingThread || !threadRecipientId || !threadMessage.trim()}
+                  className="w-full rounded-md bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-300"
+                >
+                  {creatingThread ? 'Starting…' : 'Start thread'}
+                </button>
+              </div>
+            )}
           </div>
           <ul className="max-h-112 divide-y divide-gray-100 overflow-y-auto text-sm">
             {conversations.length === 0 ? (
@@ -248,6 +362,8 @@ const MessagingPage = () => {
                     const authorName =
                       message.author?.username ??
                       message.author?.name ??
+                      message.sender?.username ??
+                      message.sender?.name ??
                       (message.fromTenant ? 'Tenant' : message.fromStaff ? 'Staff' : 'System');
                     const isCurrentUser = currentUserName && authorName === currentUserName;
 

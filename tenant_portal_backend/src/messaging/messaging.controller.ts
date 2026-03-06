@@ -20,6 +20,7 @@ import { BulkMessagingService } from './bulk-messaging.service';
 import {
   CreateMessageDto,
   CreateConversationDto,
+  CreateThreadDto,
   GetConversationsQueryDto,
   GetMessagesQueryDto,
   CreateBulkMessageDto,
@@ -113,6 +114,51 @@ export class MessagingController {
       metadata: { participantCount: dto.participantIds.length },
     });
     return conversation;
+  }
+
+  /**
+   * Start a new message thread (conversation + first message atomically)
+   * POST /api/messaging/threads
+   */
+  @Post('threads')
+  @HttpCode(HttpStatus.CREATED)
+  async createThread(
+    @Body() dto: CreateThreadDto,
+    @Request() req: AuthenticatedRequest,
+    @OrgIdOptional() orgId?: string,
+  ) {
+    const thread = await this.messagingService.createThread(dto, req.user.userId, orgId);
+
+    await this.auditLogService.record({
+      orgId,
+      actorId: req.user.userId,
+      module: 'MESSAGING',
+      action: 'CONVERSATION_CREATED',
+      entityType: 'Conversation',
+      entityId: thread.id,
+      result: 'SUCCESS',
+      metadata: {
+        participantCount: thread.participants?.length ?? 0,
+        hasSubject: Boolean(dto.subject?.trim()),
+      },
+    });
+
+    await this.auditLogService.record({
+      orgId,
+      actorId: req.user.userId,
+      module: 'MESSAGING',
+      action: 'MESSAGE_SENT',
+      entityType: 'Message',
+      entityId: thread.initialMessage.id,
+      result: 'SUCCESS',
+      metadata: {
+        conversationId: thread.id,
+        hasAttachments: Array.isArray(dto.attachmentUrls) && dto.attachmentUrls.length > 0,
+        attachmentCount: dto.attachmentUrls?.length ?? 0,
+      },
+    });
+
+    return thread;
   }
 
   @Get('conversations/:id')

@@ -146,6 +146,62 @@ export class MaintenanceService {
     } else {
       propertyId = dto.propertyId ?? undefined;
       unitId = dto.unitId ?? undefined;
+      leaseId = dto.leaseId ?? undefined;
+
+      if (leaseId) {
+        const lease = await this.prisma.lease.findUnique({
+          where: { id: leaseId },
+          include: {
+            unit: { select: { id: true, propertyId: true } },
+          },
+        });
+
+        if (!lease) {
+          throw ApiException.badRequest(
+            ErrorCode.VALIDATION_INVALID_INPUT,
+            'Invalid leaseId',
+            { leaseId },
+          );
+        }
+
+        if (orgId) {
+          const leaseInOrg = await this.prisma.lease.findFirst({
+            where: { id: leaseId, unit: { property: { organizationId: orgId } } },
+            select: { id: true },
+          });
+          if (!leaseInOrg) {
+            throw ApiException.forbidden(
+              ErrorCode.AUTH_FORBIDDEN,
+              'Lease does not belong to your organization',
+              { leaseId, orgId, userId },
+            );
+          }
+        }
+
+        if (unitId && unitId !== lease.unitId) {
+          throw ApiException.badRequest(
+            ErrorCode.VALIDATION_INVALID_INPUT,
+            'unitId does not match leaseId',
+            { unitId, leaseId },
+          );
+        }
+
+        if (!unitId) {
+          unitId = lease.unitId;
+        }
+
+        if (propertyId && propertyId !== lease.unit.propertyId) {
+          throw ApiException.badRequest(
+            ErrorCode.VALIDATION_INVALID_INPUT,
+            'propertyId does not match leaseId',
+            { propertyId, leaseId },
+          );
+        }
+
+        if (!propertyId) {
+          propertyId = lease.unit.propertyId;
+        }
+      }
 
       if (propertyId && orgId) {
         const property = await this.prisma.property.findFirst({
@@ -231,12 +287,14 @@ export class MaintenanceService {
       priority,
     );
 
+    const explicitDueAt = dto.dueDate ? this.parseOptionalDate(dto.dueDate, 'dueDate') ?? null : undefined;
+
     const request = await this.prisma.maintenanceRequest.create({
       data: {
         title: dto.title,
         description: dto.description,
         priority,
-        dueAt: resolutionDueAt,
+        dueAt: explicitDueAt ?? resolutionDueAt,
         responseDueAt,
         slaPolicy: policyId ? { connect: { id: policyId } } : undefined,
         author: { connect: { id: userId } },

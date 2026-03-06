@@ -5,26 +5,50 @@ import { MasterDetailLayout } from './components/ui/MasterDetailLayout';
 import { useMasterDetail } from './hooks/useMasterDetail';
 import { useViewportCategory } from './hooks/useViewportCategory';
 import { ArrowLeft } from 'lucide-react';
-import { Button, Card, CardBody, CardHeader, Chip } from '@nextui-org/react';
+import {
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  Chip,
+  Input,
+  Modal,
+  ModalBody,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  Select,
+  SelectItem,
+  Textarea,
+  useDisclosure,
+} from '@nextui-org/react';
 
 interface MaintenanceRequest {
-  id: number;
+  id: string;
   title: string;
   description: string;
   status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'EMERGENCY';
   createdAt: string;
   updatedAt: string;
-  unit: {
-    id: number;
+  dueAt?: string | null;
+  unit?: {
+    id: string;
     name: string;
-    property: {
-      id: number;
+    property?: {
+      id: string;
       name: string;
     };
   };
-  author: {
-    id: number;
+  property?: {
+    id: string;
+    name: string;
+  };
+  lease?: {
+    id: string;
+  };
+  author?: {
+    id: string;
     username: string;
   };
   photos: Array<{
@@ -32,6 +56,18 @@ interface MaintenanceRequest {
     url: string;
     caption: string | null;
   }>;
+}
+
+interface PropertyOption {
+  id: string;
+  name: string;
+  units?: Array<{ id: string; name: string }>;
+}
+
+interface LeaseOption {
+  id: string;
+  unitId: string;
+  tenant?: { username?: string | null };
 }
 
 const getStatusColor = (status: MaintenanceRequest['status']) => {
@@ -81,6 +117,20 @@ export default function MaintenanceManagementPage(): React.ReactElement {
   const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
   const [featureData, setFeatureData] = useState<any | null>(null);
   const [featureLoading, setFeatureLoading] = useState(false);
+  const [properties, setProperties] = useState<PropertyOption[]>([]);
+  const [leases, setLeases] = useState<LeaseOption[]>([]);
+  const [createError, setCreateError] = useState<string | undefined>(undefined);
+  const [creating, setCreating] = useState(false);
+  const { isOpen: isCreateOpen, onOpen: onCreateOpen, onClose: onCreateClose } = useDisclosure();
+  const [createForm, setCreateForm] = useState({
+    title: '',
+    description: '',
+    priority: 'MEDIUM' as MaintenanceRequest['priority'],
+    propertyId: '',
+    unitId: '',
+    leaseId: '',
+    dueDate: '',
+  });
   const { selectedItem: selectedRequest, showDetail, selectItem: selectRequest, clearSelection } = useMasterDetail<MaintenanceRequest>();
   const viewport = useViewportCategory();
 
@@ -113,6 +163,37 @@ export default function MaintenanceManagementPage(): React.ReactElement {
     fetchRequests();
   }, [fetchRequests]);
 
+  useEffect(() => {
+    if (!token || !isPmAdminView) return;
+
+    const loadContext = async () => {
+      try {
+        const [propertyData, leaseData] = await Promise.all([
+          apiFetch('/properties', { token }),
+          apiFetch('/leases', { token }),
+        ]);
+
+        const normalizedProperties = Array.isArray(propertyData)
+          ? propertyData
+          : Array.isArray((propertyData as any)?.items)
+            ? (propertyData as any).items
+            : [];
+        const normalizedLeases = Array.isArray(leaseData)
+          ? leaseData
+          : Array.isArray((leaseData as any)?.items)
+            ? (leaseData as any).items
+            : [];
+
+        setProperties(normalizedProperties as PropertyOption[]);
+        setLeases(normalizedLeases as LeaseOption[]);
+      } catch (err) {
+        console.error('Failed to load PM/Admin maintenance create context', err);
+      }
+    };
+
+    loadContext();
+  }, [token, isPmAdminView]);
+
   const handleBackClick = () => {
     clearSelection();
   };
@@ -130,7 +211,7 @@ export default function MaintenanceManagementPage(): React.ReactElement {
     }
   };
 
-  const fetchFeatures = async (requestId: number) => {
+  const fetchFeatures = async (requestId: string) => {
     if (!token) return;
     setFeatureLoading(true);
     try {
@@ -143,14 +224,66 @@ export default function MaintenanceManagementPage(): React.ReactElement {
     }
   };
 
+  const selectedProperty = properties.find((property) => property.id === createForm.propertyId);
+  const availableUnits = selectedProperty?.units ?? [];
+  const availableLeases = createForm.unitId
+    ? leases.filter((lease) => lease.unitId === createForm.unitId)
+    : leases;
+
+  const handleCreateRequest = async () => {
+    if (!token || !isPmAdminView) return;
+    setCreating(true);
+    setCreateError(undefined);
+
+    try {
+      const payload: Record<string, unknown> = {
+        title: createForm.title.trim(),
+        description: createForm.description.trim(),
+        priority: createForm.priority,
+      };
+
+      if (createForm.propertyId) payload.propertyId = createForm.propertyId;
+      if (createForm.unitId) payload.unitId = createForm.unitId;
+      if (createForm.leaseId) payload.leaseId = createForm.leaseId;
+      if (createForm.dueDate) payload.dueDate = createForm.dueDate;
+
+      const created = (await apiFetch('/maintenance', {
+        token,
+        method: 'POST',
+        body: payload,
+      })) as MaintenanceRequest;
+
+      setRequests((prev) => [created, ...prev.filter((item) => item.id !== created.id)]);
+      setCreateForm({
+        title: '',
+        description: '',
+        priority: 'MEDIUM',
+        propertyId: '',
+        unitId: '',
+        leaseId: '',
+        dueDate: '',
+      });
+      onCreateClose();
+    } catch (err: any) {
+      setCreateError(getFriendlyApiError(err, 'Failed to create maintenance request'));
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const master = (
     <div className="p-4 sm:p-6 w-full">
       <div className="mb-6 flex items-center justify-between gap-3">
         <h1 className="text-2xl sm:text-3xl font-bold text-white">Maintenance Requests</h1>
         {isPmAdminView && (
-          <Button size="sm" variant="bordered" onPress={fetchDiagnostics} isLoading={diagnosticsLoading}>
-            Data Quality Diagnostics
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" color="primary" onPress={onCreateOpen}>
+              New Request
+            </Button>
+            <Button size="sm" variant="bordered" onPress={fetchDiagnostics} isLoading={diagnosticsLoading}>
+              Data Quality Diagnostics
+            </Button>
+          </div>
         )}
       </div>
       {isOwnerView && (
@@ -263,10 +396,102 @@ export default function MaintenanceManagementPage(): React.ReactElement {
   );
 
   return (
-    <MasterDetailLayout
-      master={master}
-      detail={detail}
-      showDetail={showDetail}
-    />
+    <>
+      <MasterDetailLayout
+        master={master}
+        detail={detail}
+        showDetail={showDetail}
+      />
+
+      <Modal isOpen={isCreateOpen} onClose={onCreateClose} size="2xl" scrollBehavior="inside">
+        <ModalContent>
+          <ModalHeader>Create Maintenance Request</ModalHeader>
+          <ModalBody>
+            {createError && <p className="text-sm text-danger">{createError}</p>}
+            <Input
+              label="Title"
+              value={createForm.title}
+              onValueChange={(value) => setCreateForm((prev) => ({ ...prev, title: value }))}
+              isRequired
+            />
+            <Textarea
+              label="Description"
+              value={createForm.description}
+              onValueChange={(value) => setCreateForm((prev) => ({ ...prev, description: value }))}
+              minRows={4}
+              isRequired
+            />
+            <Select
+              label="Priority"
+              selectedKeys={[createForm.priority]}
+              onSelectionChange={(keys) => {
+                const selected = Array.from(keys)[0] as MaintenanceRequest['priority'] | undefined;
+                setCreateForm((prev) => ({ ...prev, priority: selected ?? 'MEDIUM' }));
+              }}
+            >
+              {(['LOW', 'MEDIUM', 'HIGH', 'EMERGENCY'] as const).map((priority) => (
+                <SelectItem key={priority} value={priority}>{priority}</SelectItem>
+              ))}
+            </Select>
+            <Select
+              label="Property (optional)"
+              selectedKeys={createForm.propertyId ? [createForm.propertyId] : []}
+              onSelectionChange={(keys) => {
+                const selected = (Array.from(keys)[0] as string | undefined) ?? '';
+                setCreateForm((prev) => ({ ...prev, propertyId: selected, unitId: '', leaseId: '' }));
+              }}
+            >
+              {properties.map((property) => (
+                <SelectItem key={property.id} value={property.id}>{property.name}</SelectItem>
+              ))}
+            </Select>
+            <Select
+              label="Unit (optional)"
+              selectedKeys={createForm.unitId ? [createForm.unitId] : []}
+              isDisabled={!selectedProperty}
+              onSelectionChange={(keys) => {
+                const selected = (Array.from(keys)[0] as string | undefined) ?? '';
+                setCreateForm((prev) => ({ ...prev, unitId: selected, leaseId: '' }));
+              }}
+            >
+              {availableUnits.map((unit) => (
+                <SelectItem key={unit.id} value={unit.id}>{unit.name}</SelectItem>
+              ))}
+            </Select>
+            <Select
+              label="Lease (optional)"
+              selectedKeys={createForm.leaseId ? [createForm.leaseId] : []}
+              onSelectionChange={(keys) => {
+                const selected = (Array.from(keys)[0] as string | undefined) ?? '';
+                setCreateForm((prev) => ({ ...prev, leaseId: selected }));
+              }}
+            >
+              {availableLeases.map((lease) => (
+                <SelectItem key={lease.id} value={lease.id}>
+                  {lease.id.slice(0, 8)}{lease.tenant?.username ? ` · ${lease.tenant.username}` : ''}
+                </SelectItem>
+              ))}
+            </Select>
+            <Input
+              type="date"
+              label="Due date (optional)"
+              value={createForm.dueDate}
+              onValueChange={(value) => setCreateForm((prev) => ({ ...prev, dueDate: value }))}
+            />
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="light" onPress={onCreateClose}>Cancel</Button>
+            <Button
+              color="primary"
+              onPress={handleCreateRequest}
+              isLoading={creating}
+              isDisabled={!createForm.title.trim() || !createForm.description.trim()}
+            >
+              Create Request
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    </>
   );
 }

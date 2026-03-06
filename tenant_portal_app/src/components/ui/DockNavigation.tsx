@@ -157,6 +157,7 @@ export const DockNavigation: React.FC = () => {
         { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
         { label: 'Maintenance', path: '/maintenance-management', icon: Wrench },
         { label: 'Messages', path: '/messaging', icon: MessageSquare },
+        { label: 'Inspection Manager', path: '/inspection-management', icon: ClipboardList },
         { label: 'Reporting', path: '/reporting', icon: BarChart3 },
         { label: 'Properties', path: '/properties', icon: Building2 },
       ];
@@ -166,6 +167,7 @@ export const DockNavigation: React.FC = () => {
     return [
       { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
       { label: 'Maintenance', path: '/maintenance-management', icon: Wrench },
+      { label: 'Inspection Manager', path: '/inspection-management', icon: ClipboardList },
       { label: 'Payments', path: '/payments', icon: Wallet },
       { label: 'Messages', path: '/messaging', icon: MessageSquare },
       { label: 'Leases', path: '/lease-management', icon: FileSignature },
@@ -191,9 +193,9 @@ export const DockNavigation: React.FC = () => {
         { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, category: 'Core' },
         { label: 'Properties', path: '/properties', icon: Building2, category: 'Core' },
         { label: 'Maintenance', path: '/maintenance-management', icon: Wrench, category: 'Core' },
+        { label: 'Inspection Manager', path: '/inspection-management', icon: ClipboardList, category: 'Core' },
         { label: 'Messages', path: '/messaging', icon: MessageSquare, category: 'Core' },
         { label: 'Reporting', path: '/reporting', icon: BarChart3, category: 'Analytics' },
-        { label: 'Inspections', path: '/inspection-management', icon: ClipboardList, category: 'Core' },
       ];
     }
 
@@ -202,6 +204,7 @@ export const DockNavigation: React.FC = () => {
       { label: 'Properties', path: '/properties', icon: Building2, category: 'Core' },
       { label: 'Leases', path: '/lease-management', icon: FileSignature, category: 'Core' },
       { label: 'Maintenance', path: '/maintenance-management', icon: Wrench, category: 'Core' },
+      { label: 'Inspection Manager', path: '/inspection-management', icon: ClipboardList, category: 'Core' },
       { label: 'Payments', path: '/payments', icon: Wallet, category: 'Core' },
       { label: 'Messages', path: '/messaging', icon: MessageSquare, category: 'Core' },
       { label: 'Applications', path: '/rental-applications-management', icon: ClipboardList, category: 'Management' },

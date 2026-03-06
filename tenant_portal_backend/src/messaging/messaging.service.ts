@@ -1,6 +1,12 @@
 import { ForbiddenException, Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateMessageDto, CreateConversationDto, GetConversationsQueryDto, GetMessagesQueryDto } from './dto/messaging.dto';
+import {
+  CreateMessageDto,
+  CreateConversationDto,
+  CreateThreadDto,
+  GetConversationsQueryDto,
+  GetMessagesQueryDto,
+} from './dto/messaging.dto';
 
 @Injectable()
 export class MessagingService {
@@ -212,6 +218,80 @@ export class MessagingService {
       }
 
       return conversation;
+    });
+  }
+
+  /**
+   * Start a new thread by creating conversation + initial message atomically.
+   */
+  async createThread(dto: CreateThreadDto, creatorId: string, orgId?: string) {
+    const targetParticipantIds = Array.from(
+      new Set([...(dto.participantIds ?? []), ...(dto.recipientId ? [dto.recipientId] : [])]),
+    ).filter((participantId) => participantId !== creatorId);
+
+    if (targetParticipantIds.length === 0) {
+      throw new BadRequestException('At least one recipient is required to start a thread');
+    }
+
+    const allParticipantIds = [creatorId, ...targetParticipantIds];
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        id: { in: allParticipantIds },
+        ...(orgId ? { organizations: { some: { id: orgId } } } : {}),
+      },
+      select: { id: true },
+    });
+
+    if (users.length !== allParticipantIds.length) {
+      throw new BadRequestException('One or more participants not found');
+    }
+
+    return this.prisma.$transaction(async (prisma) => {
+      const conversation = await prisma.conversation.create({
+        data: {
+          subject: dto.subject?.trim() || undefined,
+          participants: {
+            create: allParticipantIds.map((userId) => ({ userId })),
+          },
+        },
+        include: {
+          participants: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  username: true,
+                  role: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const message = await prisma.message.create({
+        data: {
+          senderId: creatorId,
+          conversationId: conversation.id,
+          content: dto.content,
+          metadata: dto.attachmentUrls?.length ? { attachments: dto.attachmentUrls } : undefined,
+        },
+        include: {
+          sender: {
+            select: {
+              id: true,
+              username: true,
+              role: true,
+            },
+          },
+        },
+      });
+
+      return {
+        ...conversation,
+        initialMessage: message,
+      };
     });
   }
 
