@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Invoice, Payment, Role, Prisma } from '@prisma/client';
+import { Invoice, Payment, Role, Prisma, ManualPayment, ManualCharge, ManualPaymentAppliedTo, ManualPaymentMethod, ManualChargeType } from '@prisma/client';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { CreateStripeCheckoutSessionDto } from './dto/create-stripe-checkout-session.dto';
@@ -8,6 +8,33 @@ import { AIPaymentService } from './ai-payment.service';
 import { EmailService } from '../email/email.service';
 import { StripeService } from './stripe.service';
 import { calculateFee } from '../billing/fee-engine';
+
+type CreateManualPaymentInput = {
+  leaseId: string;
+  propertyId: string;
+  unitId?: string;
+  tenantId: string;
+  amountCents: number;
+  method: ManualPaymentMethod;
+  referenceNumber?: string;
+  receivedAt?: Date;
+  appliedTo?: ManualPaymentAppliedTo;
+  memo?: string;
+  createdById: string;
+};
+
+type CreateManualChargeInput = {
+  leaseId: string;
+  propertyId: string;
+  unitId?: string;
+  tenantId: string;
+  amountCents: number;
+  chargeType: ManualChargeType;
+  description: string;
+  chargeDate?: Date;
+  dueDate?: Date;
+  createdById: string;
+};
 
 @Injectable()
 export class PaymentsService {
@@ -302,6 +329,183 @@ export class PaymentsService {
     }
 
     return payment;
+  }
+
+  async postManualPayment(input: CreateManualPaymentInput, orgId?: string): Promise<ManualPayment> {
+    if (input.amountCents <= 0) {
+      throw new BadRequestException('Amount must be greater than zero');
+    }
+
+    if ((input.method === 'CHECK' || input.method === 'MONEY_ORDER') && !input.referenceNumber?.trim()) {
+      throw new BadRequestException('Reference number is required for check and money order payments');
+    }
+
+    const lease = await this.prisma.lease.findUnique({
+      where: { id: this.parseLeaseId(input.leaseId) },
+      include: { unit: { include: { property: true } } },
+    });
+
+    if (!lease) {
+      throw new NotFoundException('Lease not found');
+    }
+
+    if (orgId && lease.unit?.property?.organizationId !== orgId) {
+      throw new ForbiddenException('You do not have access to this lease');
+    }
+
+    const amount = input.amountCents / 100;
+
+    return this.prisma.$transaction(async (tx) => {
+      const payment = await tx.manualPayment.create({
+        data: {
+          organizationId: orgId ?? lease.unit?.property?.organizationId,
+          propertyId: input.propertyId,
+          unitId: input.unitId,
+          tenantId: input.tenantId,
+          leaseId: lease.id,
+          amountCents: input.amountCents,
+          method: input.method,
+          referenceNumber: input.referenceNumber?.trim() || null,
+          receivedAt: input.receivedAt ?? new Date(),
+          appliedTo: input.appliedTo ?? 'RENT',
+          memo: input.memo,
+          status: 'POSTED',
+          createdById: input.createdById,
+        },
+      });
+
+      await tx.lease.update({
+        where: { id: lease.id },
+        data: { currentBalance: { decrement: amount } },
+      });
+
+      return payment;
+    });
+  }
+
+  async reverseManualPayment(manualPaymentId: string, reason: string, orgId?: string): Promise<ManualPayment> {
+    if (!reason?.trim()) {
+      throw new BadRequestException('Reversal reason is required');
+    }
+
+    const payment = await this.prisma.manualPayment.findUnique({ where: { id: manualPaymentId } });
+
+    if (!payment) {
+      throw new NotFoundException('Manual payment not found');
+    }
+
+    if (payment.status === 'REVERSED') {
+      throw new BadRequestException('Manual payment is already reversed');
+    }
+
+    if (orgId && payment.organizationId && payment.organizationId !== orgId) {
+      throw new ForbiddenException('You do not have access to this payment');
+    }
+
+    const amount = payment.amountCents / 100;
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.lease.update({
+        where: { id: payment.leaseId },
+        data: { currentBalance: { increment: amount } },
+      });
+
+      return tx.manualPayment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'REVERSED',
+          reversalReason: reason.trim(),
+        },
+      });
+    });
+  }
+
+  async postManualCharge(input: CreateManualChargeInput, orgId?: string): Promise<ManualCharge> {
+    if (input.amountCents <= 0) {
+      throw new BadRequestException('Amount must be greater than zero');
+    }
+
+    if (!input.description?.trim()) {
+      throw new BadRequestException('Description is required');
+    }
+
+    const lease = await this.prisma.lease.findUnique({
+      where: { id: this.parseLeaseId(input.leaseId) },
+      include: { unit: { include: { property: true } } },
+    });
+
+    if (!lease) {
+      throw new NotFoundException('Lease not found');
+    }
+
+    if (orgId && lease.unit?.property?.organizationId !== orgId) {
+      throw new ForbiddenException('You do not have access to this lease');
+    }
+
+    const amount = input.amountCents / 100;
+
+    return this.prisma.$transaction(async (tx) => {
+      const charge = await tx.manualCharge.create({
+        data: {
+          organizationId: orgId ?? lease.unit?.property?.organizationId,
+          propertyId: input.propertyId,
+          unitId: input.unitId,
+          tenantId: input.tenantId,
+          leaseId: lease.id,
+          chargeType: input.chargeType,
+          amountCents: input.amountCents,
+          description: input.description.trim(),
+          chargeDate: input.chargeDate ?? new Date(),
+          dueDate: input.dueDate,
+          status: 'POSTED',
+          createdById: input.createdById,
+        },
+      });
+
+      await tx.lease.update({
+        where: { id: lease.id },
+        data: { currentBalance: { increment: amount } },
+      });
+
+      return charge;
+    });
+  }
+
+  async voidManualCharge(manualChargeId: string, reason: string, orgId?: string): Promise<ManualCharge> {
+    if (!reason?.trim()) {
+      throw new BadRequestException('Void reason is required');
+    }
+
+    const charge = await this.prisma.manualCharge.findUnique({ where: { id: manualChargeId } });
+
+    if (!charge) {
+      throw new NotFoundException('Manual charge not found');
+    }
+
+    if (charge.status === 'VOIDED') {
+      throw new BadRequestException('Manual charge is already voided');
+    }
+
+    if (orgId && charge.organizationId && charge.organizationId !== orgId) {
+      throw new ForbiddenException('You do not have access to this charge');
+    }
+
+    const amount = charge.amountCents / 100;
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.lease.update({
+        where: { id: charge.leaseId },
+        data: { currentBalance: { decrement: amount } },
+      });
+
+      return tx.manualCharge.update({
+        where: { id: charge.id },
+        data: {
+          status: 'VOIDED',
+          voidReason: reason.trim(),
+        },
+      });
+    });
   }
 
   async getPaymentsForUser(userId: string, role: Role, leaseId?: string | number, orgId?: string): Promise<Payment[]> {

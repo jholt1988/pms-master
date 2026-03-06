@@ -11,6 +11,10 @@ import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { CreatePaymentPlanDto } from './dto/create-payment-plan.dto';
 import { CreateStripeCheckoutSessionDto } from './dto/create-stripe-checkout-session.dto';
+import { CreateManualPaymentDto } from './dto/create-manual-payment.dto';
+import { ReverseManualPaymentDto } from './dto/reverse-manual-payment.dto';
+import { CreateManualChargeDto } from './dto/create-manual-charge.dto';
+import { VoidManualChargeDto } from './dto/void-manual-charge.dto';
 import { Request as ExpressRequest } from 'express';
 import { AuditLogService } from '../shared/audit-log.service';
 
@@ -113,6 +117,120 @@ export class PaymentsController {
   @Roles('PROPERTY_MANAGER', 'ADMIN')
   async getAIMetrics() {
     return this.aiMetrics ? this.aiMetrics.getMetrics() : {};
+  }
+
+  @Post('manual')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async postManualPayment(
+    @Body() dto: CreateManualPaymentDto,
+    @Request() req: AuthenticatedRequest,
+    @OrgId() orgId: string,
+  ) {
+    const payment = await this.paymentsService.postManualPayment({
+      ...dto,
+      receivedAt: dto.receivedAt ? new Date(dto.receivedAt) : undefined,
+      createdById: req.user.userId,
+    }, orgId);
+
+    await this.auditLogService.record({
+      orgId,
+      actorId: req.user.userId,
+      module: 'payments',
+      action: 'MANUAL_PAYMENT_POSTED',
+      entityType: 'manualPayment',
+      entityId: payment.id,
+      result: 'SUCCESS',
+      metadata: {
+        leaseId: dto.leaseId,
+        tenantId: dto.tenantId,
+        amountCents: dto.amountCents,
+        method: dto.method,
+        referenceNumber: dto.referenceNumber,
+      },
+    });
+
+    return payment;
+  }
+
+  @Post('manual/:id/reverse')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async reverseManualPayment(
+    @Param('id') id: string,
+    @Body() dto: ReverseManualPaymentDto,
+    @Request() req: AuthenticatedRequest,
+    @OrgId() orgId: string,
+  ) {
+    const payment = await this.paymentsService.reverseManualPayment(id, dto.reason, orgId);
+
+    await this.auditLogService.record({
+      orgId,
+      actorId: req.user.userId,
+      module: 'payments',
+      action: 'MANUAL_PAYMENT_REVERSED',
+      entityType: 'manualPayment',
+      entityId: id,
+      result: 'SUCCESS',
+      metadata: { reason: dto.reason },
+    });
+
+    return payment;
+  }
+
+  @Post('charges/manual')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async postManualCharge(
+    @Body() dto: CreateManualChargeDto,
+    @Request() req: AuthenticatedRequest,
+    @OrgId() orgId: string,
+  ) {
+    const charge = await this.paymentsService.postManualCharge({
+      ...dto,
+      chargeDate: dto.chargeDate ? new Date(dto.chargeDate) : undefined,
+      dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
+      createdById: req.user.userId,
+    }, orgId);
+
+    await this.auditLogService.record({
+      orgId,
+      actorId: req.user.userId,
+      module: 'payments',
+      action: 'MANUAL_CHARGE_POSTED',
+      entityType: 'manualCharge',
+      entityId: charge.id,
+      result: 'SUCCESS',
+      metadata: {
+        leaseId: dto.leaseId,
+        tenantId: dto.tenantId,
+        amountCents: dto.amountCents,
+        chargeType: dto.chargeType,
+      },
+    });
+
+    return charge;
+  }
+
+  @Post('charges/manual/:id/void')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async voidManualCharge(
+    @Param('id') id: string,
+    @Body() dto: VoidManualChargeDto,
+    @Request() req: AuthenticatedRequest,
+    @OrgId() orgId: string,
+  ) {
+    const charge = await this.paymentsService.voidManualCharge(id, dto.reason, orgId);
+
+    await this.auditLogService.record({
+      orgId,
+      actorId: req.user.userId,
+      module: 'payments',
+      action: 'MANUAL_CHARGE_VOIDED',
+      entityType: 'manualCharge',
+      entityId: id,
+      result: 'SUCCESS',
+      metadata: { reason: dto.reason },
+    });
+
+    return charge;
   }
 
   @Get('invoices/:id')

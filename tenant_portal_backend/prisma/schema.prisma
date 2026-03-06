@@ -56,6 +56,10 @@ model User {
   requests                  MaintenanceRequest[]
   lease                     Lease?
   payments                  Payment[]
+  manualPayments            ManualPayment[]             @relation("ManualPaymentTenant")
+  manualCharges             ManualCharge[]              @relation("ManualChargeTenant")
+  manualPaymentsCreated     ManualPayment[]             @relation("ManualPaymentCreatedBy")
+  manualChargesCreated      ManualCharge[]              @relation("ManualChargeCreatedBy")
   conversations             ConversationParticipant[]
   sentMessages              Message[]                   @relation("sentMessages")
   rentalApplications        RentalApplication[]
@@ -114,27 +118,27 @@ model User {
   approvalTaskDecidedBy ApprovalTask[] @relation("ApprovalDecidedBy")
   approvalTaskCreatedBy ApprovalTask[] @relation("ApprovalCreatedBy")
 
-  approvalTasks ApprovalTask[] @relation("ApprovalTenant")
-  inspectionRequests           InspectionRequest[] @relation("InspectionRequestTenant")
-  decidedInspectionRequests    InspectionRequest[] @relation("InspectionRequestDecidedBy")
+  approvalTasks             ApprovalTask[]      @relation("ApprovalTenant")
+  inspectionRequests        InspectionRequest[] @relation("InspectionRequestTenant")
+  decidedInspectionRequests InspectionRequest[] @relation("InspectionRequestDecidedBy")
 
-  organizations UserOrganization[]
+  organizations              UserOrganization[]
   feeScheduleVersionsCreated FeeScheduleVersion[] @relation("FeeScheduleVersionCreatedBy")
 }
 
 model Organization {
-  id                               String                     @id @default(uuid()) @db.Uuid
-  name                             String
-  stripeConnectedAccountId         String?                    @unique
-  stripeOnboardingStatus           StripeOnboardingStatus     @default(NOT_STARTED)
-  stripeChargesEnabled             Boolean                    @default(false)
-  stripePayoutsEnabled             Boolean                    @default(false)
-  stripeDetailsSubmitted           Boolean                    @default(false)
-  stripeCapabilities               Json?
-  stripeOnboardingCompletedAt      DateTime?
-  stripeLastOnboardingCheckAt      DateTime?
-  createdAt                        DateTime                   @default(now())
-  updatedAt                        DateTime                   @updatedAt
+  id                          String                 @id @default(uuid()) @db.Uuid
+  name                        String
+  stripeConnectedAccountId    String?                @unique
+  stripeOnboardingStatus      StripeOnboardingStatus @default(NOT_STARTED)
+  stripeChargesEnabled        Boolean                @default(false)
+  stripePayoutsEnabled        Boolean                @default(false)
+  stripeDetailsSubmitted      Boolean                @default(false)
+  stripeCapabilities          Json?
+  stripeOnboardingCompletedAt DateTime?
+  stripeLastOnboardingCheckAt DateTime?
+  createdAt                   DateTime               @default(now())
+  updatedAt                   DateTime               @updatedAt
 
   users                  UserOrganization[]
   properties             Property[]
@@ -146,6 +150,8 @@ model Organization {
   pricingSnapshots       PricingSnapshot[]
   stripeWebhookEvents    StripeWebhookEvent[]
   paymentLedgerEntries   PaymentLedgerEntry[]
+  manualPayments         ManualPayment[]
+  manualCharges          ManualCharge[]
 }
 
 model UserOrganization {
@@ -163,52 +169,52 @@ model UserOrganization {
 }
 
 model OrgPlanCycle {
-  id                     String             @id @default(uuid()) @db.Uuid
-  organizationId         String             @db.Uuid
-  organization           Organization       @relation(fields: [organizationId], references: [id])
-  name                   String
-  startsAt               DateTime
-  endsAt                 DateTime
-  status                 OrgPlanCycleStatus @default(DRAFT)
-  activeFeeScheduleId    String?            @db.Uuid
-  activeFeeSchedule      FeeScheduleVersion? @relation("ActiveFeeSchedule", fields: [activeFeeScheduleId], references: [id])
-  snapshots              PricingSnapshot[]
-  createdAt              DateTime           @default(now())
-  updatedAt              DateTime           @updatedAt
+  id                  String              @id @default(uuid()) @db.Uuid
+  organizationId      String              @db.Uuid
+  organization        Organization        @relation(fields: [organizationId], references: [id])
+  name                String
+  startsAt            DateTime
+  endsAt              DateTime
+  status              OrgPlanCycleStatus  @default(DRAFT)
+  activeFeeScheduleId String?             @db.Uuid
+  activeFeeSchedule   FeeScheduleVersion? @relation("ActiveFeeSchedule", fields: [activeFeeScheduleId], references: [id])
+  snapshots           PricingSnapshot[]
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
 
   @@index([organizationId, status])
   @@index([startsAt, endsAt])
 }
 
 model FeeScheduleVersion {
-  id                     String             @id @default(uuid()) @db.Uuid
-  organizationId         String             @db.Uuid
-  organization           Organization       @relation(fields: [organizationId], references: [id])
-  versionLabel           String
-  effectiveAt            DateTime
-  feeConfig              Json
-  createdById            String?            @db.Uuid
-  createdBy              User?              @relation("FeeScheduleVersionCreatedBy", fields: [createdById], references: [id])
-  planCyclesActive       OrgPlanCycle[]     @relation("ActiveFeeSchedule")
-  snapshots              PricingSnapshot[]
-  createdAt              DateTime           @default(now())
+  id               String            @id @default(uuid()) @db.Uuid
+  organizationId   String            @db.Uuid
+  organization     Organization      @relation(fields: [organizationId], references: [id])
+  versionLabel     String
+  effectiveAt      DateTime
+  feeConfig        Json
+  createdById      String?           @db.Uuid
+  createdBy        User?             @relation("FeeScheduleVersionCreatedBy", fields: [createdById], references: [id])
+  planCyclesActive OrgPlanCycle[]    @relation("ActiveFeeSchedule")
+  snapshots        PricingSnapshot[]
+  createdAt        DateTime          @default(now())
 
   @@unique([organizationId, versionLabel])
   @@index([organizationId, effectiveAt])
 }
 
 model PricingSnapshot {
-  id                     String             @id @default(uuid()) @db.Uuid
-  organizationId         String             @db.Uuid
-  organization           Organization       @relation(fields: [organizationId], references: [id])
-  planCycleId            String             @db.Uuid
-  planCycle              OrgPlanCycle       @relation(fields: [planCycleId], references: [id])
-  feeScheduleVersionId   String             @db.Uuid
-  feeScheduleVersion     FeeScheduleVersion @relation(fields: [feeScheduleVersionId], references: [id])
-  snapshotType           String             @default("BILLING_PREVIEW")
-  inputPayload           Json?
-  computedFees           Json
-  createdAt              DateTime           @default(now())
+  id                   String             @id @default(uuid()) @db.Uuid
+  organizationId       String             @db.Uuid
+  organization         Organization       @relation(fields: [organizationId], references: [id])
+  planCycleId          String             @db.Uuid
+  planCycle            OrgPlanCycle       @relation(fields: [planCycleId], references: [id])
+  feeScheduleVersionId String             @db.Uuid
+  feeScheduleVersion   FeeScheduleVersion @relation(fields: [feeScheduleVersionId], references: [id])
+  snapshotType         String             @default("BILLING_PREVIEW")
+  inputPayload         Json?
+  computedFees         Json
+  createdAt            DateTime           @default(now())
 
   @@index([organizationId, createdAt])
   @@index([planCycleId, createdAt])
@@ -261,6 +267,8 @@ model Property {
   bankTransactions     BankTransaction[]         @relation("BankTransactionProperty")
   approvalTasks        ApprovalTask[]
   inspectionRequests   InspectionRequest[]
+  manualPayments       ManualPayment[]
+  manualCharges        ManualCharge[]
 
   @@index([organizationId])
   @@index([city, state])
@@ -373,6 +381,8 @@ model Unit {
 
   approvalTasks      ApprovalTask[]
   inspectionRequests InspectionRequest[]
+  manualPayments     ManualPayment[]
+  manualCharges      ManualCharge[]
 }
 
 enum UnitStatus {
@@ -513,6 +523,8 @@ model Lease {
   unit                      Unit                      @relation(fields: [unitId], references: [id])
   unitId                    String                    @unique @db.Uuid // A unit can only have one lease
   payments                  Payment[]
+  manualPayments            ManualPayment[]
+  manualCharges             ManualCharge[]
   invoices                  Invoice[]
   recurringSchedule         RecurringInvoiceSchedule?
   autopayEnrollment         AutopayEnrollment?
@@ -855,21 +867,21 @@ model LeaseNotice {
 }
 
 model Invoice {
-  id          Int                       @id @default(autoincrement())
-  description String
-  amount      Float
-  dueDate     DateTime
-  status      String                    @default("UNPAID") // UNPAID, PAID, OVERDUE
-  lease       Lease                     @relation(fields: [leaseId], references: [id])
-  leaseId     String                    @db.Uuid
-  payments    Payment[]
-  issuedAt    DateTime                  @default(now())
-  externalId  String?                   @unique
-  lateFees    LateFee[]
-  paymentPlan PaymentPlan?
+  id              Int                       @id @default(autoincrement())
+  description     String
+  amount          Float
+  dueDate         DateTime
+  status          String                    @default("UNPAID") // UNPAID, PAID, OVERDUE
+  lease           Lease                     @relation(fields: [leaseId], references: [id])
+  leaseId         String                    @db.Uuid
+  payments        Payment[]
+  issuedAt        DateTime                  @default(now())
+  externalId      String?                   @unique
+  lateFees        LateFee[]
+  paymentPlan     PaymentPlan?
   paymentAttempts PaymentAttempt[]
-  schedule    RecurringInvoiceSchedule? @relation(fields: [scheduleId], references: [id])
-  scheduleId  Int?
+  schedule        RecurringInvoiceSchedule? @relation(fields: [scheduleId], references: [id])
+  scheduleId      Int?
 }
 
 model Payment {
@@ -894,22 +906,87 @@ model Payment {
 }
 
 model PaymentLedgerEntry {
-  id                 String    @id @default(uuid()) @db.Uuid
-  payment            Payment   @relation(fields: [paymentId], references: [id])
-  paymentId          Int
-  organization       Organization? @relation(fields: [organizationId], references: [id])
-  organizationId     String?   @db.Uuid
-  leaseId            String?   @db.Uuid
-  sourceEventId      String    @unique
-  currency           String    @default("usd")
-  grossAmountMinor   Int
-  platformFeeMinor   Int       @default(0)
-  netAmountMinor     Int
-  tierSnapshot       Json?
-  createdAt          DateTime  @default(now())
+  id               String        @id @default(uuid()) @db.Uuid
+  payment          Payment       @relation(fields: [paymentId], references: [id])
+  paymentId        Int
+  organization     Organization? @relation(fields: [organizationId], references: [id])
+  organizationId   String?       @db.Uuid
+  leaseId          String?       @db.Uuid
+  sourceEventId    String        @unique
+  currency         String        @default("usd")
+  grossAmountMinor Int
+  platformFeeMinor Int           @default(0)
+  netAmountMinor   Int
+  tierSnapshot     Json?
+  createdAt        DateTime      @default(now())
 
   @@index([paymentId, createdAt])
   @@index([organizationId, createdAt])
+}
+
+model ManualPayment {
+  id              String                 @id @default(uuid()) @db.Uuid
+  organization    Organization?          @relation(fields: [organizationId], references: [id])
+  organizationId  String?                @db.Uuid
+  property        Property               @relation(fields: [propertyId], references: [id])
+  propertyId      String                 @db.Uuid
+  unit            Unit?                  @relation(fields: [unitId], references: [id])
+  unitId          String?                @db.Uuid
+  tenant          User                   @relation("ManualPaymentTenant", fields: [tenantId], references: [id])
+  tenantId        String                 @db.Uuid
+  lease           Lease                  @relation(fields: [leaseId], references: [id])
+  leaseId         String                 @db.Uuid
+  amountCents     Int
+  currency        String                 @default("USD")
+  method          ManualPaymentMethod
+  referenceNumber String?
+  receivedAt      DateTime               @default(now())
+  appliedTo       ManualPaymentAppliedTo @default(RENT)
+  memo            String?
+  status          ManualPaymentStatus    @default(POSTED)
+  reversalReason  String?
+  createdBy       User                   @relation("ManualPaymentCreatedBy", fields: [createdById], references: [id])
+  createdById     String                 @db.Uuid
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  @@index([organizationId, createdAt])
+  @@index([leaseId, receivedAt])
+  @@index([tenantId, receivedAt])
+  @@index([propertyId, receivedAt])
+  @@index([method, referenceNumber])
+}
+
+model ManualCharge {
+  id             String             @id @default(uuid()) @db.Uuid
+  organization   Organization?      @relation(fields: [organizationId], references: [id])
+  organizationId String?            @db.Uuid
+  property       Property           @relation(fields: [propertyId], references: [id])
+  propertyId     String             @db.Uuid
+  unit           Unit?              @relation(fields: [unitId], references: [id])
+  unitId         String?            @db.Uuid
+  tenant         User               @relation("ManualChargeTenant", fields: [tenantId], references: [id])
+  tenantId       String             @db.Uuid
+  lease          Lease              @relation(fields: [leaseId], references: [id])
+  leaseId        String             @db.Uuid
+  chargeType     ManualChargeType
+  amountCents    Int
+  currency       String             @default("USD")
+  description    String
+  chargeDate     DateTime
+  dueDate        DateTime?
+  status         ManualChargeStatus @default(POSTED)
+  voidReason     String?
+  createdBy      User               @relation("ManualChargeCreatedBy", fields: [createdById], references: [id])
+  createdById    String             @db.Uuid
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([organizationId, createdAt])
+  @@index([leaseId, chargeDate])
+  @@index([tenantId, chargeDate])
+  @@index([propertyId, chargeDate])
+  @@index([chargeType, status])
 }
 
 model Conversation {
@@ -1059,9 +1136,9 @@ model RentalApplication {
   createdAt             DateTime                    @default(now())
   updatedAt             DateTime                    @updatedAt
 
-  ai_recommendation     String?
-  ai_summary            String?
-  ai_reviewed_at        DateTime?
+  ai_recommendation String?
+  ai_summary        String?
+  ai_reviewed_at    DateTime?
 }
 
 enum LeadStatus {
@@ -1404,6 +1481,37 @@ enum PaymentProvider {
   OTHER
 }
 
+enum ManualPaymentMethod {
+  CASH
+  CHECK
+  MONEY_ORDER
+}
+
+enum ManualPaymentAppliedTo {
+  RENT
+  LATE_FEE
+  UTILITY
+  OTHER
+}
+
+enum ManualPaymentStatus {
+  POSTED
+  REVERSED
+}
+
+enum ManualChargeType {
+  LATE_FEE
+  UTILITY
+  CLEANING
+  DAMAGE
+  MISC
+}
+
+enum ManualChargeStatus {
+  POSTED
+  VOIDED
+}
+
 model RecurringInvoiceSchedule {
   id               Int              @id @default(autoincrement())
   lease            Lease            @relation(fields: [leaseId], references: [id])
@@ -1453,14 +1561,14 @@ model PaymentPlan {
 }
 
 model StripeWebhookEvent {
-  id             String        @id @default(uuid()) @db.Uuid
-  eventId        String        @unique
-  eventType      String
+  id              String        @id @default(uuid()) @db.Uuid
+  eventId         String        @unique
+  eventType       String
   stripeAccountId String?
-  organizationId String?       @db.Uuid
-  organization   Organization? @relation(fields: [organizationId], references: [id])
-  payload        Json?
-  processedAt    DateTime      @default(now())
+  organizationId  String?       @db.Uuid
+  organization    Organization? @relation(fields: [organizationId], references: [id])
+  payload         Json?
+  processedAt     DateTime      @default(now())
 
   @@index([organizationId, processedAt])
   @@index([eventType])
@@ -1480,16 +1588,16 @@ model PaymentPlanPayment {
 }
 
 model AutopayEnrollment {
-  id              Int           @id @default(autoincrement())
-  lease           Lease         @relation(fields: [leaseId], references: [id])
-  leaseId         String        @unique @db.Uuid
-  paymentMethod   PaymentMethod @relation(fields: [paymentMethodId], references: [id])
+  id              Int              @id @default(autoincrement())
+  lease           Lease            @relation(fields: [leaseId], references: [id])
+  leaseId         String           @unique @db.Uuid
+  paymentMethod   PaymentMethod    @relation(fields: [paymentMethodId], references: [id])
   paymentMethodId Int
-  active          Boolean       @default(true)
+  active          Boolean          @default(true)
   maxAmount       Float?
   attempts        PaymentAttempt[]
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 }
 
 model PaymentAttempt {
@@ -1719,26 +1827,26 @@ enum InspectionStatus {
 }
 
 model InspectionRequest {
-  id            Int                     @id @default(autoincrement())
-  tenant        User                    @relation("InspectionRequestTenant", fields: [tenantId], references: [id])
-  tenantId      String                  @db.Uuid
-  property      Property                @relation(fields: [propertyId], references: [id])
-  propertyId    String                  @db.Uuid
-  unit          Unit                    @relation(fields: [unitId], references: [id])
-  unitId        String                  @db.Uuid
-  lease         Lease                   @relation(fields: [leaseId], references: [id])
-  leaseId       String                  @db.Uuid
-  type          InspectionType
-  status        InspectionRequestStatus @default(PENDING)
-  notes         String?
-  decisionNotes String?
-  decidedAt     DateTime?
-  decidedBy     User?                   @relation("InspectionRequestDecidedBy", fields: [decidedById], references: [id])
-  decidedById   String?                 @db.Uuid
-  startedAt     DateTime?
+  id                  Int                     @id @default(autoincrement())
+  tenant              User                    @relation("InspectionRequestTenant", fields: [tenantId], references: [id])
+  tenantId            String                  @db.Uuid
+  property            Property                @relation(fields: [propertyId], references: [id])
+  propertyId          String                  @db.Uuid
+  unit                Unit                    @relation(fields: [unitId], references: [id])
+  unitId              String                  @db.Uuid
+  lease               Lease                   @relation(fields: [leaseId], references: [id])
+  leaseId             String                  @db.Uuid
+  type                InspectionType
+  status              InspectionRequestStatus @default(PENDING)
+  notes               String?
+  decisionNotes       String?
+  decidedAt           DateTime?
+  decidedBy           User?                   @relation("InspectionRequestDecidedBy", fields: [decidedById], references: [id])
+  decidedById         String?                 @db.Uuid
+  startedAt           DateTime?
   startedInspectionId Int?
-  createdAt     DateTime                @default(now())
-  updatedAt     DateTime                @updatedAt
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
 
   @@index([tenantId])
   @@index([propertyId])
