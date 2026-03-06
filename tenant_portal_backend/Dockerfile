@@ -13,9 +13,11 @@ RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
 COPY . .
+WORKDIR /app
+# Generate Prisma client from the backend schema before TypeScript compile.
+RUN pnpm exec prisma generate --schema=tenant_portal_backend/prisma/schema.prisma
 WORKDIR /app/tenant_portal_backend
 RUN pnpm build
-RUN pnpm exec prisma generate
 
 FROM node:22-alpine AS runner
 WORKDIR /app
