@@ -15,7 +15,7 @@ export class MilAuditEventService {
 
   async record(params: RecordMilAuditEventParams): Promise<void> {
     try {
-      await this.prisma.milAuditEvent.create({
+      await (this.prisma as any).milAuditEvent.create({
         data: {
           traceId: params.traceId,
           orgId: params.orgId,

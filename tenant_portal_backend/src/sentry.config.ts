@@ -1,7 +1,6 @@
 import * as Sentry from '@sentry/nestjs';
-import type { Integration } from '@sentry/core';
 
-function getProfilingIntegration(): Integration | undefined {
+function getProfilingIntegration(): any | undefined {
   if (process.env.SENTRY_PROFILING !== 'true') {
     return undefined;
   }
@@ -9,7 +8,7 @@ function getProfilingIntegration(): Integration | undefined {
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
     const { nodeProfilingIntegration } = require('@sentry/profiling-node') as {
-      nodeProfilingIntegration?: () => Integration;
+      nodeProfilingIntegration?: () => any;
     };
     if (typeof nodeProfilingIntegration === 'function') {
       return nodeProfilingIntegration();
@@ -23,7 +22,7 @@ function getProfilingIntegration(): Integration | undefined {
 
 export function initializeSentry() {
   const profilingIntegration = getProfilingIntegration();
-  const integrations: Integration[] = [];
+  const integrations: any[] = [];
   if (profilingIntegration) {
     integrations.push(profilingIntegration);
   }

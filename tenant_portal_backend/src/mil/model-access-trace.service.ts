@@ -17,7 +17,7 @@ export class ModelAccessTraceService {
 
   async record(params: RecordModelAccessTraceParams): Promise<void> {
     try {
-      await this.prisma.modelAccessTrace.create({
+      await (this.prisma as any).modelAccessTrace.create({
         data: {
           traceId: params.trace.traceId,
           requestId: params.trace.requestId,
