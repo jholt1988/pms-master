@@ -191,7 +191,7 @@ export default function InspectionManagementPage(): React.ReactElement {
       <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
         <div>
           <h2 className="text-2xl font-semibold">Overview</h2>
-          <p className="text-sm text-foreground-500">Monitor upcoming, in-progress, and completed inspections.</p>
+          <p className="text-sm text-gray-600">Monitor upcoming, in-progress, and completed inspections.</p>
         </div>
         <Button
           color="primary"
@@ -213,7 +213,7 @@ export default function InspectionManagementPage(): React.ReactElement {
 
       <div className="bg-white p-4 rounded-lg shadow mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4">
-          <label className="flex flex-col text-sm text-foreground-500">
+          <label className="flex flex-col text-sm text-gray-600">
             Property
             <select
               className="border border-input rounded px-3 py-2 mt-1"
@@ -230,7 +230,7 @@ export default function InspectionManagementPage(): React.ReactElement {
               ))}
             </select>
           </label>
-          <label className="flex flex-col text-sm text-foreground-500">
+          <label className="flex flex-col text-sm text-gray-600">
             Status
             <select
               className="border border-input rounded px-3 py-2 mt-1"
@@ -244,7 +244,7 @@ export default function InspectionManagementPage(): React.ReactElement {
               <option value="CANCELLED">Cancelled</option>
             </select>
           </label>
-          <label className="flex flex-col text-sm text-foreground-500">
+          <label className="flex flex-col text-sm text-gray-600">
             Inspection Type
             <input
               className="border border-input rounded px-3 py-2 mt-1"
@@ -268,14 +268,14 @@ export default function InspectionManagementPage(): React.ReactElement {
       <div className="bg-white p-4 rounded-lg shadow mb-6">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold">Pending Tenant Inspection Requests</h3>
-          <span className="text-xs text-foreground-500">{inspectionRequests.filter((r) => r.status === 'PENDING').length} pending</span>
+          <span className="text-xs text-gray-600">{inspectionRequests.filter((r) => r.status === 'PENDING').length} pending</span>
         </div>
         <div className="space-y-2">
           {inspectionRequests.filter((r) => r.status === 'PENDING').slice(0, 8).map((r) => (
             <div key={r.id} className="border border-default-200 rounded p-3 flex items-center gap-3">
               <div>
                 <div className="text-sm font-semibold">{getTypeLabel(r.type)} · {r.property?.name ?? 'Property'} / {r.unit?.name ?? 'Unit'}</div>
-                <div className="text-xs text-foreground-500">Tenant: {r.tenant?.firstName || r.tenant?.username || 'Unknown'} · {new Date(r.createdAt).toLocaleString()}</div>
+                <div className="text-xs text-gray-600">Tenant: {r.tenant?.firstName || r.tenant?.username || 'Unknown'} · {new Date(r.createdAt).toLocaleString()}</div>
               </div>
               <div className="ml-auto flex items-center gap-2">
                 <Button size="sm" color="success" variant="flat" onClick={() => handleRequestDecision(Number(r.id), 'APPROVED')}>Approve</Button>
@@ -284,7 +284,7 @@ export default function InspectionManagementPage(): React.ReactElement {
             </div>
           ))}
           {inspectionRequests.filter((r) => r.status === 'PENDING').length === 0 && (
-            <div className="text-sm text-foreground-500">No pending requests.</div>
+            <div className="text-sm text-gray-600">No pending requests.</div>
           )}
         </div>
       </div>
@@ -299,19 +299,19 @@ export default function InspectionManagementPage(): React.ReactElement {
             <caption className="sr-only">Inspection list</caption>
             <thead className="bg-gray-50">
               <tr>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground-500">
+                <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
                   Property / Unit
                 </th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground-500">
+                <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
                   Type
                 </th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground-500">
+                <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
                   Status
                 </th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground-500">
+                <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
                   Scheduled
                 </th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-foreground-500">
+                <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
                   Inspector
                 </th>
               </tr>
@@ -319,7 +319,7 @@ export default function InspectionManagementPage(): React.ReactElement {
             <tbody className="bg-white divide-y divide-gray-200">
               {inspections.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-sm text-foreground-500">
+                  <td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-600">
                     No inspections match the current filters.
                   </td>
                 </tr>
@@ -343,7 +343,7 @@ export default function InspectionManagementPage(): React.ReactElement {
                     <p className="font-semibold text-foreground">
                       {properties.find((p) => p.id === inspection.unit.property.id)?.name}
                     </p>
-                    <p className="text-xs text-foreground-500">{inspection.unit.name}</p>
+                    <p className="text-xs text-gray-600">{inspection.unit.name}</p>
                   </td>
                   <td className="px-4 py-3 text-sm">{getTypeLabel(inspection.type)}</td>
                   <td className="px-4 py-3 text-sm">
@@ -385,7 +385,7 @@ export default function InspectionManagementPage(): React.ReactElement {
           <ModalHeader>Schedule Inspection</ModalHeader>
           <ModalBody>
             <form id="schedule-inspection-form" onSubmit={handleCreateSubmit} className="space-y-4">
-              <label className="flex flex-col text-sm text-foreground-500">
+              <label className="flex flex-col text-sm text-gray-600">
                 Property
                 <select
                   className="border border-input rounded px-3 py-2 mt-1"

@@ -122,6 +122,8 @@ export default function TenantInspectionsListPage(): React.ReactElement {
           <div className="grid gap-3 md:grid-cols-3">
             <Select
               label="Request type"
+              labelPlacement="outside"
+              placeholder="Select request type"
               selectedKeys={new Set([requestType])}
               onSelectionChange={(keys) => setRequestType((Array.from(keys)[0] as any) || 'MOVE_IN')}
             >
@@ -131,6 +133,7 @@ export default function TenantInspectionsListPage(): React.ReactElement {
             <div className="md:col-span-2">
               <Textarea
                 label="Notes (optional)"
+                labelPlacement="outside"
                 value={requestNotes}
                 onValueChange={setRequestNotes}
                 minRows={1}
