@@ -63,6 +63,13 @@ export enum EstimateStatus {
   REJECTED = 'REJECTED',
 }
 
+export enum InspectionRequestStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  DENIED = 'DENIED',
+  STARTED = 'STARTED',
+}
+
 // Basic DTOs without complex validation
 export class CreateInspectionDto {
   @IsUUID()
@@ -323,4 +330,27 @@ export class CreateInspectionWithRoomsDto {
   inspectorId?: string;
   notes?: string;
   generalNotes?: string;
+}
+
+export class CreateInspectionRequestDto {
+  @IsEnumSafe(InspectionType)
+  type!: InspectionType;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+export class DecideInspectionRequestDto {
+  @IsString()
+  decision!: 'APPROVED' | 'DENIED';
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+export class StartInspectionDto {
+  @IsInt()
+  requestId!: number;
 }

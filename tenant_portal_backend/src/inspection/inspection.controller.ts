@@ -37,6 +37,9 @@ import {
   CreateInspectionWithRoomsDto,
   UpdateRoomChecklistItemsDto,
   UpdateInspectionStatusDto,
+  CreateInspectionRequestDto,
+  DecideInspectionRequestDto,
+  StartInspectionDto,
 } from './dto/simple-inspection.dto';
 
 // Blessed inspections API surface (v2). Served under /api/inspections via global prefix.
@@ -98,6 +101,40 @@ export class InspectionController {
       propertyId ? this.ensureUuid(propertyId, 'propertyId') : undefined,
       orgId,
     );
+  }
+
+  @Get('requests')
+  @Roles('TENANT', 'PROPERTY_MANAGER', 'ADMIN')
+  async listRequests(@Request() req: any) {
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.inspectionService.listInspectionRequests(req.user, orgId);
+  }
+
+  @Post('requests')
+  @Roles('TENANT')
+  @HttpCode(HttpStatus.CREATED)
+  async createRequest(@Body() dto: CreateInspectionRequestDto, @Request() req: any) {
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.inspectionService.createInspectionRequest(dto, req.user, orgId);
+  }
+
+  @Patch('requests/:id/decision')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async decideRequest(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: DecideInspectionRequestDto,
+    @Request() req: any,
+  ) {
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.inspectionService.decideInspectionRequest(id, dto, req.user, orgId);
+  }
+
+  @Post('start')
+  @Roles('TENANT')
+  @HttpCode(HttpStatus.OK)
+  async startInspection(@Body() dto: StartInspectionDto, @Request() req: any) {
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.inspectionService.startApprovedInspection(dto, req.user, orgId);
   }
 
   @Get(':id')

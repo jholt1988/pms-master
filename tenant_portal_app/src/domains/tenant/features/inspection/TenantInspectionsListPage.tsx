@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../../AuthContext';
 import { apiFetch } from '../../../../services/apiClient';
-import { Card, CardBody, Button } from '@nextui-org/react';
+import { Card, CardBody, Button, Select, SelectItem, Textarea } from '@nextui-org/react';
 import { DegradedStateCard } from '../../../../components/ui/DegradedStateCard';
 import { ClipboardList, Calendar } from 'lucide-react';
 
@@ -35,7 +35,11 @@ export default function TenantInspectionsListPage(): React.ReactElement {
   const navigate = useNavigate();
 
   const [inspections, setInspections] = useState<Inspection[]>([]);
+  const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [requestType, setRequestType] = useState<'MOVE_IN' | 'MOVE_OUT'>('MOVE_IN');
+  const [requestNotes, setRequestNotes] = useState('');
+  const [requestLoading, setRequestLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchInspections = React.useCallback(async () => {
@@ -48,9 +52,13 @@ export default function TenantInspectionsListPage(): React.ReactElement {
     setError(null);
 
     try {
-      const resp = await apiFetch('/inspections', { token });
+      const [resp, reqResp] = await Promise.all([
+        apiFetch('/inspections', { token }),
+        apiFetch('/inspections/requests', { token }).catch(() => []),
+      ]);
       const list = unwrapApiList(resp);
       setInspections(list as any);
+      setRequests(Array.isArray(reqResp) ? reqResp : ((reqResp as any)?.data ?? []));
     } catch (e: any) {
       // Gracefully handle 404 or empty states as "no inspections"
       if (e?.message?.includes('404')) {
@@ -75,6 +83,25 @@ export default function TenantInspectionsListPage(): React.ReactElement {
     });
   }, [inspections]);
 
+  const submitRequest = async () => {
+    if (!token) return;
+    setRequestLoading(true);
+    setError(null);
+    try {
+      await apiFetch('/inspections/requests', {
+        token,
+        method: 'POST',
+        body: { type: requestType, notes: requestNotes || undefined },
+      });
+      setRequestNotes('');
+      await fetchInspections();
+    } catch (e: any) {
+      setError(e?.message || 'Failed to submit request');
+    } finally {
+      setRequestLoading(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6">
       <div className="flex items-center justify-between mb-6">
@@ -88,6 +115,34 @@ export default function TenantInspectionsListPage(): React.ReactElement {
           </p>
         </div>
       </div>
+
+      <Card className="mb-4 bg-white/5 border border-white/10">
+        <CardBody className="gap-3">
+          <h3 className="font-semibold">Request move-in / move-out inspection</h3>
+          <div className="grid gap-3 md:grid-cols-3">
+            <Select
+              label="Request type"
+              selectedKeys={new Set([requestType])}
+              onSelectionChange={(keys) => setRequestType((Array.from(keys)[0] as any) || 'MOVE_IN')}
+            >
+              <SelectItem key="MOVE_IN">Move-in</SelectItem>
+              <SelectItem key="MOVE_OUT">Move-out</SelectItem>
+            </Select>
+            <div className="md:col-span-2">
+              <Textarea
+                label="Notes (optional)"
+                value={requestNotes}
+                onValueChange={setRequestNotes}
+                minRows={1}
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <Button color="primary" onPress={submitRequest} isLoading={requestLoading}>Submit request</Button>
+            <span className="text-xs text-gray-500">Latest request: {requests?.[0]?.status ?? 'None'}</span>
+          </div>
+        </CardBody>
+      </Card>
 
       {loading && (
         <div className="flex flex-col items-center justify-center py-12 space-y-4">

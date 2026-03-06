@@ -81,6 +81,7 @@ export default function InspectionManagementPage(): React.ReactElement {
   const isOwnerView = user?.role === 'OWNER';
   const navigate = useNavigate();
   const [inspections, setInspections] = useState<Inspection[]>([]);
+  const [inspectionRequests, setInspectionRequests] = useState<any[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -110,11 +111,15 @@ export default function InspectionManagementPage(): React.ReactElement {
       });
 
       const queryString = params.toString() ? `?${params.toString()}` : '';
-      const data = await apiFetch(`/inspections${queryString}`, { token: token ?? undefined });
+      const [data, requestsResp] = await Promise.all([
+        apiFetch(`/inspections${queryString}`, { token: token ?? undefined }),
+        apiFetch('/inspections/requests', { token: token ?? undefined }).catch(() => []),
+      ]);
       const resolved = (data && typeof data === 'object')
         ? ((data as any).data ?? (data as any).inspections ?? (data as any).items ?? [])
         : [];
       setInspections(Array.isArray(resolved) ? resolved : []);
+      setInspectionRequests(Array.isArray(requestsResp) ? requestsResp : ((requestsResp as any)?.data ?? []));
     } catch (err: any) {
       setInspections([]);
       setError(err.message ?? 'Failed to load inspections');
@@ -147,6 +152,20 @@ export default function InspectionManagementPage(): React.ReactElement {
 
   const handleBackClick = () => {
     setShowDetail(false);
+  };
+
+  const handleRequestDecision = async (requestId: number, decision: 'APPROVED' | 'DENIED') => {
+    if (!token) return;
+    try {
+      await apiFetch(`/inspections/requests/${requestId}/decision`, {
+        token,
+        method: 'PATCH',
+        body: { decision },
+      });
+      await fetchInspections();
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to update request');
+    }
   };
 
   const handleCreateSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -245,6 +264,30 @@ export default function InspectionManagementPage(): React.ReactElement {
           {error}
         </div>
       )}
+
+      <div className="bg-white p-4 rounded-lg shadow mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold">Pending Tenant Inspection Requests</h3>
+          <span className="text-xs text-foreground-500">{inspectionRequests.filter((r) => r.status === 'PENDING').length} pending</span>
+        </div>
+        <div className="space-y-2">
+          {inspectionRequests.filter((r) => r.status === 'PENDING').slice(0, 8).map((r) => (
+            <div key={r.id} className="border border-default-200 rounded p-3 flex items-center gap-3">
+              <div>
+                <div className="text-sm font-semibold">{getTypeLabel(r.type)} · {r.property?.name ?? 'Property'} / {r.unit?.name ?? 'Unit'}</div>
+                <div className="text-xs text-foreground-500">Tenant: {r.tenant?.firstName || r.tenant?.username || 'Unknown'} · {new Date(r.createdAt).toLocaleString()}</div>
+              </div>
+              <div className="ml-auto flex items-center gap-2">
+                <Button size="sm" color="success" variant="flat" onClick={() => handleRequestDecision(Number(r.id), 'APPROVED')}>Approve</Button>
+                <Button size="sm" color="danger" variant="flat" onClick={() => handleRequestDecision(Number(r.id), 'DENIED')}>Deny</Button>
+              </div>
+            </div>
+          ))}
+          {inspectionRequests.filter((r) => r.status === 'PENDING').length === 0 && (
+            <div className="text-sm text-foreground-500">No pending requests.</div>
+          )}
+        </div>
+      </div>
 
       {loading ? (
         <div className="text-center py-12" role="status" aria-live="polite">

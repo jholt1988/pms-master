@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { 
@@ -53,6 +53,190 @@ export class InspectionService {
     if (!property) {
       throw new NotFoundException('Property not found');
     }
+  }
+
+  async createInspectionRequest(
+    dto: { type: string; notes?: string },
+    viewer?: { userId?: string; role?: string },
+    orgId?: string,
+  ): Promise<any> {
+    if (viewer?.role !== 'TENANT') {
+      throw new ForbiddenException('Only tenants can submit inspection requests');
+    }
+    const userId = viewer?.userId;
+    if (!userId) throw new BadRequestException('Missing user id');
+
+    const lease = await this.prisma.lease.findUnique({
+      where: { tenantId: userId as any },
+      include: { unit: { include: { property: true } } },
+    });
+
+    if (!lease || lease.status !== 'ACTIVE') {
+      throw new BadRequestException('Active lease required to request inspection');
+    }
+
+    if (orgId && lease.unit?.property?.organizationId !== orgId) {
+      throw new NotFoundException('Lease not found');
+    }
+
+    const allowedTypes = new Set(['MOVE_IN', 'MOVE_OUT']);
+    if (!allowedTypes.has(String(dto.type))) {
+      throw new BadRequestException('Only MOVE_IN and MOVE_OUT requests are supported');
+    }
+
+    const existing = await (this.prisma as any).inspectionRequest.findFirst({
+      where: {
+        tenantId: userId,
+        leaseId: lease.id,
+        type: dto.type,
+        status: { in: ['PENDING', 'APPROVED', 'STARTED'] },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (existing) {
+      throw new BadRequestException('An inspection request is already active for this type');
+    }
+
+    return (this.prisma as any).inspectionRequest.create({
+      data: {
+        tenantId: userId,
+        propertyId: lease.unit.propertyId,
+        unitId: lease.unitId,
+        leaseId: lease.id,
+        type: dto.type,
+        notes: dto.notes,
+      },
+    });
+  }
+
+  async decideInspectionRequest(
+    id: number,
+    dto: { decision: string; notes?: string },
+    viewer?: { userId?: string; role?: string },
+    orgId?: string,
+  ): Promise<any> {
+    if (!['PROPERTY_MANAGER', 'ADMIN'].includes(String(viewer?.role))) {
+      throw new ForbiddenException('Only PM/Admin can decide inspection requests');
+    }
+
+    const req = await (this.prisma as any).inspectionRequest.findFirst({
+      where: { id, ...(orgId ? { property: { organizationId: orgId } } : {}) },
+      include: { lease: true },
+    });
+
+    if (!req) throw new NotFoundException('Inspection request not found');
+    if (req.status !== 'PENDING') {
+      throw new BadRequestException('Only pending requests can be decided');
+    }
+
+    const decision = String(dto.decision).toUpperCase();
+    if (!['APPROVED', 'DENIED'].includes(decision)) {
+      throw new BadRequestException('Decision must be APPROVED or DENIED');
+    }
+
+    return (this.prisma as any).inspectionRequest.update({
+      where: { id },
+      data: {
+        status: decision,
+        decisionNotes: dto.notes,
+        decidedAt: new Date(),
+        decidedById: viewer?.userId,
+      },
+    });
+  }
+
+  async startApprovedInspection(
+    dto: { requestId: number },
+    viewer?: { userId?: string; role?: string },
+    orgId?: string,
+  ): Promise<any> {
+    if (viewer?.role !== 'TENANT') {
+      throw new ForbiddenException('Only tenants can start inspections');
+    }
+
+    const userId = viewer?.userId;
+    if (!userId) throw new BadRequestException('Missing user id');
+
+    const req = await (this.prisma as any).inspectionRequest.findFirst({
+      where: {
+        id: dto.requestId,
+        tenantId: userId,
+        ...(orgId ? { property: { organizationId: orgId } } : {}),
+      },
+    });
+
+    if (!req) throw new NotFoundException('Inspection request not found');
+    if (req.status !== 'APPROVED') {
+      throw new BadRequestException('Inspection request must be approved before start');
+    }
+
+    const existingInspection = await this.prisma.unitInspection.findFirst({
+      where: {
+        unitId: req.unitId,
+        leaseId: req.leaseId,
+        type: req.type,
+        status: { in: ['SCHEDULED', 'IN_PROGRESS'] },
+        ...(orgId ? { property: { organizationId: orgId } } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const inspection = existingInspection
+      ? await this.prisma.unitInspection.update({
+          where: { id: existingInspection.id },
+          data: { status: 'IN_PROGRESS' as any },
+        })
+      : await this.prisma.unitInspection.create({
+          data: {
+            propertyId: req.propertyId,
+            unitId: req.unitId,
+            leaseId: req.leaseId,
+            tenantId: req.tenantId,
+            type: req.type,
+            scheduledDate: new Date(),
+            createdById: userId,
+            status: 'IN_PROGRESS',
+            notes: req.notes ?? undefined,
+          },
+        });
+
+    await (this.prisma as any).inspectionRequest.update({
+      where: { id: req.id },
+      data: {
+        status: 'STARTED',
+        startedAt: new Date(),
+        startedInspectionId: inspection.id,
+      },
+    });
+
+    return { requestId: req.id, inspectionId: inspection.id, status: inspection.status };
+  }
+
+  async listInspectionRequests(viewer?: { userId?: string; role?: string }, orgId?: string): Promise<any[]> {
+    const where: any = {
+      ...(orgId ? { property: { organizationId: orgId } } : {}),
+    };
+
+    if (viewer?.role === 'TENANT') {
+      where.tenantId = viewer.userId;
+    }
+
+    if (!['TENANT', 'PROPERTY_MANAGER', 'ADMIN'].includes(String(viewer?.role))) {
+      throw new ForbiddenException('Unauthorized');
+    }
+
+    return (this.prisma as any).inspectionRequest.findMany({
+      where,
+      include: {
+        tenant: { select: { id: true, firstName: true, lastName: true, username: true } },
+        unit: { select: { id: true, name: true } },
+        property: { select: { id: true, name: true } },
+        lease: { select: { id: true, status: true } },
+        decidedBy: { select: { id: true, firstName: true, lastName: true, username: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   /**
