@@ -62,6 +62,14 @@ const getPriorityColor = (priority: MaintenanceRequest['priority']) => {
   }
 };
 
+const getFriendlyApiError = (err: any, fallback: string) => {
+  const message = err?.message || '';
+  if (typeof message === 'string' && message.startsWith('401')) {
+    return 'Session expired or unauthorized. Please sign in again and retry.';
+  }
+  return message || fallback;
+};
+
 export default function MaintenanceManagementPage(): React.ReactElement {
   const { token, user } = useAuth();
   const isOwnerView = user?.role === 'OWNER';
@@ -95,7 +103,7 @@ export default function MaintenanceManagementPage(): React.ReactElement {
       console.error('Error fetching maintenance requests:', err);
       setRequests([]);
       const errorMessage = err instanceof Error ? err.message : 'Failed to load maintenance requests';
-      setError(errorMessage || undefined);
+      setError(getFriendlyApiError(err, errorMessage) || undefined);
     } finally {
       setLoading(false);
     }
@@ -116,7 +124,7 @@ export default function MaintenanceManagementPage(): React.ReactElement {
       const data = await apiFetch('/maintenance/diagnostics/data-quality', { token });
       setDiagnostics(data);
     } catch (err: any) {
-      setError(err?.message || 'Failed to load diagnostics');
+      setError(getFriendlyApiError(err, 'Failed to load diagnostics'));
     } finally {
       setDiagnosticsLoading(false);
     }
@@ -129,7 +137,7 @@ export default function MaintenanceManagementPage(): React.ReactElement {
       const data = await apiFetch(`/maintenance/ai/features/${String(requestId)}`, { token });
       setFeatureData(data);
     } catch (err: any) {
-      setError(err?.message || 'Failed to load AI features');
+      setError(getFriendlyApiError(err, 'Failed to load AI features'));
     } finally {
       setFeatureLoading(false);
     }
@@ -154,7 +162,16 @@ export default function MaintenanceManagementPage(): React.ReactElement {
       {diagnostics && (
         <Card className="mb-4 bg-white/5 border-white/10">
           <CardBody>
-            <p className="text-sm font-medium text-white mb-2">Diagnostics Snapshot</p>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-sm font-medium text-white">Diagnostics Snapshot</p>
+              <Button
+                size="sm"
+                variant="light"
+                onPress={() => navigator?.clipboard?.writeText(JSON.stringify(diagnostics, null, 2))}
+              >
+                Copy JSON
+              </Button>
+            </div>
             <pre className="text-xs text-gray-300 overflow-auto max-h-48">{JSON.stringify(diagnostics, null, 2)}</pre>
           </CardBody>
         </Card>
@@ -221,7 +238,16 @@ export default function MaintenanceManagementPage(): React.ReactElement {
               )}
               {featureData && (
                 <div className="mt-4">
-                  <p className="text-sm font-medium text-white mb-2">AI Features</p>
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-sm font-medium text-white">AI Features</p>
+                    <Button
+                      size="sm"
+                      variant="light"
+                      onPress={() => navigator?.clipboard?.writeText(JSON.stringify(featureData, null, 2))}
+                    >
+                      Copy JSON
+                    </Button>
+                  </div>
                   <pre className="text-xs text-gray-300 overflow-auto max-h-56">{JSON.stringify(featureData, null, 2)}</pre>
                 </div>
               )}
