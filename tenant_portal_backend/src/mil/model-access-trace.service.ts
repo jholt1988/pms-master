@@ -2,6 +2,29 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MilTraceContext } from './mil-envelope.types';
 
+interface ModelAccessTraceDelegate {
+  create(args: {
+    data: {
+      traceId: string;
+      requestId?: string;
+      operation: string;
+      result: string;
+      orgId?: string;
+      tenantId?: string;
+      actorUserId?: string;
+      actorRole?: string | null;
+      module: string;
+      action: string;
+      entityType: string;
+      entityId?: string;
+      modelProvider?: string;
+      modelName?: string;
+      modelVersion?: string;
+      metadata?: unknown;
+    };
+  }): Promise<unknown>;
+}
+
 export interface RecordModelAccessTraceParams {
   operation: 'encrypt' | 'decrypt' | 'model_invoke';
   result: 'requested' | 'completed' | 'failed' | 'allowed' | 'denied';
@@ -17,7 +40,13 @@ export class ModelAccessTraceService {
 
   async record(params: RecordModelAccessTraceParams): Promise<void> {
     try {
-      await (this.prisma as any).modelAccessTrace.create({
+      const delegate = (this.prisma as unknown as { modelAccessTrace?: ModelAccessTraceDelegate }).modelAccessTrace;
+      if (!delegate) {
+        this.logger.warn('modelAccessTrace delegate unavailable; run prisma generate to enable typed persistence');
+        return;
+      }
+
+      await delegate.create({
         data: {
           traceId: params.trace.traceId,
           requestId: params.trace.requestId,
@@ -34,7 +63,7 @@ export class ModelAccessTraceService {
           modelProvider: params.trace.modelProvider,
           modelName: params.trace.modelName,
           modelVersion: params.trace.modelVersion,
-          metadata: params.metadata as any,
+          metadata: params.metadata,
         },
       });
     } catch (error) {

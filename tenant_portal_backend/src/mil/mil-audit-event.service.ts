@@ -2,6 +2,22 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogEvent } from '../shared/audit-log.service';
 
+interface MilAuditEventDelegate {
+  create(args: {
+    data: {
+      traceId?: string;
+      orgId?: string;
+      actorId?: string;
+      module: string;
+      action: string;
+      entityType: string;
+      entityId?: string;
+      result: string;
+      metadata?: unknown;
+    };
+  }): Promise<unknown>;
+}
+
 export interface RecordMilAuditEventParams extends AuditLogEvent {
   traceId?: string;
   metadata?: Record<string, unknown>;
@@ -15,7 +31,13 @@ export class MilAuditEventService {
 
   async record(params: RecordMilAuditEventParams): Promise<void> {
     try {
-      await (this.prisma as any).milAuditEvent.create({
+      const delegate = (this.prisma as unknown as { milAuditEvent?: MilAuditEventDelegate }).milAuditEvent;
+      if (!delegate) {
+        this.logger.warn('milAuditEvent delegate unavailable; run prisma generate to enable typed persistence');
+        return;
+      }
+
+      await delegate.create({
         data: {
           traceId: params.traceId,
           orgId: params.orgId,
@@ -25,7 +47,7 @@ export class MilAuditEventService {
           entityType: params.entityType,
           entityId: params.entityId ? String(params.entityId) : undefined,
           result: params.result,
-          metadata: params.metadata as any,
+          metadata: params.metadata,
         },
       });
     } catch (error) {
