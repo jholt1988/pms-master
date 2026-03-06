@@ -264,7 +264,11 @@ async function main() {
   console.log(`Property: ${property.name} (${property.address || ''})`);
   console.log(`Unit: ${unit.name}`);
   console.log(`Inspection ID: ${inspection.id}`);
+}catch (e) {
+  console.error('Error during robust inspection demo seed:', e);
 }
+}
+
 
 main()
   .catch((e) => {
