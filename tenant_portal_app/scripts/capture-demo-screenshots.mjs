@@ -19,9 +19,14 @@ async function snap(page, filename) {
 
 async function login(page) {
   await page.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle' });
-  await page.getByLabel(/username|email/i).fill(DEMO_USER);
-  await page.getByLabel(/password/i).fill(DEMO_PASS);
-  await page.getByRole('button', { name: /sign in|login/i }).click();
+
+  // Avoid ambiguous label matches in strict mode.
+  const userInput = page.locator('input[type="email"], input[name="username"], input[autocomplete="username"], input[type="text"]').first();
+  const passInput = page.locator('input[type="password"]').first();
+
+  await userInput.fill(DEMO_USER);
+  await passInput.fill(DEMO_PASS);
+  await page.getByRole('button', { name: /sign in|login/i }).first().click();
   await page.waitForLoadState('networkidle');
 }
 
