@@ -82,10 +82,33 @@ interface RecurringInvoiceSchedule {
   active: boolean;
 }
 
+type ManualPaymentMethod = 'CASH' | 'CHECK' | 'MONEY_ORDER';
+type ManualPaymentAppliedTo = 'RENT' | 'LATE_FEE' | 'UTILITY' | 'OTHER';
+type ManualChargeType = 'LATE_FEE' | 'UTILITY' | 'CLEANING' | 'DAMAGE' | 'MISC';
+
+interface ManualPaymentFormState {
+  amountCents: string;
+  method: ManualPaymentMethod;
+  referenceNumber: string;
+  receivedAt: string;
+  appliedTo: ManualPaymentAppliedTo;
+  memo: string;
+}
+
+interface ManualChargeFormState {
+  amountCents: string;
+  chargeType: ManualChargeType;
+  chargeDate: string;
+  dueDate: string;
+  description: string;
+}
+
 interface Lease {
   id: number;
-  tenant: { id: number; username: string; email: string };
-  unit: { name: string; property?: { name: string } | null };
+  tenant: { id: string; username: string; email: string };
+  unit: { id?: string; name: string; property?: { id?: string; name: string } | null };
+  manualPayments?: Array<{ id: string; amountCents: number; method: ManualPaymentMethod; status: 'POSTED' | 'REVERSED'; referenceNumber?: string | null; receivedAt: string }>;
+  manualCharges?: Array<{ id: string; amountCents: number; chargeType: ManualChargeType; status: 'POSTED' | 'VOIDED'; chargeDate: string; description: string }>;
   startDate: string;
   endDate: string;
   rentAmount: number;
@@ -368,6 +391,23 @@ const createNoticeFormState = (): NoticeFormState => ({
   acknowledgedAt: '',
 });
 
+const createManualPaymentFormState = (): ManualPaymentFormState => ({
+  amountCents: '',
+  method: 'CASH',
+  referenceNumber: '',
+  receivedAt: new Date().toISOString().slice(0, 10),
+  appliedTo: 'RENT',
+  memo: '',
+});
+
+const createManualChargeFormState = (): ManualChargeFormState => ({
+  amountCents: '',
+  chargeType: 'MISC',
+  chargeDate: new Date().toISOString().slice(0, 10),
+  dueDate: '',
+  description: '',
+});
+
 // Error handling is now done by apiFetch
 
 function LeaseManagementPage(): React.ReactElement {
@@ -376,6 +416,8 @@ function LeaseManagementPage(): React.ReactElement {
   const [statusForms, setStatusForms] = useState<Record<number, StatusFormState>>({});
   const [renewalForms, setRenewalForms] = useState<Record<number, RenewalFormState>>({});
   const [noticeForms, setNoticeForms] = useState<Record<number, NoticeFormState>>({});
+  const [manualPaymentForms, setManualPaymentForms] = useState<Record<number, ManualPaymentFormState>>({});
+  const [manualChargeForms, setManualChargeForms] = useState<Record<number, ManualChargeFormState>>({});
   const [expandedCards, setExpandedCards] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -383,6 +425,8 @@ function LeaseManagementPage(): React.ReactElement {
   const [statusSavingId, setStatusSavingId] = useState<number | null>(null);
   const [renewalSavingId, setRenewalSavingId] = useState<number | null>(null);
   const [noticeSavingId, setNoticeSavingId] = useState<number | null>(null);
+  const [manualPaymentSavingId, setManualPaymentSavingId] = useState<number | null>(null);
+  const [manualChargeSavingId, setManualChargeSavingId] = useState<number | null>(null);
   const [tenantOptions, setTenantOptions] = useState<AssignTenantOption[]>([]);
   const [unitOptions, setUnitOptions] = useState<AssignUnitOption[]>([]);
   const [assignSaving, setAssignSaving] = useState(false);
@@ -405,16 +449,22 @@ function LeaseManagementPage(): React.ReactElement {
     const nextStatus: Record<number, StatusFormState> = {};
     const nextRenewal: Record<number, RenewalFormState> = {};
     const nextNotice: Record<number, NoticeFormState> = {};
+    const nextManualPayment: Record<number, ManualPaymentFormState> = {};
+    const nextManualCharge: Record<number, ManualChargeFormState> = {};
 
     data.forEach((lease) => {
       nextStatus[lease.id] = createStatusFormState(lease);
       nextRenewal[lease.id] = createRenewalFormState(lease);
       nextNotice[lease.id] = createNoticeFormState();
+      nextManualPayment[lease.id] = createManualPaymentFormState();
+      nextManualCharge[lease.id] = createManualChargeFormState();
     });
 
     setStatusForms(nextStatus);
     setRenewalForms(nextRenewal);
     setNoticeForms(nextNotice);
+    setManualPaymentForms(nextManualPayment);
+    setManualChargeForms(nextManualCharge);
   };
 
   useEffect(() => {
@@ -489,6 +539,14 @@ function LeaseManagementPage(): React.ReactElement {
       ...prev,
       [updated.id]: createNoticeFormState(),
     }));
+    setManualPaymentForms((prev) => ({
+      ...prev,
+      [updated.id]: createManualPaymentFormState(),
+    }));
+    setManualChargeForms((prev) => ({
+      ...prev,
+      [updated.id]: createManualChargeFormState(),
+    }));
   };
 
   const handleCreateLease = async () => {
@@ -555,6 +613,36 @@ function LeaseManagementPage(): React.ReactElement {
       ...prev,
       [lease.id]: {
         ...(prev[lease.id] ?? createNoticeFormState()),
+        [field]: value,
+      },
+    }));
+    clearAlerts();
+  };
+
+  const handleManualPaymentFieldChange = (
+    lease: Lease,
+    field: keyof ManualPaymentFormState,
+    value: string,
+  ) => {
+    setManualPaymentForms((prev) => ({
+      ...prev,
+      [lease.id]: {
+        ...(prev[lease.id] ?? createManualPaymentFormState()),
+        [field]: value,
+      },
+    }));
+    clearAlerts();
+  };
+
+  const handleManualChargeFieldChange = (
+    lease: Lease,
+    field: keyof ManualChargeFormState,
+    value: string,
+  ) => {
+    setManualChargeForms((prev) => ({
+      ...prev,
+      [lease.id]: {
+        ...(prev[lease.id] ?? createManualChargeFormState()),
         [field]: value,
       },
     }));
@@ -803,6 +891,179 @@ function LeaseManagementPage(): React.ReactElement {
     }
   };
 
+  const handleManualPaymentSubmit = async (lease: Lease) => {
+    if (!token) return;
+
+    const form = manualPaymentForms[lease.id];
+    if (!form) return;
+
+    if (!lease.tenant?.id || !lease.unit?.property?.id) {
+      setError('Missing tenant/property linkage for this lease.');
+      return;
+    }
+
+    if ((form.method === 'CHECK' || form.method === 'MONEY_ORDER') && !form.referenceNumber.trim()) {
+      setError('Reference number is required for check/money order.');
+      return;
+    }
+
+    const amountCents = Number.parseInt(form.amountCents, 10);
+    if (Number.isNaN(amountCents) || amountCents <= 0) {
+      setError('Amount (cents) must be a whole number greater than 0.');
+      return;
+    }
+
+    const receivedAt = toIsoString(form.receivedAt);
+    if (!receivedAt) {
+      setError('Received date is invalid.');
+      return;
+    }
+
+    setManualPaymentSavingId(lease.id);
+    clearAlerts();
+
+    try {
+      await apiFetch('/payments/manual', {
+        token,
+        method: 'POST',
+        body: {
+          leaseId: lease.id,
+          propertyId: lease.unit.property.id,
+          unitId: lease.unit.id,
+          tenantId: lease.tenant.id,
+          amountCents,
+          method: form.method,
+          referenceNumber: form.referenceNumber || undefined,
+          receivedAt,
+          appliedTo: form.appliedTo,
+          memo: form.memo || undefined,
+        },
+      });
+
+      const updated = (await apiFetch(`/leases/${lease.id}`, { token })) as Lease;
+      applyLeaseUpdate(updated);
+      setManualPaymentForms((prev) => ({ ...prev, [lease.id]: createManualPaymentFormState() }));
+      setFeedback(`Manual payment posted for ${lease.tenant.username}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to post manual payment.');
+    } finally {
+      setManualPaymentSavingId(null);
+    }
+  };
+
+  const handleManualChargeSubmit = async (lease: Lease) => {
+    if (!token) return;
+
+    const form = manualChargeForms[lease.id];
+    if (!form) return;
+
+    if (!lease.tenant?.id || !lease.unit?.property?.id) {
+      setError('Missing tenant/property linkage for this lease.');
+      return;
+    }
+
+    const amountCents = Number.parseInt(form.amountCents, 10);
+    if (Number.isNaN(amountCents) || amountCents <= 0) {
+      setError('Amount (cents) must be a whole number greater than 0.');
+      return;
+    }
+
+    if (!form.description.trim()) {
+      setError('Charge description is required.');
+      return;
+    }
+
+    const chargeDate = toIsoString(form.chargeDate);
+    if (!chargeDate) {
+      setError('Charge date is invalid.');
+      return;
+    }
+
+    const dueDate = form.dueDate ? toIsoString(form.dueDate) : undefined;
+    if (form.dueDate && !dueDate) {
+      setError('Due date is invalid.');
+      return;
+    }
+
+    setManualChargeSavingId(lease.id);
+    clearAlerts();
+
+    try {
+      await apiFetch('/payments/charges/manual', {
+        token,
+        method: 'POST',
+        body: {
+          leaseId: lease.id,
+          propertyId: lease.unit.property.id,
+          unitId: lease.unit.id,
+          tenantId: lease.tenant.id,
+          chargeType: form.chargeType,
+          amountCents,
+          chargeDate,
+          dueDate,
+          description: form.description,
+        },
+      });
+
+      const updated = (await apiFetch(`/leases/${lease.id}`, { token })) as Lease;
+      applyLeaseUpdate(updated);
+      setManualChargeForms((prev) => ({ ...prev, [lease.id]: createManualChargeFormState() }));
+      setFeedback(`Manual charge posted for ${lease.tenant.username}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to post manual charge.');
+    } finally {
+      setManualChargeSavingId(null);
+    }
+  };
+
+  const handleReverseManualPayment = async (lease: Lease, manualPaymentId: string) => {
+    if (!token) return;
+    const reason = window.prompt('Reason for reversing this payment?');
+    if (!reason || !reason.trim()) return;
+
+    setManualPaymentSavingId(lease.id);
+    clearAlerts();
+
+    try {
+      await apiFetch(`/payments/manual/${manualPaymentId}/reverse`, {
+        token,
+        method: 'POST',
+        body: { reason: reason.trim() },
+      });
+      const updated = (await apiFetch(`/leases/${lease.id}`, { token })) as Lease;
+      applyLeaseUpdate(updated);
+      setFeedback('Manual payment reversed.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to reverse manual payment.');
+    } finally {
+      setManualPaymentSavingId(null);
+    }
+  };
+
+  const handleVoidManualCharge = async (lease: Lease, manualChargeId: string) => {
+    if (!token) return;
+    const reason = window.prompt('Reason for voiding this charge?');
+    if (!reason || !reason.trim()) return;
+
+    setManualChargeSavingId(lease.id);
+    clearAlerts();
+
+    try {
+      await apiFetch(`/payments/charges/manual/${manualChargeId}/void`, {
+        token,
+        method: 'POST',
+        body: { reason: reason.trim() },
+      });
+      const updated = (await apiFetch(`/leases/${lease.id}`, { token })) as Lease;
+      applyLeaseUpdate(updated);
+      setFeedback('Manual charge voided.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to void manual charge.');
+    } finally {
+      setManualChargeSavingId(null);
+    }
+  };
+
   const toggleExpanded = (leaseId: number) => {
     setExpandedCards((prev) =>
       prev.includes(leaseId) ? prev.filter((id) => id !== leaseId) : [...prev, leaseId],
@@ -853,6 +1114,8 @@ function LeaseManagementPage(): React.ReactElement {
     const statusForm = statusForms[lease.id] ?? createStatusFormState(lease);
     const renewalForm = renewalForms[lease.id] ?? createRenewalFormState(lease);
     const noticeForm = noticeForms[lease.id] ?? createNoticeFormState();
+    const manualPaymentForm = manualPaymentForms[lease.id] ?? createManualPaymentFormState();
+    const manualChargeForm = manualChargeForms[lease.id] ?? createManualChargeFormState();
     const isExpanded = expandedCards.includes(lease.id);
 
     const daysToEnd = differenceInDays(lease.endDate);
@@ -1327,6 +1590,203 @@ function LeaseManagementPage(): React.ReactElement {
                   </ul>
                 ) : (
                   <p className="text-xs text-gray-500">No notices recorded yet.</p>
+                )}
+              </div>
+            </section>
+
+            <section>
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-gray-800">Manual Payments</h3>
+                <button
+                  type="button"
+                  onClick={() => handleManualPaymentSubmit(lease)}
+                  disabled={manualPaymentSavingId === lease.id}
+                  className="rounded bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                >
+                  {manualPaymentSavingId === lease.id ? 'Posting…' : 'Post payment'}
+                </button>
+              </div>
+              <div className="grid gap-3 md:grid-cols-3">
+                <input
+                  type="number"
+                  min={1}
+                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  value={manualPaymentForm.amountCents}
+                  onChange={(event) => handleManualPaymentFieldChange(lease, 'amountCents', event.target.value)}
+                  placeholder="Amount (cents)"
+                  aria-label="Manual payment amount cents"
+                />
+                <select
+                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  value={manualPaymentForm.method}
+                  onChange={(event) =>
+                    handleManualPaymentFieldChange(lease, 'method', event.target.value as ManualPaymentMethod)
+                  }
+                  aria-label="Manual payment method"
+                >
+                  <option value="CASH">Cash</option>
+                  <option value="CHECK">Check</option>
+                  <option value="MONEY_ORDER">Money order</option>
+                </select>
+                <input
+                  type="date"
+                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  value={manualPaymentForm.receivedAt}
+                  onChange={(event) => handleManualPaymentFieldChange(lease, 'receivedAt', event.target.value)}
+                  aria-label="Manual payment received date"
+                />
+                <select
+                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  value={manualPaymentForm.appliedTo}
+                  onChange={(event) =>
+                    handleManualPaymentFieldChange(lease, 'appliedTo', event.target.value as ManualPaymentAppliedTo)
+                  }
+                  aria-label="Manual payment applied to"
+                >
+                  <option value="RENT">Rent</option>
+                  <option value="LATE_FEE">Late fee</option>
+                  <option value="UTILITY">Utility</option>
+                  <option value="OTHER">Other</option>
+                </select>
+                <input
+                  type="text"
+                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  value={manualPaymentForm.referenceNumber}
+                  onChange={(event) => handleManualPaymentFieldChange(lease, 'referenceNumber', event.target.value)}
+                  placeholder="Reference # (check/MO)"
+                  aria-label="Manual payment reference number"
+                />
+                <input
+                  type="text"
+                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm md:col-span-3"
+                  value={manualPaymentForm.memo}
+                  onChange={(event) => handleManualPaymentFieldChange(lease, 'memo', event.target.value)}
+                  placeholder="Memo (optional)"
+                  aria-label="Manual payment memo"
+                />
+              </div>
+              <div className="mt-3 space-y-2">
+                <p className="text-xs font-semibold text-gray-700">Recent manual payments</p>
+                {lease.manualPayments && lease.manualPayments.length > 0 ? (
+                  <ul className="space-y-2">
+                    {lease.manualPayments.slice(0, 5).map((item) => (
+                      <li key={item.id} className="rounded border border-gray-200 px-3 py-2 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-gray-700">
+                            {formatCurrency(item.amountCents / 100)} · {item.method.replace('_', ' ')}
+                          </span>
+                          <span className="text-[11px] text-gray-500">{formatDateTime(item.receivedAt)}</span>
+                        </div>
+                        <p className="mt-1 text-[11px] text-gray-500">
+                          Status: {item.status}
+                          {item.referenceNumber ? ` · Ref ${item.referenceNumber}` : ''}
+                        </p>
+                        {item.status === 'POSTED' && (
+                          <button
+                            type="button"
+                            onClick={() => handleReverseManualPayment(lease, item.id)}
+                            className="mt-2 rounded border border-rose-200 px-2 py-1 text-[11px] font-semibold text-rose-700 hover:bg-rose-50"
+                          >
+                            Reverse
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-gray-500">No manual payments recorded yet.</p>
+                )}
+              </div>
+            </section>
+
+            <section>
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-gray-800">Manual Charges</h3>
+                <button
+                  type="button"
+                  onClick={() => handleManualChargeSubmit(lease)}
+                  disabled={manualChargeSavingId === lease.id}
+                  className="rounded bg-rose-600 px-3 py-1 text-xs font-semibold text-white hover:bg-rose-500 disabled:cursor-not-allowed disabled:bg-rose-300"
+                >
+                  {manualChargeSavingId === lease.id ? 'Posting…' : 'Post charge'}
+                </button>
+              </div>
+              <div className="grid gap-3 md:grid-cols-3">
+                <input
+                  type="number"
+                  min={1}
+                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  value={manualChargeForm.amountCents}
+                  onChange={(event) => handleManualChargeFieldChange(lease, 'amountCents', event.target.value)}
+                  placeholder="Amount (cents)"
+                  aria-label="Manual charge amount cents"
+                />
+                <select
+                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  value={manualChargeForm.chargeType}
+                  onChange={(event) =>
+                    handleManualChargeFieldChange(lease, 'chargeType', event.target.value as ManualChargeType)
+                  }
+                  aria-label="Manual charge type"
+                >
+                  <option value="LATE_FEE">Late fee</option>
+                  <option value="UTILITY">Utility</option>
+                  <option value="CLEANING">Cleaning</option>
+                  <option value="DAMAGE">Damage</option>
+                  <option value="MISC">Misc</option>
+                </select>
+                <input
+                  type="date"
+                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  value={manualChargeForm.chargeDate}
+                  onChange={(event) => handleManualChargeFieldChange(lease, 'chargeDate', event.target.value)}
+                  aria-label="Manual charge date"
+                />
+                <input
+                  type="date"
+                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  value={manualChargeForm.dueDate}
+                  onChange={(event) => handleManualChargeFieldChange(lease, 'dueDate', event.target.value)}
+                  aria-label="Manual charge due date"
+                />
+                <input
+                  type="text"
+                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm md:col-span-2"
+                  value={manualChargeForm.description}
+                  onChange={(event) => handleManualChargeFieldChange(lease, 'description', event.target.value)}
+                  placeholder="Charge description"
+                  aria-label="Manual charge description"
+                />
+              </div>
+              <div className="mt-3 space-y-2">
+                <p className="text-xs font-semibold text-gray-700">Recent manual charges</p>
+                {lease.manualCharges && lease.manualCharges.length > 0 ? (
+                  <ul className="space-y-2">
+                    {lease.manualCharges.slice(0, 5).map((item) => (
+                      <li key={item.id} className="rounded border border-gray-200 px-3 py-2 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-gray-700">
+                            {formatCurrency(item.amountCents / 100)} · {item.chargeType.replace('_', ' ')}
+                          </span>
+                          <span className="text-[11px] text-gray-500">{formatDate(item.chargeDate)}</span>
+                        </div>
+                        <p className="mt-1 text-[11px] text-gray-500">
+                          Status: {item.status} · {item.description}
+                        </p>
+                        {item.status === 'POSTED' && (
+                          <button
+                            type="button"
+                            onClick={() => handleVoidManualCharge(lease, item.id)}
+                            className="mt-2 rounded border border-rose-200 px-2 py-1 text-[11px] font-semibold text-rose-700 hover:bg-rose-50"
+                          >
+                            Void
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-gray-500">No manual charges recorded yet.</p>
                 )}
               </div>
             </section>
