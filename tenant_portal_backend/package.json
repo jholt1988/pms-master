@@ -16,6 +16,7 @@
     "ml:readiness:json": "ts-node scripts/ml-data-readiness-audit.ts --json",
     "ml:readiness:md": "ts-node scripts/ml-data-readiness-audit.ts --out reports/ml-data-readiness-latest.md",
     "ml:readiness:help": "ts-node scripts/ml-data-readiness-audit.ts --help",
+    "ml:simulate:demo": "ts-node scripts/simulate-ml-demo.ts",
     "build": "tsc",
     "db:seed": "ts-node prisma/seed.ts",
     "db:seed:demo": "ts-node prisma/seed-demo.ts",
