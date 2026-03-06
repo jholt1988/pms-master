@@ -33,6 +33,30 @@ export class CreateConversationDto {
   initialMessage?: string;
 }
 
+export class CreateThreadDto {
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  participantIds?: string[];
+
+  @IsOptional()
+  @IsUUID('4')
+  recipientId?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  content!: string;
+
+  @IsString()
+  @IsOptional()
+  subject?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  attachmentUrls?: string[];
+}
+
 export class GetConversationsQueryDto {
   @IsInt()
   @IsOptional()

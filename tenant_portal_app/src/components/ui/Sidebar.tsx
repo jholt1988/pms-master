@@ -17,7 +17,8 @@ import {
   LifeBuoy,
   LogOut,
   ChevronRight,
-  TrendingUp
+  TrendingUp,
+  ClipboardList
 } from 'lucide-react';
 
 export type UserRole = 'TENANT' | 'PROPERTY_MANAGER' | 'OWNER' | 'ADMIN';
@@ -46,6 +47,7 @@ const mainNavigationLinks: NavLink[] = [
   { path: '/maintenance-management', label: 'Maintenance', icon: Wrench, roles: ['PROPERTY_MANAGER', 'OWNER', 'ADMIN'], showChevron: true },
   { path: '/payments', label: 'Payments', icon: Wallet, roles: ['TENANT', 'PROPERTY_MANAGER', 'ADMIN'], showChevron: true },
   { path: '/messaging', label: 'Messages', icon: MessageSquare, roles: ['TENANT', 'PROPERTY_MANAGER', 'OWNER', 'ADMIN'] },
+  { path: '/inspection-management', label: 'Inspection Manager', icon: ClipboardList, roles: ['PROPERTY_MANAGER', 'OWNER', 'ADMIN'], showChevron: true },
   { path: '/lease-management', label: 'Leases', icon: FileSignature, roles: ['PROPERTY_MANAGER', 'ADMIN'] },
   { path: '/rental-applications-management', label: 'Applications', icon: FileText, roles: ['PROPERTY_MANAGER', 'ADMIN'] },
 ];

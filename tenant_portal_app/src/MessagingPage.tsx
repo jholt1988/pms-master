@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { apiFetch } from './services/apiClient';
+import { normalizeApiList } from './utils/normalizeApiList';
 import BulkMessageComposer from './components/messages/BulkMessageComposer';
 import BulkMessageStatusPanel from './components/messages/BulkMessageStatusPanel';
 import { EmptyState, LoadingState, FeedbackBanner } from './components/ui';
@@ -44,7 +45,7 @@ const MessagingPage = () => {
     async (conversationId: number) => {
       try {
         const data = await apiFetch(`/messaging/conversations/${conversationId}`, { token: token ?? undefined });
-        setMessages(data.messages || data || []);
+        setMessages(normalizeApiList(data, ['messages', 'data', 'items']));
       } catch (error: any) {
         setError(error.message || 'Failed to fetch messages');
       }
@@ -56,18 +57,19 @@ const MessagingPage = () => {
     const fetchConversations = async () => {
       try {
         const data = await apiFetch('/messaging/conversations', { token: token ?? undefined });
-        setConversations(Array.isArray(data) ? data : []);
-        if (Array.isArray(data) && data.length > 0) {
+        const normalizedConversations = normalizeApiList(data);
+        setConversations(normalizedConversations);
+        if (normalizedConversations.length > 0) {
           let shouldFetchFirst = false;
           setSelectedConversation((previous: any | null) => {
             if (previous) {
               return previous;
             }
             shouldFetchFirst = true;
-            return data[0];
+            return normalizedConversations[0];
           });
           if (shouldFetchFirst) {
-            fetchMessages(data[0].id);
+            fetchMessages(normalizedConversations[0].id);
           }
         }
       } catch (error: any) {
@@ -89,24 +91,13 @@ const MessagingPage = () => {
     setBulkLoading(true);
     setBulkError(null);
     try {
-      const [batchesResponse, templatesResponse] = await Promise.all([
+      const [batchesData, templatesData] = await Promise.all([
         apiFetch('/messaging/bulk', { token }),
         apiFetch('/messaging/templates', { token }),
       ]);
 
-      if (!batchesResponse.ok) {
-        throw new Error('Failed to load bulk message batches');
-      }
-      if (!templatesResponse.ok) {
-        throw new Error('Failed to load templates');
-      }
-
-      const [batchesData, templatesData] = await Promise.all([
-        batchesResponse.json(),
-        templatesResponse.json(),
-      ]);
-      setBulkBatches(Array.isArray(batchesData) ? batchesData : []);
-      setTemplates(Array.isArray(templatesData) ? templatesData : []);
+      setBulkBatches(normalizeApiList(batchesData));
+      setTemplates(normalizeApiList(templatesData));
     } catch (fetchError: any) {
       setBulkError(fetchError.message);
     } finally {

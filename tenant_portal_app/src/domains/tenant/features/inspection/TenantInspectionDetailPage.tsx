@@ -24,16 +24,24 @@ export default function TenantInspectionDetailPage(): React.ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [inspection, setInspection] = useState<any | null>(null);
   const [completeLoading, setCompleteLoading] = useState(false);
+  const [startLoading, setStartLoading] = useState(false);
+  const [requestStatus, setRequestStatus] = useState<string | null>(null);
   const [saveLoadingByRoomId, setSaveLoadingByRoomId] = useState<Record<number, boolean>>({});
   const [draftByItemId, setDraftByItemId] = useState<Record<number, { requiresAction: boolean; notes: string }>>({});
 
   const status = String(inspection?.status ?? '');
   const isCompleted = status === 'COMPLETED';
+  const isLockedForTenant = status !== 'IN_PROGRESS' && !isCompleted;
+
+  const canStart = useMemo(() => {
+    const t = String(inspection?.type ?? '');
+    return status === 'SCHEDULED' && requestStatus === 'APPROVED' && (t === 'MOVE_IN' || t === 'MOVE_OUT');
+  }, [inspection, status, requestStatus]);
 
   const canComplete = useMemo(() => {
     const t = String(inspection?.type ?? '');
-    return !isCompleted && (t === 'MOVE_IN' || t === 'MOVE_OUT');
-  }, [inspection, isCompleted]);
+    return status === 'IN_PROGRESS' && !isCompleted && (t === 'MOVE_IN' || t === 'MOVE_OUT');
+  }, [inspection, isCompleted, status]);
 
   const fetchInspection = React.useCallback(async () => {
     if (!token || !Number.isFinite(inspectionId)) {
@@ -45,8 +53,17 @@ export default function TenantInspectionDetailPage(): React.ReactElement {
     setError(null);
 
     try {
-      const resp = await apiFetch(`/inspections/${inspectionId}`, { token });
-      setInspection(unwrapApi(resp));
+      const [resp, reqResp] = await Promise.all([
+        apiFetch(`/inspections/${inspectionId}`, { token }),
+        apiFetch('/inspections/requests', { token }).catch(() => []),
+      ]);
+      const data = unwrapApi(resp);
+      setInspection(data);
+      const requests = Array.isArray(reqResp) ? reqResp : ((reqResp as any)?.data ?? []);
+      const matching = (requests as any[])
+        .filter((r) => Number(r?.startedInspectionId ?? -1) === inspectionId || (r?.type === data?.type && r?.unitId === data?.unitId))
+        .sort((a, b) => new Date(b?.createdAt ?? 0).getTime() - new Date(a?.createdAt ?? 0).getTime());
+      setRequestStatus(matching[0]?.status ?? null);
     } catch (e: any) {
       setError(e?.message || 'Failed to load inspection');
     } finally {
@@ -110,6 +127,31 @@ export default function TenantInspectionDetailPage(): React.ReactElement {
     }
   };
 
+  const handleStartInspection = async () => {
+    if (!token) return;
+    setStartLoading(true);
+    setError(null);
+
+    try {
+      const reqResp = await apiFetch('/inspections/requests', { token });
+      const requests = Array.isArray(reqResp) ? reqResp : ((reqResp as any)?.data ?? []);
+      const candidate = (requests as any[])
+        .find((r) => r?.status === 'APPROVED' && r?.type === inspection?.type && r?.unitId === inspection?.unitId);
+      if (!candidate?.id) throw new Error('No approved request found for this inspection');
+
+      await apiFetch('/inspections/start', {
+        token,
+        method: 'POST',
+        body: { requestId: Number(candidate.id) },
+      });
+      await fetchInspection();
+    } catch (e: any) {
+      setError(e?.message || 'Failed to start inspection');
+    } finally {
+      setStartLoading(false);
+    }
+  };
+
   const handleMarkCompleted = async () => {
     if (!token) return;
     setCompleteLoading(true);
@@ -158,11 +200,18 @@ export default function TenantInspectionDetailPage(): React.ReactElement {
                 <div className="text-xs text-foreground-500">Type</div>
                 <div className="text-lg font-semibold">{typeLabel(inspection.type)}</div>
               </div>
-              {canComplete && (
-                <Button color="success" variant="flat" isLoading={completeLoading} onClick={handleMarkCompleted}>
-                  Mark Completed
-                </Button>
-              )}
+              <div className="flex items-center gap-2">
+                {canStart && (
+                  <Button color="primary" variant="flat" isLoading={startLoading} onClick={handleStartInspection}>
+                    Start Inspection
+                  </Button>
+                )}
+                {canComplete && (
+                  <Button color="success" variant="flat" isLoading={completeLoading} onClick={handleMarkCompleted}>
+                    Mark Completed
+                  </Button>
+                )}
+              </div>
             </div>
 
             <div>
@@ -185,6 +234,19 @@ export default function TenantInspectionDetailPage(): React.ReactElement {
               </Card>
             )}
 
+            {!isCompleted && (
+              <Card className="border border-sky-200 bg-sky-50/40">
+                <CardBody>
+                  <p className="text-sm text-sky-800 font-semibold">
+                    Approval status: {requestStatus ?? 'No request found'}
+                  </p>
+                  <p className="text-xs text-sky-700 mt-1">
+                    You can begin checklist edits only after a move-in/move-out request is approved and started.
+                  </p>
+                </CardBody>
+              </Card>
+            )}
+
             <Divider />
 
             {Array.isArray(inspection.rooms) && inspection.rooms.length > 0 ? (
@@ -201,7 +263,7 @@ export default function TenantInspectionDetailPage(): React.ReactElement {
                           size="sm"
                           variant="flat"
                           color="primary"
-                          isDisabled={isCompleted}
+                          isDisabled={isLockedForTenant}
                           isLoading={!!saveLoadingByRoomId[Number(room.id)]}
                           onClick={() => handleSaveRoom(Number(room.id))}
                         >
@@ -218,7 +280,7 @@ export default function TenantInspectionDetailPage(): React.ReactElement {
                                 <p className="text-sm font-semibold">{it.itemName}</p>
                                 <Checkbox
                                   isSelected={!!d.requiresAction}
-                                  isDisabled={isCompleted}
+                                  isDisabled={isLockedForTenant}
                                   onValueChange={(v) =>
                                     setDraftByItemId((s) => ({
                                       ...s,
@@ -233,7 +295,7 @@ export default function TenantInspectionDetailPage(): React.ReactElement {
                                 label="Notes"
                                 placeholder="Add notes…"
                                 value={String(d.notes ?? '')}
-                                isDisabled={isCompleted}
+                                isDisabled={isLockedForTenant}
                                 onValueChange={(v) =>
                                   setDraftByItemId((s) => ({
                                     ...s,

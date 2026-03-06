@@ -115,6 +115,8 @@ model User {
   approvalTaskCreatedBy ApprovalTask[] @relation("ApprovalCreatedBy")
 
   approvalTasks ApprovalTask[] @relation("ApprovalTenant")
+  inspectionRequests           InspectionRequest[] @relation("InspectionRequestTenant")
+  decidedInspectionRequests    InspectionRequest[] @relation("InspectionRequestDecidedBy")
 
   organizations UserOrganization[]
   feeScheduleVersionsCreated FeeScheduleVersion[] @relation("FeeScheduleVersionCreatedBy")
@@ -258,6 +260,7 @@ model Property {
   communicationLogs    CommunicationLog[]        @relation("CommunicationLogProperty")
   bankTransactions     BankTransaction[]         @relation("BankTransactionProperty")
   approvalTasks        ApprovalTask[]
+  inspectionRequests   InspectionRequest[]
 
   @@index([organizationId])
   @@index([city, state])
@@ -368,7 +371,8 @@ model Unit {
   petsAllowed         Boolean              @default(false)
   rentRecommendations RentRecommendation[]
 
-  approvalTasks ApprovalTask[]
+  approvalTasks      ApprovalTask[]
+  inspectionRequests InspectionRequest[]
 }
 
 enum UnitStatus {
@@ -525,6 +529,7 @@ model Lease {
   createdAt                 DateTime                  @default(now())
   updatedAt                 DateTime                  @updatedAt
   approvalTasks             ApprovalTask[]
+  inspectionRequests        InspectionRequest[]
 
   @@index([status])
   @@index([endDate])
@@ -1711,6 +1716,43 @@ enum InspectionStatus {
   IN_PROGRESS
   COMPLETED
   CANCELLED
+}
+
+model InspectionRequest {
+  id            Int                     @id @default(autoincrement())
+  tenant        User                    @relation("InspectionRequestTenant", fields: [tenantId], references: [id])
+  tenantId      String                  @db.Uuid
+  property      Property                @relation(fields: [propertyId], references: [id])
+  propertyId    String                  @db.Uuid
+  unit          Unit                    @relation(fields: [unitId], references: [id])
+  unitId        String                  @db.Uuid
+  lease         Lease                   @relation(fields: [leaseId], references: [id])
+  leaseId       String                  @db.Uuid
+  type          InspectionType
+  status        InspectionRequestStatus @default(PENDING)
+  notes         String?
+  decisionNotes String?
+  decidedAt     DateTime?
+  decidedBy     User?                   @relation("InspectionRequestDecidedBy", fields: [decidedById], references: [id])
+  decidedById   String?                 @db.Uuid
+  startedAt     DateTime?
+  startedInspectionId Int?
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+
+  @@index([tenantId])
+  @@index([propertyId])
+  @@index([unitId])
+  @@index([leaseId])
+  @@index([status])
+  @@index([type])
+}
+
+enum InspectionRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+  STARTED
 }
 
 model InspectionRoom {

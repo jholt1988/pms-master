@@ -31,7 +31,7 @@ import {
 import { format } from 'date-fns';
 import { PageHeader } from '../../../../components/ui/PageHeader';
 import { DegradedStateCard } from '../../../../components/ui/DegradedStateCard';
-import { apiFetch } from '../../../../services/apiClient';
+import { apiFetch, isAuthExpiredError, toFriendlyApiMessage } from '../../../../services/apiClient';
 import { useAuth } from '../../../../AuthContext';
 import { loadStripe } from '@stripe/stripe-js';
 import {
@@ -148,7 +148,7 @@ const PaymentMethodForm = ({ onSuccess, onCancel }: { onSuccess: () => void, onC
       onSuccess();
     } catch (err: any) {
       console.error('Payment method creation failed', err);
-      setError(err.message || 'Failed to add payment method');
+      setError(toFriendlyApiMessage(err, 'Failed to add payment method'));
     } finally {
       setIsProcessing(false);
     }
@@ -228,10 +228,21 @@ const PaymentsPage: React.FC = () => {
     try {
       setIsLoading(true);
       setFetchError(null);
+      const fetchOrEmpty = async (path: string) => {
+        try {
+          return await apiFetch(path, { token });
+        } catch (requestError) {
+          if (isAuthExpiredError(requestError)) {
+            throw requestError;
+          }
+          return [];
+        }
+      };
+
       const [invoicesData, methodsData, historyData] = await Promise.all([
-        apiFetch('/payments/invoices', { token }).catch(() => []),
-        apiFetch('/payments/payment-methods', { token }).catch(() => []),
-        apiFetch('/payments/history', { token }).catch(() => [])
+        fetchOrEmpty('/payments/invoices'),
+        fetchOrEmpty('/payments/payment-methods'),
+        fetchOrEmpty('/payments/history')
       ]);
 
       setInvoices(Array.isArray(invoicesData) ? invoicesData : (Array.isArray((invoicesData as any)?.invoices) ? (invoicesData as any).invoices : []));
@@ -260,7 +271,11 @@ const PaymentsPage: React.FC = () => {
 
     } catch (err) {
       console.error('Failed to fetch payment data', err);
-      setFetchError(err instanceof Error ? err.message : 'Unable to load payment data right now.');
+      setFetchError(
+        isAuthExpiredError(err)
+          ? toFriendlyApiMessage(err)
+          : (err instanceof Error ? err.message : 'Unable to load payment data right now.'),
+      );
     } finally {
       setIsLoading(false);
     }
@@ -284,7 +299,7 @@ const PaymentsPage: React.FC = () => {
       setPaymentMethods(prev => prev.filter(m => m.id !== id));
     } catch (err) {
       console.error('Failed to delete payment method', err);
-      alert('Failed to remove payment method');
+      alert(toFriendlyApiMessage(err, 'Failed to remove payment method'));
     }
   };
 
@@ -315,8 +330,7 @@ const PaymentsPage: React.FC = () => {
 
       window.location.assign(response.checkoutUrl);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unable to start checkout';
-      setPayNowError(message);
+      setPayNowError(toFriendlyApiMessage(err, 'Unable to start checkout'));
     } finally {
       setPayingInvoiceId(null);
     }
@@ -355,7 +369,7 @@ const PaymentsPage: React.FC = () => {
       fetchData();
     } catch (err) {
       console.error('Failed to update autopay', err);
-      alert('Failed to update autopay settings');
+      alert(toFriendlyApiMessage(err, 'Failed to update autopay settings'));
     }
   };
 

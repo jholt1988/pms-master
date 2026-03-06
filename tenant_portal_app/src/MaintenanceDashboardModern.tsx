@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { apiFetch } from './services/apiClient';
+import { normalizeApiList } from './utils/normalizeApiList';
 import { StatsCard, FilterBar, MaintenanceRequestCard, PageHeader } from './components/ui';
 import { Card, CardBody, Button, Select, SelectItem, Spinner } from '@nextui-org/react';
 
@@ -174,9 +175,10 @@ const MaintenanceDashboardModern = () => {
       }
 
       const url = params.toString() ? `/maintenance?${params.toString()}` : '/maintenance';
-      const data: RequestsResponse = await apiFetch(url, { token });
-      setRequests(data.requests || []);
-      setLastFetchCount(data.requests?.length || 0);
+      const data = await apiFetch(url, { token });
+      const normalizedRequests = normalizeApiList<MaintenanceRequest>(data, ['requests', 'data', 'items']);
+      setRequests(normalizedRequests);
+      setLastFetchCount(normalizedRequests.length);
     } catch (err) {
       console.error('Error fetching maintenance requests:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch maintenance requests');
@@ -191,7 +193,7 @@ const MaintenanceDashboardModern = () => {
 
     try {
       const techniciansData = await apiFetch('/maintenance/technicians', { token });
-      setTechnicians(Array.isArray(techniciansData) ? techniciansData : []);
+      setTechnicians(normalizeApiList<Technician>(techniciansData));
     } catch (err) {
       console.error('Error fetching technicians:', err);
     }
@@ -202,7 +204,7 @@ const MaintenanceDashboardModern = () => {
 
     try {
       const data = await apiFetch('/properties', { token });
-      setProperties(data);
+      setProperties(normalizeApiList<PropertySummary>(data));
     } catch (err) {
       console.error('Error fetching properties:', err);
     }
