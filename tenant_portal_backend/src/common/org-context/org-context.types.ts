@@ -15,9 +15,14 @@ export interface OrgContext {
   orgRole: OrgRole;
 }
 
-declare module 'express-serve-static-core' {
-  interface Request {
-    user?: AuthUser;
-    org?: OrgContext;
+declare global {
+  namespace Express {
+    interface User extends AuthUser {}
+
+    interface Request {
+      org?: OrgContext;
+    }
   }
 }
+
+export {};
