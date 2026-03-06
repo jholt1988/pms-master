@@ -323,6 +323,70 @@ export class ReportingService {
     }));
   }
 
+  async getManualPaymentsSummary(filters?: { propertyId?: string; startDate?: Date; endDate?: Date; orgId?: string }) {
+    const startDate = filters?.startDate || new Date(new Date().getFullYear(), 0, 1);
+    const endDate = filters?.endDate || new Date();
+
+    const payments = await this.prisma.manualPayment.findMany({
+      where: {
+        receivedAt: { gte: startDate, lte: endDate },
+        ...(filters?.propertyId && { propertyId: filters.propertyId }),
+        ...(filters?.orgId && { organizationId: filters.orgId }),
+      },
+      include: {
+        lease: { include: { unit: { include: { property: true } } } },
+        tenant: { select: { username: true } },
+      },
+      orderBy: { receivedAt: 'desc' },
+    });
+
+    return payments.map((p) => ({
+      id: p.id,
+      property: p.lease?.unit?.property?.name ?? 'Unknown',
+      unit: p.lease?.unit?.name ?? 'Unknown',
+      tenant: p.tenant?.username ?? 'Unknown',
+      method: p.method,
+      appliedTo: p.appliedTo,
+      amount: p.amountCents / 100,
+      amountCents: p.amountCents,
+      status: p.status,
+      referenceNumber: p.referenceNumber,
+      receivedAt: p.receivedAt,
+    }));
+  }
+
+  async getManualChargesSummary(filters?: { propertyId?: string; startDate?: Date; endDate?: Date; orgId?: string }) {
+    const startDate = filters?.startDate || new Date(new Date().getFullYear(), 0, 1);
+    const endDate = filters?.endDate || new Date();
+
+    const charges = await this.prisma.manualCharge.findMany({
+      where: {
+        chargeDate: { gte: startDate, lte: endDate },
+        ...(filters?.propertyId && { propertyId: filters.propertyId }),
+        ...(filters?.orgId && { organizationId: filters.orgId }),
+      },
+      include: {
+        lease: { include: { unit: { include: { property: true } } } },
+        tenant: { select: { username: true } },
+      },
+      orderBy: { chargeDate: 'desc' },
+    });
+
+    return charges.map((c) => ({
+      id: c.id,
+      property: c.lease?.unit?.property?.name ?? 'Unknown',
+      unit: c.lease?.unit?.name ?? 'Unknown',
+      tenant: c.tenant?.username ?? 'Unknown',
+      chargeType: c.chargeType,
+      amount: c.amountCents / 100,
+      amountCents: c.amountCents,
+      status: c.status,
+      description: c.description,
+      chargeDate: c.chargeDate,
+      dueDate: c.dueDate,
+    }));
+  }
+
   async logSyndicationError(input: {
     propertyId: string;
     channel: SyndicationChannel;

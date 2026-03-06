@@ -43,7 +43,40 @@ interface VacancyRateItem {
   vacancyRate: string;
 }
 
-type ReportType = 'rent-roll' | 'profit-loss' | 'maintenance-analytics' | 'vacancy-rate' | 'payment-history';
+interface ManualPaymentSummaryItem {
+  id: string;
+  property: string;
+  unit: string;
+  tenant: string;
+  method: string;
+  appliedTo: string;
+  amount: number;
+  status: string;
+  referenceNumber?: string | null;
+  receivedAt: string;
+}
+
+interface ManualChargeSummaryItem {
+  id: string;
+  property: string;
+  unit: string;
+  tenant: string;
+  chargeType: string;
+  amount: number;
+  status: string;
+  description: string;
+  chargeDate: string;
+  dueDate?: string | null;
+}
+
+type ReportType =
+  | 'rent-roll'
+  | 'profit-loss'
+  | 'maintenance-analytics'
+  | 'vacancy-rate'
+  | 'payment-history'
+  | 'manual-payments-summary'
+  | 'manual-charges-summary';
 
 export default function ReportingPage(): React.ReactElement {
   const { token, user } = useAuth();
@@ -273,6 +306,98 @@ export default function ReportingPage(): React.ReactElement {
     );
   };
 
+  const renderManualPaymentsSummary = () => {
+    const items = data as ManualPaymentSummaryItem[];
+    if (!items || items.length === 0) return <div>No data available</div>;
+
+    return (
+      <div>
+        <div className="mb-4">
+          <button
+            onClick={() => exportToCSV(items, 'manual-payments-summary')}
+            className="bg-green-500 hover:bg-green-700 text-white px-4 py-2 rounded"
+          >
+            Export to CSV
+          </button>
+        </div>
+        <table className="min-w-full bg-white border border-gray-300">
+          <thead>
+            <tr>
+              <th className="border px-4 py-2">Property</th>
+              <th className="border px-4 py-2">Unit</th>
+              <th className="border px-4 py-2">Tenant</th>
+              <th className="border px-4 py-2">Method</th>
+              <th className="border px-4 py-2">Applied To</th>
+              <th className="border px-4 py-2">Amount</th>
+              <th className="border px-4 py-2">Status</th>
+              <th className="border px-4 py-2">Received</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr key={item.id}>
+                <td className="border px-4 py-2">{item.property}</td>
+                <td className="border px-4 py-2">{item.unit}</td>
+                <td className="border px-4 py-2">{item.tenant}</td>
+                <td className="border px-4 py-2">{item.method}</td>
+                <td className="border px-4 py-2">{item.appliedTo}</td>
+                <td className="border px-4 py-2">${item.amount.toFixed(2)}</td>
+                <td className="border px-4 py-2">{item.status}</td>
+                <td className="border px-4 py-2">{new Date(item.receivedAt).toLocaleDateString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  const renderManualChargesSummary = () => {
+    const items = data as ManualChargeSummaryItem[];
+    if (!items || items.length === 0) return <div>No data available</div>;
+
+    return (
+      <div>
+        <div className="mb-4">
+          <button
+            onClick={() => exportToCSV(items, 'manual-charges-summary')}
+            className="bg-green-500 hover:bg-green-700 text-white px-4 py-2 rounded"
+          >
+            Export to CSV
+          </button>
+        </div>
+        <table className="min-w-full bg-white border border-gray-300">
+          <thead>
+            <tr>
+              <th className="border px-4 py-2">Property</th>
+              <th className="border px-4 py-2">Unit</th>
+              <th className="border px-4 py-2">Tenant</th>
+              <th className="border px-4 py-2">Type</th>
+              <th className="border px-4 py-2">Amount</th>
+              <th className="border px-4 py-2">Status</th>
+              <th className="border px-4 py-2">Charge Date</th>
+              <th className="border px-4 py-2">Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr key={item.id}>
+                <td className="border px-4 py-2">{item.property}</td>
+                <td className="border px-4 py-2">{item.unit}</td>
+                <td className="border px-4 py-2">{item.tenant}</td>
+                <td className="border px-4 py-2">{item.chargeType}</td>
+                <td className="border px-4 py-2">${item.amount.toFixed(2)}</td>
+                <td className="border px-4 py-2">{item.status}</td>
+                <td className="border px-4 py-2">{new Date(item.chargeDate).toLocaleDateString()}</td>
+                <td className="border px-4 py-2">{item.description}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   return (
     <div className="container mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6">Reports & Analytics</h1>
@@ -293,6 +418,8 @@ export default function ReportingPage(): React.ReactElement {
           <option value="maintenance-analytics">Maintenance Analytics</option>
           <option value="vacancy-rate">Vacancy Rate</option>
           <option value="payment-history">Payment History</option>
+          <option value="manual-payments-summary">Manual Payments Summary</option>
+          <option value="manual-charges-summary">Manual Charges Summary</option>
         </select>
 
         <input
@@ -337,6 +464,8 @@ export default function ReportingPage(): React.ReactElement {
               <pre>{JSON.stringify(data, null, 2)}</pre>
             </div>
           )}
+          {reportType === 'manual-payments-summary' && renderManualPaymentsSummary()}
+          {reportType === 'manual-charges-summary' && renderManualChargesSummary()}
         </div>
       )}
     </div>

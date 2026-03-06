@@ -89,4 +89,34 @@ export class ReportingController {
       orgId,
     });
   }
+
+  @Get('manual-payments-summary')
+  async getManualPaymentsSummary(
+    @Query('propertyId') propertyId?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @OrgId() orgId?: string,
+  ) {
+    return this.reportingService.getManualPaymentsSummary({
+      propertyId: propertyId && propertyId.trim() ? propertyId.trim() : undefined,
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined,
+      orgId,
+    });
+  }
+
+  @Get('manual-charges-summary')
+  async getManualChargesSummary(
+    @Query('propertyId') propertyId?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @OrgId() orgId?: string,
+  ) {
+    return this.reportingService.getManualChargesSummary({
+      propertyId: propertyId && propertyId.trim() ? propertyId.trim() : undefined,
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined,
+      orgId,
+    });
+  }
 }
