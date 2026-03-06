@@ -24,6 +24,15 @@ export interface SetupPaymentMethodDto {
   paymentMethodId: string;
 }
 
+export interface CreateCheckoutSessionDto {
+  amount: number;
+  customerId: string;
+  successUrl: string;
+  cancelUrl: string;
+  description?: string;
+  metadata?: Record<string, string>;
+}
+
 export interface CreateConnectedAccountDto {
   organizationId: string;
   email?: string;
@@ -185,6 +194,50 @@ export class StripeService {
       }
 
       throw new BadRequestException('Payment processing failed');
+    }
+  }
+
+  async createCheckoutSession(dto: CreateCheckoutSessionDto): Promise<{ checkoutUrl: string; sessionId: string }> {
+    const amountCents = Math.max(50, Math.round(dto.amount * 100));
+
+    if (this.isStripeDisabled) {
+      const sessionId = `mock_cs_${Date.now()}`;
+      return {
+        sessionId,
+        checkoutUrl: `${dto.successUrl}${dto.successUrl.includes('?') ? '&' : '?'}mock_stripe_session=${sessionId}`,
+      };
+    }
+
+    try {
+      const session = await this.stripe!.checkout.sessions.create({
+        mode: 'payment',
+        customer: dto.customerId,
+        success_url: dto.successUrl,
+        cancel_url: dto.cancelUrl,
+        client_reference_id: dto.metadata?.invoiceId,
+        metadata: dto.metadata ?? {},
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency: 'usd',
+              unit_amount: amountCents,
+              product_data: {
+                name: dto.description ?? 'Invoice payment',
+              },
+            },
+          },
+        ],
+      });
+
+      if (!session.url) {
+        throw new Error('Stripe checkout session did not return a URL');
+      }
+
+      return { checkoutUrl: session.url, sessionId: session.id };
+    } catch (error) {
+      this.logger.error('Failed to create checkout session', error as Error);
+      throw new BadRequestException('Unable to start Stripe checkout session');
     }
   }
 

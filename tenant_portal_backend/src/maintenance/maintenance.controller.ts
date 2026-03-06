@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Request, UseGuards, Put } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query, Request, UploadedFiles, UseGuards, UseInterceptors, Put } from '@nestjs/common';
 import { isUUID } from 'class-validator';
 import { AuthGuard } from '@nestjs/passport';
 import { MaintenanceService } from './maintenance.service';
@@ -19,6 +19,11 @@ import { OrgId } from '../common/org-context/org-id.decorator';
 import { AuditLogService } from '../shared/audit-log.service';
 import { MaintenanceFeatureExtractionService } from './ai/maintenance-feature-extraction.service';
 import { MaintenanceDataQualityService } from './ai/maintenance-data-quality.service';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import { randomBytes } from 'crypto';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -39,7 +44,9 @@ export class MaintenanceController {
     private readonly auditLogService: AuditLogService,
     private readonly featureExtractionService: MaintenanceFeatureExtractionService,
     private readonly dataQualityService: MaintenanceDataQualityService,
-  ) {}
+  ) {
+    this.ensureUploadDir();
+  }
 
   @Get()
   findAll(
@@ -293,19 +300,65 @@ export class MaintenanceController {
   }
 
   @Post(':id/photos')
+  @UseInterceptors(
+    FilesInterceptor('files', 10, {
+      storage: memoryStorage(),
+      limits: {
+        fileSize: 10 * 1024 * 1024,
+      },
+      fileFilter: (_req, file, cb) => {
+        if (MaintenanceController.allowedMimeTypes.has(file.mimetype)) {
+          cb(null, true);
+          return;
+        }
+        cb(new BadRequestException(`Unsupported file type: ${file.mimetype}`), false);
+      },
+    }),
+  )
   async addPhoto(
     @Param('id') id: string,
+    @UploadedFiles() files: Express.Multer.File[],
     @Body() dto: AddMaintenancePhotoDto,
     @Request() req: AuthenticatedRequest,
   ) {
+    if (!files?.length) {
+      throw new BadRequestException('No files provided');
+    }
+
     const orgId = (req as any).org?.orgId as string | undefined;
-    return this.maintenanceService.addPhotoScoped(
-      id,
-      dto,
-      req.user.userId,
-      req.user.role,
-      orgId,
-    );
+    const uploaded: Array<{ id: number; url: string; caption?: string | null; createdAt: Date; mimeType: string; size: number; originalName: string; }> = [];
+
+    for (const file of files) {
+      const fileExt = path.extname(file.originalname) || '';
+      const fileName = `${randomBytes(16).toString('hex')}${fileExt.toLowerCase()}`;
+      const filePath = path.join(this.uploadDir, fileName);
+      await fs.writeFile(filePath, file.buffer);
+      const photoUrl = `/uploads/maintenance/${fileName}`;
+
+      const photo = await this.maintenanceService.addPhotoScoped(
+        id,
+        dto,
+        req.user.userId,
+        req.user.role,
+        orgId,
+        photoUrl,
+      );
+
+      uploaded.push({
+        id: photo.id,
+        url: photo.url,
+        caption: photo.caption,
+        createdAt: photo.createdAt,
+        mimeType: file.mimetype,
+        size: file.size,
+        originalName: file.originalname,
+      });
+    }
+
+    return {
+      uploaded,
+      count: uploaded.length,
+    };
   }
 
   @Post(':id/confirm-complete')
@@ -367,6 +420,23 @@ export class MaintenanceController {
   @Roles('PROPERTY_MANAGER')
   getSlaPolicies(@Query('propertyId') propertyId?: string, @OrgId() orgId?: string) {
     return this.maintenanceService.getSlaPolicies(propertyId, orgId);
+  }
+
+  private readonly uploadDir = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads', 'maintenance');
+  private static readonly allowedMimeTypes = new Set([
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/heic',
+    'image/heif',
+  ]);
+
+  private async ensureUploadDir() {
+    try {
+      await fs.access(this.uploadDir);
+    } catch {
+      await fs.mkdir(this.uploadDir, { recursive: true });
+    }
   }
 
   private parseManagerFilters(query: Record<string, string | undefined>): ManagerFilters {

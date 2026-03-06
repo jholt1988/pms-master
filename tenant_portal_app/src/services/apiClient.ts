@@ -12,6 +12,7 @@
 
    export async function apiFetch(path: string, options: ApiOptions = {}) {
      const base = getApiBase().replace(/\/$/, '');
+     const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
 
      // Normalize to avoid accidental duplication like `${base}/api` + `/api/...` → `/api/api/...`
      // Common in tests or env configs where VITE_API_URL already includes `/api`.
@@ -30,7 +31,7 @@
      const url = rawUrl.startsWith('http') ? rawUrl : new URL(rawUrl, origin).toString();
 
      const headers: Record<string, string> = {
-       'Content-Type': 'application/json',
+       ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
        ...(options.headers || {}),
      };
      if (options.token) headers.Authorization = `Bearer ${options.token}`;

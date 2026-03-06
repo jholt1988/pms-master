@@ -10,6 +10,7 @@ import { Roles } from '../auth/roles.decorator';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { CreatePaymentPlanDto } from './dto/create-payment-plan.dto';
+import { CreateStripeCheckoutSessionDto } from './dto/create-stripe-checkout-session.dto';
 import { Request as ExpressRequest } from 'express';
 import { AuditLogService } from '../shared/audit-log.service';
 
@@ -96,6 +97,16 @@ export class PaymentsController {
   ): Promise<Payment[]> {
     const orgId = (req as any).org?.orgId as string | undefined;
     return this.paymentsService.getPaymentsForUser(req.user.userId, req.user.role, leaseId, orgId);
+  }
+
+  @Post('stripe/checkout-session')
+  @Roles('PROPERTY_MANAGER', 'TENANT')
+  async createStripeCheckoutSession(
+    @Body() body: CreateStripeCheckoutSessionDto,
+    @Request() req: AuthenticatedRequest,
+  ): Promise<{ checkoutUrl: string; sessionId: string; invoiceId: number }> {
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.paymentsService.createStripeCheckoutSession(body, req.user, orgId);
   }
 
   @Get('ai-metrics')

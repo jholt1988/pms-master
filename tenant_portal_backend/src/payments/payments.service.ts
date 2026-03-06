@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Invoice, Payment, Role, Prisma } from '@prisma/client';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
+import { CreateStripeCheckoutSessionDto } from './dto/create-stripe-checkout-session.dto';
 import { AIPaymentService } from './ai-payment.service';
 import { EmailService } from '../email/email.service';
 import { StripeService } from './stripe.service';
@@ -77,6 +78,75 @@ export class PaymentsService {
       },
       orderBy: { dueDate: 'desc' },
     });
+  }
+
+  async createStripeCheckoutSession(
+    dto: CreateStripeCheckoutSessionDto,
+    authUser: { userId: string; role: Role },
+    orgId?: string,
+  ): Promise<{ checkoutUrl: string; sessionId: string; invoiceId: number }> {
+    const invoice = await this.prisma.invoice.findUnique({
+      where: { id: dto.invoiceId },
+      include: {
+        lease: {
+          include: {
+            tenant: true,
+            unit: { include: { property: true } },
+          },
+        },
+      },
+    });
+
+    if (!invoice || !invoice.lease?.tenantId) {
+      throw new NotFoundException('Invoice not found');
+    }
+
+    if ((invoice.status ?? '').toUpperCase() === 'PAID') {
+      throw new BadRequestException('Invoice is already paid');
+    }
+
+    if (authUser.role === Role.TENANT && invoice.lease.tenantId !== authUser.userId) {
+      throw new ForbiddenException('You do not have access to this invoice');
+    }
+
+    if (authUser.role === Role.PROPERTY_MANAGER && orgId) {
+      const invoiceOrgId = invoice.lease?.unit?.property?.organizationId;
+      if (!invoiceOrgId || invoiceOrgId !== orgId) {
+        throw new ForbiddenException('You do not have access to this invoice');
+      }
+    }
+
+    const tenant = invoice.lease.tenant;
+    const existingCustomerId = await this.stripeService.getCustomerByUserId(invoice.lease.tenantId);
+    const customerId = existingCustomerId
+      ?? (
+        await this.stripeService.createCustomer({
+          userId: invoice.lease.tenantId,
+          email: tenant?.email ?? tenant?.username ?? '',
+          name: tenant?.username ?? 'Tenant',
+        })
+      ).id;
+
+    const description = invoice.description || `Invoice #${invoice.id}`;
+    const { checkoutUrl, sessionId } = await this.stripeService.createCheckoutSession({
+      amount: Number(invoice.amount),
+      customerId,
+      successUrl: dto.successUrl,
+      cancelUrl: dto.cancelUrl,
+      description,
+      metadata: {
+        invoiceId: String(invoice.id),
+        leaseId: String(invoice.leaseId),
+        tenantId: invoice.lease.tenantId,
+        ...(orgId ? { organizationId: orgId } : {}),
+      },
+    });
+
+    return {
+      checkoutUrl,
+      sessionId,
+      invoiceId: invoice.id,
+    };
   }
 
   async createPayment(

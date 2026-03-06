@@ -39,7 +39,7 @@ type MaintenanceStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
 type MaintenancePriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'EMERGENCY';
 
 interface MaintenanceRequest {
-  id: number;
+  id: string | number;
   title: string;
   description: string;
   status: MaintenanceStatus;
@@ -64,6 +64,15 @@ interface MaintenanceRequest {
   photos?: { id: number; url: string; caption?: string }[];
   slaPolicy?: any;
 }
+
+const getRequestTimestamp = (request: MaintenanceRequest): number => {
+  const timestamp = new Date(request.createdAt).getTime();
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+};
+
+export const sortMaintenanceRequestsNewestFirst = (items: MaintenanceRequest[]): MaintenanceRequest[] => {
+  return [...items].sort((a, b) => getRequestTimestamp(b) - getRequestTimestamp(a));
+};
 
 const categories = [
   'Plumbing',
@@ -101,15 +110,20 @@ const MaintenancePage: React.FC = () => {
     priority: 'MEDIUM' as MaintenancePriority,
     preferredDate: '',
     preferredTime: '',
-    photoUrls: ''
+    photoCaption: ''
   });
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const fetchRequests = async () => {
+  const fetchRequests = async ({ keepCurrentLoadingState = false }: { keepCurrentLoadingState?: boolean } = {}) => {
     if (!token) return;
     try {
-      setIsLoading(true);
+      if (!keepCurrentLoadingState) {
+        setIsLoading(true);
+      }
       setError(null);
       const data = await apiFetch('/maintenance', { token });
       const normalized = Array.isArray(data)
@@ -119,18 +133,46 @@ const MaintenancePage: React.FC = () => {
           : Array.isArray((data as any)?.data)
             ? (data as any).data
             : [];
-      setRequests(normalized);
+      setRequests(sortMaintenanceRequestsNewestFirst(normalized));
     } catch (err) {
       console.error('Failed to fetch maintenance requests', err);
       setError('Failed to load maintenance requests. Please try again later.');
     } finally {
-      setIsLoading(false);
+      if (!keepCurrentLoadingState) {
+        setIsLoading(false);
+      }
     }
   };
 
   useEffect(() => {
     fetchRequests();
   }, [token]);
+
+  useEffect(() => {
+    return () => {
+      previewUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [previewUrls]);
+
+  const resolveMediaUrl = (url: string) => {
+    if (!url) return url;
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    const apiBase = (import.meta.env.VITE_API_URL ?? '/api').replace(/\/$/, '');
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    if (apiBase.startsWith('http')) {
+      return `${apiBase.replace(/\/api$/, '')}${url}`;
+    }
+    return `${origin}${url}`;
+  };
+
+  const handlePhotoSelection = (files: FileList | null) => {
+    if (!files) return;
+    const nextFiles = Array.from(files).slice(0, 10);
+    previewUrls.forEach((url) => URL.revokeObjectURL(url));
+    setSelectedFiles(nextFiles);
+    setPreviewUrls(nextFiles.map((file) => URL.createObjectURL(file)));
+    setUploadProgress({});
+  };
 
   const filteredRequests = useMemo(() => {
     let filtered: MaintenanceRequest[] = Array.isArray(requests) ? [...requests] : [];
@@ -150,9 +192,7 @@ const MaintenancePage: React.FC = () => {
       );
     }
 
-    return filtered.sort((a, b) =>
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
+    return sortMaintenanceRequestsNewestFirst(filtered);
   }, [requests, selectedTab, searchQuery]);
 
   const handleSubmitRequest = async () => {
@@ -181,25 +221,54 @@ const MaintenancePage: React.FC = () => {
         body: payload
       });
 
-      const photoUrls = newRequest.photoUrls
-        .split(/\r?\n|,/)
-        .map((v) => v.trim())
-        .filter(Boolean);
+      const optimisticRequest: MaintenanceRequest = {
+        id: Number(created?.id ?? Date.now()),
+        title: String(created?.title ?? newRequest.title),
+        description: String(created?.description ?? fullDescription),
+        status: (created?.status as MaintenanceStatus) ?? 'PENDING',
+        priority: (created?.priority as MaintenancePriority) ?? newRequest.priority,
+        category: newRequest.category,
+        createdAt: String(created?.createdAt ?? new Date().toISOString()),
+        scheduledDate: created?.scheduledDate,
+        completedAt: created?.completedAt,
+        assignee: created?.assignee,
+        unit: created?.unit,
+        property: created?.property,
+        notes: Array.isArray(created?.notes) ? created.notes : [],
+        photos: Array.isArray(created?.photos) ? created.photos : [],
+      };
 
-      if (created?.id && photoUrls.length > 0) {
-        await Promise.all(
-          photoUrls.map((url) =>
-            apiFetch(`/maintenance/${created.id}/photos`, {
-              token,
-              method: 'POST',
-              body: { url },
-            }),
-          ),
+      setRequests((prev) =>
+        sortMaintenanceRequestsNewestFirst([
+          optimisticRequest,
+          ...prev.filter((req) => req.id !== optimisticRequest.id),
+        ]),
+      );
+
+      if (created?.id && selectedFiles.length > 0) {
+        const formData = new FormData();
+        selectedFiles.forEach((file) => {
+          formData.append('files', file);
+          setUploadProgress((prev) => ({ ...prev, [file.name]: 20 }));
+        });
+        if (newRequest.photoCaption.trim()) {
+          formData.append('caption', newRequest.photoCaption.trim());
+        }
+
+        await apiFetch(`/maintenance/${created.id}/photos`, {
+          token,
+          method: 'POST',
+          body: formData,
+          noJson: false,
+        });
+
+        setUploadProgress(
+          selectedFiles.reduce((acc, file) => {
+            acc[file.name] = 100;
+            return acc;
+          }, {} as Record<string, number>),
         );
       }
-
-      // Refresh list
-      await fetchRequests();
 
       // Reset form
       setNewRequest({
@@ -209,9 +278,16 @@ const MaintenancePage: React.FC = () => {
         priority: 'MEDIUM',
         preferredDate: '',
         preferredTime: '',
-        photoUrls: ''
+        photoCaption: ''
       });
+      previewUrls.forEach((url) => URL.revokeObjectURL(url));
+      setPreviewUrls([]);
+      setSelectedFiles([]);
+      setUploadProgress({});
       onClose();
+
+      // Canonical refetch to hydrate server-owned fields and reconcile eventual consistency
+      await fetchRequests({ keepCurrentLoadingState: true });
     } catch (err: any) {
       console.error('Failed to submit request', err);
       setSubmitError(err.message || 'Failed to submit request');
@@ -408,7 +484,7 @@ const MaintenancePage: React.FC = () => {
                         {request.photos.map((photo) => (
                           <a
                             key={photo.id}
-                            href={photo.url}
+                            href={resolveMediaUrl(photo.url)}
                             target="_blank"
                             rel="noreferrer"
                             className="text-xs rounded border border-default-300 px-2 py-1 hover:bg-default-100"
@@ -587,16 +663,46 @@ const MaintenancePage: React.FC = () => {
                 />
               </div>
 
-              <Textarea
-                label="Photo URLs (Optional)"
-                placeholder="Paste image URLs (one per line or comma-separated)"
-                value={newRequest.photoUrls}
-                onChange={(e) => setNewRequest({ ...newRequest, photoUrls: e.target.value })}
-                minRows={3}
-                classNames={{
-                  label: "sr-only",
-                }}
-              />
+              <div className="space-y-3">
+                <Input
+                  type="file"
+                  label="Upload Photos (Optional)"
+                  multiple
+                  accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                  onChange={(e) => handlePhotoSelection(e.target.files)}
+                  classNames={{
+                    label: "sr-only",
+                  }}
+                />
+
+                <Input
+                  label="Photo Caption (Optional)"
+                  placeholder="Short caption applied to uploaded photos"
+                  value={newRequest.photoCaption}
+                  onChange={(e) => setNewRequest({ ...newRequest, photoCaption: e.target.value })}
+                  classNames={{
+                    label: "sr-only",
+                  }}
+                />
+
+                {previewUrls.length > 0 && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {previewUrls.map((preview, idx) => (
+                      <div key={preview} className="border border-default-200 rounded-lg p-2">
+                        <img
+                          src={preview}
+                          alt={`Selected upload ${idx + 1}`}
+                          className="h-24 w-full object-cover rounded"
+                        />
+                        <p className="mt-2 text-xs text-foreground-600 truncate">{selectedFiles[idx]?.name}</p>
+                        <p className="text-xs text-foreground-500">
+                          {uploadProgress[selectedFiles[idx]?.name ?? ''] ?? 0}%
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               <div className="bg-primary-50 border border-primary-200 rounded-lg p-4">
                 <p className="text-sm text-foreground-600">

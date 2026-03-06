@@ -220,6 +220,8 @@ const PaymentsPage: React.FC = () => {
 
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [payingInvoiceId, setPayingInvoiceId] = useState<number | null>(null);
+  const [payNowError, setPayNowError] = useState<string | null>(null);
 
   const fetchData = async () => {
     if (!token) return;
@@ -283,6 +285,40 @@ const PaymentsPage: React.FC = () => {
     } catch (err) {
       console.error('Failed to delete payment method', err);
       alert('Failed to remove payment method');
+    }
+  };
+
+  const handlePayNow = async (invoiceId: number) => {
+    if (!token) return;
+
+    try {
+      setPayNowError(null);
+      setPayingInvoiceId(invoiceId);
+
+      const currentUrl = new URL(window.location.href);
+      const successUrl = `${currentUrl.origin}${currentUrl.pathname}?checkout=success&invoiceId=${invoiceId}`;
+      const cancelUrl = `${currentUrl.origin}${currentUrl.pathname}?checkout=cancel&invoiceId=${invoiceId}`;
+
+      const response = await apiFetch('/payments/stripe/checkout-session', {
+        token,
+        method: 'POST',
+        body: {
+          invoiceId,
+          successUrl,
+          cancelUrl,
+        },
+      }) as { checkoutUrl?: string };
+
+      if (!response?.checkoutUrl) {
+        throw new Error('Checkout URL was not returned by the server');
+      }
+
+      window.location.assign(response.checkoutUrl);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unable to start checkout';
+      setPayNowError(message);
+    } finally {
+      setPayingInvoiceId(null);
     }
   };
 
@@ -362,6 +398,13 @@ const PaymentsPage: React.FC = () => {
         />
       )}
 
+      {payNowError && (
+        <div className="bg-danger-50 text-danger-700 p-3 rounded-md text-sm flex items-start gap-2">
+          <AlertCircle className="w-5 h-5 shrink-0" />
+          <p>{payNowError}</p>
+        </div>
+      )}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="bg-primary-50 border-primary-100">
@@ -438,7 +481,15 @@ const PaymentsPage: React.FC = () => {
                         </Button>
                       )}
                       {invoice.status !== 'PAID' && (
-                        <Button color="primary" size="sm">Pay Now</Button>
+                        <Button
+                          color="primary"
+                          size="sm"
+                          isLoading={payingInvoiceId === invoice.id}
+                          isDisabled={payingInvoiceId !== null && payingInvoiceId !== invoice.id}
+                          onPress={() => handlePayNow(invoice.id)}
+                        >
+                          Pay Now
+                        </Button>
                       )}
                     </div>
                   </CardBody>

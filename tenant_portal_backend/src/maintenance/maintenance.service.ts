@@ -946,13 +946,23 @@ export class MaintenanceService {
     requestId: string | number,
     dto: AddMaintenancePhotoDto,
     uploadedById: string | number,
+    uploadedUrl?: string,
   ): Promise<MaintenancePhoto> {
+    const url = uploadedUrl ?? dto.url;
+    if (!url) {
+      throw ApiException.badRequest(
+        ErrorCode.VALIDATION_MISSING_REQUIRED_FIELD,
+        'Photo URL is required',
+        { field: 'url' },
+      );
+    }
+
     const numericRequestId = this.toRequestId(requestId);
     const photo = await this.prisma.maintenancePhoto.create({
       data: {
         request: { connect: { id: numericRequestId } },
         uploadedBy: { connect: { id: uploadedById as any } },
-        url: dto.url,
+        url,
         caption: dto.caption,
       },
       include: { uploadedBy: true },
@@ -967,10 +977,11 @@ export class MaintenanceService {
     uploadedById: string,
     uploadedByRole: Role,
     orgId?: string,
+    uploadedUrl?: string,
   ): Promise<MaintenancePhoto> {
     if (uploadedByRole === Role.TENANT) {
       await this.assertRequestInTenantLease(requestId, uploadedById);
-      return this.addPhoto(requestId, dto, uploadedById);
+      return this.addPhoto(requestId, dto, uploadedById, uploadedUrl);
     }
 
     if (!orgId) {
@@ -981,7 +992,7 @@ export class MaintenanceService {
     }
 
     await this.assertRequestInOrg(requestId, orgId);
-    return this.addPhoto(requestId, dto, uploadedById);
+    return this.addPhoto(requestId, dto, uploadedById, uploadedUrl);
   }
 
   async confirmCompleteScoped(
