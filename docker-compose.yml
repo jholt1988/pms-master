@@ -1,0 +1,71 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pms-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pms
+      POSTGRES_USER: pms
+      POSTGRES_PASSWORD: pms
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pms -d pms"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: pms-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  backend:
+    build:
+      context: .
+      dockerfile: tenant_portal_backend/Dockerfile
+      target: runner
+    container_name: pms-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://pms:pms@postgres:5432/pms?schema=public
+      SHADOW_DATABASE_URL: postgresql://pms:pms@postgres:5432/pms_shadow?schema=public
+      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:8080
+      JWT_SECRET: change-me-in-prod
+      MIL_WRAPPER_ENABLED: "false"
+      MIL_ENCRYPT_AT_REST_ENABLED: "false"
+      MIL_AUDIT_PERSIST_ENABLED: "false"
+    ports:
+      - "3001:3001"
+    command: >
+      sh -c "npx prisma migrate deploy && npx prisma generate && node dist/tenant_portal_backend/src/index.js"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: tenant_portal_app/Dockerfile
+      args:
+        VITE_API_URL: /api
+    container_name: pms-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  postgres_data:
+  redis_data:

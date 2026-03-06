@@ -1,0 +1,38 @@
+version: '3.9'
+
+services:
+  postgres:
+    profiles: ["localdb"]
+
+  redis:
+    profiles: ["localdb"]
+
+  backend:
+    build:
+      context: .
+      dockerfile: tenant_portal_backend/Dockerfile
+      target: runner
+    restart: always
+    env_file:
+      - ops/.env.prod
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      MIL_WRAPPER_ENABLED: ${MIL_WRAPPER_ENABLED:-false}
+      MIL_ENCRYPT_AT_REST_ENABLED: ${MIL_ENCRYPT_AT_REST_ENABLED:-false}
+      MIL_AUDIT_PERSIST_ENABLED: ${MIL_AUDIT_PERSIST_ENABLED:-false}
+    command: >
+      sh -c "npx prisma migrate deploy && npx prisma generate && node dist/tenant_portal_backend/src/index.js"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: tenant_portal_app/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"

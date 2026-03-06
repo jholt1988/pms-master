@@ -1,0 +1,14 @@
+.git
+.gitignore
+node_modules
+**/node_modules
+**/dist
+**/coverage
+**/.turbo
+**/.next
+**/.cache
+reports
+*.log
+.env
+**/.env
+ops/.env.prod
