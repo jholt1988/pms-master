@@ -1,4 +1,4 @@
-version: '3.9'
+
 
 services:
   postgres:
@@ -13,6 +13,7 @@ services:
       dockerfile: tenant_portal_backend/Dockerfile
       target: runner
     restart: always
+    depends_on: []
     env_file:
       - ops/.env.prod
     environment:
