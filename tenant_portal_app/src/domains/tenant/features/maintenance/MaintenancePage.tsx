@@ -32,7 +32,8 @@ import { SearchInput } from '../../../../components/ui/SearchInput';
 import { StatusBadge } from '../../../../components/ui/StatusBadge';
 import { DegradedStateCard } from '../../../../components/ui/DegradedStateCard';
 import { useAuth } from '../../../../AuthContext';
-import { apiFetch } from '../../../../services/apiClient';
+import { apiFetch, isAuthExpiredError, toFriendlyApiMessage } from '../../../../services/apiClient';
+import { normalizeApiList } from '../../../../utils/normalizeApiList';
 
 // Aligned with Backend Enums
 type MaintenanceStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
@@ -126,17 +127,15 @@ const MaintenancePage: React.FC = () => {
       }
       setError(null);
       const data = await apiFetch('/maintenance', { token });
-      const normalized = Array.isArray(data)
-        ? data
-        : Array.isArray((data as any)?.requests)
-          ? (data as any).requests
-          : Array.isArray((data as any)?.data)
-            ? (data as any).data
-            : [];
+      const normalized = normalizeApiList<MaintenanceRequest>(data, ['requests', 'data', 'items']);
       setRequests(sortMaintenanceRequestsNewestFirst(normalized));
     } catch (err) {
       console.error('Failed to fetch maintenance requests', err);
-      setError('Failed to load maintenance requests. Please try again later.');
+      setError(
+        isAuthExpiredError(err)
+          ? toFriendlyApiMessage(err)
+          : 'Failed to load maintenance requests. Please try again later.',
+      );
     } finally {
       if (!keepCurrentLoadingState) {
         setIsLoading(false);
@@ -290,7 +289,11 @@ const MaintenancePage: React.FC = () => {
       await fetchRequests({ keepCurrentLoadingState: true });
     } catch (err: any) {
       console.error('Failed to submit request', err);
-      setSubmitError(err.message || 'Failed to submit request');
+      setSubmitError(
+        isAuthExpiredError(err)
+          ? toFriendlyApiMessage(err)
+          : (err?.message || 'Failed to submit request'),
+      );
     } finally {
       setIsSubmitting(false);
     }

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { apiFetch } from './services/apiClient';
+import { normalizeApiList } from './utils/normalizeApiList';
 import { StatsCard, PageHeader, LeaseCard } from './components/ui';
 import { Card, CardBody, Button } from '@nextui-org/react';
 import { LeaseEsignPanel } from './components/leases/LeaseEsignPanel';
@@ -53,15 +54,8 @@ const LeaseManagementPageModern = () => {
     try {
       const data = await apiFetch('/leases', { token });
       console.log('Leases data received:', data);
-      // Handle common response envelopes safely
-      const normalizedLeases = Array.isArray(data)
-        ? data
-        : Array.isArray((data as any)?.data)
-          ? (data as any).data
-          : Array.isArray((data as any)?.items)
-            ? (data as any).items
-            : [];
-      setLeases(normalizedLeases as Lease[]);
+      const normalizedLeases = normalizeApiList<Lease>(data);
+      setLeases(normalizedLeases);
     } catch (err: any) {
       console.error('Error fetching leases:', err);
       setError(err.message ?? 'Failed to load leases');

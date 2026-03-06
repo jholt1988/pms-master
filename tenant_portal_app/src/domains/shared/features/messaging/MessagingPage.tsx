@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../../AuthContext';
-import { apiFetch } from '../../../../services/apiClient';
+import { apiFetch, toFriendlyApiMessage } from '../../../../services/apiClient';
+import { normalizeApiList } from '../../../../utils/normalizeApiList';
 import BulkMessageComposer from '../../../../components/messages/BulkMessageComposer';
 import BulkMessageStatusPanel from '../../../../components/messages/BulkMessageStatusPanel';
 
@@ -47,14 +48,10 @@ const MessagingPage = () => {
     async (conversationId: number) => {
       try {
         const data = await apiFetch(`/messaging/conversations/${conversationId}`, { token: token ?? undefined });
-        const normalizedMessages = Array.isArray((data as any)?.messages)
-          ? (data as any).messages
-          : Array.isArray(data)
-            ? data
-            : [];
+        const normalizedMessages = normalizeApiList(data, ['messages', 'data', 'items']);
         setMessages(normalizedMessages);
       } catch (error: any) {
-        setError(error.message || 'Failed to fetch messages');
+        setError(toFriendlyApiMessage(error, 'Failed to fetch messages'));
       }
     },
     [token],
@@ -64,22 +61,23 @@ const MessagingPage = () => {
     const fetchConversations = async () => {
       try {
         const data = await apiFetch('/messaging/conversations', { token: token ?? undefined });
-        setConversations(Array.isArray(data) ? data : []);
-        if (Array.isArray(data) && data.length > 0) {
+        const normalizedConversations = normalizeApiList(data);
+        setConversations(normalizedConversations);
+        if (normalizedConversations.length > 0) {
           let shouldFetchFirst = false;
           setSelectedConversation((previous: any | null) => {
             if (previous) {
               return previous;
             }
             shouldFetchFirst = true;
-            return data[0];
+            return normalizedConversations[0];
           });
           if (shouldFetchFirst) {
-            fetchMessages(data[0].id);
+            fetchMessages(normalizedConversations[0].id);
           }
         }
       } catch (error: any) {
-        setError(error.message || 'Failed to fetch conversations');
+        setError(toFriendlyApiMessage(error, 'Failed to fetch conversations'));
       } finally {
         setLoading(false);
       }
@@ -102,10 +100,10 @@ const MessagingPage = () => {
         apiFetch('/messaging/templates', { token }),
       ]);
 
-      setBulkBatches(Array.isArray(batchesData) ? batchesData : []);
-      setTemplates(Array.isArray(templatesData) ? templatesData : []);
+      setBulkBatches(normalizeApiList(batchesData));
+      setTemplates(normalizeApiList(templatesData));
     } catch (fetchError: any) {
-      setBulkError(fetchError.message);
+      setBulkError(toFriendlyApiMessage(fetchError, 'Failed to load bulk messaging resources'));
     } finally {
       setBulkLoading(false);
     }
@@ -125,7 +123,7 @@ const MessagingPage = () => {
       try {
         const endpoint = isPropertyManager ? '/messaging/tenants' : '/messaging/property-managers';
         const data = await apiFetch(endpoint, { token });
-        setThreadRecipients(Array.isArray(data) ? data : []);
+        setThreadRecipients(normalizeApiList(data));
       } catch {
         setThreadRecipients([]);
       }
@@ -154,7 +152,7 @@ const MessagingPage = () => {
       setNewMessage('');
       fetchMessages(selectedConversation.id);
     } catch (error: any) {
-      setError(error.message);
+      setError(toFriendlyApiMessage(error, 'Failed to send message'));
     } finally {
       setSending(false);
     }
@@ -187,7 +185,7 @@ const MessagingPage = () => {
       setThreadMessage('');
       setShowNewThreadForm(false);
     } catch (createError: any) {
-      setError(createError.message || 'Failed to start thread');
+      setError(toFriendlyApiMessage(createError, 'Failed to start thread'));
     } finally {
       setCreatingThread(false);
     }

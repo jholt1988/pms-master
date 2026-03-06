@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { apiFetch } from './services/apiClient';
+import { normalizeApiList } from './utils/normalizeApiList';
 import { EmptyState, LoadingState, FeedbackBanner } from './components/ui';
 
 type LeaseStatus =
@@ -427,16 +428,20 @@ function LeaseManagementPage(): React.ReactElement {
     const load = async () => {
       setLoading(true);
       try {
-        const [data, usersResponse, properties] = await Promise.all([
-          apiFetch('/leases', { token }) as Promise<Lease[]>,
-          apiFetch('/users?role=TENANT&take=200', { token }) as Promise<{ data?: AssignTenantOption[] }>,
-          apiFetch('/properties', { token }) as Promise<Array<{ id: string; name: string; units?: Array<{ id: string; name: string }> }>>, 
+        const [leaseResponse, usersResponse, propertiesResponse] = await Promise.all([
+          apiFetch('/leases', { token }),
+          apiFetch('/users?role=TENANT&take=200', { token }),
+          apiFetch('/properties', { token }),
         ]);
         if (!cancelled) {
-          setLeases(data);
-          hydrateForms(data);
-          setTenantOptions(usersResponse?.data ?? []);
-          const leasedUnitIds = new Set(data.map((lease: any) => lease?.unit?.id).filter(Boolean));
+          const leases = normalizeApiList<Lease>(leaseResponse);
+          const tenantOptions = normalizeApiList<AssignTenantOption>(usersResponse);
+          const properties = normalizeApiList<{ id: string; name: string; units?: Array<{ id: string; name: string }> }>(propertiesResponse);
+
+          setLeases(leases);
+          hydrateForms(leases);
+          setTenantOptions(tenantOptions);
+          const leasedUnitIds = new Set(leases.map((lease: any) => lease?.unit?.id).filter(Boolean));
           const units = (properties ?? []).flatMap((property) =>
             (property.units ?? []).map((unit) => ({
               id: unit.id,

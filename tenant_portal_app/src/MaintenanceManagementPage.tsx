@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { apiFetch } from './services/apiClient';
+import { normalizeApiList } from './utils/normalizeApiList';
 import { MasterDetailLayout } from './components/ui/MasterDetailLayout';
 import { useMasterDetail } from './hooks/useMasterDetail';
 import { useViewportCategory } from './hooks/useViewportCategory';
@@ -140,15 +141,8 @@ export default function MaintenanceManagementPage(): React.ReactElement {
     try {
       const data = await apiFetch('/maintenance', { token: token || undefined });
       console.log('Maintenance data received:', data);
-      // Handle common response envelopes safely
-      const normalizedRequests = Array.isArray(data)
-        ? data
-        : Array.isArray((data as any)?.data)
-          ? (data as any).data
-          : Array.isArray((data as any)?.items)
-            ? (data as any).items
-            : [];
-      setRequests(normalizedRequests as MaintenanceRequest[]);
+      const normalizedRequests = normalizeApiList<MaintenanceRequest>(data);
+      setRequests(normalizedRequests);
     } catch (err: unknown) {
       console.error('Error fetching maintenance requests:', err);
       setRequests([]);
@@ -173,19 +167,11 @@ export default function MaintenanceManagementPage(): React.ReactElement {
           apiFetch('/leases', { token }),
         ]);
 
-        const normalizedProperties = Array.isArray(propertyData)
-          ? propertyData
-          : Array.isArray((propertyData as any)?.items)
-            ? (propertyData as any).items
-            : [];
-        const normalizedLeases = Array.isArray(leaseData)
-          ? leaseData
-          : Array.isArray((leaseData as any)?.items)
-            ? (leaseData as any).items
-            : [];
+        const normalizedProperties = normalizeApiList<PropertyOption>(propertyData);
+        const normalizedLeases = normalizeApiList<LeaseOption>(leaseData);
 
-        setProperties(normalizedProperties as PropertyOption[]);
-        setLeases(normalizedLeases as LeaseOption[]);
+        setProperties(normalizedProperties);
+        setLeases(normalizedLeases);
       } catch (err) {
         console.error('Failed to load PM/Admin maintenance create context', err);
       }

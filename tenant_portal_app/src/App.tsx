@@ -1,9 +1,10 @@
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 // Optimized NextUI imports - using individual package imports for better tree-shaking
 import { NextUIProvider, Card, CardBody, Button } from '@nextui-org/react';
 import { ROLES } from './constants/roles';
 import { useAuth } from './AuthContext';
+import { setApiAuthErrorHandler } from './services/apiClient';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { PageErrorBoundaryWithNav } from './components/PageErrorBoundary';
 import "./index.css";
@@ -176,7 +177,17 @@ const DashboardRouter = () => {
 };
 
 export default function App({className}: {className: string}): React.ReactElement {
-  const { token } = useAuth();
+  const { token, logout } = useAuth();
+
+  useEffect(() => {
+    setApiAuthErrorHandler(() => {
+      logout();
+    });
+
+    return () => {
+      setApiAuthErrorHandler(null);
+    };
+  }, [logout]);
 
   return (
     <ErrorBoundary>

@@ -18,6 +18,7 @@ import { MasterDetailLayout } from './components/ui/MasterDetailLayout';
 import { useMasterDetail } from './hooks/useMasterDetail';
 import { useViewportCategory } from './hooks/useViewportCategory';
 import { apiFetch } from './services/apiClient';
+import { normalizeApiList } from './utils/normalizeApiList';
 import { PropertyForm } from './components/properties/PropertyForm';
 import { BulkUnitCreator } from './components/properties/BulkUnitCreator';
 import { UnitEditor } from './components/properties/UnitEditor';
@@ -260,15 +261,8 @@ const PropertyManagementPage: React.FC = () => {
     setErrorMessage(null);
     try {
       const data = await apiFetch('/properties', { token });
-      // Handle common response envelopes safely
-      const normalizedProperties = Array.isArray(data)
-        ? data
-        : Array.isArray((data as any)?.data)
-          ? (data as any).data
-          : Array.isArray((data as any)?.items)
-            ? (data as any).items
-            : [];
-      setProperties(normalizedProperties as Property[]);
+      const normalizedProperties = normalizeApiList<Property>(data);
+      setProperties(normalizedProperties);
     } catch (error) {
       console.error('fetchProperties', error);
       setErrorMessage('Unable to load properties right now.');
