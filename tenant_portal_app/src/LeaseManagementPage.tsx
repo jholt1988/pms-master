@@ -1270,7 +1270,7 @@ function LeaseManagementPage(): React.ReactElement {
               <div className="grid gap-3 md:grid-cols-2">
                 <div>
                   <select
-                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                     value={statusForm.status}
                     onChange={(event) =>
                       handleStatusFieldChange(lease, 'status', event.target.value as LeaseStatus)
@@ -1288,7 +1288,7 @@ function LeaseManagementPage(): React.ReactElement {
                   <input
                     type="number"
                     min={0}
-                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                     value={statusForm.noticePeriodDays}
                     onChange={(event) => handleStatusFieldChange(lease, 'noticePeriodDays', event.target.value)}
                     placeholder="Notice period (days)"
@@ -1298,7 +1298,7 @@ function LeaseManagementPage(): React.ReactElement {
                 <div>
                   <input
                     type="date"
-                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                     value={statusForm.moveInAt}
                     onChange={(event) => handleStatusFieldChange(lease, 'moveInAt', event.target.value)}
                     aria-label="Move-in date"
@@ -1307,7 +1307,7 @@ function LeaseManagementPage(): React.ReactElement {
                 <div>
                   <input
                     type="date"
-                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                     value={statusForm.moveOutAt}
                     onChange={(event) => handleStatusFieldChange(lease, 'moveOutAt', event.target.value)}
                     aria-label="Move-out date"
@@ -1316,7 +1316,7 @@ function LeaseManagementPage(): React.ReactElement {
                 <div>
                   <input
                     type="date"
-                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                     value={statusForm.renewalDueAt}
                     onChange={(event) => handleStatusFieldChange(lease, 'renewalDueAt', event.target.value)}
                     aria-label="Renewal due at"
@@ -1325,7 +1325,7 @@ function LeaseManagementPage(): React.ReactElement {
                 <div>
                   <input
                     type="date"
-                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                     value={statusForm.renewalAcceptedAt}
                     onChange={(event) =>
                       handleStatusFieldChange(lease, 'renewalAcceptedAt', event.target.value)
@@ -1336,7 +1336,7 @@ function LeaseManagementPage(): React.ReactElement {
                 <div>
                   <input
                     type="date"
-                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                     value={statusForm.terminationEffectiveAt}
                     onChange={(event) =>
                       handleStatusFieldChange(lease, 'terminationEffectiveAt', event.target.value)
@@ -1346,7 +1346,7 @@ function LeaseManagementPage(): React.ReactElement {
                 </div>
                 <div>
                   <select
-                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                     value={statusForm.terminationRequestedBy}
                     onChange={(event) =>
                       handleStatusFieldChange(
@@ -1368,7 +1368,7 @@ function LeaseManagementPage(): React.ReactElement {
                 <div className="md:col-span-2">
                   <textarea
                     rows={2}
-                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                     value={statusForm.terminationReason}
                     onChange={(event) => handleStatusFieldChange(lease, 'terminationReason', event.target.value)}
                     placeholder="Termination reason"
@@ -1379,7 +1379,7 @@ function LeaseManagementPage(): React.ReactElement {
                   <input
                     type="number"
                     step="0.01"
-                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                     value={statusForm.rentEscalationPercent}
                     onChange={(event) =>
                       handleStatusFieldChange(lease, 'rentEscalationPercent', event.target.value)
@@ -1391,7 +1391,7 @@ function LeaseManagementPage(): React.ReactElement {
                 <div>
                   <input
                     type="date"
-                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                     value={statusForm.rentEscalationEffectiveAt}
                     onChange={(event) =>
                       handleStatusFieldChange(lease, 'rentEscalationEffectiveAt', event.target.value)
@@ -1403,7 +1403,7 @@ function LeaseManagementPage(): React.ReactElement {
                   <input
                     type="number"
                     step="0.01"
-                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                     value={statusForm.currentBalance}
                     onChange={(event) => handleStatusFieldChange(lease, 'currentBalance', event.target.value)}
                     placeholder="Current balance"
@@ -1437,7 +1437,7 @@ function LeaseManagementPage(): React.ReactElement {
                 <input
                   type="number"
                   step="0.01"
-                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                   value={renewalForm.proposedRent}
                   onChange={(event) => handleRenewalFieldChange(lease, 'proposedRent', event.target.value)}
                   placeholder="Proposed rent"
@@ -1446,7 +1446,7 @@ function LeaseManagementPage(): React.ReactElement {
                 <input
                   type="number"
                   step="0.01"
-                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                   value={renewalForm.escalationPercent}
                   onChange={(event) =>
                     handleRenewalFieldChange(lease, 'escalationPercent', event.target.value)
@@ -1456,21 +1456,21 @@ function LeaseManagementPage(): React.ReactElement {
                 />
                 <input
                   type="date"
-                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                   value={renewalForm.proposedStart}
                   onChange={(event) => handleRenewalFieldChange(lease, 'proposedStart', event.target.value)}
                   aria-label="Proposed start"
                 />
                 <input
                   type="date"
-                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                   value={renewalForm.proposedEnd}
                   onChange={(event) => handleRenewalFieldChange(lease, 'proposedEnd', event.target.value)}
                   aria-label="Proposed end"
                 />
                 <input
                   type="date"
-                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                   value={renewalForm.expiresAt}
                   onChange={(event) => handleRenewalFieldChange(lease, 'expiresAt', event.target.value)}
                   aria-label="Offer expires"
@@ -1556,7 +1556,7 @@ function LeaseManagementPage(): React.ReactElement {
                 </label>
                 <input
                   type="date"
-                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                   value={noticeForm.acknowledgedAt}
                   onChange={(event) => handleNoticeFieldChange(lease, 'acknowledgedAt', event.target.value)}
                   aria-label="Acknowledged at"
@@ -1610,14 +1610,14 @@ function LeaseManagementPage(): React.ReactElement {
                 <input
                   type="number"
                   min={1}
-                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                   value={manualPaymentForm.amountCents}
                   onChange={(event) => handleManualPaymentFieldChange(lease, 'amountCents', event.target.value)}
                   placeholder="Amount (cents)"
                   aria-label="Manual payment amount cents"
                 />
                 <select
-                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                   value={manualPaymentForm.method}
                   onChange={(event) =>
                     handleManualPaymentFieldChange(lease, 'method', event.target.value as ManualPaymentMethod)
@@ -1630,13 +1630,13 @@ function LeaseManagementPage(): React.ReactElement {
                 </select>
                 <input
                   type="date"
-                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                   value={manualPaymentForm.receivedAt}
                   onChange={(event) => handleManualPaymentFieldChange(lease, 'receivedAt', event.target.value)}
                   aria-label="Manual payment received date"
                 />
                 <select
-                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                   value={manualPaymentForm.appliedTo}
                   onChange={(event) =>
                     handleManualPaymentFieldChange(lease, 'appliedTo', event.target.value as ManualPaymentAppliedTo)
@@ -1650,7 +1650,7 @@ function LeaseManagementPage(): React.ReactElement {
                 </select>
                 <input
                   type="text"
-                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                   value={manualPaymentForm.referenceNumber}
                   onChange={(event) => handleManualPaymentFieldChange(lease, 'referenceNumber', event.target.value)}
                   placeholder="Reference # (check/MO)"
@@ -1715,14 +1715,14 @@ function LeaseManagementPage(): React.ReactElement {
                 <input
                   type="number"
                   min={1}
-                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                   value={manualChargeForm.amountCents}
                   onChange={(event) => handleManualChargeFieldChange(lease, 'amountCents', event.target.value)}
                   placeholder="Amount (cents)"
                   aria-label="Manual charge amount cents"
                 />
                 <select
-                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                   value={manualChargeForm.chargeType}
                   onChange={(event) =>
                     handleManualChargeFieldChange(lease, 'chargeType', event.target.value as ManualChargeType)
@@ -1737,14 +1737,14 @@ function LeaseManagementPage(): React.ReactElement {
                 </select>
                 <input
                   type="date"
-                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                   value={manualChargeForm.chargeDate}
                   onChange={(event) => handleManualChargeFieldChange(lease, 'chargeDate', event.target.value)}
                   aria-label="Manual charge date"
                 />
                 <input
                   type="date"
-                  className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-500"
                   value={manualChargeForm.dueDate}
                   onChange={(event) => handleManualChargeFieldChange(lease, 'dueDate', event.target.value)}
                   aria-label="Manual charge due date"
