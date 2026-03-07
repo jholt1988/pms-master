@@ -17,6 +17,8 @@
     "ml:readiness:md": "ts-node scripts/ml-data-readiness-audit.ts --out reports/ml-data-readiness-latest.md",
     "ml:readiness:help": "ts-node scripts/ml-data-readiness-audit.ts --help",
     "ml:simulate:demo": "ts-node scripts/simulate-ml-demo.ts",
+    "ml:seed:targeted": "ts-node scripts/seed-ml-targeted-readiness.ts",
+    "ml:simulate:targeted": "npm run ml:seed:targeted && npm run ml:readiness:json && npm run ml:readiness:md",
     "build": "tsc",
     "db:seed": "ts-node prisma/seed.ts",
     "db:seed:demo": "ts-node prisma/seed-demo.ts",
