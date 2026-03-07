@@ -235,7 +235,6 @@ async function main() {
 
   const admin = await prisma.user.findFirst({
     where: { role: { in: ['PROPERTY_MANAGER', 'ADMIN'] } },
-    orderBy: { createdAt: 'desc' },
   });
 
   const lease = await prisma.lease.findFirst({
