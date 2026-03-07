@@ -122,6 +122,7 @@ export default function MaintenanceManagementPage(): React.ReactElement {
   const [leases, setLeases] = useState<LeaseOption[]>([]);
   const [createError, setCreateError] = useState<string | undefined>(undefined);
   const [creating, setCreating] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
   const { isOpen: isCreateOpen, onOpen: onCreateOpen, onClose: onCreateClose } = useDisclosure();
   const [createForm, setCreateForm] = useState({
     title: '',
@@ -257,6 +258,28 @@ export default function MaintenanceManagementPage(): React.ReactElement {
     }
   };
 
+  const handleAcceptRequest = async (request: MaintenanceRequest) => {
+    if (!token || !isPmAdminView) return;
+
+    setUpdatingStatus(true);
+    setError(undefined);
+
+    try {
+      const updated = (await apiFetch(`/maintenance/${request.id}/status`, {
+        token,
+        method: 'PATCH',
+        body: { status: 'IN_PROGRESS' },
+      })) as MaintenanceRequest;
+
+      setRequests((prev) => prev.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)));
+      selectRequest({ ...request, ...updated });
+    } catch (err: unknown) {
+      setError(getFriendlyApiError(err, 'Failed to accept maintenance request'));
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
   const master = (
     <div className="p-4 sm:p-6 w-full">
       <div className="mb-6 flex items-center justify-between gap-3">
@@ -349,7 +372,17 @@ export default function MaintenanceManagementPage(): React.ReactElement {
             <CardBody>
               <p>{selectedRequest.description}</p>
               {isPmAdminView && (
-                <div className="mt-4">
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  {selectedRequest.status === 'PENDING' && (
+                    <Button
+                      size="sm"
+                      color="success"
+                      onPress={() => handleAcceptRequest(selectedRequest)}
+                      isLoading={updatingStatus}
+                    >
+                      Accept Request
+                    </Button>
+                  )}
                   <Button size="sm" variant="bordered" onPress={() => fetchFeatures(selectedRequest.id)} isLoading={featureLoading}>
                     View AI Features
                   </Button>
