@@ -280,6 +280,40 @@ export default function MaintenanceManagementPage(): React.ReactElement {
     }
   };
 
+  const handleRejectRequest = async (request: MaintenanceRequest) => {
+    if (!token || !isPmAdminView) return;
+
+    const reason = window.prompt('Enter rejection reason (required):');
+    if (!reason || !reason.trim()) {
+      setError('Rejection reason is required.');
+      return;
+    }
+
+    setUpdatingStatus(true);
+    setError(undefined);
+
+    try {
+      await apiFetch(`/maintenance/${request.id}/notes`, {
+        token,
+        method: 'POST',
+        body: { body: `REJECTED: ${reason.trim()}` },
+      });
+
+      const updated = (await apiFetch(`/maintenance/${request.id}/status`, {
+        token,
+        method: 'PATCH',
+        body: { status: 'COMPLETED' },
+      })) as MaintenanceRequest;
+
+      setRequests((prev) => prev.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)));
+      selectRequest({ ...request, ...updated });
+    } catch (err: unknown) {
+      setError(getFriendlyApiError(err, 'Failed to reject maintenance request'));
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
   const master = (
     <div className="p-4 sm:p-6 w-full">
       <div className="mb-6 flex items-center justify-between gap-3">
@@ -374,14 +408,25 @@ export default function MaintenanceManagementPage(): React.ReactElement {
               {isPmAdminView && (
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   {selectedRequest.status === 'PENDING' && (
-                    <Button
-                      size="sm"
-                      color="success"
-                      onPress={() => handleAcceptRequest(selectedRequest)}
-                      isLoading={updatingStatus}
-                    >
-                      Accept Request
-                    </Button>
+                    <>
+                      <Button
+                        size="sm"
+                        color="success"
+                        onPress={() => handleAcceptRequest(selectedRequest)}
+                        isLoading={updatingStatus}
+                      >
+                        Accept Request
+                      </Button>
+                      <Button
+                        size="sm"
+                        color="danger"
+                        variant="flat"
+                        onPress={() => handleRejectRequest(selectedRequest)}
+                        isLoading={updatingStatus}
+                      >
+                        Reject Request
+                      </Button>
+                    </>
                   )}
                   <Button size="sm" variant="bordered" onPress={() => fetchFeatures(selectedRequest.id)} isLoading={featureLoading}>
                     View AI Features
