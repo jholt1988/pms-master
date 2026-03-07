@@ -13,6 +13,7 @@ import "./index.css";
 const ForgotPasswordPage = lazy(() => import('./ForgotPasswordPage'));
 const PasswordResetPage = lazy(() => import('./PasswordResetPage'));
 const MessagingPage = lazy(() => import('./domains/shared/features/messaging').then(m => ({ default: m.MessagingPage })));
+const LeaseManagementPage = lazy(() => import('./LeaseManagementPage'));
 const LeaseManagementPageModern = lazy(() => import('./LeaseManagementPageModern'));
 const RentalApplicationsManagementPage = lazy(() => import('./RentalApplicationsManagementPage'));
 const ExpenseTrackerPageModern = lazy(() => import('./ExpenseTrackerPageModern'));
@@ -248,7 +249,8 @@ export default function App({className}: {className: string}): React.ReactElemen
                 <Route path="properties" element={<PropertyManagementPage />} />
                 <Route path="properties/search" element={<PropertySearchPage />} />
                 <Route path="schedule" element={<SchedulePage />} />
-                <Route path="lease-management" element={<LeaseManagementPageModern />} />
+                <Route path="lease-management" element={<LeaseManagementPage />} />
+                <Route path="lease-management-modern" element={<LeaseManagementPageModern />} />
                 <Route path="rental-applications-management" element={<RentalApplicationsManagementPage />} />
                 <Route path="expense-tracker" element={<ExpenseTrackerPageModern />} />
                 <Route path="rent-estimator" element={<RentEstimatorPage />} />
