@@ -1826,7 +1826,7 @@ function LeaseManagementPage(): React.ReactElement {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 force-readable-fields">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold text-gray-900">Lease lifecycle manager</h1>
         <p className="text-sm text-gray-600">

@@ -93,6 +93,25 @@ textarea:focus-visible,
   opacity: 1 !important;
 }
 
+/* Force readable form controls in lease workflows regardless theme/OS color settings */
+.force-readable-fields input,
+.force-readable-fields select,
+.force-readable-fields textarea {
+  background: #ffffff !important;
+  color: #111827 !important;
+  border-color: #d1d5db !important;
+}
+
+.force-readable-fields input::placeholder,
+.force-readable-fields textarea::placeholder {
+  color: #6b7280 !important;
+}
+
+.force-readable-fields select option {
+  background: #ffffff;
+  color: #111827;
+}
+
 /* Accessibility: Visually hidden but accessible to screen readers (WCAG 2.1) */
 .sr-only {
   position: absolute;
