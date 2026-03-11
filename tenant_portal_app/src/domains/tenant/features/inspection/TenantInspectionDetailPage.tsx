@@ -38,7 +38,9 @@ export default function TenantInspectionDetailPage(): React.ReactElement {
   const [startLoading, setStartLoading] = useState(false);
   const [requestStatus, setRequestStatus] = useState<string | null>(null);
   const [saveLoadingByRoomId, setSaveLoadingByRoomId] = useState<Record<number, boolean>>({});
+  const [photoUploadingByItemId, setPhotoUploadingByItemId] = useState<Record<number, boolean>>({});
   const [draftByItemId, setDraftByItemId] = useState<Record<number, { requiresAction: boolean; notes: string; condition: InspectionCondition | '' }>>({});
+  const [photoDraftByItemId, setPhotoDraftByItemId] = useState<Record<number, { url: string; caption: string }>>({});
 
   const status = String(inspection?.status ?? '');
   const isCompleted = status === 'COMPLETED';
@@ -137,6 +139,36 @@ export default function TenantInspectionDetailPage(): React.ReactElement {
       setError(e?.message || 'Failed to save room');
     } finally {
       setSaveLoadingByRoomId((s) => ({ ...s, [roomId]: false }));
+    }
+  };
+
+  const handleUploadPhotoForItem = async (itemId: number) => {
+    if (!token) return;
+    const draft = photoDraftByItemId[itemId] ?? { url: '', caption: '' };
+    if (!draft.url.trim()) {
+      setError('Photo URL is required before upload.');
+      return;
+    }
+
+    setPhotoUploadingByItemId((s) => ({ ...s, [itemId]: true }));
+    setError(null);
+
+    try {
+      await apiFetch(`/inspections/items/${itemId}/photos`, {
+        token,
+        method: 'POST',
+        body: {
+          url: draft.url.trim(),
+          caption: draft.caption?.trim() || undefined,
+        },
+      });
+
+      setPhotoDraftByItemId((s) => ({ ...s, [itemId]: { url: '', caption: '' } }));
+      await fetchInspection();
+    } catch (e: any) {
+      setError(e?.message || 'Failed to upload photo');
+    } finally {
+      setPhotoUploadingByItemId((s) => ({ ...s, [itemId]: false }));
     }
   };
 
@@ -343,6 +375,56 @@ export default function TenantInspectionDetailPage(): React.ReactElement {
                                 minRows={2}
                                 className="mt-2"
                               />
+
+                              <div className="mt-3 rounded-md border border-white/10 p-2">
+                                <p className="text-xs text-foreground-500 mb-2">
+                                  Photo evidence attached: {Array.isArray(it.photos) ? it.photos.length : 0}
+                                </p>
+                                <div className="grid gap-2 md:grid-cols-2">
+                                  <input
+                                    className="rounded border border-gray-300 bg-white px-2 py-2 text-sm text-gray-900"
+                                    placeholder="Photo URL (required for needs attention)"
+                                    disabled={isLockedForTenant}
+                                    value={photoDraftByItemId[Number(it.id)]?.url ?? ''}
+                                    onChange={(e) =>
+                                      setPhotoDraftByItemId((s) => ({
+                                        ...s,
+                                        [Number(it.id)]: {
+                                          ...(s[Number(it.id)] ?? { url: '', caption: '' }),
+                                          url: e.target.value,
+                                        },
+                                      }))
+                                    }
+                                  />
+                                  <input
+                                    className="rounded border border-gray-300 bg-white px-2 py-2 text-sm text-gray-900"
+                                    placeholder="Caption (optional)"
+                                    disabled={isLockedForTenant}
+                                    value={photoDraftByItemId[Number(it.id)]?.caption ?? ''}
+                                    onChange={(e) =>
+                                      setPhotoDraftByItemId((s) => ({
+                                        ...s,
+                                        [Number(it.id)]: {
+                                          ...(s[Number(it.id)] ?? { url: '', caption: '' }),
+                                          caption: e.target.value,
+                                        },
+                                      }))
+                                    }
+                                  />
+                                </div>
+                                <div className="mt-2">
+                                  <Button
+                                    size="sm"
+                                    variant="flat"
+                                    color="secondary"
+                                    isDisabled={isLockedForTenant}
+                                    isLoading={!!photoUploadingByItemId[Number(it.id)]}
+                                    onPress={() => handleUploadPhotoForItem(Number(it.id))}
+                                  >
+                                    Upload photo URL
+                                  </Button>
+                                </div>
+                              </div>
                             </div>
                           );
                         })}

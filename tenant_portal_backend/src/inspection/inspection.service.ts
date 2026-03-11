@@ -44,6 +44,36 @@ export class InspectionService {
     }
   }
 
+  private async ensureDefaultRoomsAndChecklist(inspectionId: number): Promise<void> {
+    const existingRoomCount = await this.prisma.inspectionRoom.count({ where: { inspectionId } });
+    if (existingRoomCount > 0) return;
+
+    const defaultRoomTypes: RoomType[] = [
+      RoomType.LIVING_ROOM,
+      RoomType.KITCHEN,
+      RoomType.BEDROOM,
+      RoomType.BATHROOM,
+    ];
+
+    for (const roomType of defaultRoomTypes) {
+      const template = getChecklistTemplate(roomType);
+      await this.prisma.inspectionRoom.create({
+        data: {
+          inspectionId,
+          roomType,
+          name: roomType.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (m) => m.toUpperCase()),
+          checklistItems: {
+            create: template.map((item) => ({
+              category: item.category,
+              itemName: item.itemName,
+              requiresAction: false,
+            })),
+          },
+        },
+      });
+    }
+  }
+
   private async assertPropertyInOrg(propertyId: string, orgId?: string) {
     if (!orgId) return;
     const property = await this.prisma.property.findFirst({
@@ -200,6 +230,8 @@ export class InspectionService {
             notes: req.notes ?? undefined,
           },
         });
+
+    await this.ensureDefaultRoomsAndChecklist(inspection.id);
 
     await (this.prisma as any).inspectionRequest.update({
       where: { id: req.id },
@@ -631,7 +663,7 @@ export class InspectionService {
     // Ensure the room exists and all itemIds belong to this room.
     const room = await this.prisma.inspectionRoom.findUnique({
       where: { id: roomId },
-      include: { checklistItems: true, inspection: true },
+      include: { checklistItems: { include: { photos: true } }, inspection: true },
     });
 
     if (!room) {
@@ -660,6 +692,16 @@ export class InspectionService {
       throw new BadRequestException(
         `Checklist item ${bad.itemId} does not belong to room ${roomId}`,
       );
+    }
+
+    // Enforce photo evidence for actionable items
+    for (const update of items) {
+      const existing = room.checklistItems.find((ci: any) => ci.id === update.itemId);
+      const resultingRequiresAction = typeof update.requiresAction === 'boolean' ? update.requiresAction : !!existing?.requiresAction;
+      const photoCount = (existing as any)?.photos?.length ?? 0;
+      if (resultingRequiresAction && photoCount < 1) {
+        throw new BadRequestException(`Checklist item ${update.itemId} requires at least one photo when marked as needs attention`);
+      }
     }
 
     const isTenant = viewer?.role === 'TENANT';

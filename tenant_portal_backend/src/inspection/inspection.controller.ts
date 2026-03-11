@@ -209,16 +209,17 @@ export class InspectionController {
   @Roles('PROPERTY_MANAGER', 'TENANT')
   async updateRoomChecklistItems(
     @Param('roomId', ParseIntPipe) roomId: number,
-    @Body() dto: UpdateRoomChecklistItemsDto,
+    @Body() dtoOrItems: UpdateRoomChecklistItemsDto | any[],
     @Request() req: any,
   ) {
     const orgId = (req as any).org?.orgId as string | undefined;
-    return this.inspectionService.updateRoomChecklistItems(roomId, dto.items ?? [], req.user, orgId);
+    const items = Array.isArray(dtoOrItems) ? dtoOrItems : (dtoOrItems?.items ?? []);
+    return this.inspectionService.updateRoomChecklistItems(roomId, items, req.user, orgId);
   }
 
   @Post('items/:itemId/photos')
   @HttpCode(HttpStatus.CREATED)
-  @Roles('PROPERTY_MANAGER')
+  @Roles('PROPERTY_MANAGER', 'TENANT')
   async addPhotoToChecklistItem(
     @Param('itemId', ParseIntPipe) itemId: number,
     @Body() dto: UploadPhotoDto,
@@ -232,7 +233,7 @@ export class InspectionController {
   @Post('items/:itemId/photos/upload')
   @UseInterceptors(FileInterceptor('file'))
   @HttpCode(HttpStatus.CREATED)
-  @Roles('PROPERTY_MANAGER')
+  @Roles('PROPERTY_MANAGER', 'TENANT')
   async uploadPhoto(
     @Param('itemId', ParseIntPipe) itemId: number,
     @UploadedFile() file: Express.Multer.File,
