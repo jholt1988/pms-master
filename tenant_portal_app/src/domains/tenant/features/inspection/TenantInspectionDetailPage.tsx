@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Button, Card, CardBody, Checkbox, Divider, Textarea } from '@nextui-org/react';
+import { Button, Card, CardBody, Divider, Textarea } from '@nextui-org/react';
 import { useAuth } from '../../../../AuthContext';
 import { apiFetch } from '../../../../services/apiClient';
 
@@ -8,6 +8,17 @@ function unwrapApi<T>(resp: any): T {
   if (resp && typeof resp === 'object' && 'data' in resp) return (resp as any).data as T;
   return resp as T;
 }
+
+type InspectionCondition = 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED' | 'NON_FUNCTIONAL';
+
+const conditionOptions: Array<{ value: InspectionCondition; label: string }> = [
+  { value: 'EXCELLENT', label: 'Excellent' },
+  { value: 'GOOD', label: 'Good' },
+  { value: 'FAIR', label: 'Fair' },
+  { value: 'POOR', label: 'Poor' },
+  { value: 'DAMAGED', label: 'Damaged' },
+  { value: 'NON_FUNCTIONAL', label: 'Non-functional' },
+];
 
 function typeLabel(type: string) {
   return String(type).replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (m) => m.toUpperCase());
@@ -27,7 +38,7 @@ export default function TenantInspectionDetailPage(): React.ReactElement {
   const [startLoading, setStartLoading] = useState(false);
   const [requestStatus, setRequestStatus] = useState<string | null>(null);
   const [saveLoadingByRoomId, setSaveLoadingByRoomId] = useState<Record<number, boolean>>({});
-  const [draftByItemId, setDraftByItemId] = useState<Record<number, { requiresAction: boolean; notes: string }>>({});
+  const [draftByItemId, setDraftByItemId] = useState<Record<number, { requiresAction: boolean; notes: string; condition: InspectionCondition | '' }>>({});
 
   const status = String(inspection?.status ?? '');
   const isCompleted = status === 'COMPLETED';
@@ -80,13 +91,14 @@ export default function TenantInspectionDetailPage(): React.ReactElement {
     const rooms = inspection?.rooms;
     if (!Array.isArray(rooms)) return;
 
-    const next: Record<number, { requiresAction: boolean; notes: string }> = {};
+    const next: Record<number, { requiresAction: boolean; notes: string; condition: InspectionCondition | '' }> = {};
     for (const r of rooms) {
       for (const it of (r?.checklistItems ?? [])) {
         if (!it?.id) continue;
         next[Number(it.id)] = {
           requiresAction: !!it.requiresAction,
           notes: String(it.notes ?? ''),
+          condition: (it.condition as InspectionCondition | null) ?? '',
         };
       }
     }
@@ -105,10 +117,11 @@ export default function TenantInspectionDetailPage(): React.ReactElement {
 
     try {
       const items = (room.checklistItems ?? []).map((it: any) => {
-        const d = draftByItemId[Number(it.id)] ?? { requiresAction: !!it.requiresAction, notes: String(it.notes ?? '') };
+        const d = draftByItemId[Number(it.id)] ?? { requiresAction: !!it.requiresAction, notes: String(it.notes ?? ''), condition: ((it.condition as InspectionCondition | null) ?? '') };
         return {
           itemId: Number(it.id),
           requiresAction: !!d.requiresAction,
+          condition: d.condition || undefined,
           notes: String(d.notes ?? ''),
         };
       });
@@ -273,24 +286,49 @@ export default function TenantInspectionDetailPage(): React.ReactElement {
 
                       <div className="flex flex-col gap-3">
                         {(room.checklistItems ?? []).map((it: any) => {
-                          const d = draftByItemId[Number(it.id)] ?? { requiresAction: !!it.requiresAction, notes: String(it.notes ?? '') };
+                          const d = draftByItemId[Number(it.id)] ?? { requiresAction: !!it.requiresAction, notes: String(it.notes ?? ''), condition: ((it.condition as InspectionCondition | null) ?? '') };
                           return (
                             <div key={it.id} className="border border-white/10 rounded-lg p-3">
                               <div className="flex items-center justify-between gap-3">
                                 <p className="text-sm font-semibold">{it.itemName}</p>
-                                <Checkbox
-                                  isSelected={!!d.requiresAction}
-                                  isDisabled={isLockedForTenant}
-                                  onValueChange={(v) =>
+                              </div>
+
+                              <div className="mt-2 grid gap-2 md:grid-cols-2">
+                                <label className="text-xs text-foreground-500">Condition</label>
+                                <label className="text-xs text-foreground-500">Needs attention</label>
+                                <select
+                                  className="rounded border border-gray-300 bg-white px-2 py-2 text-sm text-gray-900"
+                                  disabled={isLockedForTenant}
+                                  value={d.condition}
+                                  onChange={(e) =>
                                     setDraftByItemId((s) => ({
                                       ...s,
-                                      [Number(it.id)]: { ...d, requiresAction: !!v },
+                                      [Number(it.id)]: { ...d, condition: e.target.value as InspectionCondition | '' },
                                     }))
                                   }
                                 >
-                                  Needs attention
-                                </Checkbox>
+                                  <option value="">Select condition</option>
+                                  {conditionOptions.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+
+                                <select
+                                  className="rounded border border-gray-300 bg-white px-2 py-2 text-sm text-gray-900"
+                                  disabled={isLockedForTenant}
+                                  value={d.requiresAction ? 'YES' : 'NO'}
+                                  onChange={(e) =>
+                                    setDraftByItemId((s) => ({
+                                      ...s,
+                                      [Number(it.id)]: { ...d, requiresAction: e.target.value === 'YES' },
+                                    }))
+                                  }
+                                >
+                                  <option value="NO">No</option>
+                                  <option value="YES">Yes</option>
+                                </select>
                               </div>
+
                               <Textarea
                                 label="Notes"
                                 placeholder="Add notes…"
