@@ -228,7 +228,11 @@ export class UpdateRoomChecklistItemsDto {
 }
 
 export class UploadPhotoDto {
+  @IsString()
   url!: string;
+
+  @IsOptional()
+  @IsString()
   caption?: string;
 }
 
