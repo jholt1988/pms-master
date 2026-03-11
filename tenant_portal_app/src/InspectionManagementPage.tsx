@@ -248,11 +248,11 @@ export default function InspectionManagementPage(): React.ReactElement {
   };
 
   const master = (
-    <div className="p-6">
+    <div className="p-6 force-readable-fields">
       <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
         <div>
           <h2 className="text-2xl font-semibold">Overview</h2>
-          <p className="text-sm text-gray-600">Monitor upcoming, in-progress, and completed inspections.</p>
+          <p className="text-sm text-gray-200">Monitor upcoming, in-progress, and completed inspections.</p>
         </div>
         <Button
           color="primary"
@@ -274,10 +274,10 @@ export default function InspectionManagementPage(): React.ReactElement {
 
       <div className="bg-white p-4 rounded-lg shadow mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4">
-          <label className="flex flex-col text-sm text-gray-600">
+          <label className="flex flex-col text-sm text-gray-200">
             Property
             <select
-              className="border border-input rounded px-3 py-2 mt-1"
+              className="border border-gray-300 bg-white text-gray-900 rounded px-3 py-2 mt-1"
               value={filters.propertyId}
               onChange={(event) =>
                 setFilters((prev) => ({ ...prev, propertyId: event.target.value }))
@@ -291,10 +291,10 @@ export default function InspectionManagementPage(): React.ReactElement {
               ))}
             </select>
           </label>
-          <label className="flex flex-col text-sm text-gray-600">
+          <label className="flex flex-col text-sm text-gray-200">
             Status
             <select
-              className="border border-input rounded px-3 py-2 mt-1"
+              className="border border-gray-300 bg-white text-gray-900 rounded px-3 py-2 mt-1"
               value={filters.status}
               onChange={(event) => setFilters((prev) => ({ ...prev, status: event.target.value }))}
             >
@@ -305,10 +305,10 @@ export default function InspectionManagementPage(): React.ReactElement {
               <option value="CANCELLED">Cancelled</option>
             </select>
           </label>
-          <label className="flex flex-col text-sm text-gray-600">
+          <label className="flex flex-col text-sm text-gray-200">
             Inspection Type
             <input
-              className="border border-input rounded px-3 py-2 mt-1"
+              className="border border-gray-300 bg-white text-gray-900 rounded px-3 py-2 mt-1"
               placeholder="Routine, Move-in, etc."
               value={filters.type}
               onChange={(event) => setFilters((prev) => ({ ...prev, type: event.target.value }))}
@@ -345,7 +345,7 @@ export default function InspectionManagementPage(): React.ReactElement {
             </div>
           ))}
           {inspectionRequests.filter((r) => r.status === 'PENDING').length === 0 && (
-            <div className="text-sm text-gray-600">No pending requests.</div>
+            <div className="text-sm text-gray-200">No pending requests.</div>
           )}
         </div>
       </div>
@@ -380,7 +380,7 @@ export default function InspectionManagementPage(): React.ReactElement {
             <tbody className="bg-white divide-y divide-gray-200">
               {inspections.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-600">
+                  <td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-200">
                     No inspections match the current filters.
                   </td>
                 </tr>
@@ -448,10 +448,10 @@ export default function InspectionManagementPage(): React.ReactElement {
           <ModalHeader>Schedule Inspection</ModalHeader>
           <ModalBody>
             <form id="schedule-inspection-form" onSubmit={handleCreateSubmit} className="space-y-4">
-              <label className="flex flex-col text-sm text-gray-600">
+              <label className="flex flex-col text-sm text-gray-200">
                 Property
                 <select
-                  className="border border-input rounded px-3 py-2 mt-1"
+                  className="border border-gray-300 bg-white text-gray-900 rounded px-3 py-2 mt-1"
                   value={createForm.propertyId}
                   onChange={(event) => setCreateForm((prev) => ({ ...prev, propertyId: event.target.value }))}
                 >
@@ -463,10 +463,10 @@ export default function InspectionManagementPage(): React.ReactElement {
                   ))}
                 </select>
               </label>
-              <label className="flex flex-col text-sm text-gray-600">
+              <label className="flex flex-col text-sm text-gray-200">
                 Unit
                 <select
-                  className="border border-input rounded px-3 py-2 mt-1"
+                  className="border border-gray-300 bg-white text-gray-900 rounded px-3 py-2 mt-1"
                   value={createForm.unitId}
                   onChange={(event) => setCreateForm((prev) => ({ ...prev, unitId: event.target.value }))}
                 >
@@ -478,10 +478,10 @@ export default function InspectionManagementPage(): React.ReactElement {
                   ))}
                 </select>
               </label>
-              <label className="flex flex-col text-sm text-gray-600">
+              <label className="flex flex-col text-sm text-gray-200">
                 Inspection Type
                 <select
-                  className="border border-input rounded px-3 py-2 mt-1"
+                  className="border border-gray-300 bg-white text-gray-900 rounded px-3 py-2 mt-1"
                   value={createForm.type}
                   onChange={(event) => setCreateForm((prev) => ({ ...prev, type: event.target.value }))}
                 >
@@ -493,13 +493,13 @@ export default function InspectionManagementPage(): React.ReactElement {
               </label>
               <input
                 type="datetime-local"
-                className="border border-input rounded px-3 py-2"
+                className="border border-gray-300 bg-white text-gray-900 rounded px-3 py-2"
                 aria-label="Scheduled At"
                 value={createForm.scheduledDate}
                 onChange={(event) => setCreateForm((prev) => ({ ...prev, scheduledDate: event.target.value }))}
               />
               <textarea
-                className="border border-input rounded px-3 py-2"
+                className="border border-gray-300 bg-white text-gray-900 rounded px-3 py-2"
                 rows={3}
                 placeholder="Notes"
                 aria-label="Notes"
@@ -525,7 +525,7 @@ export default function InspectionManagementPage(): React.ReactElement {
           <ModalBody>
             <form id="complete-inspection-form" onSubmit={handleCompleteSubmit} className="space-y-4">
               <textarea
-                className="border border-input rounded px-3 py-2"
+                className="border border-gray-300 bg-white text-gray-900 rounded px-3 py-2"
                 rows={3}
                 placeholder="Completion Notes"
                 aria-label="Completion Notes"
