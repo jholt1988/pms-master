@@ -129,7 +129,7 @@ export default function TenantInspectionDetailPage(): React.ReactElement {
       await apiFetch(`/inspections/rooms/${roomId}/items`, {
         token,
         method: 'PATCH',
-        body: { items },
+        body: items,
       });
 
       await fetchInspection();
