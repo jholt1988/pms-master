@@ -125,6 +125,37 @@ select option {
   color: #111827;
 }
 
+/* Select field readability hardening (native + NextUI patterns) */
+select,
+[data-slot="trigger"][role="button"],
+[data-slot="value"],
+[data-slot="listbox"] {
+  color: #111827 !important;
+}
+
+select {
+  background-color: #ffffff !important;
+  border-color: #d1d5db !important;
+}
+
+select:disabled {
+  background-color: #f3f4f6 !important;
+  color: #6b7280 !important;
+}
+
+/* Native dropdown options */
+select option {
+  background: #ffffff !important;
+  color: #111827 !important;
+}
+
+/* NextUI/portal dropdown options */
+[role="option"],
+[data-slot="base"][role="option"] {
+  color: #111827 !important;
+  background: #ffffff !important;
+}
+
 /* Keep lease-scoped override for certainty in critical workflow page */
 .force-readable-fields input,
 .force-readable-fields select,
