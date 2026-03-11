@@ -627,9 +627,18 @@ export class InspectionService {
       }
     }
 
+    const safeData: any = {
+      ...(typeof (dto as any).requiresAction === 'boolean' ? { requiresAction: (dto as any).requiresAction } : {}),
+      ...((dto as any).condition !== undefined ? { condition: (dto as any).condition } : {}),
+      ...((dto as any).notes !== undefined ? { notes: (dto as any).notes } : {}),
+      ...((dto as any).estimatedAge !== undefined ? { estimatedAge: (dto as any).estimatedAge } : {}),
+      ...((dto as any).category !== undefined ? { category: (dto as any).category } : {}),
+      ...((dto as any).itemName !== undefined ? { itemName: (dto as any).itemName } : {}),
+    };
+
     return this.prisma.inspectionChecklistItem.update({
       where: { id: itemId },
-      data: dto,
+      data: safeData,
       include: {
         photos: true,
         subItems: true,
@@ -719,11 +728,6 @@ export class InspectionService {
               ? {}
               : {
                   ...(('condition' in i) ? { condition: i.condition } : {}),
-                  ...(('severity' in i) ? { severity: i.severity } : {}),
-                  ...(('issueType' in i) ? { issueType: i.issueType } : {}),
-                  ...(('measurementValue' in i) ? { measurementValue: i.measurementValue } : {}),
-                  ...(('measurementUnit' in i) ? { measurementUnit: i.measurementUnit } : {}),
-                  ...(('measurementNotes' in i) ? { measurementNotes: i.measurementNotes } : {}),
                 }),
           },
         }),
