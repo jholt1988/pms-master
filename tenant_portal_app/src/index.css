@@ -93,7 +93,39 @@ textarea:focus-visible,
   opacity: 1 !important;
 }
 
-/* Force readable form controls in lease workflows regardless theme/OS color settings */
+/* PASS 1: Global form readability baseline (labels, defaults, entered text) */
+label,
+.form-label,
+[data-slot="label"] {
+  color: #e5e7eb !important;
+}
+
+/* Keep checkbox/radio visuals intact while fixing text-entry controls */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+select,
+textarea,
+[data-slot="input"],
+[data-slot="innerWrapper"] input,
+[data-slot="innerWrapper"] textarea,
+[data-slot="innerWrapper"] select {
+  background: #ffffff !important;
+  color: #111827 !important;
+  border-color: #d1d5db !important;
+}
+
+input:not([type="checkbox"]):not([type="radio"])::placeholder,
+textarea::placeholder,
+[data-slot="input"]::placeholder {
+  color: #6b7280 !important;
+  opacity: 1 !important;
+}
+
+select option {
+  background: #ffffff;
+  color: #111827;
+}
+
+/* Keep lease-scoped override for certainty in critical workflow page */
 .force-readable-fields input,
 .force-readable-fields select,
 .force-readable-fields textarea {
