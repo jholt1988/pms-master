@@ -98,6 +98,7 @@ export default function InspectionManagementPage(): React.ReactElement {
     notes: '',
   });
   const [propertyUnits, setPropertyUnits] = useState<Array<{ id: string; name: string }>>([]);
+  const [loadingPropertyUnits, setLoadingPropertyUnits] = useState(false);
   const [completionNotes, setCompletionNotes] = useState('');
   const viewport = useViewportCategory();
 
@@ -154,6 +155,32 @@ export default function InspectionManagementPage(): React.ReactElement {
     setPropertyUnits(units);
     setCreateForm((prev) => ({ ...prev, unitId: units.some((u) => String(u.id) === String(prev.unitId)) ? prev.unitId : '' }));
   }, [createForm.propertyId, properties]);
+
+  useEffect(() => {
+    const loadUnitsFallback = async () => {
+      if (!token || !createForm.propertyId) {
+        return;
+      }
+      if (propertyUnits.length > 0) {
+        return;
+      }
+
+      try {
+        setLoadingPropertyUnits(true);
+        const property = await apiFetch(`/properties/${createForm.propertyId}`, { token });
+        const units = Array.isArray((property as any)?.units) ? (property as any).units : [];
+        if (units.length > 0) {
+          setPropertyUnits(units.map((u: any) => ({ id: String(u.id), name: u.name ?? `Unit ${u.id}` })));
+        }
+      } catch {
+        // fallback stays empty; UI will prompt selection once units are available
+      } finally {
+        setLoadingPropertyUnits(false);
+      }
+    };
+
+    loadUnitsFallback();
+  }, [createForm.propertyId, propertyUnits.length, token]);
 
   const handleInspectionClick = (inspection: Inspection) => {
     // Use dedicated detail route for checklist editing + estimate generation
@@ -441,7 +468,7 @@ export default function InspectionManagementPage(): React.ReactElement {
                   value={createForm.unitId}
                   onChange={(event) => setCreateForm((prev) => ({ ...prev, unitId: event.target.value }))}
                 >
-                  <option value="">Select unit</option>
+                  <option value="">{loadingPropertyUnits ? 'Loading units…' : 'Select unit'}</option>
                   {propertyUnits.map((unit) => (
                     <option key={unit.id} value={String(unit.id)}>
                       {unit.name}
