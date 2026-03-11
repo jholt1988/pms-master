@@ -222,9 +222,18 @@ export class InspectionController {
   @Roles('PROPERTY_MANAGER', 'TENANT')
   async addPhotoToChecklistItem(
     @Param('itemId', ParseIntPipe) itemId: number,
-    @Body() dto: UploadPhotoDto,
+    @Body() body: any,
     @Request() req: any,
   ) {
+    const dto: UploadPhotoDto = {
+      url: typeof body?.url === 'string' ? body.url : '',
+      caption: typeof body?.caption === 'string' ? body.caption : undefined,
+    };
+
+    if (!dto.url) {
+      throw new BadRequestException('url is required');
+    }
+
     const orgId = (req as any).org?.orgId as string | undefined;
     return this.inspectionService.addPhotoToChecklistItem(itemId, dto, req.user.userId, orgId);
   }
