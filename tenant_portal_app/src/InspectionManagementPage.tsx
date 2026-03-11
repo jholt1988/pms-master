@@ -402,7 +402,9 @@ export default function InspectionManagementPage(): React.ReactElement {
                 >
                   <td className="px-4 py-3 text-sm">
                     <p className="font-semibold text-foreground">
-                      {properties.find((p) => String(p.id) === String(inspection.unit.property.id))?.name}
+                      {inspection.unit?.property?.name
+                        ?? properties.find((p) => String(p.id) === String(inspection.unit?.property?.id))?.name
+                        ?? 'Unknown Property'}
                     </p>
                     <p className="text-xs text-gray-600">{inspection.unit.name}</p>
                   </td>
