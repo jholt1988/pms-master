@@ -3,8 +3,8 @@ $ErrorActionPreference = "Stop"
 $RootDir = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $RootDir
 
-if (!(Test-Path "ops/.env.prod")) {
-  Write-Error "Missing ops/.env.prod (copy ops/.env.prod.example first)."
+if (!(Test-Path "ops/.env.dev")) {
+  Write-Error "Missing ops/.env.dev (copy ops/.env.devde.example first)."
 }
 
 Write-Host "Pulling latest main..."

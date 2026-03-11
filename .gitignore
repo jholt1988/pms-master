@@ -45,3 +45,5 @@ docs/MVP_PLAN_AND_PRODUCT_OVERVIEW.html
 
 # background workflow output
 reports/background/
+ops/.env.dev
+ops/.env.prod

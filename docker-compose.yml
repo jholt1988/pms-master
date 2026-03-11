@@ -39,11 +39,10 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
-      DATABASE_URL: postgresql://pms:pms@postgres:5432/pms?schema=public
-      SHADOW_DATABASE_URL: postgresql://pms:pms@postgres:5432/pms_shadow?schema=public
+      DATABASE_URL: "postgresql://pms:pms@postgres:5432/pms?schema=public"
       ALLOWED_ORIGINS: http://localhost:3000,http://localhost:8080
       JWT_SECRET: change-me-in-prod
-      MIL_WRAPPER_ENABLED: "false"
+      MIL_WRAPPER_ENABLED: "True"
       MIL_ENCRYPT_AT_REST_ENABLED: "false"
       MIL_AUDIT_PERSIST_ENABLED: "false"
     ports:

@@ -15,11 +15,11 @@ services:
     restart: always
     depends_on: []
     env_file:
-      - ops/.env.prod
+      - ops/.env.dev
     environment:
       NODE_ENV: production
       PORT: 3001
-      MIL_WRAPPER_ENABLED: ${MIL_WRAPPER_ENABLED:-false}
+      MIL_WRAPPER_ENABLED: ${MIL_WRAPPER_ENABLED:-true}
       MIL_ENCRYPT_AT_REST_ENABLED: ${MIL_ENCRYPT_AT_REST_ENABLED:-false}
       MIL_AUDIT_PERSIST_ENABLED: ${MIL_AUDIT_PERSIST_ENABLED:-false}
     command: >
@@ -35,5 +35,5 @@ services:
     depends_on:
       - backend
     ports:
-      - "8080:80"
-      - "443:443"
+      - "3000:80"
+     
