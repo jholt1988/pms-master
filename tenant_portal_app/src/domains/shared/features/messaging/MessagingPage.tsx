@@ -121,7 +121,7 @@ const MessagingPage = () => {
         return;
       }
       try {
-        const endpoint = isPropertyManager ? '/messaging/tenants' : '/messaging/property-managers';
+        const endpoint = isPropertyManager ? '/messaging/users' : '/messaging/property-managers';
         const data = await apiFetch(endpoint, { token });
         setThreadRecipients(normalizeApiList(data));
       } catch {
@@ -281,7 +281,9 @@ const MessagingPage = () => {
                   <option value="">Select recipient…</option>
                   {threadRecipients.map((recipient) => (
                     <option key={recipient.id} value={recipient.id}>
-                      {recipient.username ?? recipient.name ?? recipient.id}
+                      {(recipient.username ?? recipient.name ?? recipient.id)}
+                      {recipient.role ? ` (${recipient.role})` : ''}
+                      {recipient.email ? ` — ${recipient.email}` : ''}
                     </option>
                   ))}
                 </select>

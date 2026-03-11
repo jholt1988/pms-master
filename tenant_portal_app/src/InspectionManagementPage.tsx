@@ -16,14 +16,15 @@ import {
 } from '@nextui-org/react';
 
 interface Property {
-  id: number;
+  id: string;
   name: string;
   city?: string;
   state?: string;
+  units?: Array<{ id: string; name: string }>;
 }
 
 interface Unit {
-  id: number;
+  id: string;
   name: string;
   property: Property;
 }
@@ -91,11 +92,12 @@ export default function InspectionManagementPage(): React.ReactElement {
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [createForm, setCreateForm] = useState({
     propertyId: '',
-    unitName: '',
+    unitId: '',
     type: 'ROUTINE',
     scheduledDate: '',
     notes: '',
   });
+  const [propertyUnits, setPropertyUnits] = useState<Array<{ id: string; name: string }>>([]);
   const [completionNotes, setCompletionNotes] = useState('');
   const viewport = useViewportCategory();
 
@@ -131,7 +133,8 @@ export default function InspectionManagementPage(): React.ReactElement {
   const fetchProperties = useCallback(async () => {
     try {
       const data = await apiFetch('/properties?limit=500', { token: token ?? undefined });
-      setProperties(data?.data ?? []);
+      const list = Array.isArray((data as any)?.data) ? (data as any).data : (Array.isArray(data) ? data : []);
+      setProperties(list);
     } catch {
       setProperties([]);
     }
@@ -144,6 +147,13 @@ export default function InspectionManagementPage(): React.ReactElement {
   useEffect(() => {
     fetchInspections();
   }, [fetchInspections]);
+
+  useEffect(() => {
+    const selectedProperty = properties.find((p) => String(p.id) === String(createForm.propertyId));
+    const units = Array.isArray(selectedProperty?.units) ? selectedProperty!.units : [];
+    setPropertyUnits(units);
+    setCreateForm((prev) => ({ ...prev, unitId: units.some((u) => String(u.id) === String(prev.unitId)) ? prev.unitId : '' }));
+  }, [createForm.propertyId, properties]);
 
   const handleInspectionClick = (inspection: Inspection) => {
     // Use dedicated detail route for checklist editing + estimate generation
@@ -168,16 +178,40 @@ export default function InspectionManagementPage(): React.ReactElement {
     }
   };
 
-  const handleCreateSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleCreateSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setShowCreateModal(false);
-    setCreateForm({
-      propertyId: '',
-      unitName: '',
-      type: 'ROUTINE',
-      scheduledDate: '',
-      notes: '',
-    });
+    if (!token) return;
+
+    if (!createForm.propertyId || !createForm.unitId || !createForm.scheduledDate) {
+      setError('Property, unit, and schedule date are required.');
+      return;
+    }
+
+    try {
+      await apiFetch('/inspections', {
+        token,
+        method: 'POST',
+        body: {
+          propertyId: createForm.propertyId,
+          unitId: createForm.unitId,
+          type: createForm.type,
+          scheduledDate: new Date(createForm.scheduledDate).toISOString(),
+          notes: createForm.notes || undefined,
+        },
+      });
+
+      setShowCreateModal(false);
+      setCreateForm({
+        propertyId: '',
+        unitId: '',
+        type: 'ROUTINE',
+        scheduledDate: '',
+        notes: '',
+      });
+      await fetchInspections();
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to schedule inspection');
+    }
   };
 
   const handleCompleteSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -341,7 +375,7 @@ export default function InspectionManagementPage(): React.ReactElement {
                 >
                   <td className="px-4 py-3 text-sm">
                     <p className="font-semibold text-foreground">
-                      {properties.find((p) => p.id === inspection.unit.property.id)?.name}
+                      {properties.find((p) => String(p.id) === String(inspection.unit.property.id))?.name}
                     </p>
                     <p className="text-xs text-gray-600">{inspection.unit.name}</p>
                   </td>
@@ -400,20 +434,34 @@ export default function InspectionManagementPage(): React.ReactElement {
                   ))}
                 </select>
               </label>
-              <input
-                className="border border-input rounded px-3 py-2"
-                placeholder="Unit name or identifier"
-                aria-label="Unit"
-                value={createForm.unitName}
-                onChange={(event) => setCreateForm((prev) => ({ ...prev, unitName: event.target.value }))}
-              />
-              <input
-                className="border border-input rounded px-3 py-2"
-                placeholder="Inspection Type (Routine, Move-in, Move-out)"
-                aria-label="Inspection Type"
-                value={createForm.type}
-                onChange={(event) => setCreateForm((prev) => ({ ...prev, type: event.target.value }))}
-              />
+              <label className="flex flex-col text-sm text-gray-600">
+                Unit
+                <select
+                  className="border border-input rounded px-3 py-2 mt-1"
+                  value={createForm.unitId}
+                  onChange={(event) => setCreateForm((prev) => ({ ...prev, unitId: event.target.value }))}
+                >
+                  <option value="">Select unit</option>
+                  {propertyUnits.map((unit) => (
+                    <option key={unit.id} value={String(unit.id)}>
+                      {unit.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col text-sm text-gray-600">
+                Inspection Type
+                <select
+                  className="border border-input rounded px-3 py-2 mt-1"
+                  value={createForm.type}
+                  onChange={(event) => setCreateForm((prev) => ({ ...prev, type: event.target.value }))}
+                >
+                  <option value="ROUTINE">Routine</option>
+                  <option value="MOVE_IN">Move-in</option>
+                  <option value="MOVE_OUT">Move-out</option>
+                  <option value="EMERGENCY">Emergency</option>
+                </select>
+              </label>
               <input
                 type="datetime-local"
                 className="border border-input rounded px-3 py-2"
