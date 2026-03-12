@@ -176,8 +176,8 @@ export class SubmitApplicationDto {
   @IsString()
   propertyId!: string;
 
-  @IsInt()
-  unitId!: number;
+  @IsString()
+  unitId!: string;
 
   @IsString()
   @MaxLength(120)
