@@ -26,10 +26,13 @@ export const PERFORMANCE_BUDGETS = {
 /**
  * Send performance metrics to backend or analytics service
  */
+let hasWarnedWebVitalsEndpoint = false;
+
 function sendToAnalytics(metric: WebVitals) {
-  // In production, send to APM service (e.g., Sentry, Datadog, New Relic)
-  if (import.meta.env.PROD) {
-    // Example: Send to backend endpoint
+  // In production, only send when explicitly enabled.
+  const webVitalsApiEnabled = import.meta.env.VITE_ENABLE_WEB_VITALS_API === 'true';
+
+  if (import.meta.env.PROD && webVitalsApiEnabled) {
     fetch('/api/metrics/web-vitals', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -43,9 +46,12 @@ function sendToAnalytics(metric: WebVitals) {
         url: window.location.href,
       }),
     }).catch((error) => {
-      console.warn('Failed to send performance metric:', error);
+      if (!hasWarnedWebVitalsEndpoint) {
+        hasWarnedWebVitalsEndpoint = true;
+        console.warn('Failed to send performance metric:', error);
+      }
     });
-  } else {
+  } else if (!import.meta.env.PROD) {
     // In development, log to console
     console.log(`[Performance] ${metric.name}: ${metric.value.toFixed(2)}ms (${metric.rating})`);
   }

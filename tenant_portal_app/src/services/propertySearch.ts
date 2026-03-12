@@ -149,16 +149,16 @@ export const fetchPropertySearch = async (
   token?: string,
 ): Promise<PropertySearchResponse> => {
   const query = buildQueryString(filters);
-  const url = `${API_BASE}/search${query ? `?${query}` : ''}`;
+  const url = `${API_BASE}/properties/search${query ? `?${query}` : ''}`;
   return apiFetch(url, { token });
 };
 
 export const fetchSavedFilters = async (token: string): Promise<SavedPropertyFilter[]> => {
-  return apiFetch(`${API_BASE}/saved-filters`, { token });
+  return apiFetch(`${API_BASE}/properties/saved-filters`, { token });
 };
 
 export const savePropertyFilter = async (token: string, payload: SaveFilterPayload) => {
-  return apiFetch(`${API_BASE}/saved-filters`, {
+  return apiFetch(`${API_BASE}/properties/saved-filters`, {
     method: 'POST',
     token,
     body: payload,
@@ -166,7 +166,7 @@ export const savePropertyFilter = async (token: string, payload: SaveFilterPaylo
 };
 
 export const deletePropertyFilter = async (token: string, filterId: number) => {
-  return apiFetch(`${API_BASE}/saved-filters/${filterId}`, {
+  return apiFetch(`${API_BASE}/properties/saved-filters/${filterId}`, {
     method: 'DELETE',
     token,
   });

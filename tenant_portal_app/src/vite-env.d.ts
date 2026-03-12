@@ -37,6 +37,9 @@ interface ImportMetaEnv {
   readonly VITE_PREDICTION_HORIZON?: string;
   readonly VITE_MIN_DATA_POINTS?: string;
   readonly VITE_PREDICTION_UPDATE_FREQ?: string;
+
+  // Monitoring toggles
+  readonly VITE_ENABLE_WEB_VITALS_API?: string;
 }
 
 interface ImportMeta {

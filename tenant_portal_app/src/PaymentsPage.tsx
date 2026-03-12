@@ -146,10 +146,30 @@ export default function PaymentsPage(): React.ReactElement {
       setNeedsAuthAttempts([]);
     }
 
+    // For PM/admin flows, backend may require an explicit leaseId query param.
+    let resolvedLeaseId: number | null = leaseId;
+    if (!resolvedLeaseId) {
+      try {
+        const leaseData = await apiFetch('/leases/my-lease', { token });
+        if (leaseData?.id) {
+          resolvedLeaseId = Number(leaseData.id);
+          setLeaseId(resolvedLeaseId);
+        }
+      } catch {
+        // Lease lookup may not be available for all roles.
+      }
+    }
+
+    const autopayUrl = resolvedLeaseId
+      ? `/billing/autopay?leaseId=${encodeURIComponent(String(resolvedLeaseId))}`
+      : '/billing/autopay';
+
     try {
-      const autopayData = await apiFetch('/billing/autopay', { token });
+      const autopayData = await apiFetch(autopayUrl, { token });
       setAutopay(autopayData);
-      setLeaseId(autopayData.leaseId);
+      if (autopayData?.leaseId) {
+        setLeaseId(Number(autopayData.leaseId));
+      }
       if (autopayData.enrollment?.paymentMethodId) {
         setSelectedMethodId(String(autopayData.enrollment.paymentMethodId));
       }
@@ -157,11 +177,9 @@ export default function PaymentsPage(): React.ReactElement {
         setAutopayMaxAmount(String(autopayData.enrollment.maxAmount));
       }
     } catch (err: any) {
-      if (err.message.includes('404')) {
+      const msg = String(err?.message || '');
+      if (msg.includes('404') || msg.includes('leaseId query param required')) {
         setAutopay(null);
-        // get lease id if missing
-        const leaseData = await apiFetch('/leases/my-lease', { token });
-        setLeaseId(leaseData.id);
       } else {
         throw err;
       }
