@@ -33,13 +33,32 @@ export class LeasingController {
   @Post('leads')
   async createLead(@Body() body: any) {
     try {
-      const { sessionId, ...leadData } = body;
+      const { sessionId, ...rawLeadData } = body;
 
       if (!sessionId) {
         throw new HttpException('sessionId is required', HttpStatus.BAD_REQUEST);
       }
 
-      const lead = await this.leasingService.upsertLead(sessionId, leadData);
+      const normalizedLeadData: any = {
+        ...(rawLeadData?.email ? { email: rawLeadData.email } : {}),
+        ...(rawLeadData?.phone ? { phone: rawLeadData.phone } : {}),
+        ...(rawLeadData?.status ? { status: rawLeadData.status } : {}),
+        ...(rawLeadData?.preferredContactMethod ? { preferredContactMethod: rawLeadData.preferredContactMethod } : {}),
+        ...(rawLeadData?.bedrooms !== undefined ? { bedrooms: rawLeadData.bedrooms } : {}),
+        ...(rawLeadData?.budget !== undefined ? { budget: rawLeadData.budget } : {}),
+        ...(rawLeadData?.moveInDate ? { moveInDate: rawLeadData.moveInDate } : {}),
+        ...(rawLeadData?.source ? { source: rawLeadData.source } : {}),
+        ...(rawLeadData?.notes ? { notes: rawLeadData.notes } : {}),
+      };
+
+      const fullName = [rawLeadData?.firstName, rawLeadData?.lastName].filter(Boolean).join(' ').trim();
+      if (rawLeadData?.name) {
+        normalizedLeadData.name = rawLeadData.name;
+      } else if (fullName) {
+        normalizedLeadData.name = fullName;
+      }
+
+      const lead = await this.leasingService.upsertLead(sessionId, normalizedLeadData);
 
       return lead;
     } catch (error) {
