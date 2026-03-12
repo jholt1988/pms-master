@@ -1,60 +1,62 @@
-# Owner Approval SLA Kit (for PM Principals)
+# Property Management Suite (PMS) Owner Approval SLA Kit
+## For Property Management Principals
 
-**Purpose:** cut owner-approval delays (and the maintenance chaos they create) from “days” to **hours** with simple rules, decision-ready approval packets, and a proof-first closeout standard.
+**Purpose:** Reduce owner-approval delays (and resulting maintenance disruption) from days to hours using clear approval rules, decision-ready packets, and a proof-first closeout standard in **Property Management Suite (PMS)**.
 
-**Who this is for:** small-to-mid property management companies (roughly 50–500 doors) where the principal is still doing too much ops coordination.
+**Who this is for:** Small-to-mid property management companies (roughly 50–500 doors) where principals still absorb too much day-to-day operations coordination.
 
 ---
 
-## 1) The promise (what you tell your owners)
-Use this as your “new standard” statement:
+## 1) The Promise (Owner-Facing Standard)
 
-- **Response SLA:** We respond to maintenance requests within **same business day** (emergencies immediately).
-- **Approval SLA:** We aim to secure owner approvals for qualifying repairs within **4 business hours**.
-- **No-surprise policy:** You’ll never get “mystery bills”—every repair above your threshold includes photos, scope, and a cost range before we dispatch.
-- **Proof Pack:** Every completed job includes before/after photos, invoice, and a timeline.
+Use this as your owner-facing commitment statement:
+
+- **Response SLA:** Maintenance requests receive a same-business-day response (emergencies immediately).
+- **Approval SLA:** For qualifying repairs, owner approvals are targeted within **4 business hours**.
+- **No-Surprise Policy:** Repairs above threshold always include photos, scope, and cost range before dispatch.
+- **Proof Pack Standard:** Every completed job includes before/after photos, invoice, and timeline.
 
 **Plain-language version:**
 > “No more long email threads. You approve with one link and pictures. Everything is documented.”
 
 ---
 
-## 2) Approval thresholds (simple rule set)
-Pick one default policy, then customize per-owner as needed.
+## 2) Approval Thresholds (Simple Rule Set)
 
-### Recommended default
-- **Auto-approve under:** **$250** (repairs only; not upgrades)
+Pick one default policy, then customize per owner profile.
+
+### Recommended Default
+- **Auto-approve under:** **$250** (repairs only, not upgrades)
 - **Owner approval required at/over:** **$250**
-- **Emergency override:** dispatch immediately for health/safety/property-damage risk; notify owner ASAP
-- **Preferred vendors:** pre-approved list with defined scope categories
+- **Emergency override:** Dispatch immediately for health/safety/property-damage risk; notify owner as soon as practical
+- **Preferred vendors:** Pre-approved list with defined scope categories
 
-### Optional second tier (for larger owners)
+### Optional Second Tier (Larger Owners)
 - Under **$250**: auto-approve
-- **$250–$1,000**: owner approve via link
-- Over **$1,000**: owner approve + 2 bids (unless emergency)
+- **$250–$1,000**: owner approval via link
+- Over **$1,000**: owner approval + 2 bids (unless emergency)
 
-### What counts as “emergency” (write it down)
+### Emergency Definition (Document Explicitly)
 - Active leak / flooding
 - No heat (winter) / no AC (heat wave, vulnerable tenants)
 - Electrical burning smell / sparks
 - Sewage backup
-- Broken exterior door lock / security issue
+- Broken exterior door lock / security risk
 
 ---
 
-## 3) “Decision Packet” template (what owners need to approve fast)
-Your goal is: **owner can say YES/NO in 20 seconds**.
+## 3) Decision Packet Template (Approve in ~20 Seconds)
 
-### Decision Packet — required fields
+### Decision Packet — Required Fields
 - **What happened (1 sentence):**
 - **Risk if delayed (1 sentence):**
-- **Scope (3 bullets max):**
+- **Scope (max 3 bullets):**
 - **Cost range + expected midpoint:**
-- **When we can schedule:**
-- **Photos/video:** before (required), after (required on completion)
-- **Who’s doing the work:** vendor name + license/insurance status (if applicable)
+- **Earliest schedule window:**
+- **Photos/video:** before (required), after (required at close)
+- **Assigned vendor:** name + license/insurance status (if applicable)
 
-### Suggested structure (copy/paste)
+### Suggested Structure (Copy/Paste)
 **Issue:** {{short_title}}  
 **Location:** {{property}} / {{unit}}  
 **Risk if delayed:** {{risk}}  
@@ -65,118 +67,122 @@ Your goal is: **owner can say YES/NO in 20 seconds**.
 - {{scope_3}}
 **Estimate:** {{low}}–{{high}} (expected {{midpoint}})  
 **Schedule:** {{soonest_window}}  
-**Approve/deny:** {{approval_link}}
+**Approve / deny:** {{approval_link}}
 
 ---
 
-## 4) Owner messaging scripts (SMS + email)
+## 4) Owner Messaging Scripts (SMS + Email)
 
-### A) Approval request (SMS)
+### A) Approval Request (SMS)
 > “Approval needed: {{property}} {{unit}} — {{issue}}. Est: {{low}}–{{high}} (exp {{mid}}). Photos included. Approve/deny: {{link}}”
 
-### B) Approval request (Email)
-Subject: Approval needed — {{property}} {{unit}} — {{issue}}  
+### B) Approval Request (Email)
+**Subject:** Approval needed — {{property}} {{unit}} — {{issue}}
 
-Body:
+**Body:**
 - What happened: {{one_sentence}}  
 - Risk if delayed: {{one_sentence}}  
 - Estimate: {{low}}–{{high}} (expected {{mid}})  
 - Photos: {{link_or_embeds}}  
-- Approve/deny: {{approval_link}}  
+- Approve/deny: {{approval_link}}
 
-### C) “We auto-approved this” notice (SMS)
+### C) Auto-Approval Notice (SMS)
 > “FYI: We dispatched {{vendor}} for {{issue}} at {{property}} {{unit}} under your auto-approval threshold. Proof Pack will follow on completion.”
 
-### D) Completion + Proof Pack delivery (Email)
-Subject: Completed — {{property}} {{unit}} — Proof Pack  
+### D) Completion + Proof Pack Delivery (Email)
+**Subject:** Completed — {{property}} {{unit}} — Proof Pack
 
-Body:
+**Body:**
 - Completed work: {{summary}}  
 - Total cost: {{final_total}}  
 - Before/after photos: {{link}}  
 - Invoice: {{link}}  
-- Timeline: {{created}} → {{approved}} → {{scheduled}} → {{completed}}  
+- Timeline: {{created}} → {{approved}} → {{scheduled}} → {{completed}}
 
 ---
 
-## 5) Proof Pack standard (this prevents disputes)
-**Minimum closeout requirements** (make these non-negotiable):
+## 5) Proof Pack Standard (Dispute Prevention)
+
+### Minimum Closeout Requirements
 - Before photos (clear, 2–4)
 - After photos (matching angles)
 - Invoice attached (or itemized receipt)
-- Work notes: what was done + parts used
+- Work notes: what was completed + parts used
 - Completion timestamp
 
-### Quality rules
+### Quality Controls
 - No “job complete” without after photos.
 - No invoice payment without invoice attachment.
-- Any variance > **15%** above approved midpoint triggers an owner notification (or approval).
+- Any variance > **15%** above approved midpoint triggers owner notification (or re-approval, based on policy).
 
 ---
 
-## 6) Your internal SLA scoreboard (what to track weekly)
-Track these per property manager / maintenance coordinator:
+## 6) Internal SLA Scoreboard (Weekly)
+
+Track these metrics by property manager / maintenance coordinator:
 - **Time to first response** (request → first update)
 - **Time to approval** (packet sent → owner decision)
 - **Work order cycle time** (opened → completed)
 - **Reopen rate** (closed → reopened within 14 days)
-- **% jobs with complete Proof Pack**
+- **Proof Pack completeness rate**
 
-Targets (starter):
-- First response: same day
+### Starter Targets
+- First response: same business day
 - Approval: <4 business hours
 - Proof Pack completeness: >90%
 
 ---
 
-## 7) How to roll this out (in 7 days)
+## 7) 7-Day Rollout Plan
 
-Day 1–2:
-- Pick approval thresholds (default + exceptions)
-- Pick emergency definition
+**Day 1–2:**
+- Finalize approval thresholds (default + exceptions)
+- Finalize emergency definition
 
-Day 3:
-- Standardize Decision Packet (one template)
+**Day 3:**
+- Standardize one Decision Packet template
 
-Day 4:
-- Train staff on “no packet, no approval request” rule
+**Day 4:**
+- Train staff on rule: “No packet, no approval request.”
 
-Day 5:
-- Pilot on **one building**
+**Day 5:**
+- Pilot in one building
 
-Day 6:
-- Adjust thresholds + packet format based on owner feedback
+**Day 6:**
+- Tune thresholds and packet format using owner feedback
 
-Day 7:
-- Roll out to all owners + send announcement email
+**Day 7:**
+- Roll out to all owners and send launch communication
 
 ---
 
-## 8) Announcement email to owners (copy/paste)
-Subject: Faster maintenance approvals + better documentation
+## 8) Owner Announcement Email (Copy/Paste)
+
+**Subject:** Faster maintenance approvals + clearer documentation
 
 Hi {{OwnerName}},
 
-We’re rolling out a faster, clearer maintenance approval process.
+We’re rolling out a faster, clearer maintenance approval process in Property Management Suite.
 
 What changes:
 - You’ll receive a simple approval link for repairs above your threshold.
 - Every approval request includes photos, scope, and a cost range.
-- Every completed job includes a “Proof Pack” (before/after photos + invoice + timeline).
+- Every completed job includes a **Proof Pack** (before/after photos + invoice + timeline).
 
-The goal is fewer surprises and faster resolution.
+The goal is fewer surprises and faster issue resolution.
 
 Reply with your preferred approval threshold (we recommend $250), and any vendors you want pre-approved.
 
-Thanks,
+Thanks,  
 {{PMCompany}}
 
 ---
 
-## 9) How this maps to the Maintenance Copilot product (what we’ll automate)
-This kit becomes product features:
-- One-tap “Send decision packet”
-- Approve/deny/request changes from SMS/email link
-- Auto-approval rules per owner/property
-- Proof Pack auto-generation on close
-- Audit trail timeline always visible
+## 9) PMS Feature Mapping (Automation Targets)
+
+This SLA kit maps directly to PMS maintenance workflow features:
+- One-tap **Send Decision Packet**
+- Approve / deny / request changes from SMS or email link
+- Auto-approval rules by owner and property
+- Proof Pack auto-generation on closeout
+- Always-visible audit timeline

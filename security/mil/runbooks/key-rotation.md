@@ -1,60 +1,61 @@
-# Runbook: Tenant Key Rotation
+# Property Management Suite (PMS) Security Runbook: Tenant Key Rotation
 
-**Objective:** To securely rotate the master encryption key for a specific tenant, ensuring all their sensitive data is re-encrypted with the new key without downtime.
+**Owner:** Security Team  
+**Last Updated:** 2026-03-12
 
-**Trigger:**
--   **Scheduled:** As per security policy (e.g., every 90 days).
--   **On-demand:** In response to a potential, non-critical security event.
+## Objective
+Securely rotate a tenant Key Encryption Key (KEK) and re-wrap all tenant Data Encryption Keys (DEKs) with no tenant-facing downtime.
 
----
-
-### Pre-Rotation Checklist
-1.  [ ] **Confirm System Health:** Ensure all relevant services (backend, MIL worker, database) are operational.
-2.  [ ] **Verify Monitoring:** Check that monitoring and alerting for the re-keying job are active.
-3.  [ ] **Notify Stakeholders:** Inform the operations team about the scheduled rotation.
+## Trigger
+- **Scheduled:** Quarterly rotation per security policy.
+- **Ad-hoc:** Suspected or confirmed key compromise.
 
 ---
 
-### Rotation Procedure
-
-#### Step 1: Generate New Key
-1.  Access the MIL service administrative endpoint or CLI tool.
-2.  Execute the `generate-new-key` command for the target `tenantId`.
-    ```bash
-    # Example CLI command
-    mil-cli tenants keys create --tenant-id "tenant-abc-123"
-    ```
-3.  **Expected Outcome:** A new key is generated in the `TenantKeyring` table for the tenant and marked as `PENDING`. The existing key remains `ACTIVE`.
-
-#### Step 2: Initiate Rekey Job
-1.  Execute the `start-rekey-job` command for the target `tenantId`.
-    ```bash
-    # Example CLI command
-    mil-cli tenants rekey start --tenant-id "tenant-abc-123"
-    ```
-2.  **Expected Outcome:** A new `RekeyJob` is created in the database. The MIL worker will claim this job and begin re-encrypting all data associated with the tenant.
-
-#### Step 3: Monitor Rekey Job
-1.  Use the monitoring dashboard or MIL CLI to track the job's progress.
-    ```bash
-    # Example CLI command
-    mil-cli tenants rekey status --job-id "job-xyz-789"
-    ```
-2.  **Metrics to watch:**
-    -   `items_rekeyed` (should be increasing)
-    -   `last_error` (should be null)
-    -   `status` (should be `IN_PROGRESS`)
-
-#### Step 4: Finalize Rotation
-1.  Once the rekey job completes successfully, the MIL worker will automatically perform the final key swap.
-2.  **Expected Outcome:**
-    -   The new key's status is set to `ACTIVE`.
-    -   The old key's status is set to `ARCHIVED`.
-    -   All new encryption operations for the tenant will use the new key.
+## Pre-Rotation Checklist
+1. [ ] Confirm system health (backend, MIL worker, database).
+2. [ ] Verify monitoring and alerting coverage for rekey jobs.
+3. [ ] Notify operations and on-call stakeholders.
 
 ---
 
-### Rollback Procedure
--   If the rekey job fails repeatedly, investigate the `last_error` field.
--   The system is designed to be resilient. The old key remains `ACTIVE` until the job is fully complete, so read/write operations will not fail during the process.
--   To abort a failing job, use the `cancel-rekey-job` command. The new key will be deleted, and the old key will remain active.
+## Rotation Procedure
+
+### Step 1: Initiate Rekey Job
+1. Create a `TENANT_REKEY` job for the target tenant.
+2. System generates a new `new_kms_key_id`.
+3. Tenant enters `REKEYING_MAINTENANCE` mode to pause sensitive operations.
+
+### Step 2: Monitor Progress
+1. Track progress at: `GET /mil/tenant/:tenant_id/rekey/status`.
+2. Verify:
+   - `percent_complete` is advancing
+   - `last_heartbeat` is current
+   - `last_error` is empty or expected
+
+### Step 3: Handle Failures and Stalls
+1. If heartbeat age exceeds `MIL_REKEY_STALL_SECONDS` (default: 300s), worker attempts automatic recovery.
+2. Auto-recovery attempts are capped by `MIL_REKEY_MAX_RECOVERIES` (default: 5).
+3. If cap is exceeded, job status transitions to `FAILED`.
+
+### Step 4: Automatic Reschedule on Failure
+1. On permanent failure, system creates and enqueues a new `TENANT_REKEY` job.
+2. New job targets the same `new_kms_key_id` to preserve deterministic lineage.
+
+### Step 5: Completion
+1. Once rekey finishes, tenant exits `REKEYING_MAINTENANCE` mode.
+2. Previous KEK is marked superseded and retained for audit history.
+
+---
+
+## Rollback / Abort Guidance
+- If failures recur, inspect worker logs and job metadata before intervention.
+- To abort an in-flight failing job, use platform cancellation controls.
+- Do **not** manually delete keys; manual deletion can create irreversible orphaned ciphertext.
+
+---
+
+## Key Environment Variables
+- `MIL_REKEY_BATCH`: Keys processed per batch (default: 500).
+- `MIL_REKEY_STALL_SECONDS`: Stall threshold in seconds (default: 300).
+- `MIL_REKEY_MAX_RECOVERIES`: Max auto-recovery attempts (default: 5).
