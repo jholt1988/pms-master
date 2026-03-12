@@ -10,7 +10,7 @@ RUN corepack enable
 COPY security/mil ./security/mil
 WORKDIR /usr/src/app/security/mil
 RUN pnpm install --no-frozen-lockfile
-RUN pnpm run build || (echo "tsc reported errors; continuing because dist/ was emitted" && test -d dist)
+RUN pnpm run build
 
 FROM node:20-slim AS runner
 

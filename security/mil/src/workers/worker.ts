@@ -68,6 +68,7 @@ async function claimOneJob(): Promise<ClaimedJob | null> {
 
 async function handleEvaluateTarget(job: ClaimedJob) {
   if (!job.evaluation_id) throw new Error("Missing evaluation_id");
+  const evaluationId = job.evaluation_id;
   // Placeholder model output
   const modelResult = { ok: true, version: "stub" };
 
@@ -82,12 +83,12 @@ async function handleEvaluateTarget(job: ClaimedJob) {
       [job.tenant_id]
     );
 
-    const payload = { evaluation_id: job.evaluation_id, tenant_id: job.tenant_id, target_id: job.target_id, data: modelResult };
+    const payload = { evaluation_id: evaluationId, tenant_id: job.tenant_id, target_id: job.target_id, data: modelResult };
     const enc = envelopeEncryptWithTenantKek({ tenant_kek: kek, tenant_kms_key_id: kms_key_id, payload });
 
     const s_hash = stepHash({
       tenant_id: job.tenant_id,
-      evaluation_id: job.evaluation_id,
+      evaluation_id: evaluationId,
       step_type: "EVALUATE_TARGET_V1",
       step_seq: 0,
       prev_step_hash: "GENESIS_STEP",
@@ -99,13 +100,13 @@ async function handleEvaluateTarget(job: ClaimedJob) {
        (tenant_id,evaluation_id,step_seq,step_type,payload_digest,payload_ciphertext,tenant_kms_key_id,dek_wrapped,nonce,cipher,enc_version,prev_step_hash,step_hash)
        VALUES ($1,$2,0,'EVALUATE_TARGET_V1',$3,$4,$5,$6,$7,$8,$9,'GENESIS_STEP',$10)
        ON CONFLICT DO NOTHING`,
-      [job.tenant_id, job.evaluation_id, enc.payload_digest, enc.payload_ciphertext, enc.tenant_kms_key_id, enc.dek_wrapped, enc.nonce, enc.cipher, enc.enc_version, s_hash]
+      [job.tenant_id, evaluationId, enc.payload_digest, enc.payload_ciphertext, enc.tenant_kms_key_id, enc.dek_wrapped, enc.nonce, enc.cipher, enc.enc_version, s_hash]
     );
 
     await finalizeEvaluation({
       client,
       tenant_id: job.tenant_id,
-      evaluation_id: job.evaluation_id,
+      evaluation_id: evaluationId,
       trace_root_hash: s_hash,
       trace_steps: 1,
       inputs_obj: { target_id: job.target_id },
