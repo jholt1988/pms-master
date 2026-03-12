@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
@@ -173,9 +173,11 @@ class RentalApplicationVehicleDto {
 }
 
 export class SubmitApplicationDto {
+  @Transform(({ value }) => (value === undefined || value === null ? value : String(value)))
   @IsString()
   propertyId!: string;
 
+  @Transform(({ value }) => (value === undefined || value === null ? value : String(value)))
   @IsString()
   unitId!: string;
 
@@ -258,11 +260,20 @@ export class SubmitApplicationDto {
   @IsString()
   negativeAspectsExplanation?: string;
 
+  @Transform(({ value, obj }) => (value ?? obj?.ssnCardUploaded ?? false))
+  @IsOptional()
   @IsBoolean()
-  ssCardUploaded!: boolean;
+  ssCardUploaded: boolean = false;
 
+  @Transform(({ value }) => (value ?? false))
+  @IsOptional()
   @IsBoolean()
-  dlIdUploaded!: boolean;
+  proofOfIncomeUploaded: boolean = false;
+
+  @Transform(({ value, obj }) => (value ?? obj?.identificationUploaded ?? false))
+  @IsOptional()
+  @IsBoolean()
+  dlIdUploaded: boolean = false;
 
   @IsBoolean()
   termsAccepted!: boolean;
