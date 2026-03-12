@@ -10,6 +10,7 @@ import { OrgId } from '../common/org-context/org-id.decorator';
 import { SubmitApplicationDto } from './dto/submit-application.dto';
 import { AddRentalApplicationNoteDto } from './dto/add-note.dto';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt.guard';
+import { RentalApplicationReviewActionDto } from './dto/review-action.dto';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -119,6 +120,19 @@ export class RentalApplicationController {
       req.user.role,
       orgId,
     );
+  }
+
+  @Post(':id/review-action')
+  @HttpCode(200)
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles('PROPERTY_MANAGER')
+  performReviewAction(
+    @Param('id') id: string,
+    @Body() dto: RentalApplicationReviewActionDto,
+    @Request() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
+  ) {
+    return this.rentalApplicationService.performReviewAction(Number(id), dto, req.user, orgId);
   }
 
   @Post(':id/ai-review')

@@ -784,7 +784,11 @@ export class PaymentsService {
           },
         },
         user: true,
-        lease: true,
+        lease: {
+          include: {
+            unit: { include: { property: true } },
+          },
+        },
       },
     });
 
@@ -798,7 +802,9 @@ export class PaymentsService {
     }
 
     if (role === Role.PROPERTY_MANAGER && orgId) {
-      const paymentOrgId = payment.invoice?.lease?.unit?.property?.organizationId;
+      const paymentOrgId =
+        payment.invoice?.lease?.unit?.property?.organizationId
+        ?? payment.lease?.unit?.property?.organizationId;
       if (!paymentOrgId || paymentOrgId !== orgId) {
         throw new ForbiddenException('You do not have access to this payment');
       }

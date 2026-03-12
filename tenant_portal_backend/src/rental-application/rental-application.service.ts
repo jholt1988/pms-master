@@ -14,6 +14,9 @@ import { AddRentalApplicationNoteDto } from './dto/add-note.dto';
 import { ApplicationLifecycleService, ApplicationLifecycleEventType } from './application-lifecycle.service';
 import { RentalApplicationAiService } from './rental-application.ai.service';
 import { AuditLogService } from '../shared/audit-log.service';
+import { ScheduleService } from '../schedule/schedule.service';
+import { EventPriority, EventType } from '../schedule/dto/create-schedule-event.dto';
+import { RentalApplicationReviewAction, RentalApplicationReviewActionDto } from './dto/review-action.dto';
 
 @Injectable()
 export class RentalApplicationService {
@@ -23,6 +26,7 @@ export class RentalApplicationService {
     private readonly lifecycleService: ApplicationLifecycleService,
     private readonly aiService: RentalApplicationAiService,
     private readonly auditLogService: AuditLogService,
+    private readonly scheduleService: ScheduleService,
   ) {}
   
   async submitApplication(data: SubmitApplicationDto, applicantId?: string) {
@@ -490,6 +494,142 @@ export class RentalApplicationService {
       throw new BadRequestException('Application not found');
     }
     return this.lifecycleService.getAvailableTransitions(application.status, userRole);
+  }
+
+  async performReviewAction(
+    applicationId: number,
+    dto: RentalApplicationReviewActionDto,
+    actor: { userId: string; username: string; role: Role },
+    orgId?: string,
+  ) {
+    const application = await this.getApplicationById(applicationId, orgId);
+    if (!application) {
+      throw new BadRequestException('Application not found');
+    }
+
+    let updatedApplication = application;
+
+    if (dto.action === RentalApplicationReviewAction.APPROVE) {
+      await this.transitionUsingPath(applicationId, updatedApplication.status, ApplicationStatus.APPROVED, actor, [], {
+        applicationNumber: `APP-${applicationId}`,
+        note: dto.note,
+      });
+      if (dto.note?.trim()) {
+        await this.addNote(applicationId, { body: `Approval note: ${dto.note.trim()}` }, actor, orgId);
+      }
+    }
+
+    if (dto.action === RentalApplicationReviewAction.DENY) {
+      await this.transitionUsingPath(applicationId, updatedApplication.status, ApplicationStatus.REJECTED, actor, [], {
+        applicationNumber: `APP-${applicationId}`,
+        reason: dto.reason,
+      });
+      if (dto.reason?.trim()) {
+        await this.addNote(applicationId, { body: `Denial reason: ${dto.reason.trim()}` }, actor, orgId);
+      }
+    }
+
+    if (dto.action === RentalApplicationReviewAction.REQUEST_INFO) {
+      await this.transitionUsingPath(
+        applicationId,
+        updatedApplication.status,
+        ApplicationStatus.DOCUMENTS_REVIEW,
+        actor,
+        [ApplicationStatus.UNDER_REVIEW],
+        {
+          applicationNumber: `APP-${applicationId}`,
+          requestedInfoNote: dto.note,
+          responseDeadline: dto.responseDeadline,
+        },
+      );
+
+      const requestLines = ['Additional information requested from applicant.'];
+      if (dto.note?.trim()) requestLines.push(`Requested details: ${dto.note.trim()}`);
+      if (dto.responseDeadline) requestLines.push(`Response requested by: ${dto.responseDeadline}`);
+      await this.addNote(applicationId, { body: requestLines.join(' ') }, actor, orgId);
+    }
+
+    if (dto.action === RentalApplicationReviewAction.SCHEDULE_INTERVIEW) {
+      if (!dto.scheduledAt) {
+        throw new BadRequestException('scheduledAt is required when scheduling an interview');
+      }
+
+      await this.transitionUsingPath(
+        applicationId,
+        updatedApplication.status,
+        ApplicationStatus.INTERVIEW,
+        actor,
+        [ApplicationStatus.UNDER_REVIEW, ApplicationStatus.BACKGROUND_CHECK],
+        {
+          applicationNumber: `APP-${applicationId}`,
+          scheduledAt: dto.scheduledAt,
+        },
+      );
+
+      const scheduleEvent = await this.scheduleService.createEvent(
+        {
+          type: EventType.TOUR,
+          title: `Application interview: ${application.fullName}`,
+          date: dto.scheduledAt,
+          priority: EventPriority.MEDIUM,
+          description: dto.note?.trim() || `Interview for rental application APP-${application.id}`,
+          propertyId: application.propertyId,
+          unitId: application.unitId,
+          tenantId: application.applicantId ?? undefined,
+        },
+        orgId,
+        actor.userId,
+      );
+
+      await this.addNote(
+        applicationId,
+        {
+          body: `Interview scheduled for ${dto.scheduledAt}. Schedule event #${scheduleEvent.id}${dto.note?.trim() ? `. Notes: ${dto.note.trim()}` : ''}`,
+        },
+        actor,
+        orgId,
+      );
+    }
+
+    updatedApplication = (await this.getApplicationById(applicationId, orgId))!;
+
+    await this.auditLogService.record({
+      orgId,
+      actorId: actor.userId,
+      module: 'rental-application',
+      action: 'REVIEW_ACTION',
+      entityType: 'rentalApplication',
+      entityId: applicationId,
+      result: 'SUCCESS',
+      metadata: {
+        action: dto.action,
+        reason: dto.reason,
+        scheduledAt: dto.scheduledAt,
+      },
+    });
+
+    return updatedApplication;
+  }
+
+  private async transitionUsingPath(
+    applicationId: number,
+    currentStatus: ApplicationStatus,
+    targetStatus: ApplicationStatus,
+    actor: { userId: string; username: string; role: Role },
+    path: ApplicationStatus[],
+    metadata?: Record<string, unknown>,
+  ) {
+    const steps = [...path, targetStatus];
+    let cursor = currentStatus;
+
+    for (const next of steps) {
+      if (cursor === next) continue;
+      if (!this.lifecycleService.canTransition(cursor, next, actor.role)) {
+        throw new BadRequestException(`Cannot transition application from ${cursor} to ${next} for ${actor.role}`);
+      }
+      await this.lifecycleService.transitionStatus(applicationId, next, actor, metadata);
+      cursor = next;
+    }
   }
 
   private buildReferences(entries?: SubmitApplicationDto['references']) {
