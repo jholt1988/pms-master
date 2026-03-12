@@ -13,7 +13,11 @@ services:
       dockerfile: tenant_portal_backend/Dockerfile
       target: runner
     restart: always
-    depends_on: []
+    depends_on:
+      -mil:
+        condition: service_started
+        environment:
+         MIL_SERVICE_URL: http://mil:3010
     env_file:
       - ops/.env.dev
     environment:

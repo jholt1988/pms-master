@@ -1,4 +1,4 @@
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { IsDateString, IsNotEmpty, IsNumber, IsPositive, IsString } from 'class-validator';
 
 export class CreateInvoiceDto {

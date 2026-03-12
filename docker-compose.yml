@@ -28,6 +28,23 @@ services:
     volumes:
       - redis_data:/data
 
+    
+  mil:
+    build:
+      context: .
+      dockerfile: security/mil/Dockerfile
+    container_name: pms-mil
+    restart: unless-stopped
+    env_file:
+      - ops/.env.dev
+    environment:
+      NODE_ENV: production
+      PORT: 3010
+    ports:
+      - "3010:3010"
+    networks:
+    - default
+
   backend:
     build:
       context: .
