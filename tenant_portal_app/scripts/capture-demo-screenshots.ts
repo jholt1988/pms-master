@@ -7,7 +7,7 @@ const DEMO_USER = process.env.DEMO_USER || 'admin';
 const DEMO_PASS = process.env.DEMO_PASS || 'Admin123!@#';
 const OUT_DIR =
   process.env.DEMO_SHOT_DIR ||
-  path.resolve(process.cwd(), '../pms-plans/evidence/screenshots/2026-03-06');
+  path.resolve(process.cwd(), '../reports/evidence/screenshots/2026-03-06');
 
 function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true });

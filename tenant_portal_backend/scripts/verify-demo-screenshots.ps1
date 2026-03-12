@@ -1,7 +1,7 @@
 # Save as: scripts\verify-demo-screenshots.ps1 (run from repo root)
 $ErrorActionPreference = "Stop"
 
-$baseDir = "C:\Users\plabr\Dev\pms-master\pms-plans\evidence\screenshots\2026-03-06"
+$baseDir = "C:\Users\plabr\Dev\pms-master\reports\evidence\screenshots\2026-03-06"
 $outReport = "C:\Users\plabr\Dev\pms-master\reports\SCREENSHOT_VERIFICATION_REPORT.md"
 $outChecklist = "C:\Users\plabr\Dev\pms-master\reports\SCREENSHOT_CAPTURE_CHECKLIST_POST_P2_AUTOCHECK.md"
 
