@@ -160,9 +160,13 @@ export default function PaymentsPage(): React.ReactElement {
       }
     }
 
-    const autopayUrl = resolvedLeaseId
-      ? `/billing/autopay?leaseId=${encodeURIComponent(String(resolvedLeaseId))}`
-      : '/billing/autopay';
+    if (!resolvedLeaseId) {
+      // Avoid calling autopay endpoint without required leaseId context.
+      setAutopay(null);
+      return;
+    }
+
+    const autopayUrl = `/billing/autopay?leaseId=${encodeURIComponent(String(resolvedLeaseId))}`;
 
     try {
       const autopayData = await apiFetch(autopayUrl, { token });
