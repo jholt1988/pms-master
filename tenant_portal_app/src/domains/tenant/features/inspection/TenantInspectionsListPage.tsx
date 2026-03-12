@@ -102,6 +102,28 @@ export default function TenantInspectionsListPage(): React.ReactElement {
     }
   };
 
+  const startApprovedRequest = async (requestId: number) => {
+    if (!token) return;
+    setRequestLoading(true);
+    setError(null);
+    try {
+      const resp = await apiFetch('/inspections/start', {
+        token,
+        method: 'POST',
+        body: { requestId },
+      });
+      await fetchInspections();
+      const inspectionId = (resp as any)?.inspectionId ?? (resp as any)?.id;
+      if (inspectionId) {
+        navigate(`/tenant/inspections/${inspectionId}`);
+      }
+    } catch (e: any) {
+      setError(e?.message || 'Failed to start approved inspection');
+    } finally {
+      setRequestLoading(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6">
       <div className="flex items-center justify-between mb-6">
@@ -144,6 +166,27 @@ export default function TenantInspectionsListPage(): React.ReactElement {
             <Button color="primary" onPress={submitRequest} isLoading={requestLoading}>Submit request</Button>
             <span className="text-xs text-gray-500">Latest request: {requests?.[0]?.status ?? 'None'}</span>
           </div>
+
+          {(requests || []).some((r: any) => r?.status === 'APPROVED') && (
+            <div className="mt-3 rounded-lg border border-success/30 bg-success/10 p-3">
+              <p className="text-sm font-semibold mb-2">Approved requests ready to start</p>
+              <div className="space-y-2">
+                {(requests || [])
+                  .filter((r: any) => r?.status === 'APPROVED')
+                  .slice(0, 5)
+                  .map((r: any) => (
+                    <div key={r.id} className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-gray-600">
+                        {typeLabel(r.type)} request #{r.id}
+                      </span>
+                      <Button size="sm" color="success" onPress={() => startApprovedRequest(Number(r.id))} isLoading={requestLoading}>
+                        Start inspection
+                      </Button>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
         </CardBody>
       </Card>
 

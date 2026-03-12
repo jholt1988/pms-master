@@ -347,10 +347,15 @@ export class InspectionService {
       },
     });
 
-    // Send notification email
-    await this.sendInspectionScheduledNotification(inspection);
+    // Ensure newly scheduled inspections always have starter rooms/checklist
+    await this.ensureDefaultRoomsAndChecklist(inspection.id);
 
-    return inspection;
+    const hydrated = await this.getInspectionById(inspection.id, undefined, orgId);
+
+    // Send notification email
+    await this.sendInspectionScheduledNotification(hydrated);
+
+    return hydrated;
   }
 
   /**
