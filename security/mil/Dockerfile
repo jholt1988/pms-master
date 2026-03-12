@@ -1,28 +1,33 @@
-# Dockerfile for MIL Service API
+# syntax=docker/dockerfile:1.7
+# Dockerfile for MIL Service API (pnpm)
 
 # ---- Builder Stage ----
 FROM node:20-slim AS builder
 
 WORKDIR /usr/src/app
+RUN corepack enable
 
-# Copy package files and install dependencies
-COPY package*.json ./
-RUN npm ci --only=production
+# Copy package metadata + lock first (better cache)
+COPY package.json pnpm-lock.yaml* ./
 
-# Copy source code and build
+# Install deps
+RUN pnpm install --frozen-lockfile
+
+# Copy source and build
 COPY . .
-RUN npm run build
+RUN pnpm run build
 
 # ---- Production Stage ----
-FROM node:20-slim
+FROM node:20-slim AS runner
 
 WORKDIR /usr/src/app
+ENV NODE_ENV=production
+RUN corepack enable
 
-# Copy built code and dependencies from builder stage
+# Copy only what runtime needs
 COPY --from=builder /usr/src/app/dist ./dist
+COPY --from=builder /usr/src/app/package.json ./package.json
 COPY --from=builder /usr/src/app/node_modules ./node_modules
-COPY package.json .
 
-# Expose port and define command
 EXPOSE 8080
-CMD ["npm", "start"]
+CMD ["pnpm", "start"]
