@@ -1,0 +1,184 @@
+version: 1
+updated_at: 2026-03-12T08:37:00Z
+
+global:
+  execution_model: "front_door_router_to_specialist"
+  tool_policy: "least_privilege_deny_by_default"
+  memory:
+    segmented: true
+    segments: [task, project, long_term]
+    provenance_required: true
+  completion_rule:
+    require_domain_verifier_pass: true
+    require_policy_checks_pass: true
+  escalation:
+    high_impact_requires_human_approval: true
+
+cross_agent_safety_controls:
+  prompt_injection_defense: required
+  inter_agent_message_sanitization: required
+  inter_agent_trust_labels: required
+  cascade_breaker: required
+  immutable_audit_log: required
+  rate_limits: required
+  circuit_breakers: required
+
+deployment_stages:
+  - stage: 1
+    name: draft_only_autonomy
+  - stage: 2
+    name: verified_execution_no_external_impact
+  - stage: 3
+    name: conditional_external_actions_with_approval
+  - stage: 4
+    name: increased_autonomy_after_green_evals_and_redteam
+
+domains:
+  coding:
+    allowed_tools:
+      - repo_read
+      - repo_write
+      - sandbox_exec
+      - tests
+      - lint
+      - static_analysis
+    blocked_by_default:
+      - production_deploy
+      - secret_manager_write
+      - production_db_write
+    required_verifiers:
+      - tests_pass
+      - lint_typecheck_pass
+      - security_scan_pass
+    human_approval_required_for:
+      - protected_branch_merge
+      - release
+      - deploy
+    go_thresholds:
+      task_success_rate_min: 0.95
+      critical_security_regressions_max: 0
+
+  research:
+    allowed_tools:
+      - web_search
+      - web_fetch
+      - doc_ingestion
+      - citation_formatter
+    blocked_by_default:
+      - external_posting
+      - external_send
+    required_verifiers:
+      - citation_presence_for_factual_claims
+      - source_quality_primary_preferred
+      - contradiction_consistency_check
+    human_approval_required_for:
+      - high_stakes_conclusions
+      - policy_recommendations
+    go_thresholds:
+      citation_valid_claim_rate_min: 0.90
+      critical_factual_error_rate_max: 0.02
+
+  planning:
+    allowed_tools:
+      - scheduling_api_read
+      - scheduling_api_write_draft
+      - constraint_solver
+      - project_task_system
+    blocked_by_default:
+      - calendar_changes_without_confirmation
+    required_verifiers:
+      - hard_constraints_satisfied
+      - resource_conflicts_detected
+      - contingency_path_present
+    human_approval_required_for:
+      - external_budget_timeline_commitments
+    go_thresholds:
+      constraint_satisfaction_rate_min: 0.95
+
+  marketing:
+    allowed_tools:
+      - analytics_read
+      - campaign_drafting
+      - experiment_setup_draft
+    blocked_by_default:
+      - ad_spend_change
+      - live_audience_push
+    required_verifiers:
+      - compliance_checklist_pass
+      - kpi_hypothesis_and_rollback_defined
+      - audience_risk_policy_check
+    human_approval_required_for:
+      - spend_changes
+      - targeting_changes
+      - campaign_launches
+    go_thresholds:
+      compliance_violations_max: 0
+      controlled_test_uplift_required: true
+
+  copywriting:
+    allowed_tools:
+      - brand_voice_retrieval
+      - drafting
+      - style_qa
+    blocked_by_default:
+      - direct_publication
+    required_verifiers:
+      - voice_consistency_score
+      - legal_compliance_phrase_check
+      - readability_channel_fit_check
+    human_approval_required_for:
+      - external_publication
+    go_thresholds:
+      brand_voice_adherence_rate_min: 0.90
+      high_risk_legal_misses_max: 0
+
+  branding:
+    allowed_tools:
+      - guideline_retrieval
+      - asset_generation_draft
+      - critique_loops
+    blocked_by_default:
+      - canonical_brand_asset_replacement
+    required_verifiers:
+      - guideline_consistency
+      - differentiation_check
+      - stakeholder_critique_summary
+    human_approval_required_for:
+      - brand_system_changes
+    go_thresholds:
+      stakeholder_approval_required: true
+      guideline_conflicts_max: 0
+
+  ui_ux:
+    allowed_tools:
+      - design_file_ops_draft
+      - heuristic_checks
+      - analytics_read
+    blocked_by_default:
+      - production_ui_ship
+    required_verifiers:
+      - wcag_2_2_baseline_checks
+      - design_system_compliance
+      - flow_usability_checklist
+    human_approval_required_for:
+      - release_ready_handoff
+    go_thresholds:
+      critical_accessibility_failures_max: 0
+      usability_benchmarks_required: true
+
+  print_layout:
+    allowed_tools:
+      - layout_generation
+      - preflight_checks
+      - export_staging
+    blocked_by_default:
+      - final_vendor_submission
+    required_verifiers:
+      - prepress_preflight_bleed_color_resolution_overprint_fonts
+      - pdfx_validity_check
+      - pagination_hierarchy_checks
+    human_approval_required_for:
+      - print_ready_export
+      - final_signoff
+    go_thresholds:
+      required_preflight_pass_rate: 1.0
