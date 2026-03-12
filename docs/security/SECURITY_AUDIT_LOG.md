@@ -105,7 +105,7 @@ To prevent regression:
 
 - OWASP: [Code Injection](https://owasp.org/www-community/attacks/Code_Injection)
 - npm: [expr-eval](https://www.npmjs.com/package/expr-eval)
-- Assessment Report: `CODEBASE_ASSESSMENT_REPORT.md` (P0-001)
+- Assessment Report: `../assessments/CODEBASE_ASSESSMENT_REPORT.md` (P0-001)
 
 ---
 

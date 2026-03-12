@@ -1,4 +1,4 @@
-# AGENT_POLICY_MATRIX.md
+# docs/governance/AGENT_POLICY_MATRIX.md
 
 ## Global Defaults (All Domains)
 

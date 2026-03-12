@@ -2,7 +2,7 @@
 **Property Management Suite (PMS) - Codebase Review**
 
 **Assessment Date:** January 2025  
-**Framework:** APP_ASSESSMENT_FRAMEWORK.md  
+**Framework:** docs/assessments/APP_ASSESSMENT_FRAMEWORK.md  
 **Reviewer:** AI Code Assessment System  
 **Status:** Complete Assessment
 

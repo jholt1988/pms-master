@@ -195,6 +195,6 @@ These are the “looks built but breaks at runtime” issues. Fixing them early 
 ---
 
 ## Appendix: Sources (repo docs)
-- CODEBASE_ASSESSMENT_REPORT.md
+- assessments/CODEBASE_ASSESSMENT_REPORT.md
 - docs/P0_IMPLEMENTATION_SUMMARY.md
 - docs/property_management_gap_analysis.md

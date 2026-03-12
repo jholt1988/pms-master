@@ -287,15 +287,18 @@ docs/
 │   ├── untitled-plan-connect-frontend-to-backend.md
 │   └── pdf-generation-instructions.md
 │
-└── mobile/                           # Mobile app documentation
-    ├── mobile-app-mvp-plan.md
-    ├── mobile-app-mvp-complete.md
-    ├── mobile-app-phase-1-complete.md
-    ├── mobile-app-phase-2-progress.md
-    ├── mobile-app-phase-2.5-registration-complete.md
-    ├── mobile-app-phase-2.6-biometric-complete.md
-    ├── mobile-app-phase-2.7-profile-complete.md
-    └── mobile-app-phase-2.8-navigation-complete.md
+├── mobile/                           # Mobile app documentation
+│   ├── mobile-app-mvp-plan.md
+│   ├── mobile-app-mvp-complete.md
+│   ├── mobile-app-phase-1-complete.md
+│   ├── mobile-app-phase-2-progress.md
+│   ├── mobile-app-phase-2.5-registration-complete.md
+│   ├── mobile-app-phase-2.6-biometric-complete.md
+│   ├── mobile-app-phase-2.7-profile-complete.md
+│   └── mobile-app-phase-2.8-navigation-complete.md
+│
+└── generations/                      # Cross-cutting generation/chronology index
+    └── README.md
 ```
 
 ---
