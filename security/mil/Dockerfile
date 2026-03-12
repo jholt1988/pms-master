@@ -1,33 +1,38 @@
 # syntax=docker/dockerfile:1.7
-# Dockerfile for MIL Service API (pnpm)
+# Dockerfile for MIL Service API (pnpm, workspace-filtered)
 
-# ---- Builder Stage ----
 FROM node:20-slim AS builder
 
 WORKDIR /usr/src/app
 RUN corepack enable
 
-# Copy package metadata + lock first (better cache)
-COPY package.json pnpm-lock.yaml* ./
+# Copy workspace metadata first for dependency resolution/cache
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
-# Install deps
-RUN pnpm install --frozen-lockfile
+# Copy package manifests needed for filtered install
+COPY security/mil/package.json security/mil/package.json
+COPY packages/contracts-pos/package.json packages/contracts-pos/package.json
+COPY packages/crypto/package.json packages/crypto/package.json
 
-# Copy source and build
+# Install only MIL workspace package + its workspace deps
+RUN pnpm install --frozen-lockfile --filter ./security/mil...
+
+# Copy full source and build only MIL package graph
 COPY . .
-RUN pnpm run build
+RUN pnpm --filter ./security/mil... run build
 
-# ---- Production Stage ----
 FROM node:20-slim AS runner
 
 WORKDIR /usr/src/app
 ENV NODE_ENV=production
 RUN corepack enable
 
-# Copy only what runtime needs
-COPY --from=builder /usr/src/app/dist ./dist
+# Keep runtime simple/stable: copy workspace artifacts + deps
 COPY --from=builder /usr/src/app/package.json ./package.json
+COPY --from=builder /usr/src/app/pnpm-workspace.yaml ./pnpm-workspace.yaml
 COPY --from=builder /usr/src/app/node_modules ./node_modules
+COPY --from=builder /usr/src/app/security/mil ./security/mil
+COPY --from=builder /usr/src/app/packages ./packages
 
 EXPOSE 8080
-CMD ["pnpm", "start"]
+CMD ["pnpm", "--filter", "./security/mil", "start"]
