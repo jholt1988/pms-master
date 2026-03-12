@@ -47,7 +47,7 @@ const MessagingPage = () => {
   const fetchMessages = useCallback(
     async (conversationId: number) => {
       try {
-        const data = await apiFetch(`/messaging/conversations/${conversationId}`, { token: token ?? undefined });
+        const data = await apiFetch(`/messaging/conversations/${conversationId}/messages`, { token: token ?? undefined });
         const normalizedMessages = normalizeApiList(data, ['messages', 'data', 'items']);
         setMessages(normalizedMessages);
       } catch (error: any) {

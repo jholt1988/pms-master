@@ -15,7 +15,8 @@
     "env:supabase": "docker compose --env-file ops/.env.supabase up -d --build",
     "env:logs:backend": "docker compose logs --tail=150 backend",
     "env:logs:frontend": "docker compose logs --tail=150 frontend",
-    "env:health": "docker compose exec frontend sh -lc \"wget -S -O- http://backend:3001/api/health | head -n 40\""
+    "env:health": "docker compose exec frontend sh -lc \"wget -S -O- http://backend:3001/api/health | head -n 40\"",
+    "contracts:core-routes": "node scripts/check-core-route-contracts.js"
   },
   "dependencies": {
     "@types/node": "^24.11.0",
