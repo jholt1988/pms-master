@@ -82,11 +82,27 @@ export class CreateInspectionDto {
   @IsOptional()
   @IsUUID()
   leaseId?: string;
+
+  @IsEnumSafe(InspectionType)
   type!: InspectionType;
+
+  @IsDateString()
   scheduledDate!: string;
+
+  @IsOptional()
+  @IsUUID()
   inspectorId?: string;
+
+  @IsOptional()
+  @IsUUID()
   tenantId?: string;
+
+  @IsOptional()
+  @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsString()
   generalNotes?: string;
 }
 
