@@ -30,6 +30,77 @@ async function login(page) {
   await page.waitForLoadState('networkidle');
 }
 
+async function clickPropertyCreateButtonIfPresent(page) {
+  const candidates = [
+    page.getByRole('button', { name: /add property|create property|new property|add new property|create/i }).first(),
+    page.getByRole('link', { name: /add property|create property|new property|add new property|create/i }).first(),
+    page.locator('[data-testid="add-property"], [data-testid="create-property"], [data-testid="new-property"]').first(),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      if (await candidate.isVisible({ timeout: 800 })) {
+        await candidate.click();
+        await page.waitForLoadState('networkidle');
+        return true;
+      }
+    } catch {
+      // try next candidate
+    }
+  }
+
+  return false;
+}
+
+async function capturePropertyFormTabs(page) {
+  await page.goto(`${BASE_URL}/properties`, { waitUntil: 'networkidle' });
+
+  // Some UIs require clicking an "Add/Create property" action before the form/tabs appear.
+  await clickPropertyCreateButtonIfPresent(page);
+
+  // Ensure we are on the creation route if navigation button was not present/effective.
+  if (!page.url().includes('/properties/new')) {
+    await page.goto(`${BASE_URL}/properties/new`, { waitUntil: 'networkidle' });
+  }
+
+  await snap(page, '1_2_property-creation-form.png');
+
+  const tabs = page.getByRole('tab');
+  const tabCount = await tabs.count();
+
+  if (tabCount === 0) {
+    return;
+  }
+
+  for (let i = 0; i < tabCount; i++) {
+    const tab = tabs.nth(i);
+    const tabNameRaw = await tab.textContent();
+    const tabName = (tabNameRaw || `tab-${i + 1}`)
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-_]/g, '') || `tab-${i + 1}`;
+
+    try {
+      await tab.click();
+      await page.waitForLoadState('networkidle');
+      await snap(page, `1_2_property-creation-tab-${String(i + 1).padStart(2, '0')}-${tabName}.png`);
+    } catch (e) {
+      console.warn('failed to capture tab', i + 1, tabName, e?.message || e);
+    }
+  }
+}
+
+async function safeGoto(page, route) {
+  await page.goto(`${BASE_URL}${route}`, { waitUntil: 'networkidle' });
+
+  // If we got bounced to login, try re-auth once.
+  if (page.url().includes('/login')) {
+    await login(page);
+    await page.goto(`${BASE_URL}${route}`, { waitUntil: 'networkidle' });
+  }
+}
+
 async function captureDesktop() {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -37,30 +108,34 @@ async function captureDesktop() {
 
   await login(page);
 
+  // Dedicated flow for property creation + per-tab screenshots.
+  await safeGoto(page, '/dashboard');
+  await snap(page, '1_1_empty-dashboard.png');
+  await capturePropertyFormTabs(page);
+
+  // Use only existing app routes; avoid stale legacy paths.
   const routes = [
-    ['/dashboard', '1_1_empty-dashboard.png'],
-    ['/properties/new', '1_2_property-creation-form.png'],
     ['/properties', '1_3_property-detail-units.png'],
-    ['/apply', '2_1_application-form.png'],
-    ['/rental-applications', '2_2_application-review-pm.png'],
-    ['/tenant/welcome', '2_3_tenant-welcome-screen.png'],
+    ['/rental-application/form', '2_1_application-form.png'],
+    ['/rental-applications-management', '2_2_application-review-pm.png'],
+    ['/dashboard', '2_3_tenant-welcome-screen.png'],
     ['/my-lease', '3_1_lease-document-view.png'],
     ['/payments', '4_1_payment-method-added.png'],
     ['/payments?status=success', '4_2_payment-confirmation.png'],
-    ['/maintenance/new', '5_1_maintenance-request-form.png'],
-    ['/maintenance', '5_2_pm-queue-view.png'],
+    ['/maintenance', '5_1_maintenance-request-form.png'],
+    ['/maintenance-management', '5_2_pm-queue-view.png'],
     ['/messaging', '5_3_request-detail-messaging.png'],
     ['/inspection-management', '6_1_inspection-type-selector.png'],
     ['/inspections/1', '6_2_inspection-checklist.png'],
     ['/inspections/1?report=routine', '6_3_ai-report-routine.png'],
     ['/inspections/1?report=moveout', '6_4_ai-report-move-out.png'],
-    ['/owner/dashboard', '7_1_owner-dashboard.png'],
-    ['/owner/maintenance', '7_2_owner-maintenance-view.png'],
-    ['/owner/maintenance/1', '7_3_owner-comment-badge.png'],
+    ['/reporting', '7_1_owner-dashboard.png'],
+    ['/maintenance-management', '7_2_owner-maintenance-view.png'],
+    ['/maintenance-management', '7_3_owner-comment-badge.png'],
   ];
 
   for (const [route, file] of routes) {
-    await page.goto(`${BASE_URL}${route}`, { waitUntil: 'networkidle' });
+    await safeGoto(page, route);
     await snap(page, file);
   }
 
@@ -73,9 +148,9 @@ async function captureMobile() {
     device: devices['iPhone 14 Pro'],
     shots: [
       ['/dashboard', '8_1_mobile-pm-dashboard.png'],
-      ['/maintenance/new', '8_2_mobile-maintenance-form.png'],
+      ['/maintenance', '8_2_mobile-maintenance-form.png'],
       ['/inspections/1', '8_3_mobile-inspection-checklist.png'],
-      ['/owner/maintenance/1', '8_4_mobile-owner-request-detail-comment.png'],
+      ['/maintenance-management', '8_4_mobile-owner-request-detail-comment.png'],
     ],
   };
 
@@ -83,7 +158,7 @@ async function captureMobile() {
   const page = await context.newPage();
   await login(page);
   for (const [route, file] of target.shots) {
-    await page.goto(`${BASE_URL}${route}`, { waitUntil: 'networkidle' });
+    await safeGoto(page, route);
     await snap(page, file);
   }
   await context.close();
