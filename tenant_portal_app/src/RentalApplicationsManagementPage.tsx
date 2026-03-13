@@ -45,6 +45,17 @@ const formatIsoDateTime = (value?: string | null): string => {
   return date.toISOString();
 };
 
+const toIsoFromDatetimeLocal = (value?: string | null): string | undefined => {
+  if (!value) {
+    return undefined;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return undefined;
+  }
+  return date.toISOString();
+};
+
 const legalBadgeClass = (accepted: boolean) => (
   accepted ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
 );
@@ -124,6 +135,10 @@ const RentalApplicationsManagementPage = () => {
   const [screeningId, setScreeningId] = useState<number | null>(null);
   const [aiReviewingId, setAiReviewingId] = useState<number | null>(null);
   const [aiReviewData, setAiReviewData] = useState<Record<number, any>>({});
+  const [reviewNoteDrafts, setReviewNoteDrafts] = useState<Record<number, string>>({});
+  const [reviewReasonDrafts, setReviewReasonDrafts] = useState<Record<number, string>>({});
+  const [reviewDeadlineDrafts, setReviewDeadlineDrafts] = useState<Record<number, string>>({});
+  const [reviewInterviewDrafts, setReviewInterviewDrafts] = useState<Record<number, string>>({});
   const [termsFilter, setTermsFilter] = useState<'all' | 'accepted' | 'missing'>('all');
   const [privacyFilter, setPrivacyFilter] = useState<'all' | 'accepted' | 'missing'>('all');
   const { token } = useAuth();
@@ -204,6 +219,48 @@ const RentalApplicationsManagementPage = () => {
       setError(error.message);
     } finally {
       setScreeningId(null);
+    }
+  };
+
+  type ReviewAction = 'APPROVE' | 'DENY' | 'REQUEST_INFO' | 'SCHEDULE_INTERVIEW';
+
+  const handleReviewAction = async (
+    id: number,
+    action: ReviewAction,
+    options?: {
+      note?: string;
+      reason?: string;
+      responseDeadline?: string;
+      scheduledAt?: string;
+    },
+  ) => {
+    if (!token) return;
+    setError(null);
+    try {
+      setStatusUpdatingId(id);
+
+      const updatedApplication = await apiFetch(`/rental-applications/${id}/review-action`, {
+        token,
+        method: 'POST',
+        body: {
+          action,
+          note: options?.note,
+          reason: options?.reason,
+          responseDeadline: toIsoFromDatetimeLocal(options?.responseDeadline),
+          scheduledAt: toIsoFromDatetimeLocal(options?.scheduledAt),
+        },
+      });
+
+      updateLocalApplication(updatedApplication);
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to perform review action';
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+      setError(errorMessage);
+      console.error('Error performing review action:', err);
+    } finally {
+      setStatusUpdatingId(null);
     }
   };
 
@@ -514,6 +571,47 @@ const RentalApplicationsManagementPage = () => {
                       ))}
                     </select>
                   </label>
+
+                  <button
+                    type="button"
+                    onClick={() => handleReviewAction(application.id, 'APPROVE', { note: reviewNoteDrafts[application.id] })}
+                    disabled={statusUpdatingId === application.id}
+                    className="inline-flex items-center rounded-md bg-emerald-600 px-3 py-1 text-xs font-semibold text-white shadow-sm hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                    title="Approve application"
+                  >
+                    Approve
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleReviewAction(application.id, 'DENY', { note: reviewNoteDrafts[application.id], reason: reviewReasonDrafts[application.id] })}
+                    disabled={statusUpdatingId === application.id}
+                    className="inline-flex items-center rounded-md bg-rose-600 px-3 py-1 text-xs font-semibold text-white shadow-sm hover:bg-rose-500 disabled:cursor-not-allowed disabled:bg-rose-300"
+                    title="Deny application"
+                  >
+                    Deny
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleReviewAction(application.id, 'REQUEST_INFO', { note: reviewNoteDrafts[application.id], responseDeadline: reviewDeadlineDrafts[application.id] })}
+                    disabled={statusUpdatingId === application.id}
+                    className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-1 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-300"
+                    title="Request more information"
+                  >
+                    Request info
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleReviewAction(application.id, 'SCHEDULE_INTERVIEW', { note: reviewNoteDrafts[application.id], scheduledAt: reviewInterviewDrafts[application.id] })}
+                    disabled={statusUpdatingId === application.id}
+                    className="inline-flex items-center rounded-md bg-violet-600 px-3 py-1 text-xs font-semibold text-white shadow-sm hover:bg-violet-500 disabled:cursor-not-allowed disabled:bg-violet-300"
+                    title="Schedule interview"
+                  >
+                    Schedule
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => handleScreenApplication(application.id)}
@@ -526,6 +624,7 @@ const RentalApplicationsManagementPage = () => {
                         ? 'Re-run screening'
                         : 'Run screening'}
                   </button>
+
                   <button
                     type="button"
                     onClick={() => handleAiReview(application.id)}
@@ -534,6 +633,47 @@ const RentalApplicationsManagementPage = () => {
                   >
                     {aiReviewingId === application.id ? 'Analyzing…' : 'AI Pre-Screen'}
                   </button>
+                </div>
+
+                <div className="flex flex-wrap gap-3 text-xs text-gray-600">
+                  <label className="flex items-center gap-2">
+                    <span className="font-medium text-gray-700">Note</span>
+                    <input
+                      type="text"
+                      value={reviewNoteDrafts[application.id] ?? ''}
+                      onChange={(event) => setReviewNoteDrafts((prev) => ({ ...prev, [application.id]: event.target.value }))}
+                      placeholder="Internal note (optional)"
+                      className="w-64 rounded-md border border-gray-300 px-2 py-1 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <span className="font-medium text-gray-700">Reason</span>
+                    <input
+                      type="text"
+                      value={reviewReasonDrafts[application.id] ?? ''}
+                      onChange={(event) => setReviewReasonDrafts((prev) => ({ ...prev, [application.id]: event.target.value }))}
+                      placeholder="Denial reason (optional)"
+                      className="w-64 rounded-md border border-gray-300 px-2 py-1 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <span className="font-medium text-gray-700">Deadline</span>
+                    <input
+                      type="datetime-local"
+                      value={reviewDeadlineDrafts[application.id] ?? ''}
+                      onChange={(event) => setReviewDeadlineDrafts((prev) => ({ ...prev, [application.id]: event.target.value }))}
+                      className="rounded-md border border-gray-300 px-2 py-1 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <span className="font-medium text-gray-700">Interview</span>
+                    <input
+                      type="datetime-local"
+                      value={reviewInterviewDrafts[application.id] ?? ''}
+                      onChange={(event) => setReviewInterviewDrafts((prev) => ({ ...prev, [application.id]: event.target.value }))}
+                      className="rounded-md border border-gray-300 px-2 py-1 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </label>
                 </div>
 
                 {isExpanded && (
