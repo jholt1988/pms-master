@@ -27,6 +27,13 @@ interface PaymentMethod {
   createdAt: string;
 }
 
+interface NeedsAuthAttempt {
+  id: string;
+  status: string;
+  createdAt?: string;
+  error?: string;
+}
+
 interface AutopayStatus {
   leaseId: number;
   enrollment?: {

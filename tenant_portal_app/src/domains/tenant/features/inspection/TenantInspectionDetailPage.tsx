@@ -70,11 +70,11 @@ export default function TenantInspectionDetailPage(): React.ReactElement {
         apiFetch(`/inspections/${inspectionId}`, { token }),
         apiFetch('/inspections/requests', { token }).catch(() => []),
       ]);
-      const data = unwrapApi(resp);
+      const data = unwrapApi<any>(resp);
       setInspection(data);
       const requests = Array.isArray(reqResp) ? reqResp : ((reqResp as any)?.data ?? []);
       const matching = (requests as any[])
-        .filter((r) => Number(r?.startedInspectionId ?? -1) === inspectionId || (r?.type === data?.type && r?.unitId === data?.unitId))
+        .filter((r) => Number(r?.startedInspectionId ?? -1) === inspectionId || (r?.type === (data as any)?.type && r?.unitId === (data as any)?.unitId))
         .sort((a, b) => new Date(b?.createdAt ?? 0).getTime() - new Date(a?.createdAt ?? 0).getTime());
       setRequestStatus(matching[0]?.status ?? null);
     } catch (e: any) {

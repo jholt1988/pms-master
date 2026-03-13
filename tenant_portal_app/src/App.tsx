@@ -169,7 +169,7 @@ const DashboardRouter = () => {
     return <TenantDashboard />;
   }
   
-  if ([ROLES.PM, ROLES.OWNER, ROLES.ADMIN, ROLES.OPERATOR].includes(user.role as any)) {
+  if ([ROLES.PM, ROLES.OWNER, ROLES.ADMIN, ROLES.OPERATOR].includes(user?.role as any)) {
     return <MainDashboard />;
   }
   

@@ -73,7 +73,7 @@ const MessagingPage = () => {
             return normalizedConversations[0];
           });
           if (shouldFetchFirst) {
-            fetchMessages(normalizedConversations[0].id);
+            fetchMessages((normalizedConversations[0] as any).id);
           }
         }
       } catch (error: any) {
