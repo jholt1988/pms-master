@@ -76,6 +76,31 @@ Suggested execution commands (manual owner run):
 
 ---
 
+## Kickoff Update (Executed now)
+Timestamp: 2026-03-15 05:20 GMT+8
+
+### Security quick checks run
+- `git grep -n "BEGIN PRIVATE KEY\|PRIVATE KEY" -- . ':(exclude)node_modules'`
+- Confirmed plaintext private key remains in:
+  - `docusign_private_key.pem:1`
+- Additional key-signature indicators found in debug/test output files under `tenant_portal_backend/` (requires owner review to classify as exposure vs metadata logging).
+
+### Secret-bearing file inventory captured
+- `.pem/.key/.env*` inventory generated; includes:
+  - `docusign_private_key.pem`
+  - `ops/.env.prod`, `ops/.env.dev`, `ops/.env.supabase`
+  - `tenant_portal_backend/.env.inspection`
+
+### QA artifact/dependency discovery run
+- Smoke/testing assets and guides enumerated (including `reports/release/qa-*`, Playwright artifacts, and testing docs).
+- Confirms documentation readiness; execution evidence still pending owner-run smoke execution.
+
+### Immediate implication
+- **SEC-01/SEC-02 remain hard blockers** until key rotation/revocation + cleanup evidence are attached.
+- Ops and QA lanes are execution-ready but still evidence-pending.
+
+---
+
 ## Stop/Go Rule at T+48h
 - If any Security/Ops/QA P0 item is still OPEN without approved waiver: **remain NO-GO**.
 - If all P0 items are CLOSED with evidence and sign-off: schedule expedited GO re-review.
