@@ -7,6 +7,7 @@ This one-page checklist merges:
 - `clawdbot_remote/pms-plans/tracking/checklists/PMS-L-01_LAUNCH_DAY_CHECKLIST.md`
 - `clawdbot_remote/pms-plans/strategy/MVP_LAUNCH_READINESS.md`
 - `clawdbot_remote/governance/Prod-Readiness-Checklist-v1.0.md`
+- `clawdbot_remote/pms-plans/marketing/PROPERTY_MANAGEMENT_SUITE_MARKETING.md`
 
 ---
 
@@ -73,6 +74,17 @@ This one-page checklist merges:
 
 ---
 
+## D) Marketing & Messaging Gate (from PROPERTY_MANAGEMENT_SUITE_MARKETING)
+- [ ] Public claims validated against current product state (no over-claiming)
+- [ ] Metrics/benchmarks have evidence links or are marked as estimates
+- [ ] Pricing tiers and contact info confirmed current
+- [ ] Roadmap sections clearly labeled (Completed / In Progress / Planned)
+- [ ] Security/compliance statements reviewed by engineering/security owner
+- [ ] Screenshots, badges, and status labels reflect current release
+- [ ] Distribution channels ready (site/docs/sales handoff)
+
+---
+
 ## Final Decision
-- **GO** only if all A + B pass and no critical fail in C
-- **NO-GO** if any P0 defect, failed core smoke flow, or failed security/governance control
+- **GO** only if all A + B + D pass and no critical fail in C
+- **NO-GO** if any P0 defect, failed core smoke flow, failed security/governance control, or unverified marketing claims
