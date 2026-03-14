@@ -4,7 +4,7 @@ import { OrgRole, Prisma, Role, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { normalizeEmail } from '../utils/normalizeEmail';
 import { normalizePhone } from '../utils/normalizePhone';
-import { DefaultApi as MilApiClient } from '../../../packages/mil-client';
+import { DefaultApi as MilApiClient } from '@propertyos/mil-client';
 
 @Injectable()
 export class UsersService {

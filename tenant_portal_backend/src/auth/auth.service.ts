@@ -13,7 +13,7 @@ import { addHours, addMinutes } from 'date-fns';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { randomBytes } from 'crypto';
-import { DefaultApi as MilApiClient } from '../../../packages/mil-client';
+import { DefaultApi as MilApiClient } from '@propertyos/mil-client';
 
 @Injectable()
 export class AuthService {

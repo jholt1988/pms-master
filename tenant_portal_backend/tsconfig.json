@@ -9,6 +9,10 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "esModuleInterop": true,
+    "baseUrl": ".",
+    "paths": {
+      "axios": ["./node_modules/axios"]
+    },
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "allowSyntheticDefaultImports": true,

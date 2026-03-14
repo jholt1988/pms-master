@@ -11,7 +11,7 @@ import { PasswordPolicyService } from './password-policy.service';
 import { SecurityEventsModule } from '../security-events/security-events.module';
 import { EmailModule } from '../email/email.module';
 import { PrismaModule } from '../prisma/prisma.module';
-import { DefaultApi as MilApiClient } from '../../../packages/mil-client';
+import { DefaultApi as MilApiClient } from '@propertyos/mil-client';
 import { HttpModule } from '@nestjs/axios';
 
 @Module({
