@@ -8,9 +8,9 @@ Use this template to submit closure evidence for OPS and QA P0 items.
 ## OPS Lane
 
 ### [OPS-01] Validate STRIPE production config end-to-end
-- **Status:** <CLOSED | IN_PROGRESS | BLOCKED>
+- **Status:** <BLOCKED>
 - **Owner:** <Ops/SRE>
-- **Date/Time (GMT+8):** <>
+- **Date/Time (GMT-6):** 3-14-2026 7:30pm
 - **Environment:** <prod>
 - **Summary:** <Validated Stripe key/account mapping and runtime config integrity.>
 
@@ -27,32 +27,34 @@ Use this template to submit closure evidence for OPS and QA P0 items.
 
 #### Results
 - **Expected:** Stripe config is valid and usable in prod.
-- **Actual:** <>
-- **Outcome:** <PASS | FAIL>
-- **Notes:** <>
+- **Actual:** Manual charges don't show up as invoice in tenant view. I could not even start the payment process
+- **Outcome:**  FAIL
+- **Notes:** Also, make sure the mock payment processing is not enabled
 
 #### Evidence Links
-- <log/screenshot/report>
-- <log/screenshot/report>
+- SEE ./"evidence photos"/OPS-01-BLOCKED-2026-03-14-1930
+
 
 #### Risk / Impact
 - **Severity:** P0
 - **User/Release Impact:** Payment flow cannot be trusted for launch if failed.
 
 #### Follow-up Actions
-- [ ] <action + owner + ETA>
+- [ ] Add functionality- all manual charges/manual payments become invoice and are included in balace calculations
+- [ ] Ensure they invoice populates and balance is correctly calculated to include the manual charge or manual payment
+- [ ] 2nd Attempt  OPS-01 Validate STRIP production config end-to-end 
 
 #### Sign-off
-- **Submitted by:** <>
-- **Reviewed by:** <>
-- **Final Decision for this item:** <ACCEPTED | REJECTED | NEEDS_RETEST>
+- **Submitted by:** J.Holt
+- **Reviewed by:** J.Holt
+- **Final Decision for this item:** NEEDS_RETEST>
 
 
 ### [OPS-02] Validate payment webhook configuration
-- **Status:** <CLOSED | IN_PROGRESS | BLOCKED>
+- **Status:** BLOCKED
 - **Owner:** <Ops/SRE>
-- **Date/Time (GMT+8):** <>
-- **Environment:** <prod/staging>
+- **Date/Time (GMT-6): 03-14-2026 7:41pm 
+- **Environment:** prod
 - **Summary:** <Verified webhook endpoint, signature config, and event processing path.>
 
 #### Steps Executed
@@ -68,25 +70,26 @@ Use this template to submit closure evidence for OPS and QA P0 items.
 
 #### Results
 - **Expected:** Signed webhook events process successfully and securely.
-- **Actual:** <>
-- **Outcome:** <PASS | FAIL>
-- **Notes:** <>
+- **Actual:** BLOCKED-SEE OPS-01 (Same Block)
+- **Outcome:**  FAIL
+- **Notes:** I am certain that there is no webhook functionaly included in code
 
 #### Evidence Links
-- <event log>
-- <processing log>
+- SEE OPS-01 Evidence Links
+
 
 #### Risk / Impact
 - **Severity:** P0
 - **User/Release Impact:** Billing/payment reliability risk if failed.
 
 #### Follow-up Actions
-- [ ] <action + owner + ETA>
+- [ ] Add webhook functionality
+- [ ] 2nd Attempt OPS-02 Validate payment webhook configuration
 
 #### Sign-off
-- **Submitted by:** <>
-- **Reviewed by:** <>
-- **Final Decision for this item:** <ACCEPTED | REJECTED | NEEDS_RETEST>
+- **Submitted by:** J.Holt
+- **Reviewed by:** J.Holt
+- **Final Decision for this item:** NEEDS_RETEST
 
 
 ### [OPS-03] Execute backup + restore drill in non-prod
