@@ -161,6 +161,7 @@ export class DocumentsService {
       OR: [
         { uploadedById: userId },
         { sharedWith: { some: { id: userId } } },
+        { lease: { tenantId: userId } },
       ],
     };
 
@@ -215,6 +216,7 @@ export class DocumentsService {
         OR: [
           { uploadedById: filters.userId },
           { sharedWith: { some: { id: filters.userId } } },
+          { lease: { tenantId: filters.userId } },
         ],
       });
     }
