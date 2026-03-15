@@ -20,6 +20,8 @@ const conditionOptions: Array<{ value: InspectionCondition; label: string }> = [
   { value: 'NON_FUNCTIONAL', label: 'Non-functional' },
 ];
 
+const inspectionDraftStorageKey = (inspectionId: number) => `tenant-inspection-draft:${inspectionId}`;
+
 function typeLabel(type: string) {
   return String(type).replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (m) => m.toUpperCase());
 }
@@ -41,6 +43,7 @@ export default function TenantInspectionDetailPage(): React.ReactElement {
   const [photoUploadingByItemId, setPhotoUploadingByItemId] = useState<Record<number, boolean>>({});
   const [draftByItemId, setDraftByItemId] = useState<Record<number, { requiresAction: boolean; notes: string; condition: InspectionCondition | '' }>>({});
   const [photoDraftByItemId, setPhotoDraftByItemId] = useState<Record<number, { url: string; caption: string }>>({});
+  const [draftRestoreNotice, setDraftRestoreNotice] = useState<string | null>(null);
 
   const status = String(inspection?.status ?? '');
   const isCompleted = status === 'COMPLETED';
@@ -88,7 +91,7 @@ export default function TenantInspectionDetailPage(): React.ReactElement {
     fetchInspection();
   }, [fetchInspection]);
 
-  // Initialize draft map when inspection loads/changes
+  // Initialize draft map when inspection loads/changes, then restore local draft when available.
   useEffect(() => {
     const rooms = inspection?.rooms;
     if (!Array.isArray(rooms)) return;
@@ -104,8 +107,72 @@ export default function TenantInspectionDetailPage(): React.ReactElement {
         };
       }
     }
-    setDraftByItemId(next);
-  }, [inspection?.id]);
+
+    let restoredItemDrafts = 0;
+    let restoredPhotoDrafts = 0;
+    const restoredItemDraftMap: Record<number, { requiresAction: boolean; notes: string; condition: InspectionCondition | '' }> = {};
+    const restoredPhotoDraftMap: Record<number, { url: string; caption: string }> = {};
+
+    if (Number.isFinite(inspectionId)) {
+      try {
+        const raw = globalThis.localStorage?.getItem(inspectionDraftStorageKey(inspectionId));
+        if (raw) {
+          const parsed = JSON.parse(raw) as {
+            draftByItemId?: Record<string, { requiresAction?: unknown; notes?: unknown; condition?: unknown }>;
+            photoDraftByItemId?: Record<string, { url?: unknown; caption?: unknown }>;
+          };
+
+          const savedDrafts = parsed?.draftByItemId ?? {};
+          for (const [itemId, saved] of Object.entries(savedDrafts)) {
+            if (!next[Number(itemId)]) continue;
+            restoredItemDraftMap[Number(itemId)] = {
+              requiresAction: !!saved?.requiresAction,
+              notes: String(saved?.notes ?? ''),
+              condition: (saved?.condition as InspectionCondition | '') || '',
+            };
+            restoredItemDrafts += 1;
+          }
+
+          const savedPhotoDrafts = parsed?.photoDraftByItemId ?? {};
+          for (const [itemId, saved] of Object.entries(savedPhotoDrafts)) {
+            const url = String(saved?.url ?? '');
+            const caption = String(saved?.caption ?? '');
+            if (!url && !caption) continue;
+            restoredPhotoDraftMap[Number(itemId)] = { url, caption };
+            restoredPhotoDrafts += 1;
+          }
+        }
+      } catch {
+        // Ignore draft parsing/storage errors; inspection remains editable from server state.
+      }
+    }
+
+    setDraftByItemId({ ...next, ...restoredItemDraftMap });
+    setPhotoDraftByItemId(restoredPhotoDraftMap);
+
+    if (restoredItemDrafts > 0 || restoredPhotoDrafts > 0) {
+      setDraftRestoreNotice(`Restored draft (${restoredItemDrafts} checklist ${restoredItemDrafts === 1 ? 'item' : 'items'}, ${restoredPhotoDrafts} photo ${restoredPhotoDrafts === 1 ? 'entry' : 'entries'}).`);
+    } else {
+      setDraftRestoreNotice(null);
+    }
+  }, [inspection?.id, inspectionId]);
+
+  useEffect(() => {
+    if (!Number.isFinite(inspectionId) || !inspection?.id) return;
+
+    try {
+      globalThis.localStorage?.setItem(
+        inspectionDraftStorageKey(inspectionId),
+        JSON.stringify({
+          draftByItemId,
+          photoDraftByItemId,
+          updatedAt: new Date().toISOString(),
+        }),
+      );
+    } catch {
+      // Ignore local draft persistence failures.
+    }
+  }, [inspectionId, inspection?.id, draftByItemId, photoDraftByItemId]);
 
   const handleSaveRoom = async (roomId: number) => {
     if (!token) return;
@@ -208,6 +275,11 @@ export default function TenantInspectionDetailPage(): React.ReactElement {
         method: 'PATCH',
         body: { status: 'COMPLETED' },
       });
+      try {
+        globalThis.localStorage?.removeItem(inspectionDraftStorageKey(inspectionId));
+      } catch {
+        // ignore
+      }
       await fetchInspection();
     } catch (e: any) {
       setError(e?.message || 'Failed to mark completed');
@@ -233,6 +305,17 @@ export default function TenantInspectionDetailPage(): React.ReactElement {
         <Card className="border border-rose-200 mb-4">
           <CardBody>
             <p className="text-sm text-rose-700">{error}</p>
+          </CardBody>
+        </Card>
+      )}
+
+      {draftRestoreNotice && (
+        <Card className="border border-amber-200 mb-4 bg-amber-50/40">
+          <CardBody className="flex flex-row items-start justify-between gap-3">
+            <p className="text-sm text-amber-800">{draftRestoreNotice}</p>
+            <Button size="sm" variant="light" onPress={() => setDraftRestoreNotice(null)}>
+              Dismiss
+            </Button>
           </CardBody>
         </Card>
       )}
