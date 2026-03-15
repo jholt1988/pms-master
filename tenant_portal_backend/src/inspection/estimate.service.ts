@@ -844,14 +844,28 @@ export class EstimateService {
   }
 
   private async getLocationFromProperty(property: any): Promise<UserLocation> {
-    // Parse address to extract location components
-    // This is a simplified implementation - in production, you might use a geocoding service
-    const addressParts = property.address.split(',').map((part: string) => part.trim());
-    
+    const cityFromModel = typeof property?.city === 'string' ? property.city.trim() : '';
+    const regionFromModel = typeof property?.state === 'string' ? property.state.trim() : '';
+    const countryFromModel = typeof property?.country === 'string' ? property.country.trim() : '';
+
+    if (cityFromModel || regionFromModel || countryFromModel) {
+      return {
+        city: cityFromModel || 'Unknown City',
+        region: regionFromModel || 'Unknown State',
+        country: countryFromModel || 'USA',
+      };
+    }
+
+    const rawAddress = typeof property?.address === 'string' ? property.address : '';
+    const addressParts = rawAddress
+      .split(',')
+      .map((part: string) => part.trim())
+      .filter((part: string) => part.length > 0);
+
     return {
-      city: addressParts[addressParts.length - 3] || 'Unknown City',
-      region: addressParts[addressParts.length - 2] || 'Unknown State',
-      country: addressParts[addressParts.length - 1] || 'USA',
+      city: addressParts.length >= 3 ? addressParts[addressParts.length - 3] : 'Unknown City',
+      region: addressParts.length >= 2 ? addressParts[addressParts.length - 2] : 'Unknown State',
+      country: addressParts.length >= 1 ? addressParts[addressParts.length - 1] : 'USA',
     };
   }
 

@@ -1,6 +1,7 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import Stripe from 'stripe';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 
 export interface CreateStripeCustomerDto {
   email: string;
@@ -318,13 +319,6 @@ export class StripeService {
       throw new BadRequestException('Invalid webhook signature');
     }
 
-    // Idempotency guard
-    const existing = await this.prisma.stripeWebhookEvent.findUnique({ where: { eventId: event.id } });
-    if (existing) {
-      this.logger.log(`Ignoring duplicate Stripe event ${event.id}`);
-      return { eventId: event.id, deduped: true, organizationId: existing.organizationId ?? undefined };
-    }
-
     const stripeAccountId = (event as any).account as string | undefined;
     const metadataOrgId = (event.data?.object as any)?.metadata?.organizationId as string | undefined;
 
@@ -337,6 +331,29 @@ export class StripeService {
         select: { id: true },
       });
       organizationId = org?.id;
+    }
+
+    // Atomic idempotency guard: reserve event ID before side effects.
+    try {
+      await this.prisma.stripeWebhookEvent.create({
+        data: {
+          eventId: event.id,
+          eventType: event.type,
+          stripeAccountId,
+          organizationId,
+          payload: event as any,
+        },
+      });
+    } catch (error) {
+      if (this.isUniqueConstraintError(error)) {
+        const existing = await this.prisma.stripeWebhookEvent.findUnique({
+          where: { eventId: event.id },
+          select: { organizationId: true },
+        });
+        this.logger.log(`Ignoring duplicate Stripe event ${event.id}`);
+        return { eventId: event.id, deduped: true, organizationId: existing?.organizationId ?? undefined };
+      }
+      throw error;
     }
 
     this.logger.log(`Received Stripe webhook: ${event.type}`);
@@ -378,16 +395,6 @@ export class StripeService {
       default:
         this.logger.log(`Unhandled webhook event type: ${event.type}`);
     }
-
-    await this.prisma.stripeWebhookEvent.create({
-      data: {
-        eventId: event.id,
-        eventType: event.type,
-        stripeAccountId,
-        organizationId,
-        payload: event as any,
-      },
-    });
 
     return { eventId: event.id, deduped: false, organizationId };
   }
@@ -637,5 +644,18 @@ export class StripeService {
         exp_year: 2030,
       },
     } as Stripe.PaymentMethod;
+  }
+
+  private isUniqueConstraintError(error: unknown): boolean {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      return error.code === 'P2002';
+    }
+
+    return Boolean(
+      error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        (error as { code?: unknown }).code === 'P2002',
+    );
   }
 }

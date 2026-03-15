@@ -5,6 +5,7 @@ import { EmailService } from '../email/email.service';
 import { AIPaymentService } from './ai-payment.service';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { TestDataFactory } from '../../test/factories';
+import { StripeService } from './stripe.service';
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
@@ -48,6 +49,12 @@ describe('PaymentsService', () => {
     determineReminderTiming: jest.fn(),
   };
 
+  const mockStripeService = {
+    createCheckoutSession: jest.fn(),
+    createSetupIntent: jest.fn(),
+    processPayment: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -55,6 +62,7 @@ describe('PaymentsService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: EmailService, useValue: mockEmailService },
         { provide: AIPaymentService, useValue: mockAIPaymentService },
+        { provide: StripeService, useValue: mockStripeService },
       ],
     }).compile();
 
