@@ -332,13 +332,11 @@ export class LeasingService {
     unitId?: string | number,
     interest: InterestLevel = InterestLevel.MEDIUM,
   ): Promise<PropertyInquiry> {
-    const normalizedPropertyId = String(propertyId);
-    const normalizedUnitId = unitId ? String(unitId) : undefined;
     return this.prisma.propertyInquiry.create({
       data: {
         leadId,
-        propertyId: normalizedPropertyId,
-        unitId: normalizedUnitId ?? null,
+        propertyId: propertyId as any,
+        unitId: (unitId ?? null) as any,
         interest,
       },
     });

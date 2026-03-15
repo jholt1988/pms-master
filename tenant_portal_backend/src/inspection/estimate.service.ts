@@ -206,7 +206,18 @@ export class EstimateService {
     userId: string | number,
     orgId?: string
   ): Promise<RepairEstimate> {
-    const inspection = await this.prisma.unitInspection.findFirst({
+    const inspectionLookup = orgId
+      ? this.prisma.unitInspection.findFirst?.bind(this.prisma.unitInspection)
+      : this.prisma.unitInspection.findUnique?.bind(this.prisma.unitInspection);
+
+    const fallbackLookup = this.prisma.unitInspection.findFirst?.bind(this.prisma.unitInspection)
+      ?? this.prisma.unitInspection.findUnique?.bind(this.prisma.unitInspection);
+
+    if (!inspectionLookup && !fallbackLookup) {
+      throw new Error('unitInspection lookup method is unavailable on Prisma client');
+    }
+
+    const inspection = await (inspectionLookup ?? fallbackLookup)({
       where: {
         id: inspectionId,
         ...(orgId ? { property: { organizationId: orgId } } : {}),

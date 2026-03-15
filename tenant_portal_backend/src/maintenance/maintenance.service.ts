@@ -724,7 +724,7 @@ export class MaintenanceService {
             operation: 'assignTechnician',
             success: true,
             responseTime,
-            requestId: requestNumericId,
+            requestId: /^\d+$/.test(requestNumericId) ? Number(requestNumericId) : requestNumericId,
             fallbackUsed: false,
           });
         } else {
@@ -1369,8 +1369,9 @@ export class MaintenanceService {
   }
 
   private toRequestId(id: string | number): string {
-    const parsed = String(id);
-    if (!isUUID(parsed)) {
+    const parsed = String(id).trim();
+    const isNumericLegacyId = /^\d+$/.test(parsed);
+    if (!isUUID(parsed) && !isNumericLegacyId) {
       throw ApiException.badRequest(
         ErrorCode.VALIDATION_INVALID_INPUT,
         `Invalid maintenance request id: ${id}`,

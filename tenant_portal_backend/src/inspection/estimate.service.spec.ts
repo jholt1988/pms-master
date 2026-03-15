@@ -223,13 +223,15 @@ describe('EstimateService', () => {
   describe('generateEstimateFromInspection', () => {
     it('should generate an estimate from inspection data successfully', async () => {
       // Setup mocks
-      mockPrismaService.unitInspection.findUniqueOrThrow.mockResolvedValue(mockInspection);
+      mockPrismaService.unitInspection.findUnique.mockResolvedValue(mockInspection);
       mockPrismaService.repairEstimate.create.mockResolvedValue(mockEstimate);
 
       const result = await service.generateEstimateFromInspection(1, '33333333-3333-4333-8333-333333333333');
 
-      expect(mockPrismaService.unitInspection.findUniqueOrThrow).toHaveBeenCalledWith({
-        where: { id: 1 },
+      expect(mockPrismaService.unitInspection.findUnique).toHaveBeenCalledWith({
+        where: {
+          id: 1,
+        },
         include: {
           property: true,
           unit: true,
@@ -266,7 +268,7 @@ describe('EstimateService', () => {
     });
 
     it('should throw NotFoundException when inspection not found', async () => {
-      mockPrismaService.unitInspection.findUniqueOrThrow.mockRejectedValueOnce(
+      mockPrismaService.unitInspection.findUnique.mockRejectedValueOnce(
         new Error('Record not found')
       );
 
@@ -283,7 +285,7 @@ describe('EstimateService', () => {
         }]
       };
 
-      mockPrismaService.unitInspection.findUniqueOrThrow.mockResolvedValue(inspectionWithNoItems);
+      mockPrismaService.unitInspection.findUnique.mockResolvedValue(inspectionWithNoItems);
 
       await expect(service.generateEstimateFromInspection(1, '33333333-3333-4333-8333-333333333333'))
         .rejects.toThrow(BadRequestException);
@@ -559,9 +561,9 @@ describe('EstimateService', () => {
         const location = await (service as any).getLocationFromProperty(property);
 
         expect(location).toEqual({
-          city: '123 Main St',
-          region: 'New York',
-          country: 'NY 10001'
+          city: 'New York',
+          region: 'NY',
+          country: 'USA'
         });
       });
 
@@ -642,7 +644,7 @@ describe('EstimateService', () => {
         generateEstimate: jest.fn().mockRejectedValueOnce(new Error('AI service unavailable'))
       });
 
-      mockPrismaService.unitInspection.findUniqueOrThrow.mockResolvedValue(mockInspection);
+      mockPrismaService.unitInspection.findUnique.mockResolvedValue(mockInspection);
 
       await expect(service.generateEstimateFromInspection(1, '33333333-3333-4333-8333-333333333333'))
         .rejects.toThrow('AI service unavailable');
@@ -668,7 +670,7 @@ describe('EstimateService', () => {
       mockPrismaService.user.findMany.mockResolvedValue([]);
       
       // 1. Generate estimate from inspection
-      mockPrismaService.unitInspection.findUniqueOrThrow.mockResolvedValue(mockInspection);
+      mockPrismaService.unitInspection.findUnique.mockResolvedValue(mockInspection);
       mockPrismaService.repairEstimate.create.mockResolvedValue(mockEstimate);
 
       const estimate = await service.generateEstimateFromInspection(1, '33333333-3333-4333-8333-333333333333');
