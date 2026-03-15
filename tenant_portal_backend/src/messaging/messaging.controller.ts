@@ -49,6 +49,18 @@ export class MessagingController {
     private readonly auditLogService: AuditLogService,
   ) {}
 
+  private attachmentAuditMetadata(attachmentUrls?: string[]) {
+    const normalized = Array.isArray(attachmentUrls)
+      ? attachmentUrls.map((url) => String(url).trim()).filter(Boolean)
+      : [];
+
+    return {
+      hasAttachments: normalized.length > 0,
+      attachmentCount: normalized.length,
+      attachmentUrls: normalized.slice(0, 3),
+    };
+  }
+
   /**
    * Get all conversations for the authenticated user
    * GET /api/messaging/conversations
@@ -153,8 +165,7 @@ export class MessagingController {
       result: 'SUCCESS',
       metadata: {
         conversationId: thread.id,
-        hasAttachments: Array.isArray(dto.attachmentUrls) && dto.attachmentUrls.length > 0,
-        attachmentCount: dto.attachmentUrls?.length ?? 0,
+        ...this.attachmentAuditMetadata(dto.attachmentUrls),
       },
     });
 
@@ -216,8 +227,7 @@ export class MessagingController {
       result: 'SUCCESS',
       metadata: {
         conversationId: message.conversationId,
-        hasAttachments: Array.isArray(dto.attachmentUrls) && dto.attachmentUrls.length > 0,
-        attachmentCount: dto.attachmentUrls?.length ?? 0,
+        ...this.attachmentAuditMetadata(dto.attachmentUrls),
       },
     });
     return message;
@@ -246,8 +256,7 @@ export class MessagingController {
       result: 'SUCCESS',
       metadata: {
         conversationId: message.conversationId,
-        hasAttachments: Array.isArray(dto.attachmentUrls) && dto.attachmentUrls.length > 0,
-        attachmentCount: dto.attachmentUrls?.length ?? 0,
+        ...this.attachmentAuditMetadata(dto.attachmentUrls),
       },
     });
     return message;

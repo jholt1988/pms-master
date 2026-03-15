@@ -378,7 +378,8 @@ export default function MaintenanceManagementPage(): React.ReactElement {
                   <Chip color={getStatusColor(request.status)} size="sm">{request.status}</Chip>
                 </div>
                 <p className="text-sm text-gray-300 mt-2">{request.unit?.property?.name || 'Unknown'} - {request.unit?.name || 'Unknown'}</p>
-                <div className="flex justify-between items-center mt-4">
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <Chip size="sm" variant="flat">{request.photos?.length ?? 0} photo{(request.photos?.length ?? 0) === 1 ? '' : 's'}</Chip>
                   <p className="text-xs text-gray-400">Created: {new Date(request.createdAt).toLocaleDateString()}</p>
                   <Chip color={getPriorityColor(request.priority)} size="sm">{request.priority}</Chip>
                 </div>
@@ -405,6 +406,27 @@ export default function MaintenanceManagementPage(): React.ReactElement {
             </CardHeader>
             <CardBody>
               <p>{selectedRequest.description}</p>
+              <div className="mt-4">
+                <p className="text-sm font-medium text-white">Photos ({selectedRequest.photos?.length ?? 0})</p>
+                {selectedRequest.photos?.length ? (
+                  <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {selectedRequest.photos.map((photo) => (
+                      <a
+                        key={photo.id}
+                        href={photo.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block rounded-lg border border-white/10 bg-white/5 p-2 hover:border-white/20"
+                      >
+                        <img src={photo.url} alt={photo.caption || 'Maintenance attachment'} className="h-40 w-full rounded object-cover" />
+                        {photo.caption ? <p className="mt-2 text-xs text-gray-300">{photo.caption}</p> : null}
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-1 text-xs text-gray-400">No photos attached.</p>
+                )}
+              </div>
               {isPmAdminView && (
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   {selectedRequest.status === 'PENDING' && (

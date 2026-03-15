@@ -28,6 +28,9 @@ describe('MaintenanceService - Metrics Integration', () => {
     maintenanceNote: {
       create: jest.fn(),
     },
+    maintenancePhoto: {
+      create: jest.fn(),
+    },
     user: {
       findFirst: jest.fn(),
     },
@@ -265,6 +268,48 @@ describe('MaintenanceService - Metrics Integration', () => {
           OrgRole.OWNER,
         ),
       ).rejects.toThrow('Owners are read-only for technician assignment');
+    });
+  });
+
+  describe('A-07 photo upload scoping', () => {
+    it('allows tenant photo uploads for their own request and persists caption/url', async () => {
+      const tenantId = 'tenant-1';
+      const assertLeaseSpy = jest
+        .spyOn(service as any, 'assertRequestInTenantLease')
+        .mockResolvedValue(undefined);
+
+      mockPrismaService.maintenancePhoto.create.mockResolvedValue({
+        id: 301,
+        url: 'https://cdn.example.com/maintenance/301.jpg',
+        caption: 'Leaking pipe by sink',
+        uploadedBy: { id: tenantId },
+      });
+
+      const result = await service.addPhotoScoped(
+        77,
+        { caption: 'Leaking pipe by sink' },
+        tenantId,
+        Role.TENANT,
+        undefined,
+        'https://cdn.example.com/maintenance/301.jpg',
+      );
+
+      expect(assertLeaseSpy).toHaveBeenCalledWith(77, tenantId);
+      expect(mockPrismaService.maintenancePhoto.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            caption: 'Leaking pipe by sink',
+            url: 'https://cdn.example.com/maintenance/301.jpg',
+          }),
+        }),
+      );
+      expect(result.id).toBe(301);
+    });
+
+    it('rejects non-tenant photo upload when org context is missing', async () => {
+      await expect(
+        service.addPhotoScoped(77, { url: 'https://cdn.example.com/a.jpg' }, 'pm-1', Role.PROPERTY_MANAGER),
+      ).rejects.toThrow('Organization context is required');
     });
   });
 
