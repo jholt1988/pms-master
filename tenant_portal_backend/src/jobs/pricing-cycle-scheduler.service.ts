@@ -34,6 +34,22 @@ export class PricingCycleSchedulerService {
       const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0));
       const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59));
 
+      const existingWindowCycle = await this.prisma.orgPlanCycle.findFirst({
+        where: {
+          organizationId: orgId,
+          startsAt: monthStart,
+          endsAt: monthEnd,
+        },
+        select: { id: true },
+      });
+      if (existingWindowCycle) {
+        await this.prisma.orgPlanCycle.update({
+          where: { id: existingWindowCycle.id },
+          data: { status: 'ACTIVE' },
+        });
+        return;
+      }
+
       const feeSchedule = await this.prisma.feeScheduleVersion.findFirst({
         where: {
           organizationId: orgId,
@@ -73,13 +89,23 @@ export class PricingCycleSchedulerService {
         return;
       }
 
+      const todayStartUtc = new Date(Date.UTC(
+        new Date().getUTCFullYear(),
+        new Date().getUTCMonth(),
+        new Date().getUTCDate(),
+        0,
+        0,
+        0,
+        0,
+      ));
+
       const existingToday = await this.prisma.pricingSnapshot.findFirst({
         where: {
           organizationId: orgId,
           planCycleId: activeCycle.id,
           snapshotType: 'NIGHTLY_TIER_PROJECTION',
           createdAt: {
-            gte: new Date(new Date().setUTCHours(0, 0, 0, 0)),
+            gte: todayStartUtc,
           },
         },
         select: { id: true },

@@ -414,29 +414,24 @@ export class StripeService {
           },
         });
 
-        const existingLedger = await this.prisma.paymentLedgerEntry.findUnique({
-          where: { sourceEventId },
-          select: { id: true },
-        });
+        const metadata = (paymentIntent.metadata ?? {}) as Record<string, string>;
+        const organizationId = metadata.organizationId || undefined;
+        const leaseId = metadata.leaseId || undefined;
+        const platformFeeMinor =
+          typeof paymentIntent.application_fee_amount === 'number'
+            ? paymentIntent.application_fee_amount
+            : Number(metadata.platform_fee_minor ?? 0) || 0;
+        const grossAmountMinor = Number(paymentIntent.amount ?? Math.round(Number(payment.amount) * 100));
+        const netAmountMinor = Math.max(0, grossAmountMinor - platformFeeMinor);
 
-        if (!existingLedger) {
-          const metadata = (paymentIntent.metadata ?? {}) as Record<string, string>;
-          const organizationId = metadata.organizationId || undefined;
-          const leaseId = metadata.leaseId || undefined;
-          const platformFeeMinor =
-            typeof paymentIntent.application_fee_amount === 'number'
-              ? paymentIntent.application_fee_amount
-              : Number(metadata.platform_fee_minor ?? 0) || 0;
-          const grossAmountMinor = Number(paymentIntent.amount ?? Math.round(Number(payment.amount) * 100));
-          const netAmountMinor = Math.max(0, grossAmountMinor - platformFeeMinor);
+        let tierSnapshot: Record<string, unknown> | undefined;
+        try {
+          tierSnapshot = metadata.tier_snapshot ? JSON.parse(metadata.tier_snapshot) : undefined;
+        } catch {
+          tierSnapshot = undefined;
+        }
 
-          let tierSnapshot: Record<string, unknown> | undefined;
-          try {
-            tierSnapshot = metadata.tier_snapshot ? JSON.parse(metadata.tier_snapshot) : undefined;
-          } catch {
-            tierSnapshot = undefined;
-          }
-
+        try {
           await this.prisma.paymentLedgerEntry.create({
             data: {
               paymentId: payment.id,
@@ -450,6 +445,10 @@ export class StripeService {
               tierSnapshot: tierSnapshot as any,
             },
           });
+        } catch (error) {
+          if (!this.isUniqueConstraintError(error)) {
+            throw error;
+          }
         }
 
         this.logger.log(`Updated payment ${payment.id} to COMPLETED`);

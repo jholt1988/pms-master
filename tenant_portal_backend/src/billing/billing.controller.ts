@@ -164,6 +164,13 @@ export class BillingController {
 
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles('PROPERTY_MANAGER')
+  @Get('fee-schedules/versions')
+  async listFeeScheduleVersions(@OrgId() orgId: string) {
+    return this.billingService.listFeeScheduleVersions(orgId);
+  }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles('PROPERTY_MANAGER')
   @Post('fee-schedules/versions')
   async createFeeScheduleVersion(
     @OrgId() orgId: string,
@@ -171,6 +178,13 @@ export class BillingController {
     @Body() body: { versionLabel: string; effectiveAt: string; feeConfig: Record<string, unknown> },
   ) {
     return this.billingService.createFeeScheduleVersion(orgId, req.user.userId, body);
+  }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles('PROPERTY_MANAGER')
+  @Get('plan-cycles')
+  async listPlanCycles(@OrgId() orgId: string) {
+    return this.billingService.listPlanCycles(orgId);
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)

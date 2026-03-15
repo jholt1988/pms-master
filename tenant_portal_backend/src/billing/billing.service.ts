@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PaymentsService } from '../payments/payments.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { BillingFrequency, Role, SecurityEventType } from '@prisma/client';
+import { BillingFrequency, Prisma, Role, SecurityEventType } from '@prisma/client';
 import { addDays, addMonths, isBefore, nextDay, set } from 'date-fns';
 import { isUUID } from 'class-validator';
 import { UpsertScheduleDto } from './dto/upsert-schedule.dto';
@@ -101,6 +101,7 @@ export class BillingService {
 
   async processAutopayCharges(): Promise<void> {
     const today = new Date();
+    const scheduledFor = this.startOfUtcDay(today);
     const autopayEnrollments = await this.prisma.autopayEnrollment.findMany({
       where: { active: true },
       include: {
@@ -130,35 +131,32 @@ export class BillingService {
         if (!lockAcquired) continue;
 
         for (const invoice of enrollment.lease.invoices) {
+          const attempt = await this.getOrCreateDailyAutopayAttempt(enrollment.id, invoice.id, scheduledFor);
+
+          if (attempt.status === 'SUCCEEDED' || attempt.status === 'ATTEMPTING' || attempt.status === 'NEEDS_AUTH') {
+            continue;
+          }
+
           if (enrollment.maxAmount && invoice.amount > enrollment.maxAmount) {
-            await this.prisma.paymentAttempt.create({
+            await this.prisma.paymentAttempt.update({
+              where: { id: attempt.id },
               data: {
-                autopayEnrollmentId: enrollment.id,
-                invoiceId: invoice.id,
                 status: 'FAILED',
                 failureReason: `Amount ${invoice.amount} exceeds cap ${enrollment.maxAmount}`,
-                scheduledFor: new Date(),
-                attemptedAt: new Date(),
+                attemptedAt: attempt.attemptedAt ?? new Date(),
                 completedAt: new Date(),
               },
             });
             continue;
           }
 
-          const attempt = await this.prisma.paymentAttempt.create({
-            data: {
-              autopayEnrollmentId: enrollment.id,
-              invoiceId: invoice.id,
-              status: 'SCHEDULED',
-              scheduledFor: new Date(),
-            },
-          });
-
           await this.prisma.paymentAttempt.update({
             where: { id: attempt.id },
             data: {
               status: 'ATTEMPTING',
               attemptedAt: new Date(),
+              completedAt: null,
+              failureReason: null,
             },
           });
 
@@ -386,6 +384,23 @@ export class BillingService {
         inputPayload: (input.inputPayload as any) ?? undefined,
         computedFees: input.computedFees as any,
       },
+    });
+  }
+
+  async listFeeScheduleVersions(orgId: string) {
+    return this.prisma.feeScheduleVersion.findMany({
+      where: { organizationId: orgId },
+      orderBy: [{ effectiveAt: 'desc' }, { createdAt: 'desc' }],
+      take: 100,
+    });
+  }
+
+  async listPlanCycles(orgId: string) {
+    return this.prisma.orgPlanCycle.findMany({
+      where: { organizationId: orgId },
+      include: { activeFeeSchedule: true },
+      orderBy: [{ startsAt: 'desc' }, { createdAt: 'desc' }],
+      take: 100,
     });
   }
 
@@ -719,9 +734,14 @@ export class BillingService {
       });
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
+      const needsAuth = /authentication|required|3d secure|requires_action/i.test(reason);
       return this.prisma.paymentAttempt.update({
         where: { id: attempt.id },
-        data: { status: 'FAILED', failureReason: reason, completedAt: new Date() },
+        data: {
+          status: needsAuth ? 'NEEDS_AUTH' : 'FAILED',
+          failureReason: reason,
+          completedAt: new Date(),
+        },
       });
     }
   }
@@ -766,6 +786,49 @@ export class BillingService {
     }
 
     return { leaseId: leaseIdNum, active: false };
+  }
+
+  private async getOrCreateDailyAutopayAttempt(autopayEnrollmentId: number, invoiceId: number, scheduledFor: Date) {
+    try {
+      return await this.prisma.paymentAttempt.create({
+        data: {
+          autopayEnrollmentId,
+          invoiceId,
+          status: 'SCHEDULED',
+          scheduledFor,
+        },
+      });
+    } catch (error) {
+      if (this.isUniqueConstraintError(error)) {
+        return this.prisma.paymentAttempt.findUniqueOrThrow({
+          where: {
+            autopayEnrollmentId_invoiceId_scheduledFor: {
+              autopayEnrollmentId,
+              invoiceId,
+              scheduledFor,
+            },
+          },
+        });
+      }
+      throw error;
+    }
+  }
+
+  private startOfUtcDay(value: Date): Date {
+    return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate(), 0, 0, 0, 0));
+  }
+
+  private isUniqueConstraintError(error: unknown): boolean {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      return error.code === 'P2002';
+    }
+
+    return Boolean(
+      error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        (error as { code?: unknown }).code === 'P2002',
+    );
   }
 
   private computeInitialRun(dto: UpsertScheduleDto, leaseStart: Date): Date {

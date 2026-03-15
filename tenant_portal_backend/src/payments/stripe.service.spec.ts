@@ -15,7 +15,6 @@ describe('StripeService webhook idempotency', () => {
       update: jest.fn(),
     },
     paymentLedgerEntry: {
-      findUnique: jest.fn(),
       create: jest.fn(),
     },
     user: {
@@ -52,5 +51,25 @@ describe('StripeService webhook idempotency', () => {
     expect(basePrisma.stripeWebhookEvent.create).toHaveBeenCalledTimes(1);
     expect(basePrisma.payment.update).not.toHaveBeenCalled();
     expect(basePrisma.paymentLedgerEntry.create).not.toHaveBeenCalled();
+  });
+
+  it('ignores duplicate ledger finalization writes for same event id', async () => {
+    basePrisma.payment.findFirst.mockResolvedValueOnce({ id: 33, amount: 12.5 });
+    basePrisma.payment.update.mockResolvedValueOnce({ id: 33, status: 'COMPLETED' });
+    basePrisma.paymentLedgerEntry.create.mockRejectedValueOnce({ code: 'P2002' });
+
+    const svc = new StripeService(basePrisma);
+    await (svc as any).handlePaymentSuccess(
+      {
+        id: 'pi_1',
+        currency: 'usd',
+        amount: 1250,
+        metadata: {},
+      },
+      'evt_ledger_dup',
+    );
+
+    expect(basePrisma.paymentLedgerEntry.create).toHaveBeenCalledTimes(1);
+    expect(basePrisma.payment.update).toHaveBeenCalledTimes(1);
   });
 });
