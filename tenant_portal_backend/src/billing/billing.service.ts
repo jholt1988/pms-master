@@ -362,12 +362,33 @@ export class BillingService {
   }
 
   async createPlanCycle(orgId: string, input: { name: string; startsAt: string; endsAt: string; status?: 'DRAFT' | 'ACTIVE' | 'CLOSED'; activeFeeScheduleId?: string }) {
+    const startsAt = new Date(input.startsAt);
+    const endsAt = new Date(input.endsAt);
+
+    if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
+      throw new BadRequestException('Invalid cycle date range');
+    }
+
+    if (endsAt <= startsAt) {
+      throw new BadRequestException('Cycle end date must be after start date');
+    }
+
+    if (input.activeFeeScheduleId) {
+      const feeSchedule = await this.prisma.feeScheduleVersion.findFirst({
+        where: { id: input.activeFeeScheduleId, organizationId: orgId },
+        select: { id: true },
+      });
+      if (!feeSchedule) {
+        throw new BadRequestException('Active fee schedule does not belong to organization');
+      }
+    }
+
     return this.prisma.orgPlanCycle.create({
       data: {
         organizationId: orgId,
         name: input.name,
-        startsAt: new Date(input.startsAt),
-        endsAt: new Date(input.endsAt),
+        startsAt,
+        endsAt,
         status: input.status ?? 'DRAFT',
         activeFeeScheduleId: input.activeFeeScheduleId,
       },
@@ -375,12 +396,32 @@ export class BillingService {
   }
 
   async createPricingSnapshot(orgId: string, input: { planCycleId: string; feeScheduleVersionId: string; snapshotType?: string; inputPayload?: Record<string, unknown>; computedFees: Record<string, unknown> }) {
+    const [planCycle, feeScheduleVersion] = await Promise.all([
+      this.prisma.orgPlanCycle.findFirst({
+        where: { id: input.planCycleId, organizationId: orgId },
+        select: { id: true },
+      }),
+      this.prisma.feeScheduleVersion.findFirst({
+        where: { id: input.feeScheduleVersionId, organizationId: orgId },
+        select: { id: true },
+      }),
+    ]);
+
+    if (!planCycle) {
+      throw new NotFoundException('Plan cycle not found for organization');
+    }
+    if (!feeScheduleVersion) {
+      throw new NotFoundException('Fee schedule version not found for organization');
+    }
+
+    const snapshotType = input.snapshotType?.trim() || 'BILLING_PREVIEW';
+
     return this.prisma.pricingSnapshot.create({
       data: {
         organizationId: orgId,
         planCycleId: input.planCycleId,
         feeScheduleVersionId: input.feeScheduleVersionId,
-        snapshotType: input.snapshotType ?? 'BILLING_PREVIEW',
+        snapshotType,
         inputPayload: (input.inputPayload as any) ?? undefined,
         computedFees: input.computedFees as any,
       },
