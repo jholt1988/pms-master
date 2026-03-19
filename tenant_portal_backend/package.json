@@ -118,10 +118,5 @@
     "ts-jest": "^29.4.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.0.4"
-  },
-  "config": {
-    "prisma": {
-      "config": "prisma.config.ts"
-    }
   }
 }

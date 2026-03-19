@@ -15,7 +15,6 @@ FROM deps AS build
 COPY . .
 WORKDIR /app/tenant_portal_backend
 # Generate Prisma client from the backend schema before TypeScript compile.
-RUN pnpm exec prisma generate --schema=prisma/schema.prisma
 RUN pnpm build
 
 FROM node:22-alpine AS runner
