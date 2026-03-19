@@ -103,8 +103,43 @@ async function main() {
     create: { userId: tenant.id, organizationId: org.id, role: OrgRole.MEMBER },
   });
 
-  // Remove any existing lease for this tenant to satisfy unique tenantId constraint
-  await prisma.lease.deleteMany({ where: { tenantId: tenant.id } });
+ // Find existing leases for this tenant                                                                                                       
+   const existingLeases = await prisma.lease.findMany({                                                                                          
+   where: { tenantId: tenant.id },                                                                                                               
+   select: { id: true },                                                                                                                         
+   });                                                                                                                                           
+                                                                                                                                                 
+   if (existingLeases.length > 0) {                                                                                                              
+   const leaseIds = existingLeases.map((l) => l.id);                                                                                             
+                                                                                                                                                 
+   // Remove dependents that reference invoices/leases                                                                                           
+   await prisma.paymentAttempt.deleteMany ({                                                                                                     
+   where: { invoice: { leaseId: { in: leaseIds } } },                                                                                            
+   });                                                                                                                                           
+                                                                                                                                                 
+   await prisma.payment.deleteMany({                                                                                                             
+   where: { invoice: { leaseId: { in: leaseIds } } },                                                                                            
+   });                                                                                                                                           
+                                                                                                                                                 
+   await prisma.lateFee.deleteMany({                                                                                                             
+   where: { invoice: { leaseId: { in: leaseIds } } },                                                                                            
+   });                                                                                                                                           
+                                                                                                                                                 
+   await prisma.invoice.deleteMany({                                                                                                             
+   where: { leaseId: { in: leaseIds } },                                                                                                         
+   });                                                                                                                                           
+                                                                                                                                                 
+   // Optional but safe if present in your flow:                                                                                                 
+   await prisma.autopayEnrollment.deleteMany({                                                                                                  
+   where: { leaseId: { in: leaseIds } },                                                                                                         
+   });                                                                                                                                           
+                                                                                                                                                 
+   // Now lease delete is safe                                                                                                                   
+   await prisma.lease.deleteMany({                                                                                                               
+   where: { id: { in: leaseIds } },                                                                                                              
+   });                                                                                                                                           
+   }                                                                                                                                             
+                            
 
   const lease = await prisma.lease.upsert({
     where: { id: LEASE_ID },
