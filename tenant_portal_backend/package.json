@@ -55,8 +55,8 @@
     "@nestjs/swagger": "^11.2.1",
     "@nestjs/terminus": "^11.0.0",
     "@nestjs/throttler": "^6.4.0",
+    "@prisma/client": "^7.5.0",
     "@propertyos/mil-client": "file:../packages/mil-client",
-    "@prisma/client": "^6.19.0",
     "@sentry/nestjs": "^10.25.0",
     "@sentry/node": "^10.25.0",
     "@sentry/opentelemetry": "^10.32.1",
@@ -120,7 +120,7 @@
     "typescript": "^5.0.4"
   },
   "config": {
-    "prisma":{
+    "prisma": {
       "config": "prisma.config.ts"
     }
   }

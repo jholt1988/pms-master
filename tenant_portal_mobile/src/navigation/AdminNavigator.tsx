@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { AdminDashboardScreen } from '../screens/admin/AdminDashboardScreen';
+import  AdminDashboardScreen  from '../screens/home/HomeScreen';
 import { PropertiesStackNavigator } from './PropertiesStackNavigator';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import * as theme from '../theme';

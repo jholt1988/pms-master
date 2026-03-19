@@ -7,10 +7,7 @@ import {
   DEMO_ACCOUNT_STORAGE_KEY,
   DEFAULT_TENANT_ACCOUNT,
   DEMO_TENANT_ACCOUNTS,
-<<<<<<< feat/mobile-admin-ui
   DEMO_ADMIN_ACCOUNTS,
-=======
->>>>>>> main
   DemoAccount,
 } from '../../config/demoAccounts';
 
@@ -21,10 +18,7 @@ interface DemoAccountProviderProps {
 export const DemoAccountProvider: React.FC<DemoAccountProviderProps> = ({ children }) => {
   const dispatch = useAppDispatch();
   const auth = useAppSelector((state) => state.auth);
-<<<<<<< feat/mobile-admin-ui
   const isUserAdmin = useAppSelector((state) => state.auth.user?.role === 'ADMIN' || state.auth.user?.role === 'PROPERTY_MANAGER');
-=======
->>>>>>> main
   const [currentAccount, setCurrentAccount] = useState<DemoAccount>(DEFAULT_TENANT_ACCOUNT);
   const [isReady, setIsReady] = useState(false);
 
@@ -77,11 +71,7 @@ export const DemoAccountProvider: React.FC<DemoAccountProviderProps> = ({ childr
     <>
       {children}
       <DemoAccountSwitcher
-<<<<<<< feat/mobile-admin-ui
-        accounts={accounts}
-=======
         accounts={DEMO_TENANT_ACCOUNTS}
->>>>>>> main
         currentAccount={currentAccount}
         onSwitch={handleSwitchAccount}
         isSwitching={auth.isLoading}

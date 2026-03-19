@@ -34,11 +34,5 @@ export function RootNavigator() {
         <AuthNavigator />
       </NavigationContainer>
     );
-  }
-
-  return (
-    <NavigationContainer>
-      <MainNavigator />
-    </NavigationContainer>
-  );
+  
 }
