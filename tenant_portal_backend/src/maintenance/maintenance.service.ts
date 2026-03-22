@@ -724,7 +724,7 @@ export class MaintenanceService {
             operation: 'assignTechnician',
             success: true,
             responseTime,
-            requestId: /^\d+$/.test(requestNumericId) ? Number(requestNumericId) : requestNumericId,
+            requestId: String(requestNumericId),
             fallbackUsed: false,
           });
         } else {
