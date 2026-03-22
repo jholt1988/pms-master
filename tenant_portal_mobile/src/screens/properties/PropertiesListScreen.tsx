@@ -5,7 +5,7 @@ import { propertiesApi, PropertySummary } from '../../api/properties';
 import { Loading } from '../../components/common';
 import * as theme from '../../theme';
 
-export function PropertiesListScreen({ navigation }: any) {
+export function PropertiesListScreen() {
   const [properties, setProperties] = useState<PropertySummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);

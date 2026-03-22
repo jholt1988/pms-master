@@ -7,7 +7,7 @@ interface ApiErrorResponse {
   error?: string;
 }
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://pms-backend:3001/api';
 const AUTH_TOKEN_KEY = 'auth_token';
 const ENABLE_DEBUG = process.env.EXPO_PUBLIC_ENABLE_DEBUG_LOGGING === 'true';
 

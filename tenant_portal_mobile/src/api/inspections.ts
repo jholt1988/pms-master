@@ -12,16 +12,17 @@ export const inspectionsApi = {
     return response.inspections ?? [];
   },
   get: async (id: number): Promise<InspectionDetail> => apiService.get<InspectionDetail>(`/inspections/${id}`),
-  updateChecklistItem: async (roomId: number, items: Array<{ itemId: number } & Partial<InspectionChecklistItem>>) => {
+  updateChecklistItem: async (roomId: number, items: ({ itemId: number } & Partial<InspectionChecklistItem>)[]) => {
     return apiService.patch<InspectionChecklistItem[]>(`/inspections/rooms/${roomId}/items`, { items });
   },
   uploadChecklistPhoto: async (itemId: number, file: { uri: string; name?: string; type?: string }, caption?: string) => {
     const formData = new FormData();
-    formData.append('file', {
+    const filePart = {
       uri: file.uri,
       name: file.name ?? 'photo.jpg',
       type: file.type ?? 'image/jpeg',
-    } as any);
+    } as unknown as Blob;
+    formData.append('file', filePart);
     if (caption) {
       formData.append('caption', caption);
     }

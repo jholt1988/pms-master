@@ -7,11 +7,12 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { RouteProp } from '@react-navigation/native';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { fetchInspectionDetail, setLocalChecklistItem, updateChecklistItem } from '../../store/checklistSlice';
-import { InspectionDetail, InspectionChecklistItem } from '../../types/inspection';
+import { addChecklistPhoto, fetchInspectionDetail, setLocalChecklistItem, updateChecklistItem } from '../../store/checklistSlice';
+import { InspectionChecklistItem } from '../../types/inspection';
 import { PhotoPicker } from '../../components/inspections/PhotoPicker';
 import { format } from 'date-fns';
 import * as theme from '../../theme';
@@ -35,7 +36,7 @@ export function InspectionDetailScreen({ route }: Props) {
       }
     };
     load();
-  }, [inspectionId]);
+  }, [dispatch, inspectionId]);
 
   if (isLoading || !inspection) {
     return (

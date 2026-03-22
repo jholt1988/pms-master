@@ -3,7 +3,15 @@ import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as theme from '../../theme';
 
-export function PropertyDetailScreen({ route }: any) {
+interface PropertyDetailRouteProps {
+  route: {
+    params: {
+      propertyId: string;
+    };
+  };
+}
+
+export function PropertyDetailScreen({ route }: PropertyDetailRouteProps) {
   const { propertyId } = route.params;
 
   return (

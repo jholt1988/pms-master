@@ -25,6 +25,17 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "@react-native-community/datetimepicker",
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.jholt1988.propertypulse",
+          "enableGooglePay": true
+        }
+      ],
+      "expo-secure-store"
+    ]
   }
 }
