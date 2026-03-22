@@ -26,11 +26,30 @@ import {
   Search,
   BarChart3,
   FileCheck,
-  Settings
+  Settings,
+  MapPin
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { PageHeader } from './components/ui/PageHeader';
 import { apiFetch } from './services/apiClient';
+
+interface PropertyLocation {
+  id: string;
+  name: string;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  latitude: number;
+  longitude: number;
+  unitCount: number;
+}
+
+interface PropertyLocationsResponse {
+  totalProperties: number;
+  mappedProperties: number;
+  missingCoordinates: number;
+  properties: PropertyLocation[];
+}
 
 interface DashboardMetrics {
   occupancy: {
@@ -81,9 +100,26 @@ const formatDate = (dateString: string) => {
   });
 };
 
+const buildStaticMapUrl = (locations: PropertyLocation[]) => {
+  if (!locations.length) {
+    return null;
+  }
+
+  const markerParams = locations
+    .slice(0, 50)
+    .map((location) => `markers=${location.latitude},${location.longitude},lightblue1`)
+    .join('&');
+
+  const avgLat = locations.reduce((sum, location) => sum + location.latitude, 0) / locations.length;
+  const avgLng = locations.reduce((sum, location) => sum + location.longitude, 0) / locations.length;
+
+  return `https://staticmap.openstreetmap.de/staticmap.php?center=${avgLat},${avgLng}&zoom=11&size=1200x360&maptype=mapnik&${markerParams}`;
+};
+
 export const PropertyManagerDashboard: React.FC = () => {
   const { token } = useAuth();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
+  const [propertyLocations, setPropertyLocations] = useState<PropertyLocationsResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -93,8 +129,12 @@ export const PropertyManagerDashboard: React.FC = () => {
         return;
       }
       try {
-        const data = await apiFetch('/dashboard/metrics', { token });
-        setMetrics(data);
+        const [metricsData, locationsData] = await Promise.all([
+          apiFetch('/dashboard/metrics', { token }),
+          apiFetch('/dashboard/property-locations', { token })
+        ]);
+        setMetrics(metricsData);
+        setPropertyLocations(locationsData);
       } catch (error) {
         console.error('Error fetching dashboard metrics:', error);
       } finally {
@@ -116,6 +156,7 @@ export const PropertyManagerDashboard: React.FC = () => {
   const collectionRate = metrics.financials?.monthlyRevenue
     ? Math.round((metrics.financials?.collectedThisMonth / metrics.financials?.monthlyRevenue) * 100)
     : 0;
+  const mapUrl = buildStaticMapUrl(propertyLocations?.properties ?? []);
 
   return (
     <div className="space-y-6 p-6">
@@ -123,6 +164,49 @@ export const PropertyManagerDashboard: React.FC = () => {
         title="Dashboard"
         subtitle="Property management overview and key metrics"
       />
+
+      <Card>
+        <CardHeader className="flex items-center justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-wider text-foreground-500">Portfolio Map</p>
+            <p className="text-lg font-semibold text-foreground">Organization properties</p>
+          </div>
+          <Chip variant="flat" color="primary" startContent={<MapPin className="w-4 h-4" />}>
+            {(propertyLocations?.mappedProperties ?? 0)} mapped
+          </Chip>
+        </CardHeader>
+        <CardBody className="space-y-3">
+          {mapUrl ? (
+            <>
+              <a
+                href={`https://www.openstreetmap.org/?mlat=${propertyLocations?.properties?.[0]?.latitude}&mlon=${propertyLocations?.properties?.[0]?.longitude}#map=11/${propertyLocations?.properties?.[0]?.latitude}/${propertyLocations?.properties?.[0]?.longitude}`}
+                target="_blank"
+                rel="noreferrer"
+                className="block"
+              >
+                <img
+                  src={mapUrl}
+                  alt="Map of organization properties"
+                  className="w-full h-56 object-cover rounded-large border border-divider"
+                />
+              </a>
+              <div className="flex items-center gap-2 text-xs text-foreground-500">
+                <span>{propertyLocations?.totalProperties ?? 0} total properties</span>
+                <span>•</span>
+                <span>{propertyLocations?.mappedProperties ?? 0} with coordinates</span>
+                {(propertyLocations?.missingCoordinates ?? 0) > 0 && (
+                  <>
+                    <span>•</span>
+                    <span>{propertyLocations?.missingCoordinates ?? 0} missing coordinates</span>
+                  </>
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-foreground-500">No property coordinates found yet. Add latitude/longitude to properties to render the map.</p>
+          )}
+        </CardBody>
+      </Card>
 
       {/* Key Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

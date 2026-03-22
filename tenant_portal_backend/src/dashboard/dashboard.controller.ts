@@ -40,6 +40,13 @@ export class DashboardController {
     };
   }
 
+  @Get('property-locations')
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles('PROPERTY_MANAGER', 'OWNER')
+  getPropertyLocations(@OrgId() orgId?: string) {
+    return this.dashboardService.getPropertyLocations(orgId);
+  }
+
   @Get('/tenant')
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles('TENANT')

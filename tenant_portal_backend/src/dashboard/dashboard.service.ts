@@ -6,6 +6,47 @@ import { LeadApplicationStatus, MaintenancePriority, Status } from '@prisma/clie
 export class DashboardService {
   constructor(private prisma: PrismaService) {}
 
+  async getPropertyLocations(orgId?: string) {
+    const properties = await this.prisma.property.findMany({
+      where: orgId ? { organizationId: orgId } : undefined,
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        city: true,
+        state: true,
+        latitude: true,
+        longitude: true,
+        _count: {
+          select: {
+            units: true,
+          },
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    const mapped = properties
+      .filter((property) => property.latitude !== null && property.longitude !== null)
+      .map((property) => ({
+        id: property.id,
+        name: property.name,
+        address: property.address,
+        city: property.city,
+        state: property.state,
+        latitude: property.latitude,
+        longitude: property.longitude,
+        unitCount: property._count.units,
+      }));
+
+    return {
+      totalProperties: properties.length,
+      mappedProperties: mapped.length,
+      missingCoordinates: properties.length - mapped.length,
+      properties: mapped,
+    };
+  }
+
   async getPropertyManagerDashboardMetrics(orgId?: string) {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
