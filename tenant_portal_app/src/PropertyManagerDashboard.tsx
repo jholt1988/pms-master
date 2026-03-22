@@ -45,11 +45,21 @@ interface PropertyLocation {
   unitCount: number;
 }
 
+interface MissingPropertyLocation {
+  id: string;
+  name: string;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  unitCount: number;
+}
+
 interface PropertyLocationsResponse {
   totalProperties: number;
   mappedProperties: number;
   missingCoordinates: number;
   properties: PropertyLocation[];
+  missingProperties: MissingPropertyLocation[];
 }
 
 interface DashboardMetrics {
@@ -101,7 +111,7 @@ const formatDate = (dateString: string) => {
   });
 };
 
-const buildOsmEmbedUrl = (locations: PropertyLocation[]) => {
+const buildOsmEmbedUrl = (locations: PropertyLocation[], focused?: PropertyLocation | null) => {
   if (!locations.length) {
     return null;
   }
@@ -122,13 +132,15 @@ const buildOsmEmbedUrl = (locations: PropertyLocation[]) => {
   const right = maxLng + lngPadding;
   const top = maxLat + latPadding;
 
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${left}%2C${bottom}%2C${right}%2C${top}&layer=mapnik`;
+  const markerParam = focused ? `&marker=${focused.latitude}%2C${focused.longitude}` : '';
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${left}%2C${bottom}%2C${right}%2C${top}&layer=mapnik${markerParam}`;
 };
 
 export const PropertyManagerDashboard: React.FC = () => {
   const { token } = useAuth();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [propertyLocations, setPropertyLocations] = useState<PropertyLocationsResponse | null>(null);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -166,7 +178,12 @@ export const PropertyManagerDashboard: React.FC = () => {
     ? Math.round((metrics.financials?.collectedThisMonth / metrics.financials?.monthlyRevenue) * 100)
     : 0;
   const mappedLocations = propertyLocations?.properties ?? [];
-  const mapEmbedUrl = buildOsmEmbedUrl(mappedLocations);
+  const missingLocations = propertyLocations?.missingProperties ?? [];
+  const selectedProperty = mappedLocations.find((property) => property.id === selectedPropertyId) ?? mappedLocations[0] ?? null;
+  const mapEmbedUrl = buildOsmEmbedUrl(mappedLocations, selectedProperty);
+  const mapOpenUrl = selectedProperty
+    ? `https://www.openstreetmap.org/?mlat=${selectedProperty.latitude}&mlon=${selectedProperty.longitude}#map=14/${selectedProperty.latitude}/${selectedProperty.longitude}`
+    : 'https://www.openstreetmap.org';
 
   return (
     <div className="space-y-6 p-6">
@@ -208,13 +225,58 @@ export const PropertyManagerDashboard: React.FC = () => {
                 )}
                 <span>•</span>
                 <a
-                  href="https://www.openstreetmap.org"
+                  href={mapOpenUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="underline"
                 >
                   Open full map
                 </a>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                <div className="rounded-large border border-divider p-3">
+                  <p className="text-xs uppercase tracking-wider text-foreground-500 mb-2">Mapped properties</p>
+                  <div className="max-h-40 overflow-auto space-y-2">
+                    {mappedLocations.map((location) => {
+                      const isSelected = selectedProperty?.id === location.id;
+                      return (
+                        <button
+                          key={location.id}
+                          type="button"
+                          onClick={() => setSelectedPropertyId(location.id)}
+                          className={`w-full text-left rounded-medium px-3 py-2 border transition ${isSelected ? 'border-primary bg-primary-50' : 'border-divider hover:bg-content2'}`}
+                        >
+                          <p className="text-sm font-semibold text-foreground">{location.name}</p>
+                          <p className="text-xs text-foreground-500">
+                            {[location.address, location.city, location.state].filter(Boolean).join(', ')}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="rounded-large border border-divider p-3">
+                  <p className="text-xs uppercase tracking-wider text-foreground-500 mb-2">Missing coordinates</p>
+                  {missingLocations.length > 0 ? (
+                    <div className="max-h-40 overflow-auto space-y-2">
+                      {missingLocations.slice(0, 10).map((location) => (
+                        <div key={location.id} className="rounded-medium border border-warning-200 bg-warning-50 px-3 py-2">
+                          <p className="text-sm font-semibold text-foreground">{location.name}</p>
+                          <p className="text-xs text-foreground-600">
+                            {[location.address, location.city, location.state].filter(Boolean).join(', ') || 'Address not set'}
+                          </p>
+                        </div>
+                      ))}
+                      {missingLocations.length > 10 && (
+                        <p className="text-xs text-foreground-500">+ {missingLocations.length - 10} more missing coordinates</p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-success-600">All properties have coordinates.</p>
+                  )}
+                </div>
               </div>
             </>
           ) : (

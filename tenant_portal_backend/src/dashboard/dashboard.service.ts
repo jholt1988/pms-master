@@ -39,11 +39,23 @@ export class DashboardService {
         unitCount: property._count.units,
       }));
 
+    const missing = properties
+      .filter((property) => property.latitude === null || property.longitude === null)
+      .map((property) => ({
+        id: property.id,
+        name: property.name,
+        address: property.address,
+        city: property.city,
+        state: property.state,
+        unitCount: property._count.units,
+      }));
+
     return {
       totalProperties: properties.length,
       mappedProperties: mapped.length,
       missingCoordinates: properties.length - mapped.length,
       properties: mapped,
+      missingProperties: missing,
     };
   }
 
