@@ -1,4 +1,14 @@
 # Marketing Claims Verification (Goal D)
+
+
+> **Branding Standard — Keyring OS**
+>
+> **Product Name:** Keyring OS  
+> **Tagline:** *The Operating System for Real Estate*  
+> **Positioning:** Control plane for real-estate intelligence (analytical, operational, enterprise-ready).  
+> **Voice:** Technical, calm, confident, outcomes-focused. Avoid hype/cyberpunk language.  
+> **Visual cues:** Dark layered UI, module signal colors, restrained motion, data-first layouts.
+
 Date: 2026-03-15
 Reviewer: marketing-validation-agent
 Scope: Validate major claims in `clawdbot_remote/pms-plans/marketing/PROPERTY_MANAGEMENT_SUITE_MARKETING.md` against currently available product/release evidence.

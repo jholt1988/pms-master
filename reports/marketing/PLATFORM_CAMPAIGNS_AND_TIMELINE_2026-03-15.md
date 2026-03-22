@@ -1,4 +1,14 @@
 # PMS Platform Campaigns & 12-Week Timeline
+
+
+> **Branding Standard — Keyring OS**
+>
+> **Product Name:** Keyring OS  
+> **Tagline:** *The Operating System for Real Estate*  
+> **Positioning:** Control plane for real-estate intelligence (analytical, operational, enterprise-ready).  
+> **Voice:** Technical, calm, confident, outcomes-focused. Avoid hype/cyberpunk language.  
+> **Visual cues:** Dark layered UI, module signal colors, restrained motion, data-first layouts.
+
 **Date:** 2026-03-15  
 **Release context:** Current status is **NO-GO** (`reports/RELEASE_GO_NO_GO_DECISION_2026-03-15.md`)  
 **Purpose:** Execution-ready marketing plan by platform, sequenced around release remediation gates.

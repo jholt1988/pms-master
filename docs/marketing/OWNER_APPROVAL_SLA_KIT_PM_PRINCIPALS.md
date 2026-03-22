@@ -1,4 +1,14 @@
 # Property Management Suite (PMS) Owner Approval SLA Kit
+
+
+> **Branding Standard — Keyring OS**
+>
+> **Product Name:** Keyring OS  
+> **Tagline:** *The Operating System for Real Estate*  
+> **Positioning:** Control plane for real-estate intelligence (analytical, operational, enterprise-ready).  
+> **Voice:** Technical, calm, confident, outcomes-focused. Avoid hype/cyberpunk language.  
+> **Visual cues:** Dark layered UI, module signal colors, restrained motion, data-first layouts.
+
 ## For Property Management Principals
 
 **Purpose:** Reduce owner-approval delays (and resulting maintenance disruption) from days to hours using clear approval rules, decision-ready packets, and a proof-first closeout standard in **Property Management Suite (PMS)**.
