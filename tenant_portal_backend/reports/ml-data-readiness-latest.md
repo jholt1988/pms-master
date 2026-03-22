@@ -1,67 +1,67 @@
 # Tenant Portal Backend ML Data-Readiness Audit
 
-Generated at: **2026-03-12T12:00:34.206Z**
-Overall readiness score: **21.1%**
+Generated at: **2026-03-22T14:31:04.778Z**
+Overall readiness score: **100.0%**
 
 ## Inspection MIL coverage
 
-Population size: **9**
-Track score: **12.5%**
+Population size: **1**
+Track score: **100.0%**
 
 | Metric | Coverage | Raw |
 |---|---:|---:|
-| Completed inspections | 0.0% | 0/9 |
-| Completed inspections linked to lease | 0.0% | 0/0 |
-| Completed inspections with completedDate | 0.0% | 0/0 |
-| Completed inspections with >=1 room | 0.0% | 0/0 |
-| Completed inspections with >=1 checklist item | 0.0% | 0/0 |
-| Checklist items with condition label | 100.0% | 54/54 |
-| Checklist items with photo evidence | 0.0% | 0/54 |
-| Completed inspections with signatures | 0.0% | 0/0 |
+| Completed inspections | 100.0% | 1/1 |
+| Completed inspections linked to lease | 100.0% | 1/1 |
+| Completed inspections with completedDate | 100.0% | 1/1 |
+| Completed inspections with >=1 room | 100.0% | 1/1 |
+| Completed inspections with >=1 checklist item | 100.0% | 1/1 |
+| Checklist items with condition label | 100.0% | 6/6 |
+| Checklist items with photo evidence | 100.0% | 6/6 |
+| Completed inspections with signatures | 100.0% | 1/1 |
 
 Sample-size hints:
-- Completed inspections: 0 (target 100+ for stable baseline models)
-- Checklist items: 54 (target 2,000+ for condition calibration)
+- Completed inspections: 1 (target 100+ for stable baseline models)
+- Checklist items: 6 (target 2,000+ for condition calibration)
 
 ## Maintenance survival coverage
 
-Population size: **62**
-Track score: **38.3%**
+Population size: **60**
+Track score: **100.0%**
 
 | Metric | Coverage | Raw |
 |---|---:|---:|
-| Requests with priority | 100.0% | 62/62 |
-| Requests with createdAt timestamp | 100.0% | 62/62 |
-| Closed requests with completedAt timestamp | 100.0% | 12/12 |
-| Requests linked to asset | 0.0% | 0/62 |
-| Requests with SLA policy | 3.2% | 2/62 |
-| Requests with state-change history | 3.2% | 2/62 |
-| Requests with photo evidence | 0.0% | 0/62 |
-| Assets with installDate | 0.0% | 0/4 |
+| Requests with priority | 100.0% | 60/60 |
+| Requests with createdAt timestamp | 100.0% | 60/60 |
+| Closed requests with completedAt timestamp | 100.0% | 40/40 |
+| Requests linked to asset | 100.0% | 60/60 |
+| Requests with SLA policy | 100.0% | 60/60 |
+| Requests with state-change history | 100.0% | 60/60 |
+| Requests with photo evidence | 100.0% | 60/60 |
+| Assets with installDate | 100.0% | 1/1 |
 
 Sample-size hints:
-- Maintenance requests: 62 (target 500+ for initial survival models)
-- Assets: 4 (target 200+ with installDate for asset-age features)
+- Maintenance requests: 60 (target 500+ for initial survival models)
+- Assets: 1 (target 200+ with installDate for asset-age features)
 
 ## Payment NBA coverage
 
-Population size: **0**
-Track score: **12.5%**
+Population size: **24**
+Track score: **100.0%**
 
 | Metric | Coverage | Raw |
 |---|---:|---:|
-| Invoices with dueDate | 0.0% | 0/0 |
-| Invoices linked to lease | 0.0% | 0/0 |
-| Invoices with status | 0.0% | 0/0 |
-| Payments with status | 100.0% | 72/72 |
-| Payments linked to invoice | 0.0% | 0/72 |
-| Payments with payment method | 0.0% | 0/72 |
-| Invoices with payment attempt records | 0.0% | 0/0 |
-| Attempts with terminal status timestamp | 0.0% | 0/0 |
+| Invoices with dueDate | 100.0% | 24/24 |
+| Invoices linked to lease | 100.0% | 24/24 |
+| Invoices with status | 100.0% | 24/24 |
+| Payments with status | 100.0% | 18/18 |
+| Payments linked to invoice | 100.0% | 18/18 |
+| Payments with payment method | 100.0% | 18/18 |
+| Invoices with payment attempt records | 100.0% | 24/24 |
+| Attempts with terminal status timestamp | 100.0% | 24/24 |
 
 Sample-size hints:
-- Invoices: 0, Payments: 72, Attempts: 0
-- Currently overdue invoices: 0 (ensure enough positives for action-policy learning)
+- Invoices: 24, Payments: 18, Attempts: 24
+- Currently overdue invoices: 6 (ensure enough positives for action-policy learning)
 
 ## Notes
 - This script is read-only and does not mutate database state.
