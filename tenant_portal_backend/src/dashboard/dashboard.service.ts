@@ -61,10 +61,13 @@ export class DashboardService {
     };
   }
 
-  async geocodeMissingPropertyLocations(orgId?: string) {
+  async geocodeMissingPropertyLocations(orgId?: string, propertyIds?: string[]) {
+    const scopedPropertyIds = propertyIds?.filter(Boolean) ?? [];
+
     const candidates = await this.prisma.property.findMany({
       where: {
         ...(orgId ? { organizationId: orgId } : {}),
+        ...(scopedPropertyIds.length ? { id: { in: scopedPropertyIds } } : {}),
         OR: [{ latitude: null }, { longitude: null }],
       },
       select: {

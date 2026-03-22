@@ -62,6 +62,18 @@ interface PropertyLocationsResponse {
   missingProperties: MissingPropertyLocation[];
 }
 
+interface GeocodeFailure {
+  id: string;
+  name: string;
+  reason: string;
+}
+
+interface GeocodeResponse {
+  attempted: number;
+  updated: number;
+  failed: GeocodeFailure[];
+}
+
 interface DashboardMetrics {
   occupancy: {
     total: number;
@@ -143,6 +155,7 @@ export const PropertyManagerDashboard: React.FC = () => {
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [geocoding, setGeocoding] = useState(false);
   const [geocodeResult, setGeocodeResult] = useState<string | null>(null);
+  const [lastGeocodeFailures, setLastGeocodeFailures] = useState<GeocodeFailure[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadDashboardData = async (authToken: string) => {
@@ -172,7 +185,7 @@ export const PropertyManagerDashboard: React.FC = () => {
     fetchMetrics();
   }, [token]);
 
-  const handleGeocodeMissing = async () => {
+  const handleGeocodeMissing = async (propertyIds?: string[]) => {
     if (!token) {
       return;
     }
@@ -184,9 +197,11 @@ export const PropertyManagerDashboard: React.FC = () => {
       const result = await apiFetch('/dashboard/property-locations/geocode-missing', {
         token,
         method: 'POST',
-      });
+        body: propertyIds?.length ? { propertyIds } : undefined,
+      }) as GeocodeResponse;
 
       await loadDashboardData(token);
+      setLastGeocodeFailures(result.failed ?? []);
       setGeocodeResult(`Geocoding complete: ${result.updated}/${result.attempted} properties updated.`);
     } catch (error) {
       console.error('Error geocoding properties:', error);
@@ -290,19 +305,41 @@ export const PropertyManagerDashboard: React.FC = () => {
                 <div className="rounded-large border border-divider p-3 space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs uppercase tracking-wider text-foreground-500">Missing coordinates</p>
-                    <Button
-                      size="sm"
-                      color="warning"
-                      variant="flat"
-                      isLoading={geocoding}
-                      onPress={handleGeocodeMissing}
-                      isDisabled={missingLocations.length === 0}
-                    >
-                      Geocode missing
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        color="warning"
+                        variant="flat"
+                        isLoading={geocoding}
+                        onPress={() => handleGeocodeMissing()}
+                        isDisabled={missingLocations.length === 0}
+                      >
+                        Geocode missing
+                      </Button>
+                      <Button
+                        size="sm"
+                        color="secondary"
+                        variant="flat"
+                        isLoading={geocoding}
+                        onPress={() => handleGeocodeMissing(lastGeocodeFailures.map((item) => item.id))}
+                        isDisabled={lastGeocodeFailures.length === 0}
+                      >
+                        Retry failed
+                      </Button>
+                    </div>
                   </div>
                   {geocodeResult && (
                     <p className="text-xs text-foreground-500">{geocodeResult}</p>
+                  )}
+                  {lastGeocodeFailures.length > 0 && (
+                    <div className="rounded-medium border border-danger-200 bg-danger-50 p-2">
+                      <p className="text-xs font-semibold text-danger-700 mb-1">Last failed geocodes</p>
+                      <div className="max-h-20 overflow-auto space-y-1">
+                        {lastGeocodeFailures.slice(0, 5).map((item) => (
+                          <p key={item.id} className="text-xs text-danger-700">{item.name}: {item.reason}</p>
+                        ))}
+                      </div>
+                    </div>
                   )}
                   {missingLocations.length > 0 ? (
                     <div className="max-h-40 overflow-auto space-y-2">

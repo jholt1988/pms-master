@@ -1,4 +1,4 @@
-import { Controller, Get, Post, UseGuards, Request } from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards, Request } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Role } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
@@ -50,8 +50,11 @@ export class DashboardController {
   @Post('property-locations/geocode-missing')
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles('PROPERTY_MANAGER', 'OWNER')
-  geocodeMissingPropertyLocations(@OrgId() orgId?: string) {
-    return this.dashboardService.geocodeMissingPropertyLocations(orgId);
+  geocodeMissingPropertyLocations(
+    @OrgId() orgId?: string,
+    @Body() body?: { propertyIds?: string[] },
+  ) {
+    return this.dashboardService.geocodeMissingPropertyLocations(orgId, body?.propertyIds);
   }
 
   @Get('/tenant')
