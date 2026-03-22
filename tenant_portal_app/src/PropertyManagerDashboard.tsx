@@ -29,6 +29,7 @@ import {
   Settings,
   MapPin
 } from 'lucide-react';
+
 import { useAuth } from './AuthContext';
 import { PageHeader } from './components/ui/PageHeader';
 import { apiFetch } from './services/apiClient';
@@ -100,20 +101,28 @@ const formatDate = (dateString: string) => {
   });
 };
 
-const buildStaticMapUrl = (locations: PropertyLocation[]) => {
+const buildOsmEmbedUrl = (locations: PropertyLocation[]) => {
   if (!locations.length) {
     return null;
   }
 
-  const markerParams = locations
-    .slice(0, 50)
-    .map((location) => `markers=${location.latitude},${location.longitude},lightblue1`)
-    .join('&');
+  const lats = locations.map((location) => location.latitude);
+  const lngs = locations.map((location) => location.longitude);
 
-  const avgLat = locations.reduce((sum, location) => sum + location.latitude, 0) / locations.length;
-  const avgLng = locations.reduce((sum, location) => sum + location.longitude, 0) / locations.length;
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
 
-  return `https://staticmap.openstreetmap.de/staticmap.php?center=${avgLat},${avgLng}&zoom=11&size=1200x360&maptype=mapnik&${markerParams}`;
+  const latPadding = Math.max((maxLat - minLat) * 0.2, 0.02);
+  const lngPadding = Math.max((maxLng - minLng) * 0.2, 0.02);
+
+  const left = minLng - lngPadding;
+  const bottom = minLat - latPadding;
+  const right = maxLng + lngPadding;
+  const top = maxLat + latPadding;
+
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${left}%2C${bottom}%2C${right}%2C${top}&layer=mapnik`;
 };
 
 export const PropertyManagerDashboard: React.FC = () => {
@@ -156,7 +165,8 @@ export const PropertyManagerDashboard: React.FC = () => {
   const collectionRate = metrics.financials?.monthlyRevenue
     ? Math.round((metrics.financials?.collectedThisMonth / metrics.financials?.monthlyRevenue) * 100)
     : 0;
-  const mapUrl = buildStaticMapUrl(propertyLocations?.properties ?? []);
+  const mappedLocations = propertyLocations?.properties ?? [];
+  const mapEmbedUrl = buildOsmEmbedUrl(mappedLocations);
 
   return (
     <div className="space-y-6 p-6">
@@ -176,21 +186,17 @@ export const PropertyManagerDashboard: React.FC = () => {
           </Chip>
         </CardHeader>
         <CardBody className="space-y-3">
-          {mapUrl ? (
+          {mappedLocations.length > 0 && mapEmbedUrl ? (
             <>
-              <a
-                href={`https://www.openstreetmap.org/?mlat=${propertyLocations?.properties?.[0]?.latitude}&mlon=${propertyLocations?.properties?.[0]?.longitude}#map=11/${propertyLocations?.properties?.[0]?.latitude}/${propertyLocations?.properties?.[0]?.longitude}`}
-                target="_blank"
-                rel="noreferrer"
-                className="block"
-              >
-                <img
-                  src={mapUrl}
-                  alt="Map of organization properties"
-                  className="w-full h-56 object-cover rounded-large border border-divider"
+              <div className="h-64 rounded-large border border-divider overflow-hidden bg-content2">
+                <iframe
+                  title="Portfolio map"
+                  src={mapEmbedUrl}
+                  className="w-full h-full"
+                  loading="lazy"
                 />
-              </a>
-              <div className="flex items-center gap-2 text-xs text-foreground-500">
+              </div>
+              <div className="flex items-center gap-2 text-xs text-foreground-500 flex-wrap">
                 <span>{propertyLocations?.totalProperties ?? 0} total properties</span>
                 <span>•</span>
                 <span>{propertyLocations?.mappedProperties ?? 0} with coordinates</span>
@@ -200,6 +206,15 @@ export const PropertyManagerDashboard: React.FC = () => {
                     <span>{propertyLocations?.missingCoordinates ?? 0} missing coordinates</span>
                   </>
                 )}
+                <span>•</span>
+                <a
+                  href="https://www.openstreetmap.org"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline"
+                >
+                  Open full map
+                </a>
               </div>
             </>
           ) : (
