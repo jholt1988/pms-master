@@ -36,7 +36,8 @@
     "diagnose:esignature": "ts-node scripts/diagnose-esignature-config.ts",
     "test:endpoints": "ts-node scripts/test-endpoints.ts",
     "test:property-os-contract": "jest test/property-os-v16-contract.spec.ts --runInBand",
-    "test:parity:property-os": "jest test/property-os-v16-parity.spec.ts --runInBand"
+    "test:parity:property-os": "jest test/property-os-v16-parity.spec.ts --runInBand",
+    "verify:integration": "node scripts/verify-integration-flow.mjs"
   },
   "keywords": [],
   "author": "",
