@@ -74,6 +74,15 @@ interface GeocodeResponse {
   failed: GeocodeFailure[];
 }
 
+interface GeocodeAuditRow {
+  id: number;
+  propertyId: string;
+  propertyName: string | null;
+  status: string;
+  reason: string | null;
+  createdAt: string;
+}
+
 interface DashboardMetrics {
   occupancy: {
     total: number;
@@ -156,15 +165,18 @@ export const PropertyManagerDashboard: React.FC = () => {
   const [geocoding, setGeocoding] = useState(false);
   const [geocodeResult, setGeocodeResult] = useState<string | null>(null);
   const [lastGeocodeFailures, setLastGeocodeFailures] = useState<GeocodeFailure[]>([]);
+  const [geocodeAudit, setGeocodeAudit] = useState<GeocodeAuditRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadDashboardData = async (authToken: string) => {
-    const [metricsData, locationsData] = await Promise.all([
+    const [metricsData, locationsData, auditData] = await Promise.all([
       apiFetch('/dashboard/metrics', { token: authToken }),
-      apiFetch('/dashboard/property-locations', { token: authToken })
+      apiFetch('/dashboard/property-locations', { token: authToken }),
+      apiFetch('/dashboard/property-locations/geocode-audit', { token: authToken }),
     ]);
     setMetrics(metricsData);
     setPropertyLocations(locationsData);
+    setGeocodeAudit((auditData ?? []) as GeocodeAuditRow[]);
   };
 
   useEffect(() => {
@@ -357,6 +369,19 @@ export const PropertyManagerDashboard: React.FC = () => {
                     </div>
                   ) : (
                     <p className="text-sm text-success-600">All properties have coordinates.</p>
+                  )}
+
+                  {geocodeAudit.length > 0 && (
+                    <div className="rounded-medium border border-divider p-2 mt-2">
+                      <p className="text-xs font-semibold text-foreground-600 mb-1">Recent geocode audit</p>
+                      <div className="max-h-24 overflow-auto space-y-1">
+                        {geocodeAudit.slice(0, 5).map((row) => (
+                          <p key={row.id} className="text-xs text-foreground-500">
+                            {formatDate(row.createdAt)} · {row.propertyName ?? row.propertyId} · {row.status}{row.reason ? ` (${row.reason})` : ''}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>

@@ -57,6 +57,13 @@ export class DashboardController {
     return this.dashboardService.geocodeMissingPropertyLocations(orgId, body?.propertyIds);
   }
 
+  @Get('property-locations/geocode-audit')
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles('PROPERTY_MANAGER', 'OWNER')
+  getGeocodeAudit(@OrgId() orgId?: string) {
+    return this.dashboardService.getRecentGeocodeAudit(orgId);
+  }
+
   @Get('/tenant')
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles('TENANT')

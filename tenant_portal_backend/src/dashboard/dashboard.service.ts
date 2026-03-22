@@ -93,7 +93,14 @@ export class DashboardService {
         .trim();
 
       if (!query) {
-        failed.push({ id: property.id, name: property.name, reason: 'No address data to geocode' });
+        const reason = 'No address data to geocode';
+        failed.push({ id: property.id, name: property.name, reason });
+        await this.logGeocodeAudit({
+          propertyId: property.id,
+          organizationId: orgId,
+          status: 'FAILED',
+          reason,
+        });
         continue;
       }
 
@@ -107,7 +114,15 @@ export class DashboardService {
         });
 
         if (!response.ok) {
-          failed.push({ id: property.id, name: property.name, reason: `Geocode HTTP ${response.status}` });
+          const reason = `Geocode HTTP ${response.status}`;
+          failed.push({ id: property.id, name: property.name, reason });
+          await this.logGeocodeAudit({
+            propertyId: property.id,
+            organizationId: orgId,
+            query,
+            status: 'FAILED',
+            reason,
+          });
           await this.delay(1100);
           continue;
         }
@@ -116,7 +131,15 @@ export class DashboardService {
         const top = body?.[0];
 
         if (!top?.lat || !top?.lon) {
-          failed.push({ id: property.id, name: property.name, reason: 'No geocode match' });
+          const reason = 'No geocode match';
+          failed.push({ id: property.id, name: property.name, reason });
+          await this.logGeocodeAudit({
+            propertyId: property.id,
+            organizationId: orgId,
+            query,
+            status: 'FAILED',
+            reason,
+          });
           await this.delay(1100);
           continue;
         }
@@ -125,7 +148,15 @@ export class DashboardService {
         const longitude = Number(top.lon);
 
         if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
-          failed.push({ id: property.id, name: property.name, reason: 'Invalid coordinates from geocoder' });
+          const reason = 'Invalid coordinates from geocoder';
+          failed.push({ id: property.id, name: property.name, reason });
+          await this.logGeocodeAudit({
+            propertyId: property.id,
+            organizationId: orgId,
+            query,
+            status: 'FAILED',
+            reason,
+          });
           await this.delay(1100);
           continue;
         }
@@ -134,10 +165,26 @@ export class DashboardService {
           where: { id: property.id },
           data: { latitude, longitude },
         });
+        await this.logGeocodeAudit({
+          propertyId: property.id,
+          organizationId: orgId,
+          query,
+          status: 'UPDATED',
+          latitude,
+          longitude,
+        });
         updatedCount += 1;
       } catch (error) {
+        const reason = 'Request failed';
         this.logger.warn(`Geocode failed for property ${property.id}: ${error instanceof Error ? error.message : String(error)}`);
-        failed.push({ id: property.id, name: property.name, reason: 'Request failed' });
+        failed.push({ id: property.id, name: property.name, reason });
+        await this.logGeocodeAudit({
+          propertyId: property.id,
+          organizationId: orgId,
+          query,
+          status: 'FAILED',
+          reason,
+        });
       }
 
       await this.delay(1100);
@@ -148,6 +195,53 @@ export class DashboardService {
       updated: updatedCount,
       failed,
     };
+  }
+
+  async getRecentGeocodeAudit(orgId?: string) {
+    const rows = await this.prisma.$queryRawUnsafe<Array<{
+      id: number;
+      propertyId: string;
+      organizationId: string | null;
+      query: string | null;
+      status: string;
+      reason: string | null;
+      latitude: number | null;
+      longitude: number | null;
+      createdAt: Date;
+      propertyName: string | null;
+    }>>(
+      `SELECT a."id", a."propertyId", a."organizationId", a."query", a."status", a."reason", a."latitude", a."longitude", a."createdAt", p."name" as "propertyName"
+       FROM "PropertyGeocodeAudit" a
+       LEFT JOIN "Property" p ON p."id" = a."propertyId"
+       ${orgId ? 'WHERE a."organizationId" = $1' : ''}
+       ORDER BY a."createdAt" DESC
+       LIMIT 50`,
+      ...(orgId ? [orgId] : []),
+    );
+
+    return rows;
+  }
+
+  private async logGeocodeAudit(params: {
+    propertyId: string;
+    organizationId?: string;
+    query?: string;
+    status: 'UPDATED' | 'FAILED';
+    reason?: string;
+    latitude?: number;
+    longitude?: number;
+  }) {
+    await this.prisma.$executeRawUnsafe(
+      `INSERT INTO "PropertyGeocodeAudit" ("propertyId", "organizationId", "query", "status", "reason", "latitude", "longitude")
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      params.propertyId,
+      params.organizationId ?? null,
+      params.query ?? null,
+      params.status,
+      params.reason ?? null,
+      params.latitude ?? null,
+      params.longitude ?? null,
+    );
   }
 
   private delay(ms: number) {
