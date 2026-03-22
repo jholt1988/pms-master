@@ -141,7 +141,18 @@ export const PropertyManagerDashboard: React.FC = () => {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [propertyLocations, setPropertyLocations] = useState<PropertyLocationsResponse | null>(null);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
+  const [geocoding, setGeocoding] = useState(false);
+  const [geocodeResult, setGeocodeResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const loadDashboardData = async (authToken: string) => {
+    const [metricsData, locationsData] = await Promise.all([
+      apiFetch('/dashboard/metrics', { token: authToken }),
+      apiFetch('/dashboard/property-locations', { token: authToken })
+    ]);
+    setMetrics(metricsData);
+    setPropertyLocations(locationsData);
+  };
 
   useEffect(() => {
     const fetchMetrics = async () => {
@@ -150,12 +161,7 @@ export const PropertyManagerDashboard: React.FC = () => {
         return;
       }
       try {
-        const [metricsData, locationsData] = await Promise.all([
-          apiFetch('/dashboard/metrics', { token }),
-          apiFetch('/dashboard/property-locations', { token })
-        ]);
-        setMetrics(metricsData);
-        setPropertyLocations(locationsData);
+        await loadDashboardData(token);
       } catch (error) {
         console.error('Error fetching dashboard metrics:', error);
       } finally {
@@ -165,6 +171,30 @@ export const PropertyManagerDashboard: React.FC = () => {
 
     fetchMetrics();
   }, [token]);
+
+  const handleGeocodeMissing = async () => {
+    if (!token) {
+      return;
+    }
+
+    setGeocoding(true);
+    setGeocodeResult(null);
+
+    try {
+      const result = await apiFetch('/dashboard/property-locations/geocode-missing', {
+        token,
+        method: 'POST',
+      });
+
+      await loadDashboardData(token);
+      setGeocodeResult(`Geocoding complete: ${result.updated}/${result.attempted} properties updated.`);
+    } catch (error) {
+      console.error('Error geocoding properties:', error);
+      setGeocodeResult('Geocoding failed. Please try again.');
+    } finally {
+      setGeocoding(false);
+    }
+  };
 
   if (loading) {
     return <p>Loading dashboard...</p>;
@@ -257,8 +287,23 @@ export const PropertyManagerDashboard: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="rounded-large border border-divider p-3">
-                  <p className="text-xs uppercase tracking-wider text-foreground-500 mb-2">Missing coordinates</p>
+                <div className="rounded-large border border-divider p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs uppercase tracking-wider text-foreground-500">Missing coordinates</p>
+                    <Button
+                      size="sm"
+                      color="warning"
+                      variant="flat"
+                      isLoading={geocoding}
+                      onPress={handleGeocodeMissing}
+                      isDisabled={missingLocations.length === 0}
+                    >
+                      Geocode missing
+                    </Button>
+                  </div>
+                  {geocodeResult && (
+                    <p className="text-xs text-foreground-500">{geocodeResult}</p>
+                  )}
                   {missingLocations.length > 0 ? (
                     <div className="max-h-40 overflow-auto space-y-2">
                       {missingLocations.slice(0, 10).map((location) => (

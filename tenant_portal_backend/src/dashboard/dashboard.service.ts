@@ -1,9 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LeadApplicationStatus, MaintenancePriority, Status } from '@prisma/client';
 
 @Injectable()
 export class DashboardService {
+  private readonly logger = new Logger(DashboardService.name);
+
   constructor(private prisma: PrismaService) {}
 
   async getPropertyLocations(orgId?: string) {
@@ -57,6 +59,96 @@ export class DashboardService {
       properties: mapped,
       missingProperties: missing,
     };
+  }
+
+  async geocodeMissingPropertyLocations(orgId?: string) {
+    const candidates = await this.prisma.property.findMany({
+      where: {
+        ...(orgId ? { organizationId: orgId } : {}),
+        OR: [{ latitude: null }, { longitude: null }],
+      },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        city: true,
+        state: true,
+        zipCode: true,
+        country: true,
+      },
+      take: 20,
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    let updatedCount = 0;
+    const failed: Array<{ id: string; name: string; reason: string }> = [];
+
+    for (const property of candidates) {
+      const query = [property.address, property.city, property.state, property.zipCode, property.country]
+        .filter(Boolean)
+        .join(', ')
+        .trim();
+
+      if (!query) {
+        failed.push({ id: property.id, name: property.name, reason: 'No address data to geocode' });
+        continue;
+      }
+
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`;
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': 'PMS-Dashboard-Geocoder/1.0',
+            Accept: 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          failed.push({ id: property.id, name: property.name, reason: `Geocode HTTP ${response.status}` });
+          await this.delay(1100);
+          continue;
+        }
+
+        const body = (await response.json()) as Array<{ lat: string; lon: string }>;
+        const top = body?.[0];
+
+        if (!top?.lat || !top?.lon) {
+          failed.push({ id: property.id, name: property.name, reason: 'No geocode match' });
+          await this.delay(1100);
+          continue;
+        }
+
+        const latitude = Number(top.lat);
+        const longitude = Number(top.lon);
+
+        if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
+          failed.push({ id: property.id, name: property.name, reason: 'Invalid coordinates from geocoder' });
+          await this.delay(1100);
+          continue;
+        }
+
+        await this.prisma.property.update({
+          where: { id: property.id },
+          data: { latitude, longitude },
+        });
+        updatedCount += 1;
+      } catch (error) {
+        this.logger.warn(`Geocode failed for property ${property.id}: ${error instanceof Error ? error.message : String(error)}`);
+        failed.push({ id: property.id, name: property.name, reason: 'Request failed' });
+      }
+
+      await this.delay(1100);
+    }
+
+    return {
+      attempted: candidates.length,
+      updated: updatedCount,
+      failed,
+    };
+  }
+
+  private delay(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   async getPropertyManagerDashboardMetrics(orgId?: string) {
