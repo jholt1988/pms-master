@@ -1,0 +1,101 @@
+name: Backend Verify Integration
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'tenant_portal_backend/**'
+      - '.github/workflows/backend-verify-integration.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'tenant_portal_backend/**'
+      - '.github/workflows/backend-verify-integration.yml'
+
+jobs:
+  verify-integration:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: pms
+          POSTGRES_PASSWORD: pms
+          POSTGRES_DB: pms
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pms"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: tenant_portal_backend
+
+    env:
+      DATABASE_URL: postgresql://pms:pms@localhost:5432/pms?schema=public
+      DIRECT_URL: postgresql://pms:pms@localhost:5432/pms?schema=public
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      JWT_SECRET: test-secret-key-for-ci
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: tenant_portal_backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Prisma migrate deploy
+        run: npx prisma migrate deploy
+
+      - name: Seed robust inspection demo
+        run: npm run seed:inspection-demo:robust
+
+      - name: Start backend
+        run: |
+          npm run dev > /tmp/backend.log 2>&1 &
+          for i in {1..60}; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3001/api/auth/password-policy || true)
+            if [ "$code" = "200" ]; then
+              echo "Backend is up"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Backend did not start"
+          cat /tmp/backend.log
+          exit 1
+
+      - name: Verify integration flow
+        env:
+          API_BASE_URL: http://127.0.0.1:3001/api
+          VERIFY_ADMIN_USER: admin
+          VERIFY_ADMIN_PASS: Admin123!@#
+          VERIFY_TENANT_USER: tenant
+          VERIFY_TENANT_PASS: Tenant123!@#
+        run: npm run verify:integration
