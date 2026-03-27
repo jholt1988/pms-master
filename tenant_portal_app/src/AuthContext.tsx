@@ -52,7 +52,7 @@ const storage = {
  * @returns true if token is expired or will expire within 60 seconds
  */
 const normalizeRole = (role: unknown): JwtPayload['role'] => {
-  if (role === 'PROPERTY_MANAGER') return 'PM';
+  if (role === 'PM') return 'PROPERTY_MANAGER';
   return typeof role === 'string' ? role : undefined;
 };
 
