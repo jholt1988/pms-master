@@ -2,7 +2,7 @@
   "name": "@propertyos/mil",
   "private": true,
   "scripts": {
-    "dev": "nest start --watch --port 3001",
+    "dev": "nest start --watch --port 3002",
     "build": "nest build"
   },
   "dependencies": {

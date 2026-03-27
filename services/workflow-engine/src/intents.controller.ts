@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from "@nestjs/common";
+import { Body, Controller, Get, Post, Query } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { PrismaService } from "./prisma.service";
 
@@ -6,6 +6,17 @@ import { PrismaService } from "./prisma.service";
 @Controller("intents")
 export class IntentsController {
   constructor(private prisma: PrismaService) {}
+
+  @Get()
+  async list(@Query("tenantId") tenantId?: string, @Query("limit") limit?: string) {
+    const take = Math.max(1, Math.min(Number(limit ?? 50), 200));
+    const intents = await this.prisma.actionIntent.findMany({
+      where: tenantId ? { tenantId } : {},
+      orderBy: { createdAt: "desc" },
+      take,
+    });
+    return { intents };
+  }
 
   @Post("upsert")
   async upsert(@Body() body: any) {
