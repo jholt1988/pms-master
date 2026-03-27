@@ -60,7 +60,10 @@ jobs:
         working-directory: ./tenant_portal_backend
         run: npm ci
 
-      
+      - name: Install local mil-client dependencies
+        working-directory: ./tenant_portal_backend
+        run: npm install --prefix ../packages/mil-client --no-audit --no-fund
+
       - name: Generate Prisma Client
         working-directory: ./tenant_portal_backend
         env:
@@ -123,7 +126,7 @@ jobs:
             pip install -r "tools/simulation/property-os-v1.6/requirements.txt"
           fi
           ./scripts/pms/run-property-os-sim.sh --n 200 --seed 42
-        working-directory: ./pms-master
+        working-directory: .
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4

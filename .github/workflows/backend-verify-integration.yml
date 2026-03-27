@@ -67,6 +67,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install local mil-client dependencies
+        run: npm install --prefix ../packages/mil-client --no-audit --no-fund
+
       - name: Prisma generate
         run: npx prisma generate
 
