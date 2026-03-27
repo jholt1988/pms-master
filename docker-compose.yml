@@ -59,7 +59,7 @@ services:
       NODE_ENV: production
       PORT: 3001
       DATABASE_URL: "postgresql://pms:pms@postgres:5432/pms?schema=public"
-      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:8080
+      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:8080,http://localhost:3003,http://localhost:8000,http://localhost:3002
       JWT_SECRET: change-me-in-prod
       MIL_WRAPPER_ENABLED: "True"
       MIL_ENCRYPT_AT_REST_ENABLED: "false"
