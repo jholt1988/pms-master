@@ -65,6 +65,7 @@ services:
       MIL_ENCRYPT_AT_REST_ENABLED: "false"
       MIL_AUDIT_PERSIST_ENABLED: "false"
       WORKFLOW_ENGINE_URL: "http://workflow-engine:3003"
+      ML_SERVICE_URL: "http://ml-service:8000"
     ports:
       - "3001:3001"
     command: >
@@ -87,6 +88,27 @@ services:
       - "3003:3003"
     command: >
       sh -lc "corepack enable && pnpm install --no-frozen-lockfile && pnpm --filter @propertyos/workflow-engine dev"
+
+  ml-service:
+    build:
+      context: ./rent_optimization_ml
+      dockerfile: Dockerfile
+    container_name: pms-rent-optimization-ml
+    restart: unless-stopped
+    profiles: ["ml"]
+    environment:
+      API_PORT: 8000
+      API_HOST: 0.0.0.0
+      ENVIRONMENT: production
+      DEBUG: "false"
+      DATABASE_URL: "postgresql://pms:pms@postgres:5432/pms"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./rent_optimization_ml/models:/app/models
+      - ./rent_optimization_ml/logs:/app/logs
+    depends_on:
+      - postgres
 
   frontend:
     build:
