@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import axios from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
 import { LeadApplicationStatus, MaintenancePriority, Status } from '@prisma/client';
 
@@ -7,6 +8,71 @@ export class DashboardService {
   private readonly logger = new Logger(DashboardService.name);
 
   constructor(private prisma: PrismaService) {}
+
+  async getActionIntents(orgId?: string) {
+    const workflowBaseUrl = process.env.WORKFLOW_ENGINE_URL ?? 'http://127.0.0.1:3003';
+
+    try {
+      const response = await axios.get(`${workflowBaseUrl}/intents`, {
+        params: {
+          tenantId: orgId,
+          limit: 50,
+        },
+        timeout: 3500,
+      });
+
+      const intents = Array.isArray(response.data?.intents) ? response.data.intents : [];
+
+      return {
+        intents: intents.map((intent: any) => ({
+          id: intent.id,
+          type: String(intent.riskType ?? 'RISK_MITIGATION').toUpperCase(),
+          description: intent.recommendedAction ?? 'No recommended action.',
+          status: intent.status ?? 'DETECTED',
+          priority:
+            intent.tier === 'TIER_1' ? 'HIGH' : intent.tier === 'TIER_3' ? 'LOW' : 'MEDIUM',
+          createdAt: intent.createdAt ?? new Date().toISOString(),
+          raw: intent,
+        })),
+        source: 'workflow-engine',
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Falling back to mock action intents: ${error instanceof Error ? error.message : String(error)}`,
+      );
+
+      return {
+        intents: [
+          {
+            id: '1',
+            type: 'RISK_MITIGATION',
+            description:
+              'HVAC unit #3 at 123 Main St showing signs of failure. Proactive maintenance suggested.',
+            status: 'PENDING',
+            priority: 'HIGH',
+            createdAt: new Date().toISOString(),
+          },
+          {
+            id: '2',
+            type: 'AUTOMATION',
+            description: 'Rent payment for Unit 5B automatically processed.',
+            status: 'EXECUTED',
+            priority: 'LOW',
+            createdAt: new Date(Date.now() - 3600000).toISOString(),
+          },
+          {
+            id: '3',
+            type: 'ALERT',
+            description: 'Lease for 7A expires in 30 days. Renewal notice prepared.',
+            status: 'PENDING',
+            priority: 'MEDIUM',
+            createdAt: new Date(Date.now() - 7200000).toISOString(),
+          },
+        ],
+        source: 'mock',
+      };
+    }
+  }
 
   async getPropertyLocations(orgId?: string) {
     const properties = await this.prisma.property.findMany({
