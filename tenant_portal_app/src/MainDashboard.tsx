@@ -7,7 +7,8 @@ import {
   Users, 
   ArrowUpRight,
   Wallet,
-  Activity
+  Activity,
+  MapPin
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { apiFetch } from './services/apiClient';
@@ -57,11 +58,49 @@ interface DashboardMetrics {
   }>;
 }
 
+interface PropertyLocation {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+}
+
+interface PropertyLocationsResponse {
+  totalProperties: number;
+  mappedProperties: number;
+  missingCoordinates: number;
+  properties: PropertyLocation[];
+}
+
 const formatCurrency = (amount: number) => {
   if (amount >= 1000) {
     return `$${(amount / 1000).toFixed(1)}k`;
   }
   return `$${amount.toFixed(0)}`;
+};
+
+const buildOsmEmbedUrl = (locations: PropertyLocation[]) => {
+  if (!locations.length) {
+    return null;
+  }
+
+  const lats = locations.map((location) => location.latitude);
+  const lngs = locations.map((location) => location.longitude);
+
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+
+  const latPadding = Math.max((maxLat - minLat) * 0.2, 0.02);
+  const lngPadding = Math.max((maxLng - minLng) * 0.2, 0.02);
+
+  const left = minLng - lngPadding;
+  const bottom = minLat - latPadding;
+  const right = maxLng + lngPadding;
+  const top = maxLat + latPadding;
+
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${left}%2C${bottom}%2C${right}%2C${top}&layer=mapnik`;
 };
 
 const KPITicker = ({
@@ -169,6 +208,7 @@ const MainDashboard = () => {
   const { token, user } = useAuth();
   const navigate = useNavigate();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
+  const [propertyLocations, setPropertyLocations] = useState<PropertyLocationsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [engineHealth, setEngineHealth] = useState<EngineHealth | null>(null);
   const isOwnerView = user?.role === 'OWNER';
@@ -180,8 +220,12 @@ const MainDashboard = () => {
         return;
       }
       try {
-        const data = await apiFetch('/dashboard/metrics', { token });
+        const [data, locations] = await Promise.all([
+          apiFetch('/dashboard/metrics', { token }),
+          apiFetch('/dashboard/property-locations', { token }),
+        ]);
         setMetrics(data);
+        setPropertyLocations(locations);
       } catch (error) {
         console.error('Error fetching dashboard metrics:', error);
         // Set fallback empty metrics on error
@@ -194,6 +238,12 @@ const MainDashboard = () => {
             { id: 'hvac-1', title: 'HVAC Failure Imminent', unit: 'Unit 101', probability: 0.85, milestone: 'ES15' },
             { id: 'wh-1', title: 'Water Heater Leak Risk', unit: 'Unit 204', probability: 0.62, milestone: 'ES15' },
           ],
+        });
+        setPropertyLocations({
+          totalProperties: 0,
+          mappedProperties: 0,
+          missingCoordinates: 0,
+          properties: [],
         });
       }
 
@@ -214,6 +264,10 @@ const MainDashboard = () => {
 
     fetchMetrics();
   }, [token]);
+
+  const mappedLocations = propertyLocations?.properties ?? [];
+  const mapEmbedUrl = buildOsmEmbedUrl(mappedLocations);
+
   return (
     <div className="pb-24"> {/* Padding for bottom Dock */}
       
@@ -254,6 +308,37 @@ const MainDashboard = () => {
       )}
 
       <KPITicker metrics={metrics} loading={loading} navigate={navigate} isOwnerView={isOwnerView} />
+
+      <GlassCard className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-white font-light flex items-center gap-2">
+            <MapPin className="text-neon-blue" size={18} />
+            Portfolio Map
+          </h3>
+          <span className="text-xs font-mono text-gray-300 uppercase tracking-wider">
+            {propertyLocations?.mappedProperties ?? 0} mapped / {propertyLocations?.totalProperties ?? 0} total
+          </span>
+        </div>
+        {mapEmbedUrl ? (
+          <>
+            <div className="h-64 rounded-xl overflow-hidden border border-white/10 bg-black/20">
+              <iframe
+                title="Portfolio map"
+                src={mapEmbedUrl}
+                className="w-full h-full"
+                loading="lazy"
+              />
+            </div>
+            {(propertyLocations?.missingCoordinates ?? 0) > 0 && (
+              <p className="mt-2 text-xs text-amber-300">
+                {propertyLocations?.missingCoordinates} properties are missing coordinates and are not shown on this map yet.
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="text-sm text-gray-400">No mapped property coordinates found yet.</p>
+        )}
+      </GlassCard>
 
       {/* --- SECTION 2: BENTO GRID LAYOUT --- */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
