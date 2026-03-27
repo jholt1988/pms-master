@@ -14,7 +14,13 @@ RUN pnpm install --frozen-lockfile
 FROM deps AS build
 COPY . .
 WORKDIR /app/tenant_portal_backend
-# Generate Prisma client from the backend schema before TypeScript compile.
+
+# Build-time Prisma env
+ARG DATABASE_URL
+ENV DATABASE_URL=$DATABASE_URL
+
+# Generate Prisma client before TypeScript build
+RUN pnpm exec prisma migrate deploy
 RUN pnpm build
 
 FROM node:22-alpine AS runner
@@ -22,11 +28,14 @@ WORKDIR /app
 ENV NODE_ENV=production
 RUN apk add --no-cache python3 py3-pip
 RUN corepack enable
-COPY --from=deps /app/node_modules ./node_modules
+
+# IMPORTANT: copy generated node_modules from build, not deps
+COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml /app/tsconfig.base.json ./
 COPY --from=build /app/tenant_portal_backend ./tenant_portal_backend
 COPY --from=build /app/packages ./packages
 COPY --from=build /app/tools ./tools
+
 WORKDIR /app/tenant_portal_backend
 EXPOSE 3001
 CMD ["node", "dist/tenant_portal_backend/src/index.js"]

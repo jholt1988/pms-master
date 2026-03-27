@@ -1,4 +1,13 @@
-import { PrismaClient, Role, LeaseStatus, InspectionType, InspectionStatus, OrgRole } from '@prisma/client';
+   import {                                                                                                                                      
+   PrismaClient,                                                                                                                                 
+   Role,                                                                                                                                         
+   LeaseStatus,                                                                                                                                  
+   InspectionType,                                                                                                                               
+   InspectionStatus,                                                                                                                             
+   OrgRole,                                                                                                                                      
+   RoomType,                                                                                                                                     
+   InspectionCondition,                                                                                                                          
+   } from '@prisma/client';
 import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -104,7 +113,7 @@ async function main() {
   });
 
  // Find existing leases for this tenant                                                                                                       
-   const existingLeases = await prisma.lease.findMany({                                                                                          
+  const existingLeases = await prisma.lease.findMany({                                                                                          
    where: { tenantId: tenant.id },                                                                                                               
    select: { id: true },                                                                                                                         
    });                                                                                                                                           
@@ -112,34 +121,73 @@ async function main() {
    if (existingLeases.length > 0) {                                                                                                              
    const leaseIds = existingLeases.map((l) => l.id);                                                                                             
                                                                                                                                                  
-   // Remove dependents that reference invoices/leases                                                                                           
-   await prisma.paymentAttempt.deleteMany ({                                                                                                     
+   await prisma.$transaction(async (tx) => {                                                                                                     
+   // Invoice tree first                                                                                                                         
+   await tx.paymentAttempt.deleteMany({                                                                                                          
    where: { invoice: { leaseId: { in: leaseIds } } },                                                                                            
    });                                                                                                                                           
-                                                                                                                                                 
-   await prisma.payment.deleteMany({                                                                                                             
+   await tx.payment.deleteMany({                                                                                                                 
    where: { invoice: { leaseId: { in: leaseIds } } },                                                                                            
    });                                                                                                                                           
-                                                                                                                                                 
-   await prisma.lateFee.deleteMany({                                                                                                             
+   await tx.lateFee.deleteMany({                                                                                                                 
    where: { invoice: { leaseId: { in: leaseIds } } },                                                                                            
    });                                                                                                                                           
-                                                                                                                                                 
-   await prisma.invoice.deleteMany({                                                                                                             
+   await tx.invoice.deleteMany({                                                                                                                 
    where: { leaseId: { in: leaseIds } },                                                                                                         
    });                                                                                                                                           
                                                                                                                                                  
-   // Optional but safe if present in your flow:                                                                                                 
-   await prisma.autopayEnrollment.deleteMany({                                                                                                  
+   // Direct lease dependents (your latest blocker + likely next blockers)                                                                       
+   await tx.manualPayment.deleteMany({                                                                                                           
+   where: { leaseId: { in: leaseIds } },                                                                                                         
+   });                                                                                                                                           
+   await tx.manualCharge.deleteMany({                                                                                                            
    where: { leaseId: { in: leaseIds } },                                                                                                         
    });                                                                                                                                           
                                                                                                                                                  
-   // Now lease delete is safe                                                                                                                   
-   await prisma.lease.deleteMany({                                                                                                               
+   await tx.inspectionRequest.deleteMany( {                                                                                                      
+   where: { leaseId: { in: leaseIds } },                                                                                                         
+   });                                                                                                                                           
+                                                                                                                                                 
+   await tx.unitInspection.deleteMany({                                                                                                          
+   where: { leaseId: { in: leaseIds } },                                                                                                         
+   });                                                                                                                                           
+                                                                                                                                                 
+   await tx.leaseDocument.deleteMany({                                                                                                           
+   where: { leaseId: { in: leaseIds } },                                                                                                         
+   });                                                                                                                                           
+                                                                                                                                                 
+   await tx.leaseHistory.deleteMany({                                                                                                            
+   where: { leaseId: { in: leaseIds } },                                                                                                         
+   });                                                                                                                                           
+                                                                                                                                                 
+   await tx.leaseNotice.deleteMany({                                                                                                             
+   where: { leaseId: { in: leaseIds } },                                                                                                         
+   });                                                                                                                                           
+                                                                                                                                                 
+   await tx.leaseRenewalOffer.deleteMany( {                                                                                                      
+   where: { leaseId: { in: leaseIds } },                                                                                                         
+   });                                                                                                                                           
+                                                                                                                                                 
+   await tx.recurringInvoiceSchedule.deleteMany({                                                                                               
+   where: { leaseId: { in: leaseIds } },                                                                                                         
+   });                                                                                                                                           
+                                                                                                                                                 
+   await tx.autopayEnrollment.deleteMany( {                                                                                                      
+   where: { leaseId: { in: leaseIds } },                                                                                                         
+   });                                                                                                                                           
+                                                                                                                                                 
+   // Optional nullable references: null them instead of deleting rows                                                                           
+   await tx.maintenanceRequest.updateMany ({                                                                                                     
+   where: { leaseId: { in: leaseIds } },                                                                                                         
+   data: { leaseId: null },                                                                                                                      
+   });                                                                                                                                           
+                                                                                                                                                 
+   // Finally delete leases                                                                                                                      
+   await tx.lease.deleteMany({                                                                                                                   
    where: { id: { in: leaseIds } },                                                                                                              
    });                                                                                                                                           
-   }                                                                                                                                             
-                            
+   });                                                                                                                                           
+   }          
 
   const lease = await prisma.lease.upsert({
     where: { id: LEASE_ID },
