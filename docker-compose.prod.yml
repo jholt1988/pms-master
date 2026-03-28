@@ -1,28 +1,16 @@
-
-
 services:
-  postgres:
-    profiles: ["localdb"]
-
-  redis:
-    profiles: ["localdb"]
-
   backend:
     build:
       context: .
       dockerfile: tenant_portal_backend/Dockerfile
       target: runner
-    restart: always
-    depends_on:
-      -mil:
-        condition: service_started
-        environment:
-         MIL_SERVICE_URL: http://mil:3010
+    restart: unless-stopped
     env_file:
-      - ops/.env.dev
+      - ops/.env.prod
     environment:
       NODE_ENV: production
       PORT: 3001
+      MIL_SERVICE_URL: ${MIL_SERVICE_URL:-http://mil:3010}
       MIL_WRAPPER_ENABLED: ${MIL_WRAPPER_ENABLED:-true}
       MIL_ENCRYPT_AT_REST_ENABLED: ${MIL_ENCRYPT_AT_REST_ENABLED:-false}
       MIL_AUDIT_PERSIST_ENABLED: ${MIL_AUDIT_PERSIST_ENABLED:-false}
@@ -35,9 +23,8 @@ services:
       dockerfile: tenant_portal_app/Dockerfile
       args:
         VITE_API_URL: ${VITE_API_URL:-/api}
-    restart: always
+    restart: unless-stopped
     depends_on:
       - backend
     ports:
       - "3000:80"
-     
