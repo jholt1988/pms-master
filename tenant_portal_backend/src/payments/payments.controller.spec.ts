@@ -4,6 +4,8 @@ import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
 import { Role } from '@prisma/client';
 import { testData } from '../../test/factories';
+import { PrismaService } from '../prisma/prisma.service';
+import { AuditLogService } from '../shared/audit-log.service';
 
 describe('PaymentsController', () => {
   let controller: PaymentsController;
@@ -18,6 +20,16 @@ describe('PaymentsController', () => {
     testLateRentNotification: jest.fn(),
   };
 
+  const mockPrismaService = {
+    userOrganization: {
+      findMany: jest.fn().mockResolvedValue([{ organizationId: 'org-1', role: 'MEMBER' }]),
+    },
+  };
+
+  const mockAuditLogService = {
+    record: jest.fn().mockResolvedValue(undefined),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [PaymentsController],
@@ -25,6 +37,14 @@ describe('PaymentsController', () => {
         {
           provide: PaymentsService,
           useValue: mockPaymentsService,
+        },
+        {
+          provide: PrismaService,
+          useValue: mockPrismaService,
+        },
+        {
+          provide: AuditLogService,
+          useValue: mockAuditLogService,
         },
       ],
     }).compile();
@@ -63,10 +83,11 @@ describe('PaymentsController', () => {
 
       mockPaymentsService.createInvoice.mockResolvedValue(mockInvoice);
 
-      const result = await controller.createInvoice(createInvoiceDto);
+      const mockRequest = { user: { userId: 'pm-1', role: Role.PROPERTY_MANAGER }, org: { orgId: 'org-1' } } as any;
+      const result = await controller.createInvoice(createInvoiceDto, mockRequest, 'org-1');
 
       expect(result).toEqual(mockInvoice);
-      expect(service.createInvoice).toHaveBeenCalledWith(createInvoiceDto);
+      expect(service.createInvoice).toHaveBeenCalledWith(createInvoiceDto, 'org-1');
       expect(service.createInvoice).toHaveBeenCalledTimes(1);
     });
   });
@@ -108,7 +129,7 @@ describe('PaymentsController', () => {
       const result = await controller.getInvoices(mockRequest);
 
       expect(result).toEqual(mockInvoices);
-      expect(service.getInvoicesForUser).toHaveBeenCalledWith(1, Role.TENANT, undefined);
+      expect(service.getInvoicesForUser).toHaveBeenCalledWith(1, Role.TENANT, undefined, undefined);
       expect(service.getInvoicesForUser).toHaveBeenCalledTimes(1);
     });
 
@@ -138,7 +159,7 @@ describe('PaymentsController', () => {
       const result = await controller.getInvoices(mockRequest, '10');
 
       expect(result).toEqual(mockInvoices);
-      expect(service.getInvoicesForUser).toHaveBeenCalledWith(2, Role.PROPERTY_MANAGER, '10');
+      expect(service.getInvoicesForUser).toHaveBeenCalledWith(2, Role.PROPERTY_MANAGER, '10', undefined);
       expect(service.getInvoicesForUser).toHaveBeenCalledTimes(1);
     });
 
@@ -153,7 +174,7 @@ describe('PaymentsController', () => {
       mockPaymentsService.getInvoicesForUser.mockRejectedValue(new BadRequestException('Invalid lease identifier provided.'));
 
       await expect(controller.getInvoices(mockRequest, 'invalid')).rejects.toThrow(BadRequestException);
-      expect(service.getInvoicesForUser).toHaveBeenCalledWith('1', Role.TENANT, 'invalid');
+      expect(service.getInvoicesForUser).toHaveBeenCalledWith('1', Role.TENANT, 'invalid', undefined);
     });
   });
 
@@ -189,7 +210,7 @@ describe('PaymentsController', () => {
       const result = await controller.createPayment(createPaymentDto, mockRequest);
 
       expect(result).toEqual(mockPayment);
-      expect(service.createPayment).toHaveBeenCalledWith(createPaymentDto, mockRequest.user);
+      expect(service.createPayment).toHaveBeenCalledWith(createPaymentDto, mockRequest.user, undefined);
       expect(service.createPayment).toHaveBeenCalledTimes(1);
     });
   });
@@ -221,7 +242,7 @@ describe('PaymentsController', () => {
       const result = await controller.getPayments(mockRequest);
 
       expect(result).toEqual(mockPayments);
-      expect(service.getPaymentsForUser).toHaveBeenCalledWith(1, Role.TENANT, undefined);
+      expect(service.getPaymentsForUser).toHaveBeenCalledWith(1, Role.TENANT, undefined, undefined);
       expect(service.getPaymentsForUser).toHaveBeenCalledTimes(1);
     });
 
@@ -251,7 +272,7 @@ describe('PaymentsController', () => {
       const result = await controller.getPayments(mockRequest, '15');
 
       expect(result).toEqual(mockPayments);
-      expect(service.getPaymentsForUser).toHaveBeenCalledWith(3, Role.PROPERTY_MANAGER, '15');
+      expect(service.getPaymentsForUser).toHaveBeenCalledWith(3, Role.PROPERTY_MANAGER, '15', undefined);
       expect(service.getPaymentsForUser).toHaveBeenCalledTimes(1);
     });
 
@@ -266,7 +287,7 @@ describe('PaymentsController', () => {
       mockPaymentsService.getPaymentsForUser.mockRejectedValue(new BadRequestException('Invalid lease identifier provided.'));
 
       await expect(controller.getPayments(mockRequest, 'notanumber')).rejects.toThrow(BadRequestException);
-      expect(service.getPaymentsForUser).toHaveBeenCalledWith('1', Role.TENANT, 'notanumber');
+      expect(service.getPaymentsForUser).toHaveBeenCalledWith('1', Role.TENANT, 'notanumber', undefined);
     });
   });
 

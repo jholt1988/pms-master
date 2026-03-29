@@ -3,6 +3,7 @@ import { LeasingController } from './leasing.controller';
 import { LeasingService } from './leasing.service';
 import { HttpException, HttpStatus, BadRequestException } from '@nestjs/common';
 import { LeadStatus } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
 
 describe('LeasingController (current contract)', () => {
   let controller: LeasingController;
@@ -19,10 +20,19 @@ describe('LeasingController (current contract)', () => {
     getLeadStatistics: jest.fn(),
   };
 
+  const mockPrismaService = {
+    userOrganization: {
+      findMany: jest.fn().mockResolvedValue([{ organizationId: 'org-1', role: 'MEMBER' }]),
+    },
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [LeasingController],
-      providers: [{ provide: LeasingService, useValue: service }],
+      providers: [
+        { provide: LeasingService, useValue: service },
+        { provide: PrismaService, useValue: mockPrismaService },
+      ],
     }).compile();
 
     controller = module.get(LeasingController);
@@ -132,7 +142,7 @@ describe('LeasingController (current contract)', () => {
 
       const result = await controller.updateStatus('lead_1', { status: LeadStatus.QUALIFIED });
       expect(result).toEqual(lead);
-      expect(service.updateLeadStatus).toHaveBeenCalledWith('lead_1', LeadStatus.QUALIFIED);
+      expect(service.updateLeadStatus).toHaveBeenCalledWith('lead_1', LeadStatus.QUALIFIED, undefined);
 
       await expect(controller.updateStatus('lead_1', { status: '' } as any)).rejects.toThrow('Status is required');
       await expect(controller.updateStatus('lead_1', { status: 'NOT_A_STATUS' } as any)).rejects.toThrow('Invalid status value');
@@ -146,7 +156,7 @@ describe('LeasingController (current contract)', () => {
 
       const result = await controller.getStatistics('2024-01-01', '2024-12-31');
       expect(result).toEqual(stats);
-      expect(service.getLeadStatistics).toHaveBeenCalledWith(new Date('2024-01-01'), new Date('2024-12-31'));
+      expect(service.getLeadStatistics).toHaveBeenCalledWith(new Date('2024-01-01'), new Date('2024-12-31'), undefined);
 
       const result2 = await controller.getStatistics();
       expect(result2).toEqual(stats);
