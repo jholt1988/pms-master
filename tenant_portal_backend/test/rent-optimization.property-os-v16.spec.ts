@@ -34,6 +34,7 @@ describe('RentOptimizationService Property OS v1.6 confidence validation', () =>
 
   it('rejects invalid v1.6 confidence payload', async () => {
     const service = new RentOptimizationService(mockPrisma);
+    (service as any).milWrapper = { createTraceContext: jest.fn(() => ({ setOutcome: jest.fn(), setError: jest.fn(), flush: jest.fn() })), assertAccess: jest.fn(), recordModelInvocation: jest.fn().mockResolvedValue(undefined) };
 
     jest.spyOn(axios, 'post').mockResolvedValue({
       data: {
@@ -63,6 +64,7 @@ describe('RentOptimizationService Property OS v1.6 confidence validation', () =>
 
   it('accepts valid v1.6 confidence payload', async () => {
     const service = new RentOptimizationService(mockPrisma);
+    (service as any).milWrapper = { createTraceContext: jest.fn(() => ({ setOutcome: jest.fn(), setError: jest.fn(), flush: jest.fn() })), assertAccess: jest.fn(), recordModelInvocation: jest.fn().mockResolvedValue(undefined) };
 
     jest.spyOn(axios, 'post').mockResolvedValue({
       data: {

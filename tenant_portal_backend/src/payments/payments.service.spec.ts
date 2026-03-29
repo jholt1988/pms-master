@@ -15,6 +15,7 @@ describe('PaymentsService', () => {
   // Mock PrismaService
   const mockPrismaService = {
     lease: {
+      findFirst: jest.fn(),
       findUnique: jest.fn(),
     },
     invoice: {
@@ -82,7 +83,7 @@ describe('PaymentsService', () => {
         description: 'December Rent',
         amount: 1500,
         dueDate: '2025-12-01',
-        leaseId: 1,
+        leaseId: '11111111-1111-4111-8111-111111111111',
       };
       const mockInvoice = {
         id: '1',
@@ -91,21 +92,21 @@ describe('PaymentsService', () => {
         status: 'UNPAID',
       };
 
-      mockPrismaService.lease.findUnique.mockResolvedValue(mockLease);
+      mockPrismaService.lease.findFirst.mockResolvedValue(mockLease);
       mockPrismaService.invoice.create.mockResolvedValue(mockInvoice);
 
-      const result = await service.createInvoice(invoiceDto);
+      const result = await service.createInvoice(invoiceDto as any, 'org-1');
 
       expect(result).toEqual(mockInvoice);
-      expect(mockPrismaService.lease.findUnique).toHaveBeenCalledWith({
-        where: { id: 1 },
+      expect(mockPrismaService.lease.findFirst).toHaveBeenCalledWith({
+        where: { id: '11111111-1111-4111-8111-111111111111', unit: { property: { organizationId: 'org-1' } } },
       });
       expect(mockPrismaService.invoice.create).toHaveBeenCalledWith({
         data: {
           description: 'December Rent',
           amount: 1500,
           dueDate: new Date('2025-12-01'),
-          lease: { connect: { id: 1 } },
+          lease: { connect: { id: '11111111-1111-4111-8111-111111111111' } },
         },
         include: {
           lease: { include: { tenant: true, unit: { include: { property: true } } } },
@@ -116,15 +117,15 @@ describe('PaymentsService', () => {
     });
 
     it('should throw NotFoundException when lease not found', async () => {
-      mockPrismaService.lease.findUnique.mockResolvedValue(null);
+      mockPrismaService.lease.findFirst.mockResolvedValue(null);
 
       await expect(
         service.createInvoice({
           description: 'Test',
           amount: 1500,
           dueDate: '2025-12-01',
-          leaseId: 999,
-        })
+          leaseId: '99999999-9999-4999-8999-999999999999',
+        } as any, 'org-1')
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -138,7 +139,7 @@ describe('PaymentsService', () => {
           description: 'Test',
           amount: 1500,
           dueDate: 'invalid-date',
-          leaseId: 1,
+          leaseId: '11111111-1111-4111-8111-111111111111',
         })
       ).rejects.toThrow();
     });
@@ -151,7 +152,7 @@ describe('PaymentsService', () => {
           description: 'Test',
           amount: -100,
           dueDate: '2025-12-01',
-          leaseId: 1,
+          leaseId: '11111111-1111-4111-8111-111111111111',
         })
       ).rejects.toThrow();
     });
@@ -171,7 +172,7 @@ describe('PaymentsService', () => {
 
       const paymentDto = {
         amount: 1500,
-        leaseId: 1,
+        leaseId: '11111111-1111-4111-8111-111111111111',
         status: 'COMPLETED',
       };
 
@@ -211,7 +212,7 @@ describe('PaymentsService', () => {
 
       const paymentDto = {
         amount: 1500,
-        leaseId: 1,
+        leaseId: '11111111-1111-4111-8111-111111111111',
         status: 'COMPLETED',
       };
 
@@ -235,7 +236,7 @@ describe('PaymentsService', () => {
       await expect(
         service.createPayment({
           amount: 1500,
-          leaseId: 999,
+          leaseId: '99999999-9999-4999-8999-999999999999',
           status: 'COMPLETED',
         })
       ).rejects.toThrow(BadRequestException);
@@ -251,7 +252,7 @@ describe('PaymentsService', () => {
 
       const paymentDto = {
         amount: 1500,
-        leaseId: 1,
+        leaseId: '11111111-1111-4111-8111-111111111111',
         status: 'FAILED',
       };
 
@@ -307,13 +308,13 @@ describe('PaymentsService', () => {
       const mockInvoices = [TestDataFactory.createInvoice(5)];
       mockPrismaService.invoice.findMany.mockResolvedValue(mockInvoices);
 
-      await service.getInvoicesForUser(1, 'TENANT', 5);
+      await service.getInvoicesForUser('1', 'TENANT' as any, '22222222-2222-4222-8222-222222222222');
 
       expect(mockPrismaService.invoice.findMany).toHaveBeenCalledWith({
         where: {
           lease: {
-            tenantId: 1,
-            id: 5,
+            tenantId: '1',
+            id: '22222222-2222-4222-8222-222222222222',
           },
         },
         include: {
@@ -339,7 +340,7 @@ describe('PaymentsService', () => {
 
       expect(result).toHaveLength(3);
       expect(mockPrismaService.invoice.findMany).toHaveBeenCalledWith({
-        where: undefined,
+        where: {},
         include: {
           lease: { include: { tenant: true, unit: { include: { property: true } } } },
           payments: true,
@@ -664,6 +665,7 @@ describe('PaymentsService', () => {
           lease: {
             include: {
               tenant: true,
+              unit: { include: { property: true } },
             },
           },
         },

@@ -145,6 +145,7 @@ describe('InspectionService', () => {
       mockPrismaService.property.findFirst.mockResolvedValue(mockProperty);
       mockPrismaService.unit.findFirst.mockResolvedValue(mockUnit);
       mockPrismaService.unitInspection.create.mockResolvedValue(mockInspection);
+      mockPrismaService.unitInspection.findFirst.mockResolvedValue(mockInspection);
 
       const result = await service.createInspection(createInspectionDto, '33333333-3333-4333-8333-333333333333');
 
@@ -470,6 +471,7 @@ describe('InspectionService', () => {
       mockPrismaService.property.findFirst.mockResolvedValue(mockProperty);
       mockPrismaService.unit.findFirst.mockResolvedValue(mockUnit);
       mockPrismaService.unitInspection.create.mockResolvedValue(inspectionWithRooms);
+      mockPrismaService.unitInspection.findFirst.mockResolvedValue(inspectionWithRooms);
 
       const result = await service.createInspectionWithRooms(createWithRoomsDto, '33333333-3333-4333-8333-333333333333');
       const rooms = (result as any).rooms;

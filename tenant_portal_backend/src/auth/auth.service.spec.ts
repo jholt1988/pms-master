@@ -11,6 +11,7 @@ import { UnauthorizedException, BadRequestException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { authenticator } from 'otplib';
 import { SecurityEventType, Role } from '@prisma/client';
+import { DefaultApi as MilApiClient } from '@propertyos/mil-client';
 
 // Mock bcrypt
 jest.mock('bcrypt');
@@ -87,6 +88,10 @@ describe('AuthService', () => {
     sendPasswordResetEmail: jest.fn(),
   };
 
+  const mockMilApiClient = {
+    milValidateSessionV1AuthSessionValidatePost: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -98,6 +103,7 @@ describe('AuthService', () => {
         { provide: ConfigService, useValue: mockConfigService },
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: EmailService, useValue: mockEmailService },
+        { provide: MilApiClient, useValue: mockMilApiClient },
       ],
     }).compile();
 
