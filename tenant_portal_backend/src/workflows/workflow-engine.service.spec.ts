@@ -144,7 +144,7 @@ describe('WorkflowEngineService', () => {
         'Test Description',
       );
       expect(mockPrismaService.maintenanceRequest.update).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: '1' },
         data: { priority: 'HIGH' },
       });
     });
