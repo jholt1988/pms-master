@@ -208,7 +208,7 @@ describe('MaintenanceService - Metrics Integration', () => {
         expect.objectContaining({
           operation: 'assignTechnician',
           success: true,
-          requestId: requestId,
+          requestId: String(requestId),
           fallbackUsed: false,
         }),
       );

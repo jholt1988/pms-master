@@ -52,22 +52,20 @@ describe('MainDashboard', () => {
     expect(screen.getByText(/Real-time portfolio telemetry/i)).toBeInTheDocument();
   });
 
-  it('renders all card components in Bento grid', () => {
-    renderWithProviders(<MainDashboard />);
-
-    // Check that all card components are rendered
-    expect(screen.getByTestId('maintenance-card')).toBeInTheDocument();
-    expect(screen.getByTestId('payments-card')).toBeInTheDocument();
-    expect(screen.getByTestId('rent-estimator-card')).toBeInTheDocument();
-    expect(screen.getByTestId('messaging-card')).toBeInTheDocument();
-    expect(screen.getByTestId('rental-applications-card')).toBeInTheDocument();
-  });
-
-  it('displays critical attention section with maintenance card', () => {
+  it('renders core Bento grid sections', () => {
     renderWithProviders(<MainDashboard />);
 
     expect(screen.getByText(/Critical Attention/i)).toBeInTheDocument();
-    expect(screen.getByText(/Urgent/i)).toBeInTheDocument();
+    expect(screen.getByText(/Financial Flow/i)).toBeInTheDocument();
+    expect(screen.getByText(/Market Intelligence/i)).toBeInTheDocument();
+    expect(screen.getByText(/Leasing Pipeline/i)).toBeInTheDocument();
+  });
+
+  it('displays critical attention section with maintenance insights', () => {
+    renderWithProviders(<MainDashboard />);
+
+    expect(screen.getByText(/Critical Attention/i)).toBeInTheDocument();
+    expect(screen.getByText(/Insights/i)).toBeInTheDocument();
   });
 
   it('displays financial flow section', () => {

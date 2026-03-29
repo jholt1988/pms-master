@@ -236,13 +236,13 @@ describe('AIMaintenanceService', () => {
       mockPrismaService.maintenanceRequest.findUnique.mockResolvedValue(mockRequest);
       mockPrismaService.technician.findMany.mockResolvedValue(mockTechnicians);
 
-      const result = await service.assignTechnician(1);
+      const result = await service.assignTechnician('1');
 
       expect(result).toBeDefined();
       expect(result.technician).toBeDefined();
       expect(result.score).toBeGreaterThan(0);
       expect(mockPrismaService.maintenanceRequest.findUnique).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: '1' },
         include: {
           property: { select: { latitude: true, longitude: true } },
           asset: { select: { category: true } },
@@ -253,7 +253,7 @@ describe('AIMaintenanceService', () => {
     it('should throw error when request not found', async () => {
       mockPrismaService.maintenanceRequest.findUnique.mockResolvedValue(null);
 
-      await expect(service.assignTechnician(999)).rejects.toThrow('Maintenance request 999 not found');
+      await expect(service.assignTechnician('999')).rejects.toThrow('Maintenance request 999 not found');
     });
   });
 
@@ -278,7 +278,7 @@ describe('AIMaintenanceService', () => {
 
       mockPrismaService.maintenanceRequest.findUnique.mockResolvedValue(mockRequest);
 
-      const prediction = await service.predictSLABreach(1);
+      const prediction = await service.predictSLABreach('1');
 
       expect(prediction).toBeDefined();
       expect(prediction.probability).toBeGreaterThanOrEqual(0);
@@ -299,7 +299,7 @@ describe('AIMaintenanceService', () => {
 
       mockPrismaService.maintenanceRequest.findUnique.mockResolvedValue(mockRequest);
 
-      const prediction = await service.predictSLABreach(1);
+      const prediction = await service.predictSLABreach('1');
 
       expect(prediction.riskLevel).toBe('HIGH');
       expect(prediction.probability).toBeGreaterThan(0.7);

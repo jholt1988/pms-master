@@ -17,13 +17,15 @@ describe('ListingSyndicationService', () => {
       create: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
     },
     propertyMarketingProfile: { findMany: jest.fn() },
-    property: { findUnique: jest.fn() },
+    property: { findUnique: jest.fn(), findFirst: jest.fn() },
     syndicationCredential: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       findMany: jest.fn(),
       upsert: jest.fn(),
     },
@@ -46,18 +48,18 @@ describe('ListingSyndicationService', () => {
 
   it('queues syndication entries for every adapter and hydrates the Bull queue', async () => {
     mockPrisma.syndicationQueue.findMany.mockResolvedValueOnce([]);
-    mockPrisma.property.findUnique.mockResolvedValue({ id: 10 });
+    mockPrisma.property.findFirst.mockResolvedValue({ id: '10' });
 
-    await service.queueSyndication(10);
+    await service.queueSyndication('10');
 
     expect(mockPrisma.syndicationQueue.create).toHaveBeenCalledTimes(2);
     expect(queue.add).not.toHaveBeenCalled();
   });
 
   it('processes queue entries and updates status on success', async () => {
-    mockPrisma.syndicationQueue.findUnique.mockResolvedValue({
+    mockPrisma.syndicationQueue.findFirst.mockResolvedValue({
       id: 1,
-      propertyId: 10,
+      propertyId: '10',
       channel: SyndicationChannel.ZILLOW,
       status: SyndicationStatus.PENDING,
       retryCount: 0,
@@ -72,7 +74,7 @@ describe('ListingSyndicationService', () => {
         units: [{ id: 1 }],
       },
     });
-    mockPrisma.syndicationCredential.findUnique.mockResolvedValue({ config: { apiKey: 'abc' } });
+    mockPrisma.syndicationCredential.findFirst.mockResolvedValue({ config: { apiKey: 'abc' } });
     mockPrisma.syndicationQueue.update.mockResolvedValue({});
 
     await service.processQueueEntry(1);
@@ -87,9 +89,9 @@ describe('ListingSyndicationService', () => {
 
   it('retries failed jobs and logs errors through reporting', async () => {
     (zillowAdapter.send as jest.Mock).mockRejectedValueOnce(new Error('API down'));
-    mockPrisma.syndicationQueue.findUnique.mockResolvedValue({
+    mockPrisma.syndicationQueue.findFirst.mockResolvedValue({
       id: 2,
-      propertyId: 10,
+      propertyId: '10',
       channel: SyndicationChannel.ZILLOW,
       status: SyndicationStatus.PENDING,
       retryCount: 0,
@@ -104,12 +106,12 @@ describe('ListingSyndicationService', () => {
         units: [{ id: 1 }],
       },
     });
-    mockPrisma.syndicationCredential.findUnique.mockResolvedValue({ config: { apiKey: 'abc' } });
+    mockPrisma.syndicationCredential.findFirst.mockResolvedValue({ config: { apiKey: 'abc' } });
 
     await service.processQueueEntry(2);
 
     expect(mockReporting.logSyndicationError).toHaveBeenCalledWith(
-      expect.objectContaining({ propertyId: 10, channel: SyndicationChannel.ZILLOW }),
+      expect.objectContaining({ propertyId: '10', channel: SyndicationChannel.ZILLOW }),
     );
     expect(queue.add).toHaveBeenCalledWith('sync', { entryId: 2 }, { delay: 60_000 });
   });

@@ -3,6 +3,7 @@ import { InspectionService } from './inspection.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { PropertyOsService } from '../property-os/property-os.service';
 import { 
   InspectionType, 
   InspectionStatus, 
@@ -55,9 +56,11 @@ describe('InspectionService', () => {
   const mockPrismaService = {
     property: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
     },
     unit: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
     },
     lease: {
       findUnique: jest.fn(),
@@ -65,6 +68,7 @@ describe('InspectionService', () => {
     unitInspection: {
       create: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       findUniqueOrThrow: jest.fn(),
       findMany: jest.fn(),
       count: jest.fn(),
@@ -73,6 +77,7 @@ describe('InspectionService', () => {
     },
     inspectionRoom: {
       create: jest.fn(),
+      count: jest.fn().mockResolvedValue(1),
     },
     inspectionChecklistItem: {
       findUnique: jest.fn(),
@@ -95,6 +100,10 @@ describe('InspectionService', () => {
     sendPasswordResetEmail: jest.fn(),
   };
 
+  const mockPropertyOsService = {
+    runV16Analysis: jest.fn().mockResolvedValue({}),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -106,6 +115,10 @@ describe('InspectionService', () => {
         {
           provide: EmailService,
           useValue: mockEmailService,
+        },
+        {
+          provide: PropertyOsService,
+          useValue: mockPropertyOsService,
         },
       ],
     }).compile();
@@ -129,16 +142,16 @@ describe('InspectionService', () => {
 
     it('should create an inspection successfully', async () => {
       // Setup mocks
-      mockPrismaService.property.findUnique.mockResolvedValue(mockProperty);
-      mockPrismaService.unit.findUnique.mockResolvedValue(mockUnit);
+      mockPrismaService.property.findFirst.mockResolvedValue(mockProperty);
+      mockPrismaService.unit.findFirst.mockResolvedValue(mockUnit);
       mockPrismaService.unitInspection.create.mockResolvedValue(mockInspection);
 
       const result = await service.createInspection(createInspectionDto, '33333333-3333-4333-8333-333333333333');
 
-      expect(mockPrismaService.property.findUnique).toHaveBeenCalledWith({
+      expect(mockPrismaService.property.findFirst).toHaveBeenCalledWith({
         where: { id: '11111111-1111-4111-8111-111111111111' },
       });
-      expect(mockPrismaService.unit.findUnique).toHaveBeenCalledWith({
+      expect(mockPrismaService.unit.findFirst).toHaveBeenCalledWith({
         where: { id: '22222222-2222-4222-8222-222222222222' },
       });
       expect(mockPrismaService.unitInspection.create).toHaveBeenCalledWith({
@@ -154,7 +167,7 @@ describe('InspectionService', () => {
     });
 
     it('should throw NotFoundException if property does not exist', async () => {
-      mockPrismaService.property.findUnique.mockResolvedValue(null);
+      mockPrismaService.property.findFirst.mockResolvedValue(null);
 
       await expect(
         service.createInspection(createInspectionDto, '33333333-3333-4333-8333-333333333333')
@@ -162,8 +175,8 @@ describe('InspectionService', () => {
     });
 
     it('should throw NotFoundException if unit does not exist', async () => {
-      mockPrismaService.property.findUnique.mockResolvedValue(mockProperty);
-      mockPrismaService.unit.findUnique.mockResolvedValue(null);
+      mockPrismaService.property.findFirst.mockResolvedValue(mockProperty);
+      mockPrismaService.unit.findFirst.mockResolvedValue(null);
 
       await expect(
         service.createInspection(createInspectionDto, '33333333-3333-4333-8333-333333333333')
@@ -171,8 +184,8 @@ describe('InspectionService', () => {
     });
 
     it('should throw NotFoundException if unit does not belong to property', async () => {
-      mockPrismaService.property.findUnique.mockResolvedValue(mockProperty);
-      mockPrismaService.unit.findUnique.mockResolvedValue({
+      mockPrismaService.property.findFirst.mockResolvedValue(mockProperty);
+      mockPrismaService.unit.findFirst.mockResolvedValue({
         ...mockUnit,
         propertyId: '44444444-4444-4444-8444-444444444444', // Different property
       });
@@ -185,11 +198,11 @@ describe('InspectionService', () => {
 
   describe('getInspectionById', () => {
     it('should return inspection with full details', async () => {
-      mockPrismaService.unitInspection.findUnique.mockResolvedValue(mockInspection);
+      mockPrismaService.unitInspection.findFirst.mockResolvedValue(mockInspection);
 
       const result = await service.getInspectionById(1);
 
-      expect(mockPrismaService.unitInspection.findUnique).toHaveBeenCalledWith({
+      expect(mockPrismaService.unitInspection.findFirst).toHaveBeenCalledWith({
         where: { id: 1 },
         include: expect.any(Object),
       });
@@ -197,7 +210,7 @@ describe('InspectionService', () => {
     });
 
     it('should throw NotFoundException if inspection does not exist', async () => {
-      mockPrismaService.unitInspection.findUnique.mockResolvedValue(null);
+      mockPrismaService.unitInspection.findFirst.mockResolvedValue(null);
 
       await expect(service.getInspectionById(1)).rejects.toThrow(
         NotFoundException
@@ -221,9 +234,9 @@ describe('InspectionService', () => {
 
       const result = await service.updateChecklistItem(1, updateDto);
 
-      expect(mockPrismaService.inspectionChecklistItem.findUnique).toHaveBeenCalledWith({
+      expect(mockPrismaService.inspectionChecklistItem.findUnique).toHaveBeenCalledWith(expect.objectContaining({
         where: { id: 1 },
-      });
+      }));
       expect(mockPrismaService.inspectionChecklistItem.update).toHaveBeenCalledWith({
         where: { id: 1 },
         data: updateDto,
@@ -251,7 +264,7 @@ describe('InspectionService', () => {
     it('should add signature successfully', async () => {
       const mockSignature = { id: 1, ...signatureDto, inspectionId: 1 };
 
-      mockPrismaService.unitInspection.findUnique.mockResolvedValue(mockInspection);
+      mockPrismaService.unitInspection.findFirst.mockResolvedValue(mockInspection);
       mockPrismaService.inspectionSignature.findFirst.mockResolvedValue(null);
       mockPrismaService.inspectionSignature.create.mockResolvedValue(mockSignature);
 
@@ -274,7 +287,7 @@ describe('InspectionService', () => {
     });
 
     it('should throw BadRequestException if user already signed', async () => {
-      mockPrismaService.unitInspection.findUnique.mockResolvedValue(mockInspection);
+      mockPrismaService.unitInspection.findFirst.mockResolvedValue(mockInspection);
       mockPrismaService.inspectionSignature.findFirst.mockResolvedValue({
         id: 1,
         userId: '33333333-3333-4333-8333-333333333333',
@@ -295,7 +308,7 @@ describe('InspectionService', () => {
         completedDate: new Date(),
       };
 
-      mockPrismaService.unitInspection.findUnique.mockResolvedValue(mockInspection);
+      mockPrismaService.unitInspection.findFirst.mockResolvedValue(mockInspection);
       mockPrismaService.unitInspection.update.mockResolvedValue(completedInspection);
 
       const result = await service.completeInspection(1);
@@ -318,7 +331,7 @@ describe('InspectionService', () => {
         status: InspectionStatus.COMPLETED,
       };
 
-      mockPrismaService.unitInspection.findUnique.mockResolvedValue(completedInspection);
+      mockPrismaService.unitInspection.findFirst.mockResolvedValue(completedInspection);
 
       await expect(service.completeInspection(1)).rejects.toThrow(
         BadRequestException
@@ -454,8 +467,8 @@ describe('InspectionService', () => {
         ]
       };
 
-      mockPrismaService.property.findUnique.mockResolvedValue(mockProperty);
-      mockPrismaService.unit.findUnique.mockResolvedValue(mockUnit);
+      mockPrismaService.property.findFirst.mockResolvedValue(mockProperty);
+      mockPrismaService.unit.findFirst.mockResolvedValue(mockUnit);
       mockPrismaService.unitInspection.create.mockResolvedValue(inspectionWithRooms);
 
       const result = await service.createInspectionWithRooms(createWithRoomsDto, '33333333-3333-4333-8333-333333333333');

@@ -317,7 +317,7 @@ describe('WorkflowEngineService - Optimizations', () => {
       // Should call findUnique once with include
       expect(mockPrisma.maintenanceRequest.findUnique).toHaveBeenCalledTimes(1);
       expect(mockPrisma.maintenanceRequest.findUnique).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: '1' },
         include: expect.objectContaining({
           property: expect.any(Object),
           asset: expect.any(Object),

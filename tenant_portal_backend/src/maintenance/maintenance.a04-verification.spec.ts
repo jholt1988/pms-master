@@ -30,6 +30,7 @@ describe('A-04: Owner maintenance flow boundaries', () => {
     maintenanceRequest: {
       create: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(),
     },
@@ -112,10 +113,11 @@ describe('A-04: Owner maintenance flow boundaries', () => {
         description: dto.description,
         priority: MaintenancePriority.MEDIUM,
         status: Status.PENDING,
-        propertyId: dto.propertyId,
+        property: { connect: { id: dto.propertyId } },
       };
 
       mockAIMaintenanceService.assignPriorityWithAI.mockResolvedValue(MaintenancePriority.MEDIUM);
+      mockPrismaService.property.findFirst.mockResolvedValue({ id: 'prop-123', organizationId: 'org-1' });
       mockPrismaService.maintenanceRequest.create.mockResolvedValue(mockRequest);
       mockPrismaService.maintenanceRequestHistory.create.mockResolvedValue({} as any);
 
@@ -132,7 +134,7 @@ describe('A-04: Owner maintenance flow boundaries', () => {
           data: expect.objectContaining({
             title: dto.title,
             description: dto.description,
-            propertyId: dto.propertyId,
+            property: { connect: { id: dto.propertyId } },
           }),
         }),
       );
@@ -162,7 +164,9 @@ describe('A-04: Owner maintenance flow boundaries', () => {
         leaseId: null,
       };
 
-      mockPrismaService.maintenanceRequest.findUnique.mockResolvedValue(mockRequest);
+      mockPrismaService.maintenanceRequest.findUnique
+        .mockResolvedValueOnce(mockRequest)
+        .mockResolvedValueOnce({ id: 1, property: { organizationId: 'org-1' } });
       mockPrismaService.maintenanceNote.create.mockResolvedValue({
         id: 101,
         body: 'Owner update: waiting for parts',
@@ -223,10 +227,11 @@ describe('A-04: Owner maintenance flow boundaries', () => {
         description: dto.description,
         priority: MaintenancePriority.MEDIUM,
         status: Status.PENDING,
-        propertyId: dto.propertyId,
+        property: { connect: { id: dto.propertyId } },
       };
 
       mockAIMaintenanceService.assignPriorityWithAI.mockResolvedValue(MaintenancePriority.MEDIUM);
+      mockPrismaService.property.findFirst.mockResolvedValue({ id: 'prop-123', organizationId: 'org-1' });
       mockPrismaService.maintenanceRequest.create.mockResolvedValue(mockRequest);
       mockPrismaService.maintenanceRequestHistory.create.mockResolvedValue({} as any);
 
