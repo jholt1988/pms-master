@@ -138,11 +138,8 @@ export class QuickBooksController {
       const status = await this.quickBooksService.getConnectionStatus(userId, orgId);
       return status;
     } catch (error) {
-      this.logger.error('Failed to get connection status', error);
-      throw new HttpException(
-        'Failed to get connection status',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.logger.warn('QuickBooks status unavailable, returning disconnected state', error as any);
+      return { connected: false };
     }
   }
 
