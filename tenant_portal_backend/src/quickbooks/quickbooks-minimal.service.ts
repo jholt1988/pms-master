@@ -112,20 +112,26 @@ export class QuickBooksMinimalService extends AbstractQuickBooksService {
   }
 
   async getConnectionStatus(userId: string, orgId: string): Promise<ConnectionStatus> {
-    const connection = await this.prisma.quickBooksConnection.findFirst({
-      where: { organizationId: orgId, isActive: true },
-    });
+    try {
+      const connection = await this.prisma.quickBooksConnection.findFirst({
+        where: { organizationId: orgId, isActive: true },
+      });
 
-    if (!connection) {
+      if (!connection) {
+        return { connected: false };
+      }
+
+      return {
+        connected: true,
+        companyName: connection.companyId,
+        lastSync: connection.updatedAt,
+        expiresAt: connection.tokenExpiresAt,
+      };
+    } catch (error) {
+      // Graceful fallback when QuickBooks persistence is unavailable/migrating.
+      this.logger.warn(`QuickBooks status fallback for org ${orgId}: ${error instanceof Error ? error.message : 'unknown error'}`);
       return { connected: false };
     }
-
-    return {
-      connected: true,
-      companyName: connection.companyId,
-      lastSync: connection.updatedAt,
-      expiresAt: connection.tokenExpiresAt,
-    };
   }
 
   async testConnection(userId: string): Promise<TestConnectionResult> {
