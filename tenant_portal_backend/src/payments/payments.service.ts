@@ -48,6 +48,8 @@ type LedgerEntryView = {
 @Injectable()
 export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
+  private readonly delinquencyDaysWeight = Number(process.env.DELINQUENCY_PRIORITY_DAYS_WEIGHT ?? '1');
+  private readonly delinquencyAmountWeight = Number(process.env.DELINQUENCY_PRIORITY_AMOUNT_WEIGHT ?? '1');
 
   constructor(
     private readonly prisma: PrismaService,
@@ -1378,6 +1380,12 @@ export class PaymentsService {
     };
   }
 
+  private computeDelinquencyPriorityScore(daysPastDue: number, amountDueCents: number): number {
+    const safeDaysWeight = Number.isFinite(this.delinquencyDaysWeight) ? this.delinquencyDaysWeight : 1;
+    const safeAmountWeight = Number.isFinite(this.delinquencyAmountWeight) ? this.delinquencyAmountWeight : 1;
+    return Math.round((daysPastDue * safeDaysWeight) * (amountDueCents * safeAmountWeight));
+  }
+
   async getDelinquencyQueue(params: {
     orgId?: string;
     bucket?: '1_7' | '8_30' | '31_plus';
@@ -1449,7 +1457,7 @@ export class PaymentsService {
           daysPastDue: dueDays,
           bucket,
           invoiceIds: [invoice.id],
-          priorityScore: dueDays * amountCents,
+          priorityScore: this.computeDelinquencyPriorityScore(dueDays, amountCents),
         });
       } else {
         existing.amountDueCents += amountCents;
@@ -1459,7 +1467,7 @@ export class PaymentsService {
           existing.bucket = bucket;
         }
         existing.invoiceIds.push(invoice.id);
-        existing.priorityScore = existing.daysPastDue * existing.amountDueCents;
+        existing.priorityScore = this.computeDelinquencyPriorityScore(existing.daysPastDue, existing.amountDueCents);
       }
     }
 
@@ -1499,6 +1507,10 @@ export class PaymentsService {
       offset: safeOffset,
       sortBy,
       sortOrder,
+      priorityWeights: {
+        daysWeight: this.delinquencyDaysWeight,
+        amountWeight: this.delinquencyAmountWeight,
+      },
       items: rows,
     };
   }
