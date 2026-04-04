@@ -377,8 +377,8 @@ describe('PaymentsController', () => {
         'property-1',
         '50',
         '10',
-        'amountDueCents',
-        'asc',
+        'priorityScore',
+        'desc',
       );
 
       expect(result).toEqual(queuePayload);
@@ -388,8 +388,8 @@ describe('PaymentsController', () => {
         propertyId: 'property-1',
         limit: 50,
         offset: 10,
-        sortBy: 'amountDueCents',
-        sortOrder: 'asc',
+        sortBy: 'priorityScore',
+        sortOrder: 'desc',
       });
     });
   });
