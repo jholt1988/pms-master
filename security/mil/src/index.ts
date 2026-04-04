@@ -1,5 +1,5 @@
 import Fastify from "fastify";
-import { registerRoutes } from "./api/routes";
+import { registerRoutes } from "./api/routes.js";
 const app = Fastify({ logger: true });
 await registerRoutes(app);
 const port = Number(process.env.PORT || 8080);

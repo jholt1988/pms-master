@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
-import { canonicalBytes } from "./canonical";
-import { wrapDek, unwrapDek } from "./wrap";
+import { canonicalBytes } from "./canonical.js";
+import { wrapDek, unwrapDek } from "./wrap.js";
 
 export type EnvelopeCipher = "AES-256-GCM";
 
