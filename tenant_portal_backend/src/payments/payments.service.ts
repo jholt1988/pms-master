@@ -764,6 +764,50 @@ export class PaymentsService {
       createdById?: string;
     },
   ) {
+    if (data.amountCents <= 0) {
+      throw new BadRequestException('Ledger transaction amount must be greater than zero');
+    }
+
+    if (data.entryType === 'REVERSAL') {
+      if (!data.reversesEntryId) {
+        throw new BadRequestException('Reversal entry must include reversesEntryId');
+      }
+
+      const original = await prismaLike.ledgerTransaction.findUnique({
+        where: { id: data.reversesEntryId },
+      });
+
+      if (!original) {
+        throw new BadRequestException('Reversal target entry was not found');
+      }
+
+      if (original.accountId !== data.accountId) {
+        throw new BadRequestException('Reversal target entry belongs to a different ledger account');
+      }
+
+      if (original.entryType === 'REVERSAL') {
+        throw new BadRequestException('Cannot reverse a reversal entry');
+      }
+
+      if (original.direction === data.direction) {
+        throw new BadRequestException('Reversal direction must be opposite of original entry direction');
+      }
+
+      const existingReversalForOriginal = await prismaLike.ledgerTransaction.findFirst({
+        where: {
+          accountId: data.accountId,
+          entryType: 'REVERSAL',
+          reversesEntryId: data.reversesEntryId,
+          status: 'POSTED',
+        },
+        select: { id: true },
+      });
+
+      if (existingReversalForOriginal) {
+        return existingReversalForOriginal;
+      }
+    }
+
     const existing = await prismaLike.ledgerTransaction.findFirst({
       where: {
         accountId: data.accountId,
