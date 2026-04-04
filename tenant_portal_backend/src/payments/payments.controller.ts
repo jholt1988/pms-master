@@ -103,6 +103,27 @@ export class PaymentsController {
     return this.paymentsService.getPaymentsForUser(req.user.userId, req.user.role, leaseId, orgId);
   }
 
+  @Get('ledger/accounts/:leaseId')
+  @Roles('PROPERTY_MANAGER', 'TENANT')
+  async getLedgerAccount(
+    @Param('leaseId') leaseId: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.paymentsService.getOperationalLedgerAccount(leaseId, req.user, orgId);
+  }
+
+  @Get('delinquency/queue')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async getDelinquencyQueue(
+    @Request() req: AuthenticatedRequest,
+    @Query('bucket') bucket?: '1_7' | '8_30' | '31_plus',
+    @Query('propertyId') propertyId?: string,
+  ) {
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.paymentsService.getDelinquencyQueue({ orgId, bucket, propertyId });
+  }
+
   @Post('stripe/checkout-session')
   @Roles('PROPERTY_MANAGER', 'TENANT')
   async createStripeCheckoutSession(

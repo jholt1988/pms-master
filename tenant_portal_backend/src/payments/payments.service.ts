@@ -36,6 +36,15 @@ type CreateManualChargeInput = {
   createdById: string;
 };
 
+type LedgerEntryView = {
+  id: string;
+  kind: 'charge' | 'credit' | 'payment';
+  source: 'invoice' | 'manual_charge' | 'payment' | 'manual_payment';
+  occurredAt: Date;
+  amountCents: number;
+  description: string;
+};
+
 @Injectable()
 export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
@@ -955,6 +964,197 @@ export class PaymentsService {
     }
 
     return paymentPlan;
+  }
+
+  async getOperationalLedgerAccount(
+    leaseId: string,
+    authUser: { userId: string; role: Role },
+    orgId?: string,
+  ) {
+    const parsedLeaseId = this.parseLeaseId(leaseId);
+    const lease = await this.prisma.lease.findUnique({
+      where: { id: parsedLeaseId },
+      include: {
+        tenant: true,
+        unit: { include: { property: true } },
+      },
+    });
+
+    if (!lease) {
+      throw new NotFoundException('Lease not found');
+    }
+
+    if (authUser.role === Role.TENANT && lease.tenantId !== authUser.userId) {
+      throw new ForbiddenException('You do not have access to this ledger account');
+    }
+
+    if ((authUser.role === Role.PROPERTY_MANAGER || authUser.role === Role.ADMIN) && orgId) {
+      const leaseOrgId = lease.unit?.property?.organizationId;
+      if (!leaseOrgId || leaseOrgId !== orgId) {
+        throw new ForbiddenException('You do not have access to this ledger account');
+      }
+    }
+
+    const [invoices, payments, manualCharges, manualPayments] = await Promise.all([
+      this.prisma.invoice.findMany({ where: { leaseId: parsedLeaseId } }),
+      this.prisma.payment.findMany({ where: { leaseId: parsedLeaseId } }),
+      this.prisma.manualCharge.findMany({ where: { leaseId: parsedLeaseId } }),
+      this.prisma.manualPayment.findMany({ where: { leaseId: parsedLeaseId } }),
+    ]);
+
+    const entries: LedgerEntryView[] = [
+      ...invoices.map((i) => ({
+        id: `inv-${i.id}`,
+        kind: 'charge' as const,
+        source: 'invoice' as const,
+        occurredAt: i.dueDate,
+        amountCents: Math.round(Number(i.amount) * 100),
+        description: i.description || `Invoice #${i.id}`,
+      })),
+      ...manualCharges
+        .filter((c) => c.status === 'POSTED')
+        .map((c) => ({
+          id: c.id,
+          kind: 'charge' as const,
+          source: 'manual_charge' as const,
+          occurredAt: c.chargeDate,
+          amountCents: c.amountCents,
+          description: c.description,
+        })),
+      ...payments
+        .filter((p) => (p.status ?? '').toUpperCase() !== 'FAILED')
+        .map((p) => ({
+          id: `pay-${p.id}`,
+          kind: 'payment' as const,
+          source: 'payment' as const,
+          occurredAt: p.paymentDate,
+          amountCents: Math.round(Number(p.amount) * 100),
+          description: `Payment #${p.id}`,
+        })),
+      ...manualPayments
+        .filter((p) => p.status === 'POSTED')
+        .map((p) => ({
+          id: p.id,
+          kind: 'payment' as const,
+          source: 'manual_payment' as const,
+          occurredAt: p.receivedAt,
+          amountCents: p.amountCents,
+          description: p.memo || `Manual ${p.method} payment`,
+        })),
+    ].sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime());
+
+    let runningBalanceCents = 0;
+    const ledger = entries.map((entry) => {
+      const signed = entry.kind === 'charge' ? entry.amountCents : -entry.amountCents;
+      runningBalanceCents += signed;
+      return {
+        ...entry,
+        signedAmountCents: signed,
+        runningBalanceCents,
+      };
+    });
+
+    return {
+      leaseId: parsedLeaseId,
+      tenantId: lease.tenantId,
+      propertyId: lease.unit?.propertyId,
+      unitId: lease.unitId,
+      currency: 'USD',
+      currentBalanceCents: runningBalanceCents,
+      entryCount: ledger.length,
+      entries: ledger,
+    };
+  }
+
+  async getDelinquencyQueue(params: {
+    orgId?: string;
+    bucket?: '1_7' | '8_30' | '31_plus';
+    propertyId?: string;
+  }) {
+    const today = new Date();
+    const overdueInvoices = await this.prisma.invoice.findMany({
+      where: {
+        status: { not: 'PAID' },
+        dueDate: { lt: today },
+        lease: {
+          unit: {
+            property: {
+              ...(params.orgId ? { organizationId: params.orgId } : {}),
+              ...(params.propertyId ? { id: params.propertyId } : {}),
+            },
+          },
+        },
+      },
+      include: {
+        lease: {
+          include: {
+            tenant: true,
+            unit: {
+              include: { property: true },
+            },
+          },
+        },
+      },
+      orderBy: { dueDate: 'asc' },
+    });
+
+    const grouped = new Map<string, {
+      leaseId: string;
+      tenantId: string;
+      tenantName: string;
+      propertyId?: string;
+      propertyName?: string;
+      unitName?: string;
+      amountDueCents: number;
+      oldestDueDate: Date;
+      daysPastDue: number;
+      bucket: '1_7' | '8_30' | '31_plus';
+      invoiceIds: number[];
+    }>();
+
+    for (const invoice of overdueInvoices) {
+      const key = invoice.leaseId;
+      const dueDays = Math.max(1, Math.floor((today.getTime() - invoice.dueDate.getTime()) / 86400000));
+      const bucket: '1_7' | '8_30' | '31_plus' = dueDays <= 7 ? '1_7' : dueDays <= 30 ? '8_30' : '31_plus';
+      const existing = grouped.get(key);
+      const amountCents = Math.round(Number(invoice.amount) * 100);
+
+      if (!existing) {
+        grouped.set(key, {
+          leaseId: invoice.leaseId,
+          tenantId: invoice.lease?.tenantId ?? '',
+          tenantName: `${invoice.lease?.tenant?.firstName ?? ''} ${invoice.lease?.tenant?.lastName ?? ''}`.trim() || invoice.lease?.tenant?.username || 'Unknown',
+          propertyId: invoice.lease?.unit?.propertyId,
+          propertyName: invoice.lease?.unit?.property?.name,
+          unitName: invoice.lease?.unit?.name,
+          amountDueCents: amountCents,
+          oldestDueDate: invoice.dueDate,
+          daysPastDue: dueDays,
+          bucket,
+          invoiceIds: [invoice.id],
+        });
+      } else {
+        existing.amountDueCents += amountCents;
+        if (invoice.dueDate < existing.oldestDueDate) {
+          existing.oldestDueDate = invoice.dueDate;
+          existing.daysPastDue = dueDays;
+          existing.bucket = bucket;
+        }
+        existing.invoiceIds.push(invoice.id);
+      }
+    }
+
+    let rows = Array.from(grouped.values()).sort((a, b) => b.daysPastDue - a.daysPastDue);
+    if (params.bucket) {
+      rows = rows.filter((row) => row.bucket === params.bucket);
+    }
+
+    return {
+      generatedAt: today,
+      count: rows.length,
+      bucket: params.bucket ?? 'all',
+      items: rows,
+    };
   }
 
   /**
