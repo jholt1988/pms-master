@@ -32,6 +32,10 @@ describe('PaymentsService', () => {
       create: jest.fn(),
       findUnique: jest.fn(),
     },
+    organization: {
+      findUnique: jest.fn(),
+      update: jest.fn(),
+    },
     ledgerAccount: {
       upsert: jest.fn(),
       findUnique: jest.fn(),
@@ -889,8 +893,10 @@ describe('PaymentsService', () => {
     });
 
     it('uses configured priority weights in score calculation', async () => {
-      (service as any).delinquencyDaysWeight = 2;
-      (service as any).delinquencyAmountWeight = 3;
+      mockPrismaService.organization.findUnique.mockResolvedValue({
+        delinquencyDaysWeight: 2,
+        delinquencyAmountWeight: 3,
+      });
 
       const now = new Date();
       mockPrismaService.invoice.findMany.mockResolvedValue([
@@ -916,6 +922,40 @@ describe('PaymentsService', () => {
       expect(result.priorityWeights).toEqual({ daysWeight: 2, amountWeight: 3 });
       // dueDays=2, amountCents=10000 => (2*2) * (10000*3) = 120000
       expect(result.items[0].priorityScore).toBe(120000);
+    });
+  });
+
+  describe('delinquency priority config methods', () => {
+    it('returns env defaults when org overrides are absent', async () => {
+      mockPrismaService.organization.findUnique.mockResolvedValue({
+        id: 'org-1',
+        delinquencyDaysWeight: null,
+        delinquencyAmountWeight: null,
+      });
+
+      const result = await service.getDelinquencyPriorityConfig('org-1');
+      expect(result).toEqual({
+        orgId: 'org-1',
+        daysWeight: 1,
+        amountWeight: 1,
+        source: 'env_default',
+      });
+    });
+
+    it('updates org overrides and returns new values', async () => {
+      mockPrismaService.organization.update.mockResolvedValue({
+        id: 'org-1',
+        delinquencyDaysWeight: 2,
+        delinquencyAmountWeight: 3,
+      });
+
+      const result = await service.updateDelinquencyPriorityConfig('org-1', 2, 3);
+      expect(result).toEqual({
+        orgId: 'org-1',
+        daysWeight: 2,
+        amountWeight: 3,
+        source: 'org_override',
+      });
     });
   });
 

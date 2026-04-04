@@ -18,6 +18,8 @@ describe('PaymentsController', () => {
     getPaymentsForUser: jest.fn(),
     getOperationalLedgerAccount: jest.fn(),
     getDelinquencyQueue: jest.fn(),
+    getDelinquencyPriorityConfig: jest.fn(),
+    updateDelinquencyPriorityConfig: jest.fn(),
     testRentDueReminder: jest.fn(),
     testLateRentNotification: jest.fn(),
   };
@@ -391,6 +393,28 @@ describe('PaymentsController', () => {
         sortBy: 'priorityScore',
         sortOrder: 'desc',
       });
+    });
+  });
+
+  describe('delinquency priority config', () => {
+    it('gets delinquency priority config for org', async () => {
+      const payload = { orgId: 'org-1', daysWeight: 1, amountWeight: 1, source: 'env_default' };
+      mockPaymentsService.getDelinquencyPriorityConfig.mockResolvedValue(payload);
+
+      const result = await controller.getDelinquencyPriorityConfig('org-1');
+      expect(result).toEqual(payload);
+      expect(service.getDelinquencyPriorityConfig).toHaveBeenCalledWith('org-1');
+    });
+
+    it('updates delinquency priority config for org', async () => {
+      const payload = { orgId: 'org-1', daysWeight: 2, amountWeight: 3, source: 'org_override' };
+      mockPaymentsService.updateDelinquencyPriorityConfig.mockResolvedValue(payload);
+      const req = { user: { userId: 'admin-1' } } as any;
+
+      const result = await controller.updateDelinquencyPriorityConfig('org-1', { daysWeight: 2, amountWeight: 3 } as any, req);
+      expect(result).toEqual(payload);
+      expect(service.updateDelinquencyPriorityConfig).toHaveBeenCalledWith('org-1', 2, 3);
+      expect(mockAuditLogService.record).toHaveBeenCalled();
     });
   });
 
