@@ -16,6 +16,8 @@ describe('PaymentsController', () => {
     getInvoicesForUser: jest.fn(),
     createPayment: jest.fn(),
     getPaymentsForUser: jest.fn(),
+    getOperationalLedgerAccount: jest.fn(),
+    getDelinquencyQueue: jest.fn(),
     testRentDueReminder: jest.fn(),
     testLateRentNotification: jest.fn(),
   };
@@ -288,6 +290,95 @@ describe('PaymentsController', () => {
 
       await expect(controller.getPayments(mockRequest, 'notanumber')).rejects.toThrow(BadRequestException);
       expect(service.getPaymentsForUser).toHaveBeenCalledWith('1', Role.TENANT, 'notanumber', undefined);
+    });
+  });
+
+  describe('getLedgerAccount', () => {
+    it('should return operational ledger account payload', async () => {
+      const mockRequest = {
+        user: {
+          userId: 'tenant-1',
+          role: Role.TENANT,
+        },
+        org: {
+          orgId: 'org-1',
+        },
+      } as any;
+
+      const ledgerPayload = {
+        leaseId: '11111111-1111-4111-8111-111111111111',
+        tenantId: 'tenant-1',
+        propertyId: 'property-1',
+        unitId: 'unit-1',
+        currency: 'USD',
+        currentBalanceCents: 250000,
+        entryCount: 3,
+        entries: [
+          {
+            id: 'entry-1',
+            kind: 'charge',
+            source: 'invoice',
+            occurredAt: new Date().toISOString(),
+            amountCents: 300000,
+            signedAmountCents: 300000,
+            runningBalanceCents: 300000,
+            description: 'Invoice #1',
+          },
+        ],
+      };
+
+      mockPaymentsService.getOperationalLedgerAccount.mockResolvedValue(ledgerPayload);
+
+      const result = await controller.getLedgerAccount('11111111-1111-4111-8111-111111111111', mockRequest);
+
+      expect(result).toEqual(ledgerPayload);
+      expect(service.getOperationalLedgerAccount).toHaveBeenCalledWith(
+        '11111111-1111-4111-8111-111111111111',
+        mockRequest.user,
+        'org-1',
+      );
+    });
+  });
+
+  describe('getDelinquencyQueue', () => {
+    it('should return delinquency queue with filters', async () => {
+      const mockRequest = {
+        user: {
+          userId: 'pm-1',
+          role: Role.PROPERTY_MANAGER,
+        },
+        org: {
+          orgId: 'org-1',
+        },
+      } as any;
+
+      const queuePayload = {
+        generatedAt: new Date().toISOString(),
+        count: 1,
+        bucket: '8_30',
+        items: [
+          {
+            leaseId: '11111111-1111-4111-8111-111111111111',
+            tenantId: 'tenant-1',
+            tenantName: 'Tenant One',
+            amountDueCents: 120000,
+            daysPastDue: 12,
+            bucket: '8_30',
+            invoiceIds: [1, 2],
+          },
+        ],
+      };
+
+      mockPaymentsService.getDelinquencyQueue.mockResolvedValue(queuePayload);
+
+      const result = await controller.getDelinquencyQueue(mockRequest, '8_30', 'property-1');
+
+      expect(result).toEqual(queuePayload);
+      expect(service.getDelinquencyQueue).toHaveBeenCalledWith({
+        orgId: 'org-1',
+        bucket: '8_30',
+        propertyId: 'property-1',
+      });
     });
   });
 
