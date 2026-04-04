@@ -1169,41 +1169,50 @@ enum BulkSendStrategy {
 }
 
 model RentalApplication {
-  id                    Int                         @id @default(autoincrement())
-  applicant             User?                       @relation(fields: [applicantId], references: [id])
-  applicantId           String?                     @db.Uuid
-  property              Property                    @relation(fields: [propertyId], references: [id])
-  propertyId            String                      @db.Uuid
-  unit                  Unit                        @relation(fields: [unitId], references: [id])
-  unitId                String                      @db.Uuid
-  status                ApplicationStatus           @default(PENDING)
-  applicationDate       DateTime                    @default(now())
-  fullName              String
-  email                 String
-  phoneNumber           String
-  income                Float
-  employmentStatus      String
-  previousAddress       String
-  creditScore           Int?
-  monthlyDebt           Float?
-  bankruptcyFiledYear   Int?
-  rentalHistoryComments String?
-  qualificationStatus   QualificationStatus? // Added for screening
-  recommendation        Recommendation? // Added for screening
-  screeningDetails      String? // Added for screening
-  screeningScore        Float?
-  screeningReasons      Json?
-  screenedAt            DateTime?
-  screenedBy            User?                       @relation("ScreenedApplications", fields: [screenedById], references: [id])
-  screenedById          String?                     @db.Uuid
-  termsAcceptedAt       DateTime?
-  termsVersion          String?
-  privacyAcceptedAt     DateTime?
-  privacyVersion        String?
-  manualNotes           RentalApplicationNote[]
-  lifecycleEvents       ApplicationLifecycleEvent[]
-  createdAt             DateTime                    @default(now())
-  updatedAt             DateTime                    @updatedAt
+  id                              Int                            @id @default(autoincrement())
+  applicant                       User?                          @relation(fields: [applicantId], references: [id])
+  applicantId                     String?                        @db.Uuid
+  property                        Property                       @relation(fields: [propertyId], references: [id])
+  propertyId                      String                         @db.Uuid
+  unit                            Unit                           @relation(fields: [unitId], references: [id])
+  unitId                          String                         @db.Uuid
+  status                          ApplicationStatus              @default(PENDING)
+  applicationDate                 DateTime                       @default(now())
+  fullName                        String
+  email                           String
+  phoneNumber                     String
+  income                          Float
+  employmentStatus                String
+  previousAddress                 String
+  creditScore                     Int?
+  monthlyDebt                     Float?
+  bankruptcyFiledYear             Int?
+  rentalHistoryComments           String?
+  authorizeCreditCheck            Boolean                        @default(false)
+  authorizeBackgroundCheck        Boolean                        @default(false)
+  authorizeEmploymentVerification Boolean                        @default(false)
+  ssCardUploaded                  Boolean                        @default(false)
+  proofOfIncomeUploaded           Boolean                        @default(false)
+  dlIdUploaded                    Boolean                        @default(false)
+  qualificationStatus             QualificationStatus? // Added for screening
+  recommendation                  Recommendation? // Added for screening
+  screeningDetails                String? // Added for screening
+  screeningScore                  Float?
+  screeningReasons                Json?
+  screenedAt                      DateTime?
+  screenedBy                      User?                          @relation("ScreenedApplications", fields: [screenedById], references: [id])
+  screenedById                    String?                        @db.Uuid
+  decisionReasonCode              ApplicationDecisionReasonCode?
+  decisionNotes                   String?
+  decisionedAt                    DateTime?
+  termsAcceptedAt                 DateTime?
+  termsVersion                    String?
+  privacyAcceptedAt               DateTime?
+  privacyVersion                  String?
+  manualNotes                     RentalApplicationNote[]
+  lifecycleEvents                 ApplicationLifecycleEvent[]
+  createdAt                       DateTime                       @default(now())
+  updatedAt                       DateTime                       @updatedAt
 
   ai_recommendation String?
   ai_summary        String?
@@ -1482,6 +1491,16 @@ enum QualificationStatus {
 enum Recommendation {
   RECOMMEND_RENT
   DO_NOT_RECOMMEND_RENT
+}
+
+enum ApplicationDecisionReasonCode {
+  CREDIT_RISK
+  INCOME_INSUFFICIENT
+  IDENTITY_UNVERIFIED
+  BACKGROUND_CHECK_FAILED
+  INCOMPLETE_DOCUMENTATION
+  POLICY_MISMATCH
+  OTHER
 }
 
 model RentalApplicationNote {

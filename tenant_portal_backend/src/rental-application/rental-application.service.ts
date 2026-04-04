@@ -2,6 +2,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  ApplicationDecisionReasonCode,
   ApplicationStatus,
   QualificationStatus,
   Recommendation,
@@ -30,10 +31,23 @@ export class RentalApplicationService {
   ) {}
   
   async submitApplication(data: SubmitApplicationDto, applicantId?: string) {
-    const propertyId = data.propertyId
+    const propertyId = data.propertyId;
     if (!data.termsAccepted || !data.privacyAccepted) {
       throw new BadRequestException('Terms of Service and Privacy Policy must be accepted');
     }
+
+    if (!data.authorizeCreditCheck || !data.authorizeBackgroundCheck || !data.authorizeEmploymentVerification) {
+      throw new BadRequestException('Credit, background, and employment verification authorizations are required');
+    }
+
+    if (!data.proofOfIncomeUploaded || !data.dlIdUploaded) {
+      throw new BadRequestException('Proof of income and government-issued ID uploads are required');
+    }
+
+    if (!data.employments?.length && !data.additionalIncomes?.length) {
+      throw new BadRequestException('At least one employment or additional income entry is required');
+    }
+
     const acceptanceTimestamp = new Date();
     const unitId = String(data.unitId);
     const application = await this.prisma.rentalApplication.create({
@@ -51,6 +65,12 @@ export class RentalApplicationService {
         monthlyDebt: data.monthlyDebt,
         bankruptcyFiledYear: data.bankruptcyFiledYear,
         rentalHistoryComments: data.rentalHistoryComments,
+        authorizeCreditCheck: data.authorizeCreditCheck,
+        authorizeBackgroundCheck: data.authorizeBackgroundCheck,
+        authorizeEmploymentVerification: data.authorizeEmploymentVerification,
+        ssCardUploaded: data.ssCardUploaded,
+        proofOfIncomeUploaded: data.proofOfIncomeUploaded,
+        dlIdUploaded: data.dlIdUploaded,
         termsAcceptedAt: acceptanceTimestamp,
         termsVersion: data.termsVersion,
         privacyAcceptedAt: acceptanceTimestamp,
@@ -514,22 +534,57 @@ export class RentalApplicationService {
         applicationNumber: `APP-${applicationId}`,
         note: dto.note,
       });
+
+      await this.prisma.rentalApplication.update({
+        where: { id: applicationId },
+        data: {
+          decisionReasonCode: null,
+          decisionNotes: dto.note?.trim() || null,
+          decisionedAt: new Date(),
+        },
+      });
+
       if (dto.note?.trim()) {
         await this.addNote(applicationId, { body: `Approval note: ${dto.note.trim()}` }, actor, orgId);
       }
     }
 
     if (dto.action === RentalApplicationReviewAction.DENY) {
+      if (!dto.reasonCode) {
+        throw new BadRequestException('reasonCode is required for denial actions');
+      }
+      if (!dto.reason?.trim()) {
+        throw new BadRequestException('reason is required for denial actions');
+      }
+
       await this.transitionUsingPath(applicationId, updatedApplication.status, ApplicationStatus.REJECTED, actor, [], {
         applicationNumber: `APP-${applicationId}`,
         reason: dto.reason,
+        reasonCode: dto.reasonCode,
       });
-      if (dto.reason?.trim()) {
-        await this.addNote(applicationId, { body: `Denial reason: ${dto.reason.trim()}` }, actor, orgId);
-      }
+
+      await this.prisma.rentalApplication.update({
+        where: { id: applicationId },
+        data: {
+          decisionReasonCode: dto.reasonCode,
+          decisionNotes: dto.reason.trim(),
+          decisionedAt: new Date(),
+        },
+      });
+
+      await this.addNote(
+        applicationId,
+        { body: `Denial reason [${dto.reasonCode}]: ${dto.reason.trim()}` },
+        actor,
+        orgId,
+      );
     }
 
     if (dto.action === RentalApplicationReviewAction.REQUEST_INFO) {
+      if (!dto.note?.trim()) {
+        throw new BadRequestException('note is required when requesting additional information');
+      }
+
       await this.transitionUsingPath(
         applicationId,
         updatedApplication.status,

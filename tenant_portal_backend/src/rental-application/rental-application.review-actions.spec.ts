@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { ApplicationStatus, Role } from '@prisma/client';
+import { ApplicationDecisionReasonCode, ApplicationStatus, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SecurityEventsService } from '../security-events/security-events.service';
 import { AuditLogService } from '../shared/audit-log.service';
@@ -121,5 +121,53 @@ describe('RentalApplicationService review actions', () => {
     );
 
     expect(scheduleService.createEvent).toHaveBeenCalled();
+  });
+
+  it('requires reason and reasonCode for DENY action', async () => {
+    await expect(
+      service.performReviewAction(
+        10,
+        {
+          action: RentalApplicationReviewAction.DENY,
+          reason: 'Insufficient financial profile',
+        } as any,
+        actor,
+        'org-1',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    await expect(
+      service.performReviewAction(
+        10,
+        {
+          action: RentalApplicationReviewAction.DENY,
+          reasonCode: ApplicationDecisionReasonCode.INCOME_INSUFFICIENT,
+        } as any,
+        actor,
+        'org-1',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('persists decision metadata for DENY action', async () => {
+    await service.performReviewAction(
+      10,
+      {
+        action: RentalApplicationReviewAction.DENY,
+        reasonCode: ApplicationDecisionReasonCode.INCOME_INSUFFICIENT,
+        reason: 'Income below policy threshold',
+      },
+      actor,
+      'org-1',
+    );
+
+    expect(prisma.rentalApplication.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 10 },
+        data: expect.objectContaining({
+          decisionReasonCode: ApplicationDecisionReasonCode.INCOME_INSUFFICIENT,
+        }),
+      }),
+    );
   });
 });

@@ -1,3 +1,4 @@
+import { ApplicationDecisionReasonCode } from '@prisma/client';
 import { IsDateString, IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export enum RentalApplicationReviewAction {
@@ -20,6 +21,10 @@ export class RentalApplicationReviewActionDto {
   @IsString()
   @MaxLength(500)
   reason?: string;
+
+  @IsOptional()
+  @IsEnum(ApplicationDecisionReasonCode)
+  reasonCode?: ApplicationDecisionReasonCode;
 
   @IsOptional()
   @IsDateString()
