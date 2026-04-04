@@ -418,51 +418,90 @@ export class LeasingService {
       take: safeLimit,
     });
 
+    const staleLeadItems = staleLeadApps.map((item) => ({
+      id: item.id,
+      status: item.status,
+      leadId: item.leadId,
+      propertyId: item.propertyId,
+      propertyName: item.property?.name,
+      unitId: item.unitId,
+      followUpDueAt: item.followUpDueAt,
+      lastActivityAt: item.lastActivityAt,
+      recommendation: {
+        priority: item.status === LeadApplicationStatus.CONDITIONALLY_APPROVED ? 'HIGH' : 'MEDIUM',
+        action: 'FOLLOW_UP_APPLICANT',
+        reason:
+          item.status === LeadApplicationStatus.CONDITIONALLY_APPROVED
+            ? 'Conditional approval pending documents/conditions.'
+            : 'Application is stale and requires manager follow-up.',
+        endpoint: `/applications/${item.id}/status`,
+      },
+    }));
+
+    const signatureRiskItems = signatureRisk.map((env) => {
+      const meta = (env.providerMetadata as Record<string, unknown>) || {};
+      const pendingParticipantsCount = env.participants.filter(
+        (p) => p.status !== EsignParticipantStatus.SIGNED && p.status !== EsignParticipantStatus.DECLINED,
+      ).length;
+
+      const recommendation = env.status === EsignEnvelopeStatus.ERROR
+        ? {
+            priority: 'HIGH',
+            action: 'RETRY_SEND_ENVELOPE',
+            reason: 'Envelope is in ERROR state and requires retry.',
+            endpoint: `/esignature/envelopes/${env.id}/retry-send`,
+          }
+        : {
+            priority: pendingParticipantsCount > 0 ? 'MEDIUM' : 'LOW',
+            action: 'SEND_SIGNATURE_REMINDER',
+            reason: pendingParticipantsCount > 0
+              ? 'Pending signers detected.'
+              : 'No pending signers; monitor status.',
+            endpoint: `/esignature/envelopes/${env.id}/resend`,
+          };
+
+      return {
+        id: env.id,
+        leaseId: env.leaseId,
+        status: env.status,
+        providerStatus: env.providerStatus,
+        tenantName: env.lease?.tenant?.username,
+        propertyName: env.lease?.unit?.property?.name,
+        reminderCount: Number(meta.reminderCount || 0),
+        retryCount: Number(meta.retryCount || 0),
+        nextRetryAt: (meta.nextRetryAt as string) || null,
+        pendingParticipantsCount,
+        recommendation,
+      };
+    });
+
+    const conversionItems = approvedNotConverted.map((app) => ({
+      id: app.id,
+      applicantId: app.applicantId,
+      applicantName: app.fullName,
+      propertyId: app.propertyId,
+      propertyName: app.property?.name,
+      unitId: app.unitId,
+      approvedAt: app.decisionedAt,
+      decisionNotes: app.decisionNotes,
+      recommendation: {
+        priority: 'HIGH',
+        action: 'CONVERT_TO_LEASE',
+        reason: 'Application approved but no lease draft has been created.',
+        endpoint: `/rental-applications/${app.id}/convert-to-lease`,
+      },
+    }));
+
     return {
       generatedAt: now.toISOString(),
       counts: {
-        staleLeadApplications: staleLeadApps.length,
-        signatureRiskEnvelopes: signatureRisk.length,
-        approvedNotConvertedApplications: approvedNotConverted.length,
+        staleLeadApplications: staleLeadItems.length,
+        signatureRiskEnvelopes: signatureRiskItems.length,
+        approvedNotConvertedApplications: conversionItems.length,
       },
-      staleLeadApplications: staleLeadApps.map((item) => ({
-        id: item.id,
-        status: item.status,
-        leadId: item.leadId,
-        propertyId: item.propertyId,
-        propertyName: item.property?.name,
-        unitId: item.unitId,
-        followUpDueAt: item.followUpDueAt,
-        lastActivityAt: item.lastActivityAt,
-      })),
-      signatureRiskEnvelopes: signatureRisk.map((env) => {
-        const meta = (env.providerMetadata as Record<string, unknown>) || {};
-        const pendingParticipantsCount = env.participants.filter(
-          (p) => p.status !== EsignParticipantStatus.SIGNED && p.status !== EsignParticipantStatus.DECLINED,
-        ).length;
-        return {
-          id: env.id,
-          leaseId: env.leaseId,
-          status: env.status,
-          providerStatus: env.providerStatus,
-          tenantName: env.lease?.tenant?.username,
-          propertyName: env.lease?.unit?.property?.name,
-          reminderCount: Number(meta.reminderCount || 0),
-          retryCount: Number(meta.retryCount || 0),
-          nextRetryAt: (meta.nextRetryAt as string) || null,
-          pendingParticipantsCount,
-        };
-      }),
-      approvedNotConvertedApplications: approvedNotConverted.map((app) => ({
-        id: app.id,
-        applicantId: app.applicantId,
-        applicantName: app.fullName,
-        propertyId: app.propertyId,
-        propertyName: app.property?.name,
-        unitId: app.unitId,
-        approvedAt: app.decisionedAt,
-        decisionNotes: app.decisionNotes,
-      })),
+      staleLeadApplications: staleLeadItems,
+      signatureRiskEnvelopes: signatureRiskItems,
+      approvedNotConvertedApplications: conversionItems,
     };
   }
 
