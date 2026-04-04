@@ -1571,6 +1571,170 @@ export class PaymentsService {
     };
   }
 
+  async getPaymentsOpsSummary(orgId?: string, limit = 25) {
+    const safeLimit = Math.min(Math.max(limit || 25, 1), 100);
+    const delinquency = await this.getDelinquencyQueue({
+      orgId,
+      limit: safeLimit,
+      offset: 0,
+      sortBy: 'priorityScore',
+      sortOrder: 'desc',
+    });
+
+    const failedPayments = await this.prisma.payment.findMany({
+      where: {
+        ...(orgId ? { lease: { unit: { property: { organizationId: orgId } } } } : {}),
+        OR: [{ status: 'FAILED' }, { status: 'ERROR' }, { status: 'DECLINED' }],
+      },
+      include: {
+        lease: {
+          include: {
+            tenant: true,
+            unit: { include: { property: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: safeLimit,
+    });
+
+    const recommendedReminders = delinquency.items.map((item: any) => ({
+      ...item,
+      recommendation: {
+        priority: item.bucket === '31_plus' ? 'HIGH' : item.bucket === '8_30' ? 'MEDIUM' : 'LOW',
+        action: 'SEND_PAYMENT_REMINDER',
+        endpoint: `/payments/invoices/${item.invoiceIds?.[0]}/reminder`,
+        reason: `Delinquent account in bucket ${item.bucket}`,
+      },
+    }));
+
+    const failedPaymentItems = failedPayments.map((p: any) => ({
+      id: p.id,
+      leaseId: p.leaseId,
+      tenantId: p.lease?.tenantId,
+      tenantName: p.lease?.tenant?.username,
+      propertyName: p.lease?.unit?.property?.name,
+      amount: Number(p.amount),
+      status: p.status,
+      createdAt: p.createdAt,
+      recommendation: {
+        priority: 'HIGH',
+        action: 'RETRY_FAILED_PAYMENT',
+        endpoint: `/payments/${p.id}/retry`,
+        reason: 'Payment is in failed/declined state',
+      },
+    }));
+
+    return {
+      generatedAt: new Date().toISOString(),
+      counts: {
+        delinquentAccounts: recommendedReminders.length,
+        failedPayments: failedPaymentItems.length,
+      },
+      bulkActions: {
+        SEND_PAYMENT_REMINDER: recommendedReminders.map((r: any) => r.invoiceIds?.[0]).filter(Boolean),
+        RETRY_FAILED_PAYMENT: failedPaymentItems.map((r: any) => r.id),
+      },
+      delinquency: recommendedReminders,
+      failedPayments: failedPaymentItems,
+    };
+  }
+
+  async executePaymentsBulkAction(
+    action: 'SEND_PAYMENT_REMINDER' | 'RETRY_FAILED_PAYMENT',
+    ids: Array<string | number>,
+    actor: { userId: string },
+    orgId?: string,
+    simulate = false,
+    confirm = false,
+    simulationToken?: string,
+  ) {
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new BadRequestException('ids must be a non-empty array');
+    }
+
+    const uniqueIds = [...new Set(ids.map((id) => String(id)))].slice(0, 200);
+
+    if (!['SEND_PAYMENT_REMINDER', 'RETRY_FAILED_PAYMENT'].includes(action)) {
+      throw new BadRequestException(`Unsupported bulk action: ${action}`);
+    }
+
+    const highImpact = action === 'RETRY_FAILED_PAYMENT';
+
+    if (simulate) {
+      const simulationTokenOut = Buffer.from(
+        JSON.stringify({ action, ids: uniqueIds, actorId: actor.userId, orgId: orgId || null }),
+      ).toString('base64url');
+      return {
+        action,
+        simulate: true,
+        requiresConfirm: highImpact,
+        simulationToken: simulationTokenOut,
+        requested: uniqueIds.length,
+        succeeded: uniqueIds.length,
+        failed: 0,
+        successes: uniqueIds.map((id) => ({ id, result: { simulated: true } })),
+        failures: [],
+      };
+    }
+
+    if (highImpact && !confirm) {
+      throw new BadRequestException('RETRY_FAILED_PAYMENT requires confirm=true and prior simulation.');
+    }
+
+    if (highImpact) {
+      if (!simulationToken) throw new BadRequestException('simulationToken is required.');
+      const decoded = JSON.parse(Buffer.from(simulationToken, 'base64url').toString('utf8'));
+      const expected = { action, ids: uniqueIds, actorId: actor.userId, orgId: orgId || null };
+      if (JSON.stringify(decoded) !== JSON.stringify(expected)) {
+        throw new BadRequestException('simulationToken mismatch. Re-run simulate=true.');
+      }
+    }
+
+    const successes: any[] = [];
+    const failures: any[] = [];
+
+    for (const id of uniqueIds) {
+      try {
+        if (action === 'SEND_PAYMENT_REMINDER') {
+          const invoiceId = Number(id);
+          await this.sendPaymentReminder(invoiceId, {
+            message: 'Reminder: your payment is past due. Please pay to avoid additional fees.',
+            channel: 'EMAIL',
+            urgency: 'MEDIUM',
+          });
+          successes.push({ id, result: { reminded: true } });
+        }
+
+        if (action === 'RETRY_FAILED_PAYMENT') {
+          const paymentId = Number(id);
+          const payment = await this.prisma.payment.findUnique({ where: { id: paymentId } });
+          if (!payment) throw new NotFoundException('Payment not found');
+          await this.prisma.payment.update({
+            where: { id: paymentId },
+            data: {
+              status: 'PENDING',
+            },
+          });
+          successes.push({ id, result: { status: 'PENDING' } });
+        }
+      } catch (error) {
+        failures.push({ id, error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+
+    return {
+      action,
+      simulate: false,
+      confirmed: confirm,
+      requested: uniqueIds.length,
+      succeeded: successes.length,
+      failed: failures.length,
+      successes,
+      failures,
+    };
+  }
+
   /**
    * Send payment reminder for an invoice
    */

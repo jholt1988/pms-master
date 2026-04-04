@@ -353,6 +353,41 @@ export class PaymentsController {
     return this.paymentsService.getPaymentPlanById(Number(id), req.user.userId, req.user.role, orgId);
   }
 
+  @Get('ops-summary')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async getPaymentsOpsSummary(
+    @Request() req: AuthenticatedRequest,
+    @Query('limit') limit?: string,
+  ) {
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.paymentsService.getPaymentsOpsSummary(orgId, limit ? Number(limit) : undefined);
+  }
+
+  @Post('ops-summary/bulk-action')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async executePaymentsBulkAction(
+    @Body()
+    body: {
+      action: 'SEND_PAYMENT_REMINDER' | 'RETRY_FAILED_PAYMENT';
+      ids: Array<string | number>;
+      simulate?: boolean;
+      confirm?: boolean;
+      simulationToken?: string;
+    },
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.paymentsService.executePaymentsBulkAction(
+      body.action,
+      body.ids,
+      { userId: req.user.userId },
+      orgId,
+      body.simulate ?? false,
+      body.confirm ?? false,
+      body.simulationToken,
+    );
+  }
+
   @Get(':id')
   @Roles('PROPERTY_MANAGER', 'TENANT')
   async getPaymentById(
