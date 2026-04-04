@@ -328,6 +328,7 @@ export class LeasingController {
     body: {
       action: 'FOLLOW_UP_APPLICANT' | 'RETRY_SEND_ENVELOPE' | 'SEND_SIGNATURE_REMINDER' | 'CONVERT_TO_LEASE';
       ids: Array<string | number>;
+      simulate?: boolean;
       options?: {
         startDate?: string;
         endDate?: string;
@@ -347,6 +348,7 @@ export class LeasingController {
         { userId: req.user.userId, username: req.user.username },
         orgId,
         body.options,
+        body.simulate ?? false,
       );
     } catch (error) {
       this.handleError(error, 'Failed to execute bulk action');
