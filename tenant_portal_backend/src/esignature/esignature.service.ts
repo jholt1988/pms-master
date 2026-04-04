@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { DocumentCategory, EsignEnvelope, EsignEnvelopeStatus, EsignParticipantStatus, EsignProvider, Prisma, Role } from '@prisma/client';
+import { DocumentCategory, EsignEnvelope, EsignEnvelopeStatus, EsignParticipantStatus, EsignProvider, LeaseStatus, Prisma, Role } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance } from 'axios';
 import { randomUUID } from 'crypto';
@@ -650,6 +650,10 @@ export class EsignatureService {
         );
       }
 
+      if (updated.status === EsignEnvelopeStatus.COMPLETED) {
+        await this.promoteLeaseOnEnvelopeCompletion(updated.id);
+      }
+
       return updated;
     } catch (error) {
       const parsedError = this.parseDocuSignError(error);
@@ -721,6 +725,10 @@ export class EsignatureService {
             }),
           ),
         );
+      }
+
+      if (updated.status === EsignEnvelopeStatus.COMPLETED) {
+        await this.promoteLeaseOnEnvelopeCompletion(updated.id);
       }
 
       return updated;
@@ -1005,22 +1013,23 @@ export class EsignatureService {
           .catch(err => this.logger.error(`Failed to refresh envelope after webhook: ${err.message}`));
       }
 
-        if (mappedStatus === EsignEnvelopeStatus.COMPLETED) {
-        await this.attachFinalDocuments(updated, webhookDocuments)
+      if (mappedStatus === EsignEnvelopeStatus.COMPLETED) {
+        await this.attachFinalDocuments(updated, webhookDocuments);
+        await this.promoteLeaseOnEnvelopeCompletion(updated.id);
 
-          await Promise.all(
-            updated.participants.map((participant) =>
-              this.notificationsService.sendSignatureAlert({
-                event: 'COMPLETED',
-                envelopeId: updated.id,
-                leaseId: updated.leaseId.toString(),
-                participantName: participant.name,
-                userId: participant.userId ?? undefined,
-                email: participant.email,
-                phone: participant.phone ?? undefined,
-              }),
-            ),
-          );
+        await Promise.all(
+          updated.participants.map((participant) =>
+            this.notificationsService.sendSignatureAlert({
+              event: 'COMPLETED',
+              envelopeId: updated.id,
+              leaseId: updated.leaseId.toString(),
+              participantName: participant.name,
+              userId: participant.userId ?? undefined,
+              email: participant.email,
+              phone: participant.phone ?? undefined,
+            }),
+          ),
+        );
       }
 
       this.logger.log(`Successfully processed webhook for envelope ${envelopeId}: ${event} -> ${mappedStatus}`);
@@ -2050,6 +2059,59 @@ export class EsignatureService {
       maxHoursUntilDue: safeMaxHours,
       items: rows,
     };
+  }
+
+  private async promoteLeaseOnEnvelopeCompletion(envelopeId: number) {
+    const envelope = await this.prisma.esignEnvelope.findUnique({
+      where: { id: envelopeId },
+      include: { lease: true },
+    });
+
+    if (!envelope) return;
+    if (envelope.status !== EsignEnvelopeStatus.COMPLETED) return;
+
+    const metadata = (envelope.providerMetadata as Record<string, unknown>) || {};
+    if (metadata.leasePromotedAt) return;
+
+    await this.prisma.$transaction(async (tx) => {
+      const lease = await tx.lease.findUnique({ where: { id: envelope.leaseId } });
+      if (!lease) return;
+
+      if (lease.status !== LeaseStatus.ACTIVE) {
+        await tx.lease.update({
+          where: { id: lease.id },
+          data: {
+            status: LeaseStatus.ACTIVE,
+            renewalAcceptedAt: lease.renewalAcceptedAt ?? new Date(),
+          },
+        });
+
+        await tx.leaseHistory.create({
+          data: {
+            leaseId: lease.id,
+            actorId: envelope.createdById,
+            fromStatus: lease.status,
+            toStatus: LeaseStatus.ACTIVE,
+            note: `Lease auto-promoted to ACTIVE after completed e-sign envelope ${envelope.id}`,
+            metadata: {
+              envelopeId: envelope.id,
+              providerEnvelopeId: envelope.providerEnvelopeId,
+              source: 'esign-completion',
+            },
+          },
+        });
+      }
+
+      await tx.esignEnvelope.update({
+        where: { id: envelope.id },
+        data: {
+          providerMetadata: {
+            ...metadata,
+            leasePromotedAt: new Date().toISOString(),
+          } as Prisma.JsonValue,
+        },
+      });
+    });
   }
 
   private parseUuidId(value: string | number, field: string): string {
