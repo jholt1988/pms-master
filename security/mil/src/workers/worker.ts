@@ -1,11 +1,11 @@
 import { randomUUID } from "crypto";
-import { withTx } from "../persistence/db";
-import { envelopeEncryptWithTenantKek } from "../core/crypto";
-import { stepHash } from "../core/lineage";
-import { finalizeEvaluation } from "../core/finalize";
-import { getTenantCrypto, assertTenantCryptoAllowsPayload } from "../persistence/crypto_state";
-import { ensureActiveTenantKek, loadTenantKek, createNewTenantKekVersion } from "../persistence/tenant_keyring";
-import { unwrapDek, wrapDek } from "../core/wrap";
+import { withTx } from "../persistence/db.js";
+import { envelopeEncryptWithTenantKek } from "../core/crypto.js";
+import { stepHash } from "../core/lineage.js";
+import { finalizeEvaluation } from "../core/finalize.js";
+import { getTenantCrypto, assertTenantCryptoAllowsPayload } from "../persistence/crypto_state.js";
+import { ensureActiveTenantKek, loadTenantKek, createNewTenantKekVersion } from "../persistence/tenant_keyring.js";
+import { unwrapDek, wrapDek } from "../core/wrap.js";
 
 const POLL_MS = Number(process.env.MIL_WORKER_POLL_MS || 1000);
 const LEASE_SECONDS = Number(process.env.MIL_JOB_LEASE_SECONDS || 60);

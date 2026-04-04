@@ -1,5 +1,5 @@
 import nacl from "tweetnacl";
-import { canonicalBytes } from "./canonical";
+import { canonicalBytes } from "./canonical.js";
 function b64ToU8(b64: string): Uint8Array { return new Uint8Array(Buffer.from(b64, "base64")); }
 function u8ToB64(u8: Uint8Array): string { return Buffer.from(u8).toString("base64"); }
 export function signAttestation(result: unknown): { alg:"Ed25519"; kid:string; sig:string } {

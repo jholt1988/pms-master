@@ -1,12 +1,12 @@
 import { FastifyInstance } from "fastify";
 import { randomUUID } from "crypto";
-import { withTx } from "../persistence/db";
-import { stepHash } from "../core/lineage";
-import { finalizeEvaluation } from "../core/finalize";
-import { envelopeEncryptWithTenantKek } from "../core/crypto";
-import { getTenantCrypto, assertTenantCryptoAllowsPayload } from "../persistence/crypto_state";
-import { ensureActiveTenantKek, loadTenantKek, createNewTenantKekVersion, cryptoDeleteTenantKek } from "../persistence/tenant_keyring";
-import { unwrapDek, wrapDek } from "../core/wrap";
+import { withTx } from "../persistence/db.js";
+import { stepHash } from "../core/lineage.js";
+import { finalizeEvaluation } from "../core/finalize.js";
+import { envelopeEncryptWithTenantKek } from "../core/crypto.js";
+import { getTenantCrypto, assertTenantCryptoAllowsPayload } from "../persistence/crypto_state.js";
+import { ensureActiveTenantKek, loadTenantKek, createNewTenantKekVersion, cryptoDeleteTenantKek } from "../persistence/tenant_keyring.js";
+import { unwrapDek, wrapDek } from "../core/wrap.js";
 
 export async function registerRoutes(app: FastifyInstance) {
   // Evaluate (sync stub) + async enqueue

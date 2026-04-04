@@ -1,7 +1,7 @@
 import { PoolClient } from "pg";
-import { canonicalBytes } from "./canonical";
-import { sha256Hex } from "./hash";
-import { recordHash, CHAIN_ID } from "./lineage";
+import { canonicalBytes } from "./canonical.js";
+import { sha256Hex } from "./hash.js";
+import { recordHash, CHAIN_ID } from "./lineage.js";
 
 /**
  * Finalizes an evaluation into the tenant-partitioned chain.

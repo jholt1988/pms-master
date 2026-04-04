@@ -1,6 +1,6 @@
 import { PoolClient } from "pg";
 import { randomBytes } from "crypto";
-import { encryptKekForStorage, decryptKekFromStorage } from "../core/keyring";
+import { encryptKekForStorage, decryptKekFromStorage } from "../core/keyring.js";
 
 export async function ensureActiveTenantKek(client: PoolClient, tenant_id: string): Promise<{ kms_key_id: string; kek: Buffer }> {
   // Prefer tenant_crypto_state.kms_key_id as active pointer.
