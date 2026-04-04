@@ -379,6 +379,7 @@ export class LeasingService {
       noticePeriodDays?: number;
     },
     simulate = false,
+    confirm = false,
   ) {
     if (!['FOLLOW_UP_APPLICANT', 'RETRY_SEND_ENVELOPE', 'SEND_SIGNATURE_REMINDER', 'CONVERT_TO_LEASE'].includes(action)) {
       throw new BadRequestException(`Unsupported bulk action: ${action}`);
@@ -392,10 +393,24 @@ export class LeasingService {
     const successes: Array<{ id: string; result?: unknown }> = [];
     const failures: Array<{ id: string; error: string }> = [];
 
+    const highImpactActions = ['CONVERT_TO_LEASE', 'RETRY_SEND_ENVELOPE'];
+
     if (simulate) {
+      const simulationToken = Buffer.from(
+        JSON.stringify({
+          action,
+          ids: uniqueIds,
+          options: options || null,
+          actorId: actor.userId,
+          orgId: orgId || null,
+        }),
+      ).toString('base64url');
+
       return {
         action,
         simulate: true,
+        requiresConfirm: highImpactActions.includes(action),
+        simulationToken,
         requested: uniqueIds.length,
         succeeded: uniqueIds.length,
         failed: 0,
@@ -409,6 +424,12 @@ export class LeasingService {
         })),
         failures,
       };
+    }
+
+    if (highImpactActions.includes(action) && !confirm) {
+      throw new BadRequestException(
+        `Action ${action} is high impact. Run with simulate=true first, then execute with confirm=true.`,
+      );
     }
 
     for (const id of uniqueIds) {
@@ -474,6 +495,7 @@ export class LeasingService {
     return {
       action,
       simulate: false,
+      confirmed: confirm,
       requested: uniqueIds.length,
       succeeded: successes.length,
       failed: failures.length,
