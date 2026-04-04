@@ -871,6 +871,7 @@ describe('PaymentsService', () => {
       expect(result.offset).toBe(0);
       expect(result.sortBy).toBe('priorityScore');
       expect(result.sortOrder).toBe('desc');
+      expect(result.priorityWeights).toEqual({ daysWeight: 1, amountWeight: 1 });
       expect(result.items[0].priorityScore).toBeGreaterThanOrEqual(result.items[1].priorityScore);
     });
 
@@ -885,6 +886,36 @@ describe('PaymentsService', () => {
       expect(result.limit).toBe(500);
       expect(result.sortBy).toBe('daysPastDue');
       expect(result.sortOrder).toBe('desc');
+    });
+
+    it('uses configured priority weights in score calculation', async () => {
+      (service as any).delinquencyDaysWeight = 2;
+      (service as any).delinquencyAmountWeight = 3;
+
+      const now = new Date();
+      mockPrismaService.invoice.findMany.mockResolvedValue([
+        {
+          id: 3,
+          amount: 100,
+          dueDate: new Date(now.getTime() - 2 * 86400000),
+          leaseId: 'lease-w',
+          lease: {
+            tenantId: 'tenant-w',
+            tenant: { firstName: 'Weighted', lastName: 'Case', username: 'weighted' },
+            unit: { propertyId: 'prop-1', name: 'Unit W', property: { name: 'Property 1' } },
+          },
+        },
+      ]);
+
+      const result = await service.getDelinquencyQueue({
+        orgId: 'org-1',
+        sortBy: 'priorityScore',
+        sortOrder: 'desc',
+      });
+
+      expect(result.priorityWeights).toEqual({ daysWeight: 2, amountWeight: 3 });
+      // dueDays=2, amountCents=10000 => (2*2) * (10000*3) = 120000
+      expect(result.items[0].priorityScore).toBe(120000);
     });
   });
 
