@@ -492,6 +492,21 @@ export class LeasingService {
       },
     }));
 
+    const bulkActions = {
+      FOLLOW_UP_APPLICANT: staleLeadItems
+        .filter((item) => item.recommendation.action === 'FOLLOW_UP_APPLICANT')
+        .map((item) => item.id),
+      RETRY_SEND_ENVELOPE: signatureRiskItems
+        .filter((item) => item.recommendation.action === 'RETRY_SEND_ENVELOPE')
+        .map((item) => item.id),
+      SEND_SIGNATURE_REMINDER: signatureRiskItems
+        .filter((item) => item.recommendation.action === 'SEND_SIGNATURE_REMINDER')
+        .map((item) => item.id),
+      CONVERT_TO_LEASE: conversionItems
+        .filter((item) => item.recommendation.action === 'CONVERT_TO_LEASE')
+        .map((item) => item.id),
+    };
+
     return {
       generatedAt: now.toISOString(),
       counts: {
@@ -499,6 +514,7 @@ export class LeasingService {
         signatureRiskEnvelopes: signatureRiskItems.length,
         approvedNotConvertedApplications: conversionItems.length,
       },
+      bulkActions,
       staleLeadApplications: staleLeadItems,
       signatureRiskEnvelopes: signatureRiskItems,
       approvedNotConvertedApplications: conversionItems,
