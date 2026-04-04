@@ -831,7 +831,7 @@ describe('PaymentsService', () => {
   });
 
   describe('getDelinquencyQueue sorting and pagination', () => {
-    it('sorts by amountDueCents ascending and applies pagination fields', async () => {
+    it('sorts by priorityScore descending and applies pagination fields', async () => {
       const now = new Date();
       mockPrismaService.invoice.findMany.mockResolvedValue([
         {
@@ -860,8 +860,8 @@ describe('PaymentsService', () => {
 
       const result = await service.getDelinquencyQueue({
         orgId: 'org-1',
-        sortBy: 'amountDueCents',
-        sortOrder: 'asc',
+        sortBy: 'priorityScore',
+        sortOrder: 'desc',
         limit: 10,
         offset: 0,
       });
@@ -869,9 +869,9 @@ describe('PaymentsService', () => {
       expect(result.total).toBe(2);
       expect(result.limit).toBe(10);
       expect(result.offset).toBe(0);
-      expect(result.sortBy).toBe('amountDueCents');
-      expect(result.sortOrder).toBe('asc');
-      expect(result.items[0].amountDueCents).toBeLessThanOrEqual(result.items[1].amountDueCents);
+      expect(result.sortBy).toBe('priorityScore');
+      expect(result.sortOrder).toBe('desc');
+      expect(result.items[0].priorityScore).toBeGreaterThanOrEqual(result.items[1].priorityScore);
     });
 
     it('applies default sort and caps limit at 500', async () => {

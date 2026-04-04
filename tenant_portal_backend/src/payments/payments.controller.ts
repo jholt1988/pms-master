@@ -121,7 +121,7 @@ export class PaymentsController {
     @Query('propertyId') propertyId?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
-    @Query('sortBy') sortBy?: 'daysPastDue' | 'amountDueCents' | 'tenantName',
+    @Query('sortBy') sortBy?: 'daysPastDue' | 'amountDueCents' | 'tenantName' | 'priorityScore',
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
   ) {
     const orgId = (req as any).org?.orgId as string | undefined;

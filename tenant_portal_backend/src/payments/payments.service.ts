@@ -1384,7 +1384,7 @@ export class PaymentsService {
     propertyId?: string;
     limit?: number;
     offset?: number;
-    sortBy?: 'daysPastDue' | 'amountDueCents' | 'tenantName';
+    sortBy?: 'daysPastDue' | 'amountDueCents' | 'tenantName' | 'priorityScore';
     sortOrder?: 'asc' | 'desc';
   }) {
     const today = new Date();
@@ -1426,6 +1426,7 @@ export class PaymentsService {
       daysPastDue: number;
       bucket: '1_7' | '8_30' | '31_plus';
       invoiceIds: number[];
+      priorityScore: number;
     }>();
 
     for (const invoice of overdueInvoices) {
@@ -1448,6 +1449,7 @@ export class PaymentsService {
           daysPastDue: dueDays,
           bucket,
           invoiceIds: [invoice.id],
+          priorityScore: dueDays * amountCents,
         });
       } else {
         existing.amountDueCents += amountCents;
@@ -1457,6 +1459,7 @@ export class PaymentsService {
           existing.bucket = bucket;
         }
         existing.invoiceIds.push(invoice.id);
+        existing.priorityScore = existing.daysPastDue * existing.amountDueCents;
       }
     }
 
@@ -1475,6 +1478,9 @@ export class PaymentsService {
       }
       if (sortBy === 'tenantName') {
         return a.tenantName.localeCompare(b.tenantName) * direction;
+      }
+      if (sortBy === 'priorityScore') {
+        return (a.priorityScore - b.priorityScore) * direction;
       }
       return (a.daysPastDue - b.daysPastDue) * direction;
     });
