@@ -1847,27 +1847,27 @@ export class EsignatureService {
   }
 
   async sendRemindersForPendingEnvelopes() {
-    const reminderIntervalDays = this.configService.get<number>('ESIGN_REMINDER_INTERVAL_DAYS', 3);
-    const maxReminders = this.configService.get<number>('ESIGN_MAX_REMINDERS', 3);
     const enabled = this.configService.get<boolean>('ESIGN_REMINDER_ENABLED', true);
+    const maxReminders = this.configService.get<number>('ESIGN_MAX_REMINDERS', 3);
+    const dueInHours = this.configService.get<number>('ESIGN_ENVELOPE_DUE_HOURS', 72);
+    const cadenceRaw = this.configService.get<string>('ESIGN_REMINDER_MILESTONES_HOURS', '24,4');
+    const baseBackoffHours = this.configService.get<number>('ESIGN_REMINDER_BACKOFF_HOURS', 2);
 
     if (!enabled) {
       this.logger.debug('E-signature reminders are disabled');
-      return { sent: 0, skipped: 0 };
+      return { sent: 0, skipped: 0, attemptedEnvelopes: 0 };
     }
 
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - reminderIntervalDays);
-    cutoffDate.setHours(0, 0, 0, 0);
+    const reminderMilestones = cadenceRaw
+      .split(',')
+      .map((v) => Number(v.trim()))
+      .filter((v) => Number.isFinite(v) && v >= 0)
+      .sort((a, b) => b - a);
 
-    // Find pending envelopes that haven't been updated recently
     const pendingEnvelopes = await this.prisma.esignEnvelope.findMany({
       where: {
         status: {
           in: [EsignEnvelopeStatus.SENT, EsignEnvelopeStatus.DELIVERED],
-        },
-        updatedAt: {
-          lte: cutoffDate,
         },
       },
       include: {
@@ -1888,62 +1888,81 @@ export class EsignatureService {
     let skippedCount = 0;
 
     for (const envelope of pendingEnvelopes) {
-      if (envelope.participants.length === 0) {
-        continue; // No pending participants
-      }
+      if (envelope.participants.length === 0) continue;
 
       const metadata = (envelope.providerMetadata as Record<string, unknown>) || {};
-      const reminderCount = ((metadata.reminderCount as number) || 0);
+      const reminderCount = Number(metadata.reminderCount || 0);
+      const sentMilestones = Array.isArray(metadata.reminderMilestonesSent)
+        ? (metadata.reminderMilestonesSent as number[])
+        : [];
+      const consecutiveFailures = Number(metadata.reminderConsecutiveFailures || 0);
+      const dueAtIso = (metadata.dueAt as string) || new Date(envelope.createdAt.getTime() + dueInHours * 3600000).toISOString();
+      const dueAt = new Date(dueAtIso);
+      const now = new Date();
+      const hoursUntilDue = (dueAt.getTime() - now.getTime()) / 3600000;
 
       if (reminderCount >= maxReminders) {
-        this.logger.debug(`Skipping envelope ${envelope.id} - max reminders (${maxReminders}) reached`);
         skippedCount++;
         continue;
       }
 
-      // Send reminders to all pending participants
-        for (const participant of envelope.participants) {
-          try {
-            await this.notificationsService.sendSignatureAlert({
-              event: 'REQUESTED',
-              envelopeId: envelope.id,
-              leaseId: envelope.leaseId.toString(),
-              participantName: participant.name,
-              userId: participant.userId ?? undefined,
-              email: participant.email,
-              phone: participant.phone ?? undefined,
-          });
-
-          sentCount++;
-        } catch (error) {
-          this.logger.error(
-            `Failed to send reminder to participant ${participant.id} for envelope ${envelope.id}: ${error}`,
-          );
+      if (consecutiveFailures > 0 && metadata.lastReminderFailureAt) {
+        const failureAt = new Date(String(metadata.lastReminderFailureAt));
+        const backoffWindowHours = Math.min(baseBackoffHours * Math.pow(2, consecutiveFailures - 1), 24);
+        if ((now.getTime() - failureAt.getTime()) / 3600000 < backoffWindowHours) {
+          skippedCount++;
+          continue;
         }
       }
 
-      // Update reminder count
-      try {
-        await this.prisma.esignEnvelope.update({
-          where: { id: envelope.id },
-          data: {
-            providerMetadata: {
-              ...metadata,
-              reminderCount: reminderCount + 1,
-              lastReminderAt: new Date().toISOString(),
-            } as Prisma.JsonValue,
-          },
-        });
-      } catch (error) {
-        this.logger.error(`Failed to update reminder count for envelope ${envelope.id}: ${error}`);
+      const targetMilestone = reminderMilestones.find(
+        (ms) => hoursUntilDue <= ms && !sentMilestones.includes(ms),
+      );
+
+      if (targetMilestone === undefined) {
+        skippedCount++;
+        continue;
       }
+
+      let envelopeHadError = false;
+      for (const participant of envelope.participants) {
+        try {
+          await this.notificationsService.sendSignatureAlert({
+            event: 'REQUESTED',
+            envelopeId: envelope.id,
+            leaseId: envelope.leaseId.toString(),
+            participantName: participant.name,
+            userId: participant.userId ?? undefined,
+            email: participant.email,
+            phone: participant.phone ?? undefined,
+          });
+          sentCount++;
+        } catch (error) {
+          envelopeHadError = true;
+          this.logger.error(`Failed reminder for participant ${participant.id} envelope ${envelope.id}: ${error}`);
+        }
+      }
+
+      const nextMilestones = envelopeHadError ? sentMilestones : [...new Set([...sentMilestones, targetMilestone])];
+
+      await this.prisma.esignEnvelope.update({
+        where: { id: envelope.id },
+        data: {
+          providerMetadata: {
+            ...metadata,
+            dueAt: dueAt.toISOString(),
+            reminderCount: envelopeHadError ? reminderCount : reminderCount + 1,
+            reminderMilestonesSent: nextMilestones,
+            lastReminderAt: envelopeHadError ? metadata.lastReminderAt : now.toISOString(),
+            reminderConsecutiveFailures: envelopeHadError ? consecutiveFailures + 1 : 0,
+            lastReminderFailureAt: envelopeHadError ? now.toISOString() : null,
+          } as Prisma.JsonValue,
+        },
+      });
     }
 
-    this.logger.log(
-      `E-signature reminders: ${sentCount} sent, ${skippedCount} skipped (max reminders reached)`,
-    );
-
-    return { sent: sentCount, skipped: skippedCount };
+    this.logger.log(`E-signature reminders: ${sentCount} sent, ${skippedCount} skipped`);
+    return { sent: sentCount, skipped: skippedCount, attemptedEnvelopes: pendingEnvelopes.length };
   }
 
   private parseUuidId(value: string | number, field: string): string {
