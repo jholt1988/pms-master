@@ -7,7 +7,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { isUUID } from 'class-validator';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
-import { Lead, LeadStatus, LeadMessage, MessageRole, PropertyInquiry, InterestLevel, Prisma } from '@prisma/client';
+import { Lead, LeadStatus, LeadMessage, MessageRole, PropertyInquiry, InterestLevel, Prisma, ApplicationStatus, EsignEnvelopeStatus, LeadApplicationStatus, EsignParticipantStatus } from '@prisma/client';
 
 @Injectable()
 export class LeasingService {
@@ -359,6 +359,111 @@ export class LeasingService {
       where: { id: leadId },
       data: updates,
     });
+  }
+
+  async getLeasingOpsSummary(orgId?: string, limit = 25) {
+    const safeLimit = Number.isFinite(limit) ? Math.min(Math.max(1, limit), 100) : 25;
+    const now = new Date();
+
+    const staleLeadApps = await this.prisma.leadApplication.findMany({
+      where: {
+        status: {
+          in: [LeadApplicationStatus.SUBMITTED, LeadApplicationStatus.PENDING, LeadApplicationStatus.CONDITIONALLY_APPROVED],
+        },
+        ...(orgId ? { property: { organizationId: orgId } } : {}),
+        OR: [
+          { followUpDueAt: { lte: now } },
+          { lastActivityAt: { lte: new Date(now.getTime() - 48 * 3600000) } },
+        ],
+      },
+      include: {
+        lead: true,
+        property: true,
+        unit: true,
+      },
+      orderBy: [{ followUpDueAt: 'asc' }, { lastActivityAt: 'asc' }],
+      take: safeLimit,
+    });
+
+    const signatureRisk = await this.prisma.esignEnvelope.findMany({
+      where: {
+        status: { in: [EsignEnvelopeStatus.SENT, EsignEnvelopeStatus.DELIVERED, EsignEnvelopeStatus.ERROR] },
+        lease: orgId ? { unit: { property: { organizationId: orgId } } } : undefined,
+      },
+      include: {
+        lease: {
+          include: {
+            tenant: true,
+            unit: { include: { property: true } },
+          },
+        },
+        participants: true,
+      },
+      orderBy: { createdAt: 'asc' },
+      take: safeLimit,
+    });
+
+    const approvedNotConverted = await this.prisma.rentalApplication.findMany({
+      where: {
+        status: ApplicationStatus.APPROVED,
+        convertedLeaseId: null,
+        ...(orgId ? { property: { organizationId: orgId } } : {}),
+      },
+      include: {
+        applicant: true,
+        property: true,
+        unit: true,
+      },
+      orderBy: { updatedAt: 'asc' },
+      take: safeLimit,
+    });
+
+    return {
+      generatedAt: now.toISOString(),
+      counts: {
+        staleLeadApplications: staleLeadApps.length,
+        signatureRiskEnvelopes: signatureRisk.length,
+        approvedNotConvertedApplications: approvedNotConverted.length,
+      },
+      staleLeadApplications: staleLeadApps.map((item) => ({
+        id: item.id,
+        status: item.status,
+        leadId: item.leadId,
+        propertyId: item.propertyId,
+        propertyName: item.property?.name,
+        unitId: item.unitId,
+        followUpDueAt: item.followUpDueAt,
+        lastActivityAt: item.lastActivityAt,
+      })),
+      signatureRiskEnvelopes: signatureRisk.map((env) => {
+        const meta = (env.providerMetadata as Record<string, unknown>) || {};
+        const pendingParticipantsCount = env.participants.filter(
+          (p) => p.status !== EsignParticipantStatus.SIGNED && p.status !== EsignParticipantStatus.DECLINED,
+        ).length;
+        return {
+          id: env.id,
+          leaseId: env.leaseId,
+          status: env.status,
+          providerStatus: env.providerStatus,
+          tenantName: env.lease?.tenant?.username,
+          propertyName: env.lease?.unit?.property?.name,
+          reminderCount: Number(meta.reminderCount || 0),
+          retryCount: Number(meta.retryCount || 0),
+          nextRetryAt: (meta.nextRetryAt as string) || null,
+          pendingParticipantsCount,
+        };
+      }),
+      approvedNotConvertedApplications: approvedNotConverted.map((app) => ({
+        id: app.id,
+        applicantId: app.applicantId,
+        applicantName: app.fullName,
+        propertyId: app.propertyId,
+        propertyName: app.property?.name,
+        unitId: app.unitId,
+        approvedAt: app.decisionedAt,
+        decisionNotes: app.decisionNotes,
+      })),
+    };
   }
 
   /**
