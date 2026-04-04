@@ -1965,6 +1965,93 @@ export class EsignatureService {
     return { sent: sentCount, skipped: skippedCount, attemptedEnvelopes: pendingEnvelopes.length };
   }
 
+  async getSignatureRiskQueue(limit = 100, maxHoursUntilDue = 48) {
+    const safeLimit = Number.isFinite(limit) ? Math.min(Math.max(1, limit), 500) : 100;
+    const safeMaxHours = Number.isFinite(maxHoursUntilDue) ? Math.max(1, maxHoursUntilDue) : 48;
+    const defaultDueHours = this.configService.get<number>('ESIGN_ENVELOPE_DUE_HOURS', 72);
+    const now = new Date();
+
+    const envelopes = await this.prisma.esignEnvelope.findMany({
+      where: {
+        status: {
+          in: [EsignEnvelopeStatus.SENT, EsignEnvelopeStatus.DELIVERED],
+        },
+      },
+      include: {
+        participants: true,
+        lease: {
+          include: {
+            tenant: true,
+            unit: {
+              include: {
+                property: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+      take: safeLimit * 2,
+    });
+
+    const rows = envelopes
+      .map((envelope) => {
+        const metadata = (envelope.providerMetadata as Record<string, unknown>) || {};
+        const dueAtIso = (metadata.dueAt as string) || new Date(envelope.createdAt.getTime() + defaultDueHours * 3600000).toISOString();
+        const dueAt = new Date(dueAtIso);
+        const hoursUntilDue = (dueAt.getTime() - now.getTime()) / 3600000;
+        const pendingParticipants = envelope.participants.filter(
+          (p) => p.status !== EsignParticipantStatus.SIGNED && p.status !== EsignParticipantStatus.DECLINED,
+        );
+
+        return {
+          envelopeId: envelope.id,
+          leaseId: envelope.leaseId,
+          providerEnvelopeId: envelope.providerEnvelopeId,
+          status: envelope.status,
+          providerStatus: envelope.providerStatus,
+          propertyName: envelope.lease?.unit?.property?.name,
+          unitId: envelope.lease?.unit?.id,
+          tenantId: envelope.lease?.tenantId,
+          tenantName: envelope.lease?.tenant?.username,
+          dueAt: dueAt.toISOString(),
+          hoursUntilDue,
+          reminderCount: Number(metadata.reminderCount || 0),
+          reminderMilestonesSent: Array.isArray(metadata.reminderMilestonesSent)
+            ? metadata.reminderMilestonesSent
+            : [],
+          reminderConsecutiveFailures: Number(metadata.reminderConsecutiveFailures || 0),
+          lastReminderAt: (metadata.lastReminderAt as string) || null,
+          pendingParticipantsCount: pendingParticipants.length,
+          pendingParticipants: pendingParticipants.map((p) => ({
+            id: p.id,
+            name: p.name,
+            email: p.email,
+            status: p.status,
+          })),
+          riskLevel:
+            hoursUntilDue <= 0
+              ? 'OVERDUE'
+              : hoursUntilDue <= 4
+              ? 'CRITICAL'
+              : hoursUntilDue <= 24
+              ? 'HIGH'
+              : 'MEDIUM',
+        };
+      })
+      .filter((row) => row.hoursUntilDue <= safeMaxHours)
+      .sort((a, b) => a.hoursUntilDue - b.hoursUntilDue)
+      .slice(0, safeLimit);
+
+    return {
+      generatedAt: now.toISOString(),
+      count: rows.length,
+      limit: safeLimit,
+      maxHoursUntilDue: safeMaxHours,
+      items: rows,
+    };
+  }
+
   private parseUuidId(value: string | number, field: string): string {
     if (typeof value !== 'string' || !isUUID(value)) {
       throw new BadRequestException(`Invalid ${field} id provided: ${value}`);

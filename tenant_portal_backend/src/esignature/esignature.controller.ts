@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Request, Res, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Request, Res, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Role } from '@prisma/client';
 
@@ -23,6 +23,18 @@ interface AuthenticatedRequest extends ExpressRequest {
 @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 export class EsignatureController {
   constructor(private readonly esignatureService: EsignatureService) {}
+
+  @Get('risk-queue')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  getSignatureRiskQueue(
+    @Query('limit') limit?: string,
+    @Query('maxHoursUntilDue') maxHoursUntilDue?: string,
+  ) {
+    return this.esignatureService.getSignatureRiskQueue(
+      limit ? Number(limit) : undefined,
+      maxHoursUntilDue ? Number(maxHoursUntilDue) : undefined,
+    );
+  }
 
   @Get('leases/:leaseId/envelopes')
   @Roles('PROPERTY_MANAGER', 'TENANT')
