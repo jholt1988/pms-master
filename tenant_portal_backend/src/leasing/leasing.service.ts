@@ -380,6 +380,7 @@ export class LeasingService {
     },
     simulate = false,
     confirm = false,
+    simulationToken?: string,
   ) {
     if (!['FOLLOW_UP_APPLICANT', 'RETRY_SEND_ENVELOPE', 'SEND_SIGNATURE_REMINDER', 'CONVERT_TO_LEASE'].includes(action)) {
       throw new BadRequestException(`Unsupported bulk action: ${action}`);
@@ -430,6 +431,34 @@ export class LeasingService {
       throw new BadRequestException(
         `Action ${action} is high impact. Run with simulate=true first, then execute with confirm=true.`,
       );
+    }
+
+    if (highImpactActions.includes(action)) {
+      if (!simulationToken) {
+        throw new BadRequestException('simulationToken is required for confirmed high-impact actions.');
+      }
+
+      let decoded: any;
+      try {
+        const raw = Buffer.from(simulationToken, 'base64url').toString('utf8');
+        decoded = JSON.parse(raw);
+      } catch {
+        throw new BadRequestException('Invalid simulationToken format.');
+      }
+
+      const expected = {
+        action,
+        ids: uniqueIds,
+        options: options || null,
+        actorId: actor.userId,
+        orgId: orgId || null,
+      };
+
+      if (JSON.stringify(decoded) !== JSON.stringify(expected)) {
+        throw new BadRequestException(
+          'simulationToken does not match current action payload. Re-run simulate=true and retry with the returned token.',
+        );
+      }
     }
 
     for (const id of uniqueIds) {
