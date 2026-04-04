@@ -81,18 +81,16 @@ export class PaymentsService {
     });
 
     const ledgerAccount = await this.ensureLedgerAccountForLease(leaseId, orgId);
-    await this.prisma.ledgerTransaction.create({
-      data: {
-        accountId: ledgerAccount.id,
-        entryType: 'CHARGE',
-        direction: 'DEBIT',
-        amountCents: Math.round(Number(dto.amount) * 100),
-        effectiveDate: new Date(dto.dueDate),
-        categoryCode: 'rent',
-        sourceType: 'invoice',
-        sourceId: String(invoice.id),
-        description: dto.description || `Invoice #${invoice.id}`,
-      },
+    await this.createLedgerTransactionIfMissing(this.prisma, {
+      accountId: ledgerAccount.id,
+      entryType: 'CHARGE',
+      direction: 'DEBIT',
+      amountCents: Math.round(Number(dto.amount) * 100),
+      effectiveDate: new Date(dto.dueDate),
+      categoryCode: 'rent',
+      sourceType: 'invoice',
+      sourceId: String(invoice.id),
+      description: dto.description || `Invoice #${invoice.id}`,
     });
 
     return invoice;
@@ -338,20 +336,18 @@ export class PaymentsService {
     }
 
     const ledgerAccount = await this.ensureLedgerAccountForLease(lease.id, lease.unit?.property?.organizationId);
-    await this.prisma.ledgerTransaction.create({
-      data: {
-        accountId: ledgerAccount.id,
-        paymentId: payment.id,
-        entryType: 'PAYMENT',
-        direction: 'CREDIT',
-        amountCents: Math.round(Number(payment.amount) * 100),
-        effectiveDate: payment.paymentDate ?? new Date(),
-        categoryCode: 'rent_payment',
-        sourceType: 'payment',
-        sourceId: String(payment.id),
-        description: `Payment #${payment.id}`,
-        createdById: authUser?.userId,
-      },
+    await this.createLedgerTransactionIfMissing(this.prisma, {
+      accountId: ledgerAccount.id,
+      paymentId: payment.id,
+      entryType: 'PAYMENT',
+      direction: 'CREDIT',
+      amountCents: Math.round(Number(payment.amount) * 100),
+      effectiveDate: payment.paymentDate ?? new Date(),
+      categoryCode: 'rent_payment',
+      sourceType: 'payment',
+      sourceId: String(payment.id),
+      description: `Payment #${payment.id}`,
+      createdById: authUser?.userId,
     });
 
     // Send confirmation email for successful payments, but do not block on failures
@@ -440,19 +436,17 @@ export class PaymentsService {
         },
       });
 
-      await tx.ledgerTransaction.create({
-        data: {
-          accountId: account.id,
-          entryType: 'PAYMENT',
-          direction: 'CREDIT',
-          amountCents: input.amountCents,
-          effectiveDate: input.receivedAt ?? new Date(),
-          categoryCode: 'manual_payment',
-          sourceType: 'manual_payment',
-          sourceId: payment.id,
-          description: input.memo || `Manual ${input.method} payment`,
-          createdById: input.createdById,
-        },
+      await this.createLedgerTransactionIfMissing(tx, {
+        accountId: account.id,
+        entryType: 'PAYMENT',
+        direction: 'CREDIT',
+        amountCents: input.amountCents,
+        effectiveDate: input.receivedAt ?? new Date(),
+        categoryCode: 'manual_payment',
+        sourceType: 'manual_payment',
+        sourceId: payment.id,
+        description: input.memo || `Manual ${input.method} payment`,
+        createdById: input.createdById,
       });
 
       await tx.lease.update({
@@ -501,21 +495,19 @@ export class PaymentsService {
       });
 
       if (existingPaymentEntry) {
-        await tx.ledgerTransaction.create({
-          data: {
-            accountId: existingPaymentEntry.accountId,
-            entryType: 'REVERSAL',
-            direction: 'DEBIT',
-            amountCents: payment.amountCents,
-            effectiveDate: new Date(),
-            categoryCode: 'manual_payment_reversal',
-            sourceType: 'manual_payment_reversal',
-            sourceId: payment.id,
-            description: `Reversal of manual payment ${payment.id}`,
-            reversesEntryId: existingPaymentEntry.id,
-            reasonCode: reason.trim(),
-            createdById: payment.createdById,
-          },
+        await this.createLedgerTransactionIfMissing(tx, {
+          accountId: existingPaymentEntry.accountId,
+          entryType: 'REVERSAL',
+          direction: 'DEBIT',
+          amountCents: payment.amountCents,
+          effectiveDate: new Date(),
+          categoryCode: 'manual_payment_reversal',
+          sourceType: 'manual_payment_reversal',
+          sourceId: payment.id,
+          description: `Reversal of manual payment ${payment.id}`,
+          reversesEntryId: existingPaymentEntry.id,
+          reasonCode: reason.trim(),
+          createdById: payment.createdById,
         });
       }
 
@@ -594,19 +586,17 @@ export class PaymentsService {
         },
       });
 
-      await tx.ledgerTransaction.create({
-        data: {
-          accountId: account.id,
-          entryType: 'CHARGE',
-          direction: 'DEBIT',
-          amountCents: input.amountCents,
-          effectiveDate: input.chargeDate ?? new Date(),
-          categoryCode: String(input.chargeType).toLowerCase(),
-          sourceType: 'manual_charge',
-          sourceId: charge.id,
-          description: input.description.trim(),
-          createdById: input.createdById,
-        },
+      await this.createLedgerTransactionIfMissing(tx, {
+        accountId: account.id,
+        entryType: 'CHARGE',
+        direction: 'DEBIT',
+        amountCents: input.amountCents,
+        effectiveDate: input.chargeDate ?? new Date(),
+        categoryCode: String(input.chargeType).toLowerCase(),
+        sourceType: 'manual_charge',
+        sourceId: charge.id,
+        description: input.description.trim(),
+        createdById: input.createdById,
       });
 
       await tx.lease.update({
@@ -655,21 +645,19 @@ export class PaymentsService {
       });
 
       if (existingChargeEntry) {
-        await tx.ledgerTransaction.create({
-          data: {
-            accountId: existingChargeEntry.accountId,
-            entryType: 'REVERSAL',
-            direction: 'CREDIT',
-            amountCents: charge.amountCents,
-            effectiveDate: new Date(),
-            categoryCode: 'manual_charge_void',
-            sourceType: 'manual_charge_void',
-            sourceId: charge.id,
-            description: `Void of manual charge ${charge.id}`,
-            reversesEntryId: existingChargeEntry.id,
-            reasonCode: reason.trim(),
-            createdById: charge.createdById,
-          },
+        await this.createLedgerTransactionIfMissing(tx, {
+          accountId: existingChargeEntry.accountId,
+          entryType: 'REVERSAL',
+          direction: 'CREDIT',
+          amountCents: charge.amountCents,
+          effectiveDate: new Date(),
+          categoryCode: 'manual_charge_void',
+          sourceType: 'manual_charge_void',
+          sourceId: charge.id,
+          description: `Void of manual charge ${charge.id}`,
+          reversesEntryId: existingChargeEntry.id,
+          reasonCode: reason.trim(),
+          createdById: charge.createdById,
         });
       }
 
@@ -755,6 +743,43 @@ export class PaymentsService {
         externalId,
       },
       include: { invoice: true, lease: true },
+    });
+  }
+
+  private async createLedgerTransactionIfMissing(
+    prismaLike: PrismaService | Prisma.TransactionClient,
+    data: {
+      accountId: string;
+      paymentId?: number;
+      entryType: 'CHARGE' | 'CREDIT' | 'PAYMENT' | 'REVERSAL' | 'RETURN_FEE' | 'WRITEOFF';
+      direction: 'DEBIT' | 'CREDIT';
+      amountCents: number;
+      effectiveDate: Date;
+      categoryCode?: string;
+      sourceType: string;
+      sourceId?: string;
+      description?: string;
+      reversesEntryId?: string;
+      reasonCode?: string;
+      createdById?: string;
+    },
+  ) {
+    const existing = await prismaLike.ledgerTransaction.findFirst({
+      where: {
+        accountId: data.accountId,
+        sourceType: data.sourceType,
+        sourceId: data.sourceId,
+        entryType: data.entryType,
+      },
+      select: { id: true },
+    });
+
+    if (existing) {
+      return existing;
+    }
+
+    return prismaLike.ledgerTransaction.create({
+      data,
     });
   }
 

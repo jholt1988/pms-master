@@ -965,6 +965,7 @@ model LedgerTransaction {
   createdById     String?         @db.Uuid
   createdAt       DateTime        @default(now())
 
+  @@unique([accountId, sourceType, sourceId, entryType])
   @@index([accountId, effectiveDate])
   @@index([paymentId])
   @@index([sourceType, sourceId])
