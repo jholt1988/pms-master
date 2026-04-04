@@ -99,6 +99,15 @@ export class EsignatureController {
     return this.esignatureService.resendNotifications(envelopeId, req.user.userId);
   }
 
+  @Post('envelopes/:envelopeId/retry-send')
+  @Roles('PROPERTY_MANAGER')
+  retryEnvelopeSend(
+    @Param('envelopeId', ParseIntPipe) envelopeId: number,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.esignatureService.retryEnvelopeSend(envelopeId, req.user.userId);
+  }
+
   @Get('envelopes/:envelopeId/documents/signed')
   @Roles('PROPERTY_MANAGER', 'TENANT')
   async downloadSignedDocument(
