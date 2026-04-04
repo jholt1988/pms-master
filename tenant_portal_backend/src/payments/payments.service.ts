@@ -1380,10 +1380,52 @@ export class PaymentsService {
     };
   }
 
-  private computeDelinquencyPriorityScore(daysPastDue: number, amountDueCents: number): number {
-    const safeDaysWeight = Number.isFinite(this.delinquencyDaysWeight) ? this.delinquencyDaysWeight : 1;
-    const safeAmountWeight = Number.isFinite(this.delinquencyAmountWeight) ? this.delinquencyAmountWeight : 1;
-    return Math.round((daysPastDue * safeDaysWeight) * (amountDueCents * safeAmountWeight));
+  private computeDelinquencyPriorityScore(daysPastDue: number, amountDueCents: number, daysWeight: number, amountWeight: number): number {
+    return Math.round((daysPastDue * daysWeight) * (amountDueCents * amountWeight));
+  }
+
+  async getDelinquencyPriorityConfig(orgId: string) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: orgId },
+      select: {
+        id: true,
+        delinquencyDaysWeight: true,
+        delinquencyAmountWeight: true,
+      },
+    });
+
+    if (!org) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    return {
+      orgId,
+      daysWeight: org.delinquencyDaysWeight ?? this.delinquencyDaysWeight,
+      amountWeight: org.delinquencyAmountWeight ?? this.delinquencyAmountWeight,
+      source: org.delinquencyDaysWeight == null && org.delinquencyAmountWeight == null ? 'env_default' : 'org_override',
+    };
+  }
+
+  async updateDelinquencyPriorityConfig(orgId: string, daysWeight: number, amountWeight: number) {
+    const updated = await this.prisma.organization.update({
+      where: { id: orgId },
+      data: {
+        delinquencyDaysWeight: daysWeight,
+        delinquencyAmountWeight: amountWeight,
+      },
+      select: {
+        id: true,
+        delinquencyDaysWeight: true,
+        delinquencyAmountWeight: true,
+      },
+    });
+
+    return {
+      orgId: updated.id,
+      daysWeight: updated.delinquencyDaysWeight ?? this.delinquencyDaysWeight,
+      amountWeight: updated.delinquencyAmountWeight ?? this.delinquencyAmountWeight,
+      source: 'org_override',
+    };
   }
 
   async getDelinquencyQueue(params: {
@@ -1396,6 +1438,20 @@ export class PaymentsService {
     sortOrder?: 'asc' | 'desc';
   }) {
     const today = new Date();
+
+    const orgPriority = params.orgId
+      ? await this.prisma.organization.findUnique({
+          where: { id: params.orgId },
+          select: {
+            delinquencyDaysWeight: true,
+            delinquencyAmountWeight: true,
+          },
+        })
+      : null;
+
+    const daysWeight = orgPriority?.delinquencyDaysWeight ?? this.delinquencyDaysWeight;
+    const amountWeight = orgPriority?.delinquencyAmountWeight ?? this.delinquencyAmountWeight;
+
     const overdueInvoices = await this.prisma.invoice.findMany({
       where: {
         status: { not: 'PAID' },
@@ -1457,7 +1513,7 @@ export class PaymentsService {
           daysPastDue: dueDays,
           bucket,
           invoiceIds: [invoice.id],
-          priorityScore: this.computeDelinquencyPriorityScore(dueDays, amountCents),
+          priorityScore: this.computeDelinquencyPriorityScore(dueDays, amountCents, daysWeight, amountWeight),
         });
       } else {
         existing.amountDueCents += amountCents;
@@ -1467,7 +1523,7 @@ export class PaymentsService {
           existing.bucket = bucket;
         }
         existing.invoiceIds.push(invoice.id);
-        existing.priorityScore = this.computeDelinquencyPriorityScore(existing.daysPastDue, existing.amountDueCents);
+        existing.priorityScore = this.computeDelinquencyPriorityScore(existing.daysPastDue, existing.amountDueCents, daysWeight, amountWeight);
       }
     }
 
@@ -1508,8 +1564,8 @@ export class PaymentsService {
       sortBy,
       sortOrder,
       priorityWeights: {
-        daysWeight: this.delinquencyDaysWeight,
-        amountWeight: this.delinquencyAmountWeight,
+        daysWeight,
+        amountWeight,
       },
       items: rows,
     };

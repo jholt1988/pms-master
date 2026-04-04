@@ -15,6 +15,7 @@ import { CreateManualPaymentDto } from './dto/create-manual-payment.dto';
 import { ReverseManualPaymentDto } from './dto/reverse-manual-payment.dto';
 import { CreateManualChargeDto } from './dto/create-manual-charge.dto';
 import { VoidManualChargeDto } from './dto/void-manual-charge.dto';
+import { UpdateDelinquencyPriorityConfigDto } from './dto/update-delinquency-priority-config.dto';
 import { Request as ExpressRequest } from 'express';
 import { AuditLogService } from '../shared/audit-log.service';
 
@@ -134,6 +135,36 @@ export class PaymentsController {
       sortBy,
       sortOrder,
     });
+  }
+
+  @Get('delinquency/priority-config')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async getDelinquencyPriorityConfig(@OrgId() orgId: string) {
+    return this.paymentsService.getDelinquencyPriorityConfig(orgId);
+  }
+
+  @Post('delinquency/priority-config')
+  @Roles('ADMIN')
+  async updateDelinquencyPriorityConfig(
+    @OrgId() orgId: string,
+    @Body() body: UpdateDelinquencyPriorityConfigDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const result = await this.paymentsService.updateDelinquencyPriorityConfig(orgId, body.daysWeight, body.amountWeight);
+    await this.auditLogService.record({
+      orgId,
+      actorId: req.user.userId,
+      module: 'payments',
+      action: 'UPDATE_DELINQUENCY_PRIORITY_CONFIG',
+      entityType: 'organization',
+      entityId: orgId,
+      result: 'SUCCESS',
+      metadata: {
+        daysWeight: body.daysWeight,
+        amountWeight: body.amountWeight,
+      },
+    });
+    return result;
   }
 
   @Post('stripe/checkout-session')

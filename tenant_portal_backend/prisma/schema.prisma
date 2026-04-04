@@ -136,6 +136,8 @@ model Organization {
   stripeCapabilities          Json?
   stripeOnboardingCompletedAt DateTime?
   stripeLastOnboardingCheckAt DateTime?
+  delinquencyDaysWeight       Float?
+  delinquencyAmountWeight     Float?
   createdAt                   DateTime               @default(now())
   updatedAt                   DateTime               @updatedAt
 
