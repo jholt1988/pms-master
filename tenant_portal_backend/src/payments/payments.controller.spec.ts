@@ -371,13 +371,15 @@ describe('PaymentsController', () => {
 
       mockPaymentsService.getDelinquencyQueue.mockResolvedValue(queuePayload);
 
-      const result = await controller.getDelinquencyQueue(mockRequest, '8_30', 'property-1');
+      const result = await controller.getDelinquencyQueue(mockRequest, '8_30', 'property-1', '50', '10');
 
       expect(result).toEqual(queuePayload);
       expect(service.getDelinquencyQueue).toHaveBeenCalledWith({
         orgId: 'org-1',
         bucket: '8_30',
         propertyId: 'property-1',
+        limit: 50,
+        offset: 10,
       });
     });
   });
