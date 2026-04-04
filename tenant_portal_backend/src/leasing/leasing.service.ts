@@ -378,6 +378,7 @@ export class LeasingService {
       moveInAt?: string;
       noticePeriodDays?: number;
     },
+    simulate = false,
   ) {
     if (!['FOLLOW_UP_APPLICANT', 'RETRY_SEND_ENVELOPE', 'SEND_SIGNATURE_REMINDER', 'CONVERT_TO_LEASE'].includes(action)) {
       throw new BadRequestException(`Unsupported bulk action: ${action}`);
@@ -390,6 +391,25 @@ export class LeasingService {
     const uniqueIds = [...new Set(ids.map((id) => String(id)))].slice(0, 200);
     const successes: Array<{ id: string; result?: unknown }> = [];
     const failures: Array<{ id: string; error: string }> = [];
+
+    if (simulate) {
+      return {
+        action,
+        simulate: true,
+        requested: uniqueIds.length,
+        succeeded: uniqueIds.length,
+        failed: 0,
+        successes: uniqueIds.map((id) => ({
+          id,
+          result: {
+            simulated: true,
+            message: `Would execute ${action}`,
+            options: options || null,
+          },
+        })),
+        failures,
+      };
+    }
 
     for (const id of uniqueIds) {
       try {
@@ -453,6 +473,7 @@ export class LeasingService {
 
     return {
       action,
+      simulate: false,
       requested: uniqueIds.length,
       succeeded: successes.length,
       failed: failures.length,
