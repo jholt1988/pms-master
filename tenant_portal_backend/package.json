@@ -25,6 +25,8 @@
     "db:seed:admin": "node prisma/seedAdmin.js",
     "db:seed:real-data": "node prisma/seed-real-data.js",
     "ledger:backfill": "ts-node scripts/backfill-operational-ledger.ts",
+    "ledger:reconcile": "ts-node scripts/reconcile-lease-balances.ts",
+    "ledger:reconcile:apply": "ts-node scripts/reconcile-lease-balances.ts --apply",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
