@@ -119,9 +119,17 @@ export class PaymentsController {
     @Request() req: AuthenticatedRequest,
     @Query('bucket') bucket?: '1_7' | '8_30' | '31_plus',
     @Query('propertyId') propertyId?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
   ) {
     const orgId = (req as any).org?.orgId as string | undefined;
-    return this.paymentsService.getDelinquencyQueue({ orgId, bucket, propertyId });
+    return this.paymentsService.getDelinquencyQueue({
+      orgId,
+      bucket,
+      propertyId,
+      limit: limit ? Number(limit) : undefined,
+      offset: offset ? Number(offset) : undefined,
+    });
   }
 
   @Post('stripe/checkout-session')

@@ -1382,6 +1382,8 @@ export class PaymentsService {
     orgId?: string;
     bucket?: '1_7' | '8_30' | '31_plus';
     propertyId?: string;
+    limit?: number;
+    offset?: number;
   }) {
     const today = new Date();
     const overdueInvoices = await this.prisma.invoice.findMany({
@@ -1461,10 +1463,18 @@ export class PaymentsService {
       rows = rows.filter((row) => row.bucket === params.bucket);
     }
 
+    const total = rows.length;
+    const safeLimit = Math.min(Math.max(params.limit ?? 100, 1), 500);
+    const safeOffset = Math.max(params.offset ?? 0, 0);
+    rows = rows.slice(safeOffset, safeOffset + safeLimit);
+
     return {
       generatedAt: today,
       count: rows.length,
+      total,
       bucket: params.bucket ?? 'all',
+      limit: safeLimit,
+      offset: safeOffset,
       items: rows,
     };
   }
