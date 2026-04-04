@@ -24,6 +24,7 @@
     "db:seed:demo": "ts-node prisma/seed-demo.ts",
     "db:seed:admin": "node prisma/seedAdmin.js",
     "db:seed:real-data": "node prisma/seed-real-data.js",
+    "ledger:backfill": "ts-node scripts/backfill-operational-ledger.ts",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
