@@ -361,6 +361,8 @@ export class EsignatureService {
       throw new NotFoundException('Lease not found.');
     }
 
+    const mergeData = this.validateLeaseMergeData(lease);
+
     // Validate that the tenant (if exists) has an email address
     if (lease.tenant && !lease.tenant.email) {
       this.logger.error(`Cannot create envelope: Tenant ${lease.tenant.username} (ID: ${lease.tenant.id}) has no email address`);
@@ -379,7 +381,15 @@ export class EsignatureService {
         providerEnvelopeId: providerResponse.envelopeId,
         status: providerResponse.status,
         providerStatus: providerResponse.providerStatus,
-        providerMetadata: providerResponse.metadata as Prisma.JsonValue,
+        providerMetadata: {
+          ...(providerResponse.metadata as Record<string, unknown>),
+          mergeData,
+          statusTimeline: [{
+            status: providerResponse.providerStatus || 'SENT',
+            at: new Date().toISOString(),
+            source: 'createEnvelope',
+          }],
+        } as Prisma.JsonValue,
         participants: {
           create: dto.recipients.map((recipient) => {
             // If the recipient is the tenant, use the email from the database to ensure it's valid
@@ -613,9 +623,10 @@ export class EsignatureService {
       });
 
       const status = this.mapEnvelopeStatus(response.data.status);
+      const existingMetadata = (envelope.providerMetadata as Record<string, unknown>) || {};
       const updateData: Prisma.EsignEnvelopeUpdateInput = {
         providerStatus: response.data.status,
-        providerMetadata: JSON.parse(JSON.stringify(response.data)) as Prisma.JsonValue,
+        providerMetadata: this.applyStatusTimeline(existingMetadata, response.data.status, 'refresh'),
         ...(status && { status }),
       };
 
@@ -685,9 +696,10 @@ export class EsignatureService {
       const recipients = recipientsResponse.data;
 
       const status = this.mapEnvelopeStatus(envelopeInfo.status);
+      const existingMetadata = (envelope.providerMetadata as Record<string, unknown>) || {};
       const updateData: Prisma.EsignEnvelopeUpdateInput = {
         providerStatus: envelopeInfo.status,
-        providerMetadata: JSON.parse(JSON.stringify(envelopeInfo)) as Prisma.JsonValue,
+        providerMetadata: this.applyStatusTimeline(existingMetadata, envelopeInfo.status, 'refresh'),
         ...(status && { status }),
       };
 
@@ -941,9 +953,17 @@ export class EsignatureService {
 
     try {
       const mappedStatus = this.mapEnvelopeStatus(status);
+      const existingMetadata = (envelope.providerMetadata as Record<string, unknown>) || {};
       const data: Prisma.EsignEnvelopeUpdateInput = {
         providerStatus: status,
-        providerMetadata: JSON.parse(JSON.stringify(payload)) as Prisma.JsonValue,
+        providerMetadata: this.applyStatusTimeline(
+          {
+            ...existingMetadata,
+            lastWebhookPayload: JSON.parse(JSON.stringify(payload)) as Record<string, unknown>,
+          },
+          status,
+          'webhook',
+        ),
         ...(mappedStatus && { status: mappedStatus }),
       };
 
@@ -953,20 +973,29 @@ export class EsignatureService {
         include: { participants: true },
       });
 
-      // For DocuSign webhooks, we might need to fetch recipient details
-      // if they're not included in the webhook payload
-      if (envelope.participants?.length) {
+      const payloadParticipants = payload.participants ?? ((payload.data as any)?.recipients ?? []);
+      if (Array.isArray(payloadParticipants) && payloadParticipants.length > 0) {
         await Promise.all(
-          envelope.participants.map((participant) => {
-            if (!participant.email) {
-              this.logger.warn(`Webhook participant missing email, skipping update`);
-              return Promise.resolve();
-            }
+          payloadParticipants.map((participant: any) => {
+            const participantEmail = participant.email;
+            if (!participantEmail) return Promise.resolve();
             return this.prisma.esignParticipant.updateMany({
-              where: { envelopeId: envelope.id, email: participant.email },
-              data: { status: this.mapParticipantStatus(participant.status) ?? EsignParticipantStatus.SENT },
+              where: { envelopeId: envelope.id, email: participantEmail },
+              data: {
+                status: this.mapParticipantStatus(participant.status) ?? EsignParticipantStatus.SENT,
+                metadata: JSON.parse(JSON.stringify(participant)) as Prisma.JsonValue,
+              },
             });
           }),
+        );
+      } else if (envelope.participants?.length) {
+        await Promise.all(
+          envelope.participants.map((participant) =>
+            this.prisma.esignParticipant.updateMany({
+              where: { envelopeId: envelope.id, email: participant.email },
+              data: { status: this.mapParticipantStatus(participant.status) ?? EsignParticipantStatus.SENT },
+            }),
+          ),
         );
       } else {
         // If no participants in webhook, trigger a status refresh to get recipient details
@@ -1704,6 +1733,68 @@ export class EsignatureService {
       this.logger.warn(`Error validating returnUrl: "${returnUrl}", using fallback: ${frontendUrl}/my-lease`, error);
       return `${frontendUrl}/my-lease`;
     }
+  }
+
+  private validateLeaseMergeData(lease: any) {
+    const missing: string[] = [];
+
+    if (!lease.startDate) missing.push('lease.startDate');
+    if (!lease.endDate) missing.push('lease.endDate');
+    if (lease.rentAmount === undefined || lease.rentAmount === null || Number(lease.rentAmount) <= 0) {
+      missing.push('lease.rentAmount');
+    }
+
+    const tenantName = lease.tenant?.name || lease.tenant?.username;
+    if (!tenantName) missing.push('tenant.name');
+    if (!lease.tenant?.email) missing.push('tenant.email');
+
+    if (!lease.unit?.id) missing.push('unit.id');
+    if (!lease.unit?.property?.name) missing.push('property.name');
+
+    if (missing.length > 0) {
+      throw new BadRequestException(
+        `Lease is missing required merge fields: ${missing.join(', ')}. Please complete lease and tenant records before sending for signature.`,
+      );
+    }
+
+    return {
+      leaseId: lease.id,
+      startDate: new Date(lease.startDate).toISOString(),
+      endDate: new Date(lease.endDate).toISOString(),
+      rentAmount: Number(lease.rentAmount),
+      tenantName,
+      tenantEmail: lease.tenant?.email,
+      propertyName: lease.unit?.property?.name,
+      unitId: lease.unit?.id,
+    };
+  }
+
+  private applyStatusTimeline(
+    metadata: Record<string, unknown>,
+    providerStatus: string | undefined,
+    source: 'webhook' | 'refresh',
+  ): Prisma.JsonValue {
+    const nowIso = new Date().toISOString();
+    const timeline = Array.isArray(metadata.statusTimeline) ? [...(metadata.statusTimeline as any[])] : [];
+    timeline.push({
+      status: providerStatus || 'UNKNOWN',
+      at: nowIso,
+      source,
+    });
+
+    const normalized = (providerStatus || '').toUpperCase();
+    const timestampPatch: Record<string, string> = {};
+    if (normalized === 'SENT' || normalized === 'IN_PROGRESS') timestampPatch.sentAt = nowIso;
+    if (normalized === 'DELIVERED') timestampPatch.deliveredAt = nowIso;
+    if (normalized === 'COMPLETED') timestampPatch.completedAt = nowIso;
+    if (normalized === 'DECLINED') timestampPatch.declinedAt = nowIso;
+    if (normalized === 'VOIDED') timestampPatch.voidedAt = nowIso;
+
+    return {
+      ...metadata,
+      ...timestampPatch,
+      statusTimeline: timeline.slice(-50),
+    } as Prisma.JsonValue;
   }
 
   private mapEnvelopeStatus(status?: string): EsignEnvelopeStatus | undefined {

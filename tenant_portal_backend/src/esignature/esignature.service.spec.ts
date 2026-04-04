@@ -30,7 +30,7 @@ describe('EsignatureService', () => {
   beforeEach(() => {
     prisma = {
       lease: { findUnique: jest.fn() },
-      esignEnvelope: { create: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
+      esignEnvelope: { create: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
       esignParticipant: { findFirst: jest.fn(), updateMany: jest.fn(), update: jest.fn() },
     } as any;
 
@@ -63,8 +63,12 @@ describe('EsignatureService', () => {
 
       (prisma.lease.findUnique as jest.Mock).mockResolvedValue({
         id: '1',
-        tenant: { id: '42' },
-        unit: {},
+        startDate: new Date('2026-01-01'),
+        endDate: new Date('2026-12-31'),
+        rentAmount: 1500,
+        tenant: { id: '42', email: 'tenant@test.com', username: 'tenant' },
+        unit: { id: 'unit-1', property: { name: 'Sunset Villas' } },
+        generalDocuments: [],
       });
       mockAxiosInstance.request.mockRejectedValue(new Error('network'));
       (prisma.esignEnvelope.create as jest.Mock).mockResolvedValue({
@@ -83,6 +87,26 @@ describe('EsignatureService', () => {
       expect(notifications.sendSignatureAlert).toHaveBeenCalledWith(
         expect.objectContaining({ event: 'REQUESTED', envelopeId: 99 }),
       );
+    });
+
+    it('fails fast when required lease merge fields are missing', async () => {
+      const dto: CreateEnvelopeDto = {
+        templateId: 'tmpl-123',
+        recipients: [{ name: 'Tenant', email: 'tenant@test.com', role: 'TENANT', userId: '42' }],
+      };
+
+      (prisma.lease.findUnique as jest.Mock).mockResolvedValue({
+        id: '1',
+        startDate: null,
+        endDate: null,
+        rentAmount: 0,
+        tenant: { id: '42', email: null, username: null },
+        unit: { id: null, property: { name: null } },
+        generalDocuments: [],
+      });
+
+      await expect(service.createEnvelope('1', dto, '7')).rejects.toThrow(BadRequestException);
+      expect(prisma.esignEnvelope.create).not.toHaveBeenCalled();
     });
   });
 
