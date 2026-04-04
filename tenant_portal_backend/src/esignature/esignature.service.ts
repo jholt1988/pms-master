@@ -381,15 +381,21 @@ export class EsignatureService {
         providerEnvelopeId: providerResponse.envelopeId,
         status: providerResponse.status,
         providerStatus: providerResponse.providerStatus,
-        providerMetadata: {
+        providerMetadata: ({
           ...(providerResponse.metadata as Record<string, unknown>),
           mergeData,
+          request: {
+            templateId: dto.templateId,
+            message: dto.message,
+            recipients: dto.recipients,
+            provider,
+          },
           statusTimeline: [{
             status: providerResponse.providerStatus || 'SENT',
             at: new Date().toISOString(),
             source: 'createEnvelope',
           }],
-        } as Prisma.JsonValue,
+        } as unknown) as Prisma.JsonValue,
         participants: {
           create: dto.recipients.map((recipient) => {
             // If the recipient is the tenant, use the email from the database to ensure it's valid
@@ -1972,6 +1978,131 @@ export class EsignatureService {
 
     this.logger.log(`E-signature reminders: ${sentCount} sent, ${skippedCount} skipped`);
     return { sent: sentCount, skipped: skippedCount, attemptedEnvelopes: pendingEnvelopes.length };
+  }
+
+  async retryEnvelopeSend(envelopeId: number, actorId: string) {
+    const envelope = await this.prisma.esignEnvelope.findUnique({
+      where: { id: envelopeId },
+      include: {
+        participants: true,
+        lease: {
+          include: {
+            tenant: true,
+            unit: { include: { property: true } },
+            generalDocuments: {
+              where: { category: DocumentCategory.LEASE },
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
+
+    if (!envelope) {
+      throw new NotFoundException('Envelope not found.');
+    }
+
+    if (envelope.status === EsignEnvelopeStatus.COMPLETED || envelope.status === EsignEnvelopeStatus.VOIDED) {
+      throw new BadRequestException('Cannot retry a completed or voided envelope.');
+    }
+
+    const metadata = (envelope.providerMetadata as Record<string, unknown>) || {};
+    const retryCount = Number(metadata.retryCount || 0);
+    const maxRetries = this.configService.get<number>('ESIGN_SEND_MAX_RETRIES', 5);
+    if (retryCount >= maxRetries) {
+      throw new BadRequestException(`Retry limit reached (${maxRetries}).`);
+    }
+
+    if (metadata.nextRetryAt) {
+      const nextRetryAt = new Date(String(metadata.nextRetryAt));
+      if (nextRetryAt.getTime() > Date.now()) {
+        throw new BadRequestException(`Retry not yet allowed. Next retry at ${nextRetryAt.toISOString()}`);
+      }
+    }
+
+    const requestSnapshot = metadata.request as any;
+    const dto: CreateEnvelopeDto = requestSnapshot
+      ? {
+          templateId: requestSnapshot.templateId,
+          message: requestSnapshot.message,
+          recipients: requestSnapshot.recipients,
+          provider: requestSnapshot.provider,
+        }
+      : {
+          templateId: 'retry-template',
+          message: 'Retry envelope send',
+          recipients: envelope.participants.map((p) => ({
+            name: p.name,
+            email: p.email,
+            phone: p.phone || undefined,
+            role: p.role,
+            userId: p.userId || undefined,
+          })),
+          provider: envelope.provider,
+        };
+
+    try {
+      const providerResponse = await this.dispatchProviderEnvelope(envelope.provider, dto, envelope.lease);
+      const updatedMetadata = this.applyStatusTimeline(
+        {
+          ...metadata,
+          retryCount: retryCount + 1,
+          lastRetryAt: new Date().toISOString(),
+          lastRetryBy: actorId,
+          lastRetryError: null,
+          nextRetryAt: null,
+        },
+        providerResponse.providerStatus,
+        'refresh',
+      ) as Record<string, unknown>;
+
+      await this.prisma.esignEnvelope.update({
+        where: { id: envelopeId },
+        data: {
+          providerEnvelopeId: providerResponse.envelopeId,
+          providerStatus: providerResponse.providerStatus,
+          status: providerResponse.status,
+          providerMetadata: updatedMetadata as Prisma.JsonValue,
+        },
+      });
+
+      await Promise.all(
+        envelope.participants.map((participant) =>
+          this.prisma.esignParticipant.updateMany({
+            where: { envelopeId, email: participant.email },
+            data: {
+              status: EsignParticipantStatus.SENT,
+              recipientId:
+                providerResponse.recipients.find((r) => r.email === participant.email)?.recipientId || participant.recipientId,
+            },
+          }),
+        ),
+      );
+
+      return { success: true, envelopeId, retryCount: retryCount + 1, providerEnvelopeId: providerResponse.envelopeId };
+    } catch (error) {
+      const backoffHoursBase = this.configService.get<number>('ESIGN_SEND_RETRY_BACKOFF_HOURS', 1);
+      const nextRetryAt = new Date(Date.now() + Math.min(backoffHoursBase * Math.pow(2, retryCount), 24) * 3600000);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      await this.prisma.esignEnvelope.update({
+        where: { id: envelopeId },
+        data: {
+          status: EsignEnvelopeStatus.ERROR,
+          providerMetadata: {
+            ...metadata,
+            retryCount: retryCount + 1,
+            lastRetryAt: new Date().toISOString(),
+            lastRetryBy: actorId,
+            lastRetryError: errorMessage,
+            nextRetryAt: nextRetryAt.toISOString(),
+          } as Prisma.JsonValue,
+        },
+      });
+
+      throw new BadRequestException(`Retry send failed: ${errorMessage}`);
+    }
   }
 
   async getSignatureRiskQueue(limit = 100, maxHoursUntilDue = 48) {
