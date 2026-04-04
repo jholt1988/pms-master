@@ -66,7 +66,7 @@ export class PaymentsService {
       throw new NotFoundException('Lease not found');
     }
 
-    return this.prisma.invoice.create({
+    const invoice = await this.prisma.invoice.create({
       data: {
         description: dto.description,
         amount: dto.amount,
@@ -79,6 +79,23 @@ export class PaymentsService {
         lateFees: true,
       },
     });
+
+    const ledgerAccount = await this.ensureLedgerAccountForLease(leaseId, orgId);
+    await this.prisma.ledgerTransaction.create({
+      data: {
+        accountId: ledgerAccount.id,
+        entryType: 'CHARGE',
+        direction: 'DEBIT',
+        amountCents: Math.round(Number(dto.amount) * 100),
+        effectiveDate: new Date(dto.dueDate),
+        categoryCode: 'rent',
+        sourceType: 'invoice',
+        sourceId: String(invoice.id),
+        description: dto.description || `Invoice #${invoice.id}`,
+      },
+    });
+
+    return invoice;
   }
 
   async getInvoicesForUser(userId: string, role: Role, leaseId?: string | number, orgId?: string): Promise<Invoice[]> {
@@ -320,6 +337,23 @@ export class PaymentsService {
       await this.markInvoicePaid(payment.invoiceId);
     }
 
+    const ledgerAccount = await this.ensureLedgerAccountForLease(lease.id, lease.unit?.property?.organizationId);
+    await this.prisma.ledgerTransaction.create({
+      data: {
+        accountId: ledgerAccount.id,
+        paymentId: payment.id,
+        entryType: 'PAYMENT',
+        direction: 'CREDIT',
+        amountCents: Math.round(Number(payment.amount) * 100),
+        effectiveDate: payment.paymentDate ?? new Date(),
+        categoryCode: 'rent_payment',
+        sourceType: 'payment',
+        sourceId: String(payment.id),
+        description: `Payment #${payment.id}`,
+        createdById: authUser?.userId,
+      },
+    });
+
     // Send confirmation email for successful payments, but do not block on failures
     if ((payment.status ?? 'COMPLETED') !== 'FAILED') {
       try {
@@ -383,6 +417,44 @@ export class PaymentsService {
         },
       });
 
+      const account = await tx.ledgerAccount.upsert({
+        where: {
+          organizationId_leaseId: {
+            organizationId: orgId ?? lease.unit?.property?.organizationId!,
+            leaseId: lease.id,
+          },
+        },
+        create: {
+          organizationId: orgId ?? lease.unit?.property?.organizationId!,
+          leaseId: lease.id,
+          propertyId: input.propertyId,
+          unitId: input.unitId,
+          residentId: input.tenantId,
+          currency: 'USD',
+          status: 'ACTIVE',
+        },
+        update: {
+          propertyId: input.propertyId,
+          unitId: input.unitId,
+          residentId: input.tenantId,
+        },
+      });
+
+      await tx.ledgerTransaction.create({
+        data: {
+          accountId: account.id,
+          entryType: 'PAYMENT',
+          direction: 'CREDIT',
+          amountCents: input.amountCents,
+          effectiveDate: input.receivedAt ?? new Date(),
+          categoryCode: 'manual_payment',
+          sourceType: 'manual_payment',
+          sourceId: payment.id,
+          description: input.memo || `Manual ${input.method} payment`,
+          createdById: input.createdById,
+        },
+      });
+
       await tx.lease.update({
         where: { id: lease.id },
         data: { currentBalance: { decrement: amount } },
@@ -418,6 +490,34 @@ export class PaymentsService {
         where: { id: payment.leaseId },
         data: { currentBalance: { increment: amount } },
       });
+
+      const existingPaymentEntry = await tx.ledgerTransaction.findFirst({
+        where: {
+          sourceType: 'manual_payment',
+          sourceId: payment.id,
+          status: 'POSTED',
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (existingPaymentEntry) {
+        await tx.ledgerTransaction.create({
+          data: {
+            accountId: existingPaymentEntry.accountId,
+            entryType: 'REVERSAL',
+            direction: 'DEBIT',
+            amountCents: payment.amountCents,
+            effectiveDate: new Date(),
+            categoryCode: 'manual_payment_reversal',
+            sourceType: 'manual_payment_reversal',
+            sourceId: payment.id,
+            description: `Reversal of manual payment ${payment.id}`,
+            reversesEntryId: existingPaymentEntry.id,
+            reasonCode: reason.trim(),
+            createdById: payment.createdById,
+          },
+        });
+      }
 
       return tx.manualPayment.update({
         where: { id: payment.id },
@@ -471,6 +571,44 @@ export class PaymentsService {
         },
       });
 
+      const account = await tx.ledgerAccount.upsert({
+        where: {
+          organizationId_leaseId: {
+            organizationId: orgId ?? lease.unit?.property?.organizationId!,
+            leaseId: lease.id,
+          },
+        },
+        create: {
+          organizationId: orgId ?? lease.unit?.property?.organizationId!,
+          leaseId: lease.id,
+          propertyId: input.propertyId,
+          unitId: input.unitId,
+          residentId: input.tenantId,
+          currency: 'USD',
+          status: 'ACTIVE',
+        },
+        update: {
+          propertyId: input.propertyId,
+          unitId: input.unitId,
+          residentId: input.tenantId,
+        },
+      });
+
+      await tx.ledgerTransaction.create({
+        data: {
+          accountId: account.id,
+          entryType: 'CHARGE',
+          direction: 'DEBIT',
+          amountCents: input.amountCents,
+          effectiveDate: input.chargeDate ?? new Date(),
+          categoryCode: String(input.chargeType).toLowerCase(),
+          sourceType: 'manual_charge',
+          sourceId: charge.id,
+          description: input.description.trim(),
+          createdById: input.createdById,
+        },
+      });
+
       await tx.lease.update({
         where: { id: lease.id },
         data: { currentBalance: { increment: amount } },
@@ -506,6 +644,34 @@ export class PaymentsService {
         where: { id: charge.leaseId },
         data: { currentBalance: { decrement: amount } },
       });
+
+      const existingChargeEntry = await tx.ledgerTransaction.findFirst({
+        where: {
+          sourceType: 'manual_charge',
+          sourceId: charge.id,
+          status: 'POSTED',
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (existingChargeEntry) {
+        await tx.ledgerTransaction.create({
+          data: {
+            accountId: existingChargeEntry.accountId,
+            entryType: 'REVERSAL',
+            direction: 'CREDIT',
+            amountCents: charge.amountCents,
+            effectiveDate: new Date(),
+            categoryCode: 'manual_charge_void',
+            sourceType: 'manual_charge_void',
+            sourceId: charge.id,
+            description: `Void of manual charge ${charge.id}`,
+            reversesEntryId: existingChargeEntry.id,
+            reasonCode: reason.trim(),
+            createdById: charge.createdById,
+          },
+        });
+      }
 
       return tx.manualCharge.update({
         where: { id: charge.id },
@@ -589,6 +755,47 @@ export class PaymentsService {
         externalId,
       },
       include: { invoice: true, lease: true },
+    });
+  }
+
+  private async ensureLedgerAccountForLease(leaseId: string, orgId?: string) {
+    if (!orgId) {
+      throw new BadRequestException('Organization context is required for operational ledger account creation');
+    }
+
+    const lease = await this.prisma.lease.findUnique({
+      where: { id: leaseId },
+      include: {
+        unit: true,
+      },
+    });
+
+    if (!lease) {
+      throw new NotFoundException('Lease not found for ledger account');
+    }
+
+    return this.prisma.ledgerAccount.upsert({
+      where: {
+        organizationId_leaseId: {
+          organizationId: orgId,
+          leaseId,
+        },
+      },
+      create: {
+        organizationId: orgId,
+        leaseId,
+        propertyId: lease.unit?.propertyId,
+        unitId: lease.unitId,
+        residentId: lease.tenantId,
+        currency: 'USD',
+        status: 'ACTIVE',
+      },
+      update: {
+        propertyId: lease.unit?.propertyId,
+        unitId: lease.unitId,
+        residentId: lease.tenantId,
+        status: 'ACTIVE',
+      },
     });
   }
 
@@ -995,53 +1202,89 @@ export class PaymentsService {
       }
     }
 
-    const [invoices, payments, manualCharges, manualPayments] = await Promise.all([
-      this.prisma.invoice.findMany({ where: { leaseId: parsedLeaseId } }),
-      this.prisma.payment.findMany({ where: { leaseId: parsedLeaseId } }),
-      this.prisma.manualCharge.findMany({ where: { leaseId: parsedLeaseId } }),
-      this.prisma.manualPayment.findMany({ where: { leaseId: parsedLeaseId } }),
-    ]);
+    const orgForLease = lease.unit?.property?.organizationId;
+    const account = orgForLease
+      ? await this.prisma.ledgerAccount.findUnique({
+          where: {
+            organizationId_leaseId: {
+              organizationId: orgForLease,
+              leaseId: parsedLeaseId,
+            },
+          },
+          include: {
+            entries: {
+              orderBy: { effectiveDate: 'asc' },
+            },
+          },
+        })
+      : null;
 
-    const entries: LedgerEntryView[] = [
-      ...invoices.map((i) => ({
-        id: `inv-${i.id}`,
-        kind: 'charge' as const,
-        source: 'invoice' as const,
-        occurredAt: i.dueDate,
-        amountCents: Math.round(Number(i.amount) * 100),
-        description: i.description || `Invoice #${i.id}`,
-      })),
-      ...manualCharges
-        .filter((c) => c.status === 'POSTED')
-        .map((c) => ({
-          id: c.id,
+    let entries: LedgerEntryView[] = [];
+
+    if (account && account.entries.length > 0) {
+      entries = account.entries.map((entry) => ({
+        id: entry.id,
+        kind: entry.direction === 'DEBIT' ? 'charge' : 'payment',
+        source: (entry.sourceType === 'manual_charge'
+          ? 'manual_charge'
+          : entry.sourceType === 'manual_payment'
+          ? 'manual_payment'
+          : entry.sourceType === 'payment'
+          ? 'payment'
+          : 'invoice') as LedgerEntryView['source'],
+        occurredAt: entry.effectiveDate,
+        amountCents: entry.amountCents,
+        description: entry.description || entry.sourceType,
+      }));
+    } else {
+      const [invoices, payments, manualCharges, manualPayments] = await Promise.all([
+        this.prisma.invoice.findMany({ where: { leaseId: parsedLeaseId } }),
+        this.prisma.payment.findMany({ where: { leaseId: parsedLeaseId } }),
+        this.prisma.manualCharge.findMany({ where: { leaseId: parsedLeaseId } }),
+        this.prisma.manualPayment.findMany({ where: { leaseId: parsedLeaseId } }),
+      ]);
+
+      entries = [
+        ...invoices.map((i) => ({
+          id: `inv-${i.id}`,
           kind: 'charge' as const,
-          source: 'manual_charge' as const,
-          occurredAt: c.chargeDate,
-          amountCents: c.amountCents,
-          description: c.description,
+          source: 'invoice' as const,
+          occurredAt: i.dueDate,
+          amountCents: Math.round(Number(i.amount) * 100),
+          description: i.description || `Invoice #${i.id}`,
         })),
-      ...payments
-        .filter((p) => (p.status ?? '').toUpperCase() !== 'FAILED')
-        .map((p) => ({
-          id: `pay-${p.id}`,
-          kind: 'payment' as const,
-          source: 'payment' as const,
-          occurredAt: p.paymentDate,
-          amountCents: Math.round(Number(p.amount) * 100),
-          description: `Payment #${p.id}`,
-        })),
-      ...manualPayments
-        .filter((p) => p.status === 'POSTED')
-        .map((p) => ({
-          id: p.id,
-          kind: 'payment' as const,
-          source: 'manual_payment' as const,
-          occurredAt: p.receivedAt,
-          amountCents: p.amountCents,
-          description: p.memo || `Manual ${p.method} payment`,
-        })),
-    ].sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime());
+        ...manualCharges
+          .filter((c) => c.status === 'POSTED')
+          .map((c) => ({
+            id: c.id,
+            kind: 'charge' as const,
+            source: 'manual_charge' as const,
+            occurredAt: c.chargeDate,
+            amountCents: c.amountCents,
+            description: c.description,
+          })),
+        ...payments
+          .filter((p) => (p.status ?? '').toUpperCase() !== 'FAILED')
+          .map((p) => ({
+            id: `pay-${p.id}`,
+            kind: 'payment' as const,
+            source: 'payment' as const,
+            occurredAt: p.paymentDate,
+            amountCents: Math.round(Number(p.amount) * 100),
+            description: `Payment #${p.id}`,
+          })),
+        ...manualPayments
+          .filter((p) => p.status === 'POSTED')
+          .map((p) => ({
+            id: p.id,
+            kind: 'payment' as const,
+            source: 'manual_payment' as const,
+            occurredAt: p.receivedAt,
+            amountCents: p.amountCents,
+            description: p.memo || `Manual ${p.method} payment`,
+          })),
+      ].sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime());
+    }
 
     let runningBalanceCents = 0;
     const ledger = entries.map((entry) => {

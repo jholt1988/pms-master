@@ -151,6 +151,7 @@ model Organization {
   paymentLedgerEntries   PaymentLedgerEntry[]
   manualPayments         ManualPayment[]
   manualCharges          ManualCharge[]
+  ledgerAccounts         LedgerAccount[]
 }
 
 model UserOrganization {
@@ -524,6 +525,7 @@ model Lease {
   payments                  Payment[]
   manualPayments            ManualPayment[]
   manualCharges             ManualCharge[]
+  ledgerAccounts            LedgerAccount[]
   invoices                  Invoice[]
   recurringSchedule         RecurringInvoiceSchedule?
   autopayEnrollment         AutopayEnrollment?
@@ -900,8 +902,73 @@ model Payment {
   paymentMethodId     Int?
   paymentPlanPayments PaymentPlanPayment[] @relation("PaymentPlanPayment")
   ledgerEntries       PaymentLedgerEntry[]
+  ledgerTransactions  LedgerTransaction[]
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
+}
+
+enum LedgerEntryType {
+  CHARGE
+  CREDIT
+  PAYMENT
+  REVERSAL
+  RETURN_FEE
+  WRITEOFF
+}
+
+enum LedgerDirection {
+  DEBIT
+  CREDIT
+}
+
+model LedgerAccount {
+  id             String              @id @default(uuid()) @db.Uuid
+  organizationId String              @db.Uuid
+  organization   Organization        @relation(fields: [organizationId], references: [id])
+  leaseId        String              @db.Uuid
+  lease          Lease               @relation(fields: [leaseId], references: [id])
+  propertyId     String?             @db.Uuid
+  unitId         String?             @db.Uuid
+  residentId     String?             @db.Uuid
+  currency       String              @default("USD")
+  status         String              @default("ACTIVE")
+  openedAt       DateTime            @default(now())
+  closedAt       DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  entries        LedgerTransaction[]
+
+  @@unique([organizationId, leaseId])
+  @@index([organizationId, status])
+  @@index([leaseId])
+}
+
+model LedgerTransaction {
+  id              String          @id @default(uuid()) @db.Uuid
+  accountId       String          @db.Uuid
+  account         LedgerAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  paymentId       Int?
+  payment         Payment?        @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  entryType       LedgerEntryType
+  direction       LedgerDirection
+  amountCents     Int
+  effectiveDate   DateTime
+  postedAt        DateTime        @default(now())
+  categoryCode    String?
+  sourceType      String
+  sourceId        String?
+  description     String?
+  reversesEntryId String?         @db.Uuid
+  reasonCode      String?
+  status          String          @default("POSTED")
+  metadata        Json?
+  createdById     String?         @db.Uuid
+  createdAt       DateTime        @default(now())
+
+  @@index([accountId, effectiveDate])
+  @@index([paymentId])
+  @@index([sourceType, sourceId])
+  @@index([reversesEntryId])
 }
 
 model PaymentLedgerEntry {
