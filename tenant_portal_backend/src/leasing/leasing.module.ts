@@ -15,11 +15,13 @@ import { LeadApplicationsService } from './lead-applications.service';
 import { LeadsLegacyController } from '../legacy/leads-legacy.controller';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { SecurityEventsModule } from '../security-events/security-events.module';
+import { EsignatureModule } from '../esignature/esignature.module';
+import { RentalApplicationModule } from '../rental-application/rental-application.module';
 
 const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
 
 @Module({
-  imports: [EmailModule, SecurityEventsModule],
+  imports: [EmailModule, SecurityEventsModule, EsignatureModule, RentalApplicationModule],
   controllers: legacyEnabled
     ? [LeasingController, ToursController, LeadApplicationsController, LeadsLegacyController]
     : [LeasingController, ToursController, LeadApplicationsController],

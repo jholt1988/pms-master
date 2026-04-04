@@ -15,12 +15,21 @@ import {
   HttpException,
   HttpStatus,
   UseGuards,
+  Request,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Request as ExpressRequest } from 'express';
 import { LeasingService } from './leasing.service';
 import { LeadStatus } from '@prisma/client';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
+
+interface AuthenticatedRequest extends ExpressRequest {
+  user: {
+    userId: string;
+    username?: string;
+  };
+}
 
 @Controller(['api/leasing', 'leasing'])
 export class LeasingController {
@@ -305,6 +314,42 @@ export class LeasingController {
       return lead;
     } catch (error) {
       this.handleError(error, 'Failed to update status');
+    }
+  }
+
+  /**
+   * Execute bulk action from ops summary groupings
+   * POST /leasing/ops-summary/bulk-action
+   */
+  @UseGuards(AuthGuard('jwt'), OrgContextGuard)
+  @Post('ops-summary/bulk-action')
+  async executeBulkAction(
+    @Body()
+    body: {
+      action: 'FOLLOW_UP_APPLICANT' | 'RETRY_SEND_ENVELOPE' | 'SEND_SIGNATURE_REMINDER' | 'CONVERT_TO_LEASE';
+      ids: Array<string | number>;
+      options?: {
+        startDate?: string;
+        endDate?: string;
+        rentAmount?: number;
+        depositAmount?: number;
+        moveInAt?: string;
+        noticePeriodDays?: number;
+      };
+    },
+    @Request() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
+  ) {
+    try {
+      return await this.leasingService.executeBulkAction(
+        body.action,
+        body.ids,
+        { userId: req.user.userId, username: req.user.username },
+        orgId,
+        body.options,
+      );
+    } catch (error) {
+      this.handleError(error, 'Failed to execute bulk action');
     }
   }
 

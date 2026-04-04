@@ -7,13 +7,17 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { isUUID } from 'class-validator';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
-import { Lead, LeadStatus, LeadMessage, MessageRole, PropertyInquiry, InterestLevel, Prisma, ApplicationStatus, EsignEnvelopeStatus, LeadApplicationStatus, EsignParticipantStatus } from '@prisma/client';
+import { EsignatureService } from '../esignature/esignature.service';
+import { RentalApplicationService } from '../rental-application/rental-application.service';
+import { Lead, LeadStatus, LeadMessage, MessageRole, PropertyInquiry, InterestLevel, Prisma, ApplicationStatus, EsignEnvelopeStatus, LeadApplicationStatus, EsignParticipantStatus, Role } from '@prisma/client';
 
 @Injectable()
 export class LeasingService {
   constructor(
     private prisma: PrismaService,
     private emailService: EmailService,
+    private esignatureService: EsignatureService,
+    private rentalApplicationService: RentalApplicationService,
   ) {}
 
   /**
@@ -359,6 +363,102 @@ export class LeasingService {
       where: { id: leadId },
       data: updates,
     });
+  }
+
+  async executeBulkAction(
+    action: 'FOLLOW_UP_APPLICANT' | 'RETRY_SEND_ENVELOPE' | 'SEND_SIGNATURE_REMINDER' | 'CONVERT_TO_LEASE',
+    ids: Array<string | number>,
+    actor: { userId: string; username?: string },
+    orgId?: string,
+    options?: {
+      startDate?: string;
+      endDate?: string;
+      rentAmount?: number;
+      depositAmount?: number;
+      moveInAt?: string;
+      noticePeriodDays?: number;
+    },
+  ) {
+    if (!['FOLLOW_UP_APPLICANT', 'RETRY_SEND_ENVELOPE', 'SEND_SIGNATURE_REMINDER', 'CONVERT_TO_LEASE'].includes(action)) {
+      throw new BadRequestException(`Unsupported bulk action: ${action}`);
+    }
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new BadRequestException('ids must be a non-empty array');
+    }
+
+    const uniqueIds = [...new Set(ids.map((id) => String(id)))].slice(0, 200);
+    const successes: Array<{ id: string; result?: unknown }> = [];
+    const failures: Array<{ id: string; error: string }> = [];
+
+    for (const id of uniqueIds) {
+      try {
+        if (action === 'FOLLOW_UP_APPLICANT') {
+          const appId = id;
+          const updated = await this.prisma.leadApplication.updateMany({
+            where: {
+              id: appId,
+              ...(orgId ? { property: { organizationId: orgId } } : {}),
+            },
+            data: {
+              lastActivityAt: new Date(),
+              followUpDueAt: new Date(Date.now() + 24 * 3600000),
+            },
+          });
+          if (updated.count === 0) {
+            throw new BadRequestException('Lead application not found or not in org scope');
+          }
+          successes.push({ id, result: { updated: true } });
+        }
+
+        if (action === 'RETRY_SEND_ENVELOPE') {
+          const envelopeId = Number(id);
+          const result = await this.esignatureService.retryEnvelopeSend(envelopeId, actor.userId);
+          successes.push({ id, result });
+        }
+
+        if (action === 'SEND_SIGNATURE_REMINDER') {
+          const envelopeId = Number(id);
+          const result = await this.esignatureService.resendNotifications(envelopeId, actor.userId);
+          successes.push({ id, result });
+        }
+
+        if (action === 'CONVERT_TO_LEASE') {
+          if (!options?.startDate || !options?.endDate) {
+            throw new BadRequestException('startDate and endDate are required for CONVERT_TO_LEASE');
+          }
+          const appId = Number(id);
+          const result = await this.rentalApplicationService.convertApprovedApplicationToLease(
+            appId,
+            { userId: actor.userId, username: actor.username || 'bulk-ops', role: Role.PROPERTY_MANAGER },
+            {
+              startDate: options.startDate,
+              endDate: options.endDate,
+              rentAmount: options.rentAmount,
+              depositAmount: options.depositAmount,
+              moveInAt: options.moveInAt,
+              noticePeriodDays: options.noticePeriodDays,
+            },
+            orgId,
+          );
+          successes.push({ id, result: { leaseId: (result as any)?.id ?? null } });
+        }
+      } catch (error) {
+        failures.push({
+          id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    return {
+      action,
+      requested: uniqueIds.length,
+      succeeded: successes.length,
+      failed: failures.length,
+      successes,
+      failures,
+    };
   }
 
   async getLeasingOpsSummary(orgId?: string, limit = 25) {
