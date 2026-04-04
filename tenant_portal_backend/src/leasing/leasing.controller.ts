@@ -309,6 +309,23 @@ export class LeasingController {
   }
 
   /**
+   * Get leasing operations summary
+   * GET /leasing/ops-summary
+   */
+  @UseGuards(AuthGuard('jwt'), OrgContextGuard)
+  @Get('ops-summary')
+  async getOpsSummary(
+    @Query('limit') limit?: string,
+    @OrgId() orgId?: string,
+  ) {
+    try {
+      return await this.leasingService.getLeasingOpsSummary(orgId, limit ? parseInt(limit, 10) : undefined);
+    } catch (error) {
+      this.handleError(error, 'Failed to fetch leasing ops summary');
+    }
+  }
+
+  /**
    * Get leasing statistics
    * GET /leasing/statistics
    */
