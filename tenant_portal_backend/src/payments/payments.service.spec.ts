@@ -830,6 +830,64 @@ describe('PaymentsService', () => {
     });
   });
 
+  describe('getDelinquencyQueue sorting and pagination', () => {
+    it('sorts by amountDueCents ascending and applies pagination fields', async () => {
+      const now = new Date();
+      mockPrismaService.invoice.findMany.mockResolvedValue([
+        {
+          id: 1,
+          amount: 1000,
+          dueDate: new Date(now.getTime() - 10 * 86400000),
+          leaseId: 'lease-1',
+          lease: {
+            tenantId: 'tenant-a',
+            tenant: { firstName: 'Alex', lastName: 'Zulu', username: 'alex' },
+            unit: { propertyId: 'prop-1', name: 'Unit A', property: { name: 'Property 1' } },
+          },
+        },
+        {
+          id: 2,
+          amount: 500,
+          dueDate: new Date(now.getTime() - 5 * 86400000),
+          leaseId: 'lease-2',
+          lease: {
+            tenantId: 'tenant-b',
+            tenant: { firstName: 'Bea', lastName: 'Alpha', username: 'bea' },
+            unit: { propertyId: 'prop-1', name: 'Unit B', property: { name: 'Property 1' } },
+          },
+        },
+      ]);
+
+      const result = await service.getDelinquencyQueue({
+        orgId: 'org-1',
+        sortBy: 'amountDueCents',
+        sortOrder: 'asc',
+        limit: 10,
+        offset: 0,
+      });
+
+      expect(result.total).toBe(2);
+      expect(result.limit).toBe(10);
+      expect(result.offset).toBe(0);
+      expect(result.sortBy).toBe('amountDueCents');
+      expect(result.sortOrder).toBe('asc');
+      expect(result.items[0].amountDueCents).toBeLessThanOrEqual(result.items[1].amountDueCents);
+    });
+
+    it('applies default sort and caps limit at 500', async () => {
+      mockPrismaService.invoice.findMany.mockResolvedValue([]);
+
+      const result = await service.getDelinquencyQueue({
+        orgId: 'org-1',
+        limit: 9999,
+      });
+
+      expect(result.limit).toBe(500);
+      expect(result.sortBy).toBe('daysPastDue');
+      expect(result.sortOrder).toBe('desc');
+    });
+  });
+
   describe('ledger reversal integrity guards', () => {
     it('rejects non-positive ledger amounts', async () => {
       await expect(
