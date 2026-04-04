@@ -330,6 +330,7 @@ export class LeasingController {
       ids: Array<string | number>;
       simulate?: boolean;
       confirm?: boolean;
+      simulationToken?: string;
       options?: {
         startDate?: string;
         endDate?: string;
@@ -351,6 +352,7 @@ export class LeasingController {
         body.options,
         body.simulate ?? false,
         body.confirm ?? false,
+        body.simulationToken,
       );
     } catch (error) {
       this.handleError(error, 'Failed to execute bulk action');
