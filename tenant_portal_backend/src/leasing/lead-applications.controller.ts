@@ -15,6 +15,7 @@ import {
   Patch,
   BadRequestException,
 } from '@nestjs/common';
+import { ApplicationDecisionReasonCode } from '@prisma/client';
 import { LeadApplicationsService } from './lead-applications.service';
 import { isUUID } from 'class-validator';
 
@@ -107,6 +108,28 @@ export class LeadApplicationsController {
    * Get all applications with filtering
    * GET /api/applications?propertyId=1&status=SUBMITTED
    */
+  @Get('stale/follow-ups')
+  async getStaleFollowUps(
+    @Query('olderThanHours') olderThanHours?: string,
+    @Query('limit') limit?: string,
+  ) {
+    try {
+      const parsedHours = olderThanHours ? parseInt(olderThanHours, 10) : undefined;
+      const parsedLimit = limit ? parseInt(limit, 10) : undefined;
+      const result = await this.leadApplicationsService.getStaleApplications(parsedHours, parsedLimit);
+
+      return {
+        success: true,
+        ...result,
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        error.message || 'Failed to fetch stale follow-ups',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   @Get()
   async getApplications(
     @Query('propertyId') propertyId?: string,
@@ -159,10 +182,11 @@ export class LeadApplicationsController {
       status: string;
       reviewedById?: string;
       reviewNotes?: string;
+      reasonCode?: ApplicationDecisionReasonCode;
     },
   ) {
     try {
-      const { status, reviewedById, reviewNotes } = body;
+      const { status, reviewedById, reviewNotes, reasonCode } = body;
 
       if (!status) {
         throw new HttpException('Status is required', HttpStatus.BAD_REQUEST);
@@ -176,6 +200,7 @@ export class LeadApplicationsController {
         status,
         reviewedById,
         reviewNotes,
+        reasonCode,
       );
 
       return {

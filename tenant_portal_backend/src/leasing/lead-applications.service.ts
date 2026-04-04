@@ -3,8 +3,8 @@
  * Handles rental application submission and processing for leads
  */
 
-import { Injectable, BadRequestException } from '@nestjs/common';
-import { LeadApplicationStatus, SecurityEventType } from '@prisma/client';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { ApplicationDecisionReasonCode, LeadApplicationStatus, SecurityEventType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { SecurityEventsService } from '../security-events/security-events.service';
@@ -36,11 +36,15 @@ export class LeadApplicationsService {
 
     const acceptanceTimestamp = new Date();
 
+    const followUpDueAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+
     const application = await this.prisma.leadApplication.create({
       data: {
         ...rest,
         status: normalizedStatus,
         submittedAt: new Date(),
+        lastActivityAt: new Date(),
+        followUpDueAt,
         termsAcceptedAt: acceptanceTimestamp,
         termsVersion: termsVersion ?? 'unknown',
         privacyAcceptedAt: acceptanceTimestamp,
@@ -166,22 +170,69 @@ export class LeadApplicationsService {
     status: string,
     reviewedById?: string,
     reviewNotes?: string,
+    reasonCode?: ApplicationDecisionReasonCode,
   ) {
     const normalizedStatus = this.normalizeLeadApplicationStatus(status);
-    const updates: any = { status: normalizedStatus };
+
+    const existing = await this.prisma.leadApplication.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException('Application not found');
+    }
+
+    if (!this.canTransition(existing.status, normalizedStatus)) {
+      throw new BadRequestException(`Invalid status transition: ${existing.status} -> ${normalizedStatus}`);
+    }
+
+    const updates: any = {
+      status: normalizedStatus,
+      lastActivityAt: new Date(),
+    };
+
+    const decisionStatuses: LeadApplicationStatus[] = [
+      LeadApplicationStatus.APPROVED,
+      LeadApplicationStatus.CONDITIONALLY_APPROVED,
+      LeadApplicationStatus.DENIED,
+      LeadApplicationStatus.REJECTED,
+    ];
+    const requiresReviewer = decisionStatuses.includes(normalizedStatus);
+
+    if (requiresReviewer && !reviewedById) {
+      throw new BadRequestException('reviewedById is required for decision statuses');
+    }
 
     if (
       normalizedStatus === LeadApplicationStatus.APPROVED ||
       normalizedStatus === LeadApplicationStatus.CONDITIONALLY_APPROVED
     ) {
       updates.approvedAt = new Date();
+      updates.followUpDueAt = null;
+      updates.decisionReasonCode = null;
+      updates.decisionNotes = reviewNotes?.trim() || null;
     }
 
     if (
       normalizedStatus === LeadApplicationStatus.DENIED ||
       normalizedStatus === LeadApplicationStatus.REJECTED
     ) {
+      if (!reviewNotes?.trim()) {
+        throw new BadRequestException('reviewNotes are required for denied/rejected applications');
+      }
+      if (!reasonCode) {
+        throw new BadRequestException('reasonCode is required for denied/rejected applications');
+      }
+
       updates.rejectedAt = new Date();
+      updates.followUpDueAt = null;
+      updates.decisionReasonCode = reasonCode;
+      updates.decisionNotes = reviewNotes.trim();
+    }
+
+    if (
+      normalizedStatus === LeadApplicationStatus.SUBMITTED ||
+      normalizedStatus === LeadApplicationStatus.PENDING ||
+      normalizedStatus === LeadApplicationStatus.CONDITIONALLY_APPROVED
+    ) {
+      updates.followUpDueAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
     }
 
     if (reviewedById) {
@@ -189,7 +240,9 @@ export class LeadApplicationsService {
       updates.reviewedAt = new Date();
     }
 
-    if (reviewNotes) {
+    if (reviewNotes && !updates.decisionNotes) {
+      updates.reviewNotes = reviewNotes;
+    } else if (reviewNotes) {
       updates.reviewNotes = reviewNotes;
     }
 
@@ -233,7 +286,9 @@ export class LeadApplicationsService {
     backgroundCheckStatus?: string,
     creditCheckStatus?: string,
   ) {
-    const updates: any = {};
+    const updates: any = {
+      lastActivityAt: new Date(),
+    };
 
     if (creditScore !== undefined) updates.creditScore = creditScore;
     if (backgroundCheckStatus) updates.backgroundCheckStatus = backgroundCheckStatus;
@@ -255,8 +310,83 @@ export class LeadApplicationsService {
         applicationFee: amount,
         feePaid: true,
         feePaidAt: new Date(),
+        lastActivityAt: new Date(),
       },
     });
+  }
+
+  async getStaleApplications(olderThanHours = 48, limit = 100) {
+    const safeHours = Number.isFinite(olderThanHours) ? Math.max(1, olderThanHours) : 48;
+    const safeLimit = Number.isFinite(limit) ? Math.min(Math.max(1, limit), 500) : 100;
+    const cutoff = new Date(Date.now() - safeHours * 60 * 60 * 1000);
+
+    const stale = await this.prisma.leadApplication.findMany({
+      where: {
+        status: {
+          in: [
+            LeadApplicationStatus.SUBMITTED,
+            LeadApplicationStatus.PENDING,
+            LeadApplicationStatus.CONDITIONALLY_APPROVED,
+          ],
+        },
+        OR: [
+          { followUpDueAt: { lte: new Date() } },
+          { lastActivityAt: { lte: cutoff } },
+        ],
+      },
+      include: {
+        lead: true,
+        property: true,
+        unit: true,
+      },
+      orderBy: [
+        { followUpDueAt: 'asc' },
+        { lastActivityAt: 'asc' },
+      ],
+      take: safeLimit,
+    });
+
+    return {
+      generatedAt: new Date(),
+      olderThanHours: safeHours,
+      count: stale.length,
+      items: stale.map((app) => ({
+        ...app,
+        suggestedAction:
+          app.status === LeadApplicationStatus.CONDITIONALLY_APPROVED
+            ? 'Follow up on pending conditions and documents'
+            : 'Contact applicant and move to review decision',
+      })),
+    };
+  }
+
+  private canTransition(from: LeadApplicationStatus, to: LeadApplicationStatus): boolean {
+    if (from === to) return true;
+
+    const allowed: Record<LeadApplicationStatus, LeadApplicationStatus[]> = {
+      SUBMITTED: [
+        LeadApplicationStatus.PENDING,
+        LeadApplicationStatus.APPROVED,
+        LeadApplicationStatus.CONDITIONALLY_APPROVED,
+        LeadApplicationStatus.DENIED,
+        LeadApplicationStatus.REJECTED,
+      ],
+      PENDING: [
+        LeadApplicationStatus.APPROVED,
+        LeadApplicationStatus.CONDITIONALLY_APPROVED,
+        LeadApplicationStatus.DENIED,
+        LeadApplicationStatus.REJECTED,
+      ],
+      CONDITIONALLY_APPROVED: [
+        LeadApplicationStatus.APPROVED,
+        LeadApplicationStatus.REJECTED,
+      ],
+      APPROVED: [],
+      DENIED: [],
+      REJECTED: [],
+    };
+
+    return (allowed[from] ?? []).includes(to);
   }
 
   private normalizeLeadApplicationStatus(status?: string): LeadApplicationStatus {

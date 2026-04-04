@@ -1334,36 +1334,41 @@ enum LeadApplicationStatus {
 }
 
 model LeadApplication {
-  id                    String                @id @default(cuid())
+  id                    String                         @id @default(cuid())
   leadId                String
-  lead                  Lead                  @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  propertyId            String                @db.Uuid
-  property              Property              @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  unitId                String?               @db.Uuid
-  unit                  Unit?                 @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  status                LeadApplicationStatus @default(SUBMITTED)
-  submittedAt           DateTime              @default(now())
+  lead                  Lead                           @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  propertyId            String                         @db.Uuid
+  property              Property                       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId                String?                        @db.Uuid
+  unit                  Unit?                          @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  status                LeadApplicationStatus          @default(SUBMITTED)
+  submittedAt           DateTime                       @default(now())
   creditScore           Int?
   backgroundCheckStatus String?
   creditCheckStatus     String?
-  reviewedById          String?               @db.Uuid
-  reviewedBy            User?                 @relation("LeadApplicationReviewers", fields: [reviewedById], references: [id])
+  reviewedById          String?                        @db.Uuid
+  reviewedBy            User?                          @relation("LeadApplicationReviewers", fields: [reviewedById], references: [id])
   reviewedAt            DateTime?
   reviewNotes           String?
+  decisionReasonCode    ApplicationDecisionReasonCode?
+  decisionNotes         String?
   approvedAt            DateTime?
   rejectedAt            DateTime?
+  lastActivityAt        DateTime                       @default(now())
+  followUpDueAt         DateTime?
   applicationFee        Float?
-  feePaid               Boolean               @default(false)
+  feePaid               Boolean                        @default(false)
   feePaidAt             DateTime?
   termsAcceptedAt       DateTime?
   termsVersion          String?
   privacyAcceptedAt     DateTime?
   privacyVersion        String?
-  createdAt             DateTime              @default(now())
-  updatedAt             DateTime              @updatedAt
+  createdAt             DateTime                       @default(now())
+  updatedAt             DateTime                       @updatedAt
 
   @@index([leadId])
   @@index([propertyId])
+  @@index([status, followUpDueAt])
 }
 
 model Expense {
