@@ -121,6 +121,8 @@ export class PaymentsController {
     @Query('propertyId') propertyId?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
+    @Query('sortBy') sortBy?: 'daysPastDue' | 'amountDueCents' | 'tenantName',
+    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
   ) {
     const orgId = (req as any).org?.orgId as string | undefined;
     return this.paymentsService.getDelinquencyQueue({
@@ -129,6 +131,8 @@ export class PaymentsController {
       propertyId,
       limit: limit ? Number(limit) : undefined,
       offset: offset ? Number(offset) : undefined,
+      sortBy,
+      sortOrder,
     });
   }
 

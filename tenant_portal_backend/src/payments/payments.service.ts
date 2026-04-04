@@ -1384,6 +1384,8 @@ export class PaymentsService {
     propertyId?: string;
     limit?: number;
     offset?: number;
+    sortBy?: 'daysPastDue' | 'amountDueCents' | 'tenantName';
+    sortOrder?: 'asc' | 'desc';
   }) {
     const today = new Date();
     const overdueInvoices = await this.prisma.invoice.findMany({
@@ -1458,10 +1460,24 @@ export class PaymentsService {
       }
     }
 
-    let rows = Array.from(grouped.values()).sort((a, b) => b.daysPastDue - a.daysPastDue);
+    let rows = Array.from(grouped.values());
     if (params.bucket) {
       rows = rows.filter((row) => row.bucket === params.bucket);
     }
+
+    const sortBy = params.sortBy ?? 'daysPastDue';
+    const sortOrder = params.sortOrder ?? 'desc';
+    const direction = sortOrder === 'asc' ? 1 : -1;
+
+    rows = rows.sort((a, b) => {
+      if (sortBy === 'amountDueCents') {
+        return (a.amountDueCents - b.amountDueCents) * direction;
+      }
+      if (sortBy === 'tenantName') {
+        return a.tenantName.localeCompare(b.tenantName) * direction;
+      }
+      return (a.daysPastDue - b.daysPastDue) * direction;
+    });
 
     const total = rows.length;
     const safeLimit = Math.min(Math.max(params.limit ?? 100, 1), 500);
@@ -1475,6 +1491,8 @@ export class PaymentsService {
       bucket: params.bucket ?? 'all',
       limit: safeLimit,
       offset: safeOffset,
+      sortBy,
+      sortOrder,
       items: rows,
     };
   }
