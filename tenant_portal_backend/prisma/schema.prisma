@@ -545,6 +545,7 @@ model Lease {
   updatedAt                 DateTime                  @updatedAt
   approvalTasks             ApprovalTask[]
   inspectionRequests        InspectionRequest[]
+  originatingApplications   RentalApplication[]
 
   @@index([status])
   @@index([endDate])
@@ -1205,6 +1206,8 @@ model RentalApplication {
   decisionReasonCode              ApplicationDecisionReasonCode?
   decisionNotes                   String?
   decisionedAt                    DateTime?
+  convertedLeaseId                String?                        @db.Uuid
+  convertedLease                  Lease?                         @relation(fields: [convertedLeaseId], references: [id])
   termsAcceptedAt                 DateTime?
   termsVersion                    String?
   privacyAcceptedAt               DateTime?
@@ -1217,6 +1220,8 @@ model RentalApplication {
   ai_recommendation String?
   ai_summary        String?
   ai_reviewed_at    DateTime?
+
+  @@index([convertedLeaseId])
 }
 
 enum LeadStatus {

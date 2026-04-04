@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   ApplicationDecisionReasonCode,
   ApplicationStatus,
+  LeaseStatus,
   QualificationStatus,
   Recommendation,
   Role,
@@ -804,6 +805,112 @@ export class RentalApplicationService {
 
   private parseNumericId(value: string | number, field: string): string {
     return String(value);
+  }
+
+  async convertApprovedApplicationToLease(
+    applicationId: number,
+    actor: { userId: string; username: string; role: Role },
+    payload: {
+      startDate: string;
+      endDate: string;
+      rentAmount?: number;
+      depositAmount?: number;
+      moveInAt?: string;
+      noticePeriodDays?: number;
+    },
+    orgId?: string,
+  ) {
+    const application = await this.prisma.rentalApplication.findFirst({
+      where: { id: applicationId, ...(orgId ? { property: { organizationId: orgId } } : {}) },
+      include: { applicant: true },
+    });
+
+    if (!application) {
+      throw new BadRequestException('Application not found');
+    }
+
+    if (application.status !== ApplicationStatus.APPROVED) {
+      throw new BadRequestException('Only approved applications can be converted to lease');
+    }
+
+    if (application.convertedLeaseId) {
+      return this.prisma.lease.findUnique({ where: { id: application.convertedLeaseId } });
+    }
+
+    const startDate = new Date(payload.startDate);
+    const endDate = new Date(payload.endDate);
+    const moveInAt = payload.moveInAt ? new Date(payload.moveInAt) : startDate;
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || endDate <= startDate) {
+      throw new BadRequestException('Invalid lease term dates provided');
+    }
+
+    const applicantId = application.applicantId;
+    if (!applicantId) {
+      throw new BadRequestException('Application has no linked applicant user; cannot create lease');
+    }
+
+    const existingLease = await this.prisma.lease.findUnique({ where: { tenantId: applicantId } });
+    if (existingLease) {
+      throw new BadRequestException('Applicant already has an existing lease');
+    }
+
+    const createdLease = await this.prisma.$transaction(async (tx) => {
+      const lease = await tx.lease.create({
+        data: {
+          tenantId: applicantId,
+          unitId: application.unitId,
+          startDate,
+          endDate,
+          moveInAt,
+          rentAmount: payload.rentAmount ?? application.income * 0.3,
+          depositAmount: payload.depositAmount ?? 0,
+          noticePeriodDays: payload.noticePeriodDays ?? 30,
+          status: LeaseStatus.DRAFT,
+        },
+      });
+
+      await tx.rentalApplication.update({
+        where: { id: applicationId },
+        data: {
+          convertedLeaseId: lease.id,
+          decisionNotes: application.decisionNotes
+            ? `${application.decisionNotes}\nConverted to lease ${lease.id} at ${new Date().toISOString()}`
+            : `Converted to lease ${lease.id} at ${new Date().toISOString()}`,
+        },
+      });
+
+      await tx.leaseHistory.create({
+        data: {
+          leaseId: lease.id,
+          actorId: actor.userId,
+          fromStatus: LeaseStatus.DRAFT,
+          toStatus: LeaseStatus.DRAFT,
+          note: `Lease created from approved application APP-${applicationId}`,
+          metadata: {
+            sourceApplicationId: applicationId,
+            sourceApplicationStatus: application.status,
+            conversionActor: actor.username,
+          },
+        },
+      });
+
+      return lease;
+    });
+
+    await this.auditLogService.record({
+      orgId,
+      actorId: actor.userId,
+      module: 'rental-application',
+      action: 'CONVERT_TO_LEASE',
+      entityType: 'rentalApplication',
+      entityId: applicationId,
+      result: 'SUCCESS',
+      metadata: {
+        leaseId: createdLease.id,
+      },
+    });
+
+    return createdLease;
   }
 
   async getAiReview(applicationId: number, orgId?: string) {

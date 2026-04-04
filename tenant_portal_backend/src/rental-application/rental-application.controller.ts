@@ -135,6 +135,27 @@ export class RentalApplicationController {
     return this.rentalApplicationService.performReviewAction(Number(id), dto, req.user, orgId);
   }
 
+  @Post(':id/convert-to-lease')
+  @HttpCode(200)
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles('PROPERTY_MANAGER')
+  convertToLease(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      startDate: string;
+      endDate: string;
+      rentAmount?: number;
+      depositAmount?: number;
+      moveInAt?: string;
+      noticePeriodDays?: number;
+    },
+    @Request() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
+  ) {
+    return this.rentalApplicationService.convertApprovedApplicationToLease(Number(id), req.user, body, orgId);
+  }
+
   @Post(':id/ai-review')
   @HttpCode(200)
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
