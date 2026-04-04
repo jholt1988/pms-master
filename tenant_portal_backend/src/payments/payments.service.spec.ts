@@ -32,6 +32,15 @@ describe('PaymentsService', () => {
       create: jest.fn(),
       findUnique: jest.fn(),
     },
+    ledgerAccount: {
+      upsert: jest.fn(),
+      findUnique: jest.fn(),
+    },
+    ledgerTransaction: {
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      create: jest.fn(),
+    },
     lateFee: {
       findMany: jest.fn(),
     },
@@ -93,6 +102,15 @@ describe('PaymentsService', () => {
       };
 
       mockPrismaService.lease.findFirst.mockResolvedValue(mockLease);
+      mockPrismaService.lease.findUnique.mockResolvedValue({
+        id: '11111111-1111-4111-8111-111111111111',
+        tenantId: 'tenant-1',
+        unitId: 'unit-1',
+        unit: { propertyId: 'property-1' },
+      });
+      mockPrismaService.ledgerAccount.upsert.mockResolvedValue({ id: 'acc-1' });
+      mockPrismaService.ledgerTransaction.findFirst.mockResolvedValue(null);
+      mockPrismaService.ledgerTransaction.create.mockResolvedValue({ id: 'ltx-1' });
       mockPrismaService.invoice.create.mockResolvedValue(mockInvoice);
 
       const result = await service.createInvoice(invoiceDto as any, 'org-1');
@@ -161,12 +179,14 @@ describe('PaymentsService', () => {
   describe('createPayment', () => {
     it('should create payment and send confirmation email', async () => {
       const mockLease = {
-        id: '1',
-        tenantId: 1,
-        tenant: { id: '1', username: 'tenant@test.com' },
-        unit: { 
-          unitNumber: '101', 
-          property: { address: '123 Test St' } 
+        id: '11111111-1111-4111-8111-111111111111',
+        tenantId: 'tenant-1',
+        tenant: { id: 'tenant-1', username: 'tenant@test.com' },
+        unitId: 'unit-1',
+        unit: {
+          unitNumber: '101',
+          propertyId: 'property-1',
+          property: { address: '123 Test St', organizationId: 'org-1' }
         },
       };
 
@@ -179,15 +199,18 @@ describe('PaymentsService', () => {
       const mockPayment = {
         id: '1',
         ...paymentDto,
-        userId: 1,
+        userId: 'tenant-1',
         paymentDate: new Date(),
       };
 
       mockPrismaService.lease.findUnique.mockResolvedValue(mockLease);
+      mockPrismaService.ledgerAccount.upsert.mockResolvedValue({ id: 'acc-1' });
+      mockPrismaService.ledgerTransaction.findFirst.mockResolvedValue(null);
+      mockPrismaService.ledgerTransaction.create.mockResolvedValue({ id: 'ltx-1' });
       mockPrismaService.payment.create.mockResolvedValue(mockPayment);
       mockEmailService.sendRentPaymentConfirmation.mockResolvedValue(undefined);
 
-      const result = await service.createPayment(paymentDto);
+      const result = await service.createPayment(paymentDto as any, undefined, 'org-1');
 
       expect(result).toEqual(mockPayment);
       expect(mockEmailService.sendRentPaymentConfirmation).toHaveBeenCalledTimes(1);
@@ -201,12 +224,14 @@ describe('PaymentsService', () => {
 
     it('should handle payment creation without email failure', async () => {
       const mockLease = {
-        id: '1',
-        tenantId: 1,
-        tenant: { id: '1', username: 'tenant@test.com' },
-        unit: { 
-          unitNumber: '101', 
-          property: { address: '123 Test St' } 
+        id: '11111111-1111-4111-8111-111111111111',
+        tenantId: 'tenant-1',
+        tenant: { id: 'tenant-1', username: 'tenant@test.com' },
+        unitId: 'unit-1',
+        unit: {
+          unitNumber: '101',
+          propertyId: 'property-1',
+          property: { address: '123 Test St', organizationId: 'org-1' }
         },
       };
 
@@ -217,14 +242,17 @@ describe('PaymentsService', () => {
       };
 
       mockPrismaService.lease.findUnique.mockResolvedValue(mockLease);
+      mockPrismaService.ledgerAccount.upsert.mockResolvedValue({ id: 'acc-1' });
+      mockPrismaService.ledgerTransaction.findFirst.mockResolvedValue(null);
+      mockPrismaService.ledgerTransaction.create.mockResolvedValue({ id: 'ltx-1' });
       mockPrismaService.payment.create.mockResolvedValue({ id: '1', ...paymentDto });
-      
+
       // Email service fails but payment should still succeed
       mockEmailService.sendRentPaymentConfirmation.mockRejectedValue(
         new Error('SMTP error')
       );
 
-      const result = await service.createPayment(paymentDto);
+      const result = await service.createPayment(paymentDto as any, undefined, 'org-1');
 
       expect(result).toBeDefined();
       expect(result.id).toBe('1');
@@ -244,10 +272,15 @@ describe('PaymentsService', () => {
 
     it('should handle failed payment status', async () => {
       const mockLease = {
-        id: '1',
-        tenantId: 1,
-        tenant: { id: '1', username: 'tenant@test.com' },
-        unit: { unitNumber: '101', property: { address: '123 Test St' } },
+        id: '11111111-1111-4111-8111-111111111111',
+        tenantId: 'tenant-1',
+        tenant: { id: 'tenant-1', username: 'tenant@test.com' },
+        unitId: 'unit-1',
+        unit: {
+          unitNumber: '101',
+          propertyId: 'property-1',
+          property: { address: '123 Test St', organizationId: 'org-1' }
+        },
       };
 
       const paymentDto = {
@@ -257,9 +290,12 @@ describe('PaymentsService', () => {
       };
 
       mockPrismaService.lease.findUnique.mockResolvedValue(mockLease);
+      mockPrismaService.ledgerAccount.upsert.mockResolvedValue({ id: 'acc-1' });
+      mockPrismaService.ledgerTransaction.findFirst.mockResolvedValue(null);
+      mockPrismaService.ledgerTransaction.create.mockResolvedValue({ id: 'ltx-1' });
       mockPrismaService.payment.create.mockResolvedValue({ id: '1', ...paymentDto });
 
-      const result = await service.createPayment(paymentDto);
+      const result = await service.createPayment(paymentDto as any, undefined, 'org-1');
 
       expect(result.status).toBe('FAILED');
       // Should not send confirmation email for failed payment
@@ -791,6 +827,119 @@ describe('PaymentsService', () => {
       expect(firstDueDate.getMonth()).toBe(dueDate.getMonth());
       expect(secondDueDate.getMonth()).toBe(dueDate.getMonth() + 1);
       expect(thirdDueDate.getMonth()).toBe(dueDate.getMonth() + 2);
+    });
+  });
+
+  describe('ledger reversal integrity guards', () => {
+    it('rejects non-positive ledger amounts', async () => {
+      await expect(
+        (service as any).createLedgerTransactionIfMissing(
+          { ledgerTransaction: {} },
+          {
+            accountId: 'acc-1',
+            entryType: 'CHARGE',
+            direction: 'DEBIT',
+            amountCents: 0,
+            effectiveDate: new Date(),
+            sourceType: 'invoice',
+            sourceId: '1',
+          },
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects reversal without reversesEntryId', async () => {
+      await expect(
+        (service as any).createLedgerTransactionIfMissing(
+          { ledgerTransaction: {} },
+          {
+            accountId: 'acc-1',
+            entryType: 'REVERSAL',
+            direction: 'CREDIT',
+            amountCents: 100,
+            effectiveDate: new Date(),
+            sourceType: 'manual_charge_void',
+            sourceId: 'mc-1',
+          },
+        ),
+      ).rejects.toThrow('must include reversesEntryId');
+    });
+
+    it('rejects reversal when original entry is missing', async () => {
+      const prismaLike = {
+        ledgerTransaction: {
+          findUnique: jest.fn().mockResolvedValue(null),
+        },
+      };
+
+      await expect(
+        (service as any).createLedgerTransactionIfMissing(prismaLike, {
+          accountId: 'acc-1',
+          entryType: 'REVERSAL',
+          direction: 'CREDIT',
+          amountCents: 100,
+          effectiveDate: new Date(),
+          sourceType: 'manual_charge_void',
+          sourceId: 'mc-1',
+          reversesEntryId: 'orig-1',
+        }),
+      ).rejects.toThrow('target entry was not found');
+    });
+
+    it('rejects reversal with same direction as original', async () => {
+      const prismaLike = {
+        ledgerTransaction: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'orig-1',
+            accountId: 'acc-1',
+            entryType: 'CHARGE',
+            direction: 'DEBIT',
+          }),
+          findFirst: jest.fn().mockResolvedValue(null),
+        },
+      };
+
+      await expect(
+        (service as any).createLedgerTransactionIfMissing(prismaLike, {
+          accountId: 'acc-1',
+          entryType: 'REVERSAL',
+          direction: 'DEBIT',
+          amountCents: 100,
+          effectiveDate: new Date(),
+          sourceType: 'manual_charge_void',
+          sourceId: 'mc-1',
+          reversesEntryId: 'orig-1',
+        }),
+      ).rejects.toThrow('must be opposite');
+    });
+
+    it('returns existing reversal instead of creating duplicate', async () => {
+      const prismaLike = {
+        ledgerTransaction: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'orig-1',
+            accountId: 'acc-1',
+            entryType: 'CHARGE',
+            direction: 'DEBIT',
+          }),
+          findFirst: jest.fn().mockResolvedValue({ id: 'rev-existing' }),
+          create: jest.fn(),
+        },
+      };
+
+      const result = await (service as any).createLedgerTransactionIfMissing(prismaLike, {
+        accountId: 'acc-1',
+        entryType: 'REVERSAL',
+        direction: 'CREDIT',
+        amountCents: 100,
+        effectiveDate: new Date(),
+        sourceType: 'manual_charge_void',
+        sourceId: 'mc-1',
+        reversesEntryId: 'orig-1',
+      });
+
+      expect(result).toEqual({ id: 'rev-existing' });
+      expect(prismaLike.ledgerTransaction.create).not.toHaveBeenCalled();
     });
   });
 });
