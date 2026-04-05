@@ -1,217 +1,239 @@
 /**
- * PMS Demo Seed Script
- * 
- * Creates demo data for the PMS MVP Demo Runbook:
- * - Property: Sunset Apartments
- * - Unit: 204 (2BR, 1BA)
- * - PM: Morgan
- * - Tenant: Alex
- * - Owner: Jordan
- * 
- * Usage: npx ts-node prisma/seed-demo.ts
- * Or: npm run db:seed:demo
+ * PMS Demo Seed Script (schema-aligned)
+ *
+ * Creates a compact demo dataset compatible with the current Prisma schema:
+ * - Organization + memberships
+ * - PM, Tenant, Owner users
+ * - Property + Unit
+ * - Active Lease
+ * - Optional Rental Application
+ *
+ * Usage:
+ *   npm run db:seed:demo
  */
 
-import { 
+import {
   PrismaClient,
   Role,
+  OrgRole,
   LeaseStatus,
   ApplicationStatus,
-  PropertyStatus,
-  UnitStatus
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
+const IDS = {
+  ORG: 'aaaaaaa1-1111-4111-8111-111111111111',
+  PROPERTY: 'aaaaaaa2-2222-4222-8222-222222222222',
+  UNIT: 'aaaaaaa3-3333-4333-8333-333333333333',
+  LEASE: 'aaaaaaa4-4444-4444-8444-444444444444',
+};
+
+async function upsertUser(params: {
+  username: string;
+  password: string;
+  role: Role;
+  email: string;
+  firstName: string;
+  lastName: string;
+}) {
+  const passwordHash = await bcrypt.hash(params.password, 10);
+  return prisma.user.upsert({
+    where: { username: params.username },
+    update: {
+      role: params.role,
+      email: params.email,
+      firstName: params.firstName,
+      lastName: params.lastName,
+      password: passwordHash,
+    },
+    create: {
+      username: params.username,
+      password: passwordHash,
+      role: params.role,
+      email: params.email,
+      firstName: params.firstName,
+      lastName: params.lastName,
+    },
+  });
+}
+
+async function ensureMembership(userId: string, organizationId: string, role: OrgRole) {
+  await prisma.userOrganization.upsert({
+    where: { userId_organizationId: { userId, organizationId } },
+    update: { role },
+    create: { userId, organizationId, role },
+  });
+}
+
 async function main() {
-  console.log('🌱 Starting PMS Demo Seed...\n');
+  console.log('🌱 Starting PMS demo seed (schema-aligned)...');
 
-  // Clean up existing demo data (optional - comment out if you want to keep existing)
-  // await cleanupDemoData();
-
-  // 1. Create Organization
   const org = await prisma.organization.upsert({
-    where: { name: 'Sunset Property Management' },
-    update: {},
+    where: { id: IDS.ORG },
+    update: { name: 'Sunset Property Management' },
     create: {
+      id: IDS.ORG,
       name: 'Sunset Property Management',
-      subdomain: 'sunset-pm',
-      status: 'ACTIVE',
     },
   });
-  console.log('✅ Organization created:', org.name);
 
-  // 2. Create PM User (Morgan)
-  const pmPassword = await bcrypt.hash('demo1234', 10);
-  const pm = await prisma.user.upsert({
-    where: { email: 'morgan@pms-demo.com' },
-    update: {},
-    create: {
-      email: 'morgan@pms-demo.com',
-      firstName: 'Morgan',
-      lastName: 'PropertyManager',
-      password: pmPassword,
-      role: Role.PROPERTY_MANAGER,
-      organizationId: org.id,
-      status: 'ACTIVE',
-    },
+  const pm = await upsertUser({
+    username: 'morgan_pm',
+    password: 'demo1234',
+    role: Role.PROPERTY_MANAGER,
+    email: 'morgan@pms-demo.com',
+    firstName: 'Morgan',
+    lastName: 'PropertyManager',
   });
-  console.log('✅ PM User created:', pm.email);
 
-  // 3. Create Owner User (Jordan)
-  const ownerPassword = await bcrypt.hash('demo1234', 10);
-  const owner = await prisma.user.upsert({
-    where: { email: 'jordan@owner.com' },
-    update: {},
-    create: {
-      email: 'jordan@owner.com',
-      firstName: 'Jordan',
-      lastName: 'Owner',
-      password: ownerPassword,
-      role: Role.OWNER,
-      organizationId: org.id,
-      status: 'ACTIVE',
-    },
+  const owner = await upsertUser({
+    username: 'jordan_owner',
+    password: 'demo1234',
+    // Use ADMIN at user-role level for compatibility with environments
+    // where OWNER may not yet exist in the live enum; ownership is expressed
+    // via OrgRole.OWNER membership below.
+    role: Role.ADMIN,
+    email: 'jordan@owner.com',
+    firstName: 'Jordan',
+    lastName: 'Owner',
   });
-  console.log('✅ Owner User created:', owner.email);
 
-  // 4. Create Property
+  const tenant = await upsertUser({
+    username: 'alex_tenant',
+    password: 'demo1234',
+    role: Role.TENANT,
+    email: 'alex@email.com',
+    firstName: 'Alex',
+    lastName: 'Smith',
+  });
+
+  await ensureMembership(pm.id, org.id, OrgRole.ADMIN);
+  await ensureMembership(owner.id, org.id, OrgRole.OWNER);
+  await ensureMembership(tenant.id, org.id, OrgRole.MEMBER);
+
   const property = await prisma.property.upsert({
-    where: { id: 'sunset-apartments' },
-    update: {},
-    create: {
-      id: 'sunset-apartments',
+    where: { id: IDS.PROPERTY },
+    update: {
       name: 'Sunset Apartments',
-      address: '1234 Sunset Lane',
+      address: '1234 Sunset Lane, Wichita, KS, USA',
+      city: 'Wichita',
+      state: 'KS',
+      zipCode: '67203',
+      organizationId: org.id,
+    },
+    create: {
+      id: IDS.PROPERTY,
+      organizationId: org.id,
+      name: 'Sunset Apartments',
+      address: '1234 Sunset Lane, Wichita, KS, USA',
       city: 'Wichita',
       state: 'KS',
       zipCode: '67203',
       propertyType: 'MULTIFAMILY',
-      totalUnits: 12,
-      organizationId: org.id,
-      status: PropertyStatus.ACTIVE,
     },
   });
-  console.log('✅ Property created:', property.name);
 
-  // 5. Create Unit 204
   const unit = await prisma.unit.upsert({
-    where: { id: 'sunset-204' },
-    update: {},
-    create: {
-      id: 'sunset-204',
+    where: { id: IDS.UNIT },
+    update: {
+      name: 'Unit 204',
       propertyId: property.id,
       unitNumber: '204',
       bedrooms: 2,
       bathrooms: 1,
-      sqft: 850,
-      rentAmount: 1200,
-      status: UnitStatus.VACANT,
+      squareFeet: 850,
     },
-  });
-  console.log('✅ Unit created:', `${property.name} - Unit ${unit.unitNumber}`);
-
-  // 6. Create Tenant Application → Lease for Alex
-  // First create application
-  const application = await prisma.application.upsert({
-    where: { id: 'alex-application' },
-    update: {},
     create: {
-      id: 'alex-application',
+      id: IDS.UNIT,
+      name: 'Unit 204',
       propertyId: property.id,
-      unitId: unit.id,
-      firstName: 'Alex',
-      lastName: 'Smith',
-      email: 'alex@email.com',
-      phone: '(316) 555-0124',
-      status: ApplicationStatus.APPROVED,
-      applicationDate: new Date('2026-02-15'),
-      moveInDate: new Date('2026-03-01'),
+      unitNumber: '204',
+      bedrooms: 2,
+      bathrooms: 1,
+      squareFeet: 850,
     },
   });
-  console.log('✅ Application created:', `${application.firstName} ${application.lastName}`);
 
-  // Create tenant user
-  const tenantPassword = await bcrypt.hash('demo1234', 10);
-  const tenant = await prisma.user.upsert({
-    where: { email: 'alex@email.com' },
-    update: {},
-    create: {
-      email: 'alex@email.com',
-      firstName: 'Alex',
-      lastName: 'Smith',
-      password: tenantPassword,
-      role: Role.TENANT,
-      organizationId: org.id,
-      status: 'ACTIVE',
-    },
-  });
-  console.log('✅ Tenant User created:', tenant.email);
+  // Ensure one active lease for this tenant and unit
+  const existingTenantLeases = await prisma.lease.findMany({ where: { tenantId: tenant.id }, select: { id: true } });
+  const keepLease = existingTenantLeases.find((l) => l.id === IDS.LEASE);
+  const toRemove = existingTenantLeases.filter((l) => l.id !== IDS.LEASE).map((l) => l.id);
 
-  // Create lease
+  if (toRemove.length) {
+    await prisma.ledgerAccount.deleteMany({ where: { leaseId: { in: toRemove } } });
+    await prisma.inspectionRequest.deleteMany({ where: { leaseId: { in: toRemove } } });
+    await prisma.unitInspection.deleteMany({ where: { leaseId: { in: toRemove } } });
+    await prisma.leaseDocument.deleteMany({ where: { leaseId: { in: toRemove } } });
+    await prisma.leaseHistory.deleteMany({ where: { leaseId: { in: toRemove } } });
+    await prisma.leaseNotice.deleteMany({ where: { leaseId: { in: toRemove } } });
+    await prisma.leaseRenewalOffer.deleteMany({ where: { leaseId: { in: toRemove } } });
+    await prisma.recurringInvoiceSchedule.deleteMany({ where: { leaseId: { in: toRemove } } });
+    await prisma.autopayEnrollment.deleteMany({ where: { leaseId: { in: toRemove } } });
+    await prisma.maintenanceRequest.updateMany({ where: { leaseId: { in: toRemove } }, data: { leaseId: null } });
+    await prisma.manualPayment.deleteMany({ where: { leaseId: { in: toRemove } } });
+    await prisma.manualCharge.deleteMany({ where: { leaseId: { in: toRemove } } });
+    await prisma.invoice.deleteMany({ where: { leaseId: { in: toRemove } } });
+    await prisma.lease.deleteMany({ where: { id: { in: toRemove } } });
+  }
+
   const lease = await prisma.lease.upsert({
-    where: { id: 'alex-lease' },
-    update: {},
-    create: {
-      id: 'alex-lease',
-      unitId: unit.id,
+    where: { id: IDS.LEASE },
+    update: {
       tenantId: tenant.id,
+      unitId: unit.id,
+      status: LeaseStatus.ACTIVE,
+      rentAmount: 1200,
+      depositAmount: 1200,
+    },
+    create: {
+      id: IDS.LEASE,
+      tenantId: tenant.id,
+      unitId: unit.id,
+      status: LeaseStatus.ACTIVE,
       startDate: new Date('2026-03-01'),
       endDate: new Date('2027-02-28'),
-      monthlyRent: 1200,
-      securityDeposit: 1200,
-      status: LeaseStatus.ACTIVE,
+      rentAmount: 1200,
+      depositAmount: 1200,
+      noticePeriodDays: 30,
+      autoRenew: false,
     },
   });
-  console.log('✅ Lease created:', `Unit ${unit.unitNumber} - ${lease.startDate.toISOString().split('T')[0]} to ${lease.endDate.toISOString().split('T')[0]}`);
 
-  // Update unit status to occupied
-  await prisma.unit.update({
-    where: { id: unit.id },
-    data: { status: UnitStatus.OCCUPIED },
-  });
-  console.log('✅ Unit status updated to OCCUPIED');
-
-  // 7. Create OwnerProperty relationship (Jordan owns Sunset Apartments)
-  await prisma.ownerProperty.upsert({
-    where: { 
-      ownerId_propertyId: {
-        ownerId: owner.id,
-        propertyId: property.id
-      }
-    },
-    update: {},
-    create: {
-      ownerId: owner.id,
+  await prisma.rentalApplication.upsert({
+    where: { id: 204001 },
+    update: {
+      fullName: 'Alex Smith',
+      email: 'alex@email.com',
+      phoneNumber: '(316) 555-0124',
       propertyId: property.id,
-      ownershipPercentage: 100,
+      unitId: unit.id,
+      status: ApplicationStatus.APPROVED,
+      convertedLeaseId: lease.id,
+    },
+    create: {
+      id: 204001,
+      fullName: 'Alex Smith',
+      email: 'alex@email.com',
+      phoneNumber: '(316) 555-0124',
+      income: 4800,
+      employmentStatus: 'Employed Full-Time',
+      previousAddress: '101 Prior St, Wichita, KS',
+      propertyId: property.id,
+      unitId: unit.id,
+      status: ApplicationStatus.APPROVED,
+      convertedLeaseId: lease.id,
+      applicantId: tenant.id,
     },
   });
-  console.log('✅ Owner-Property relationship created');
 
-  console.log('\n🎉 Demo seed complete!');
-  console.log('\n📋 Login credentials:');
-  console.log('   PM:   morgan@pms-demo.com / demo1234');
-  console.log('   Tenant: alex@email.com / demo1234');
-  console.log('   Owner: jordan@owner.com / demo1234');
-  console.log('\n📍 Property: Sunset Apartments, 1234 Sunset Lane, Wichita, KS 67203');
-  console.log('   Unit 204: 2BR, 1BA, 850 sq ft, $1,200/mo');
-}
-
-async function cleanupDemoData() {
-  console.log('🧹 Cleaning up existing demo data...');
-  await prisma.lease.deleteMany({ where: { id: { startsWith: 'alex-' } } }).catch(() => {});
-  await prisma.application.deleteMany({ where: { id: { startsWith: 'alex-' } } }).catch(() => {});
-  await prisma.unit.deleteMany({ where: { id: { startsWith: 'sunset-' } } }).catch(() => {});
-  await prisma.property.deleteMany({ where: { id: 'sunset-apartments' } }).catch(() => {});
-  await prisma.user.deleteMany({ 
-    where: { 
-      email: { in: ['morgan@pms-demo.com', 'alex@email.com', 'jordan@owner.com'] }
-    } 
-  }).catch(() => {});
-  await prisma.organization.deleteMany({ where: { name: 'Sunset Property Management' } }).catch(() => {});
-  console.log('✅ Cleanup complete\n');
+  console.log('✅ Demo seed complete');
+  console.log('PM login: morgan_pm / demo1234');
+  console.log('Tenant login: alex_tenant / demo1234');
+  console.log('Owner login: jordan_owner / demo1234');
+  console.log('Property: Sunset Apartments');
+  console.log('Unit: 204');
 }
 
 main()

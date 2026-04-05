@@ -75,17 +75,25 @@ async function main() {
     },
   });
 
-  const unit = await prisma.unit.upsert({
-    where: { id: UNIT_ID },
-    update: { name: 'Unit 101', propertyId: property.id, bedrooms: 2, bathrooms: 1 },
-    create: {
-      id: UNIT_ID,
-      name: 'Unit 101',
-      propertyId: property.id,
-      bedrooms: 2,
-      bathrooms: 1,
-    },
+  const existingUnit101 = await prisma.unit.findFirst({
+    where: { propertyId: property.id, name: 'Unit 101' },
   });
+
+  const unit = existingUnit101
+    ? await prisma.unit.update({
+        where: { id: existingUnit101.id },
+        data: { bedrooms: 2, bathrooms: 1, unitNumber: '101' },
+      })
+    : await prisma.unit.create({
+        data: {
+          id: UNIT_ID,
+          name: 'Unit 101',
+          propertyId: property.id,
+          unitNumber: '101',
+          bedrooms: 2,
+          bathrooms: 1,
+        },
+      });
 
   const tenant = await prisma.user.upsert({
     where: { username: tenantUsername },
@@ -181,6 +189,12 @@ async function main() {
    where: { leaseId: { in: leaseIds } },                                                                                                         
    data: { leaseId: null },                                                                                                                      
    });                                                                                                                                           
+
+   // Ledger accounts reference leases directly (delete before lease cleanup).
+   // LedgerTransaction rows cascade on account delete.
+   await tx.ledgerAccount.deleteMany({
+   where: { leaseId: { in: leaseIds } },
+   });
                                                                                                                                                  
    // Finally delete leases                                                                                                                      
    await tx.lease.deleteMany({                                                                                                                   
