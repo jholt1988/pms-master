@@ -12,7 +12,7 @@ console.log('🚀 [MAIN] Environment:', {
 });
 
 // Also show an alert if in development to verify the file is loading
-if (import.meta.env.MODE === 'development' && import.meta.env.VITE_USE_MSW !== 'false') {
+if (import.meta.env.MODE === 'development' && import.meta.env.VITE_USE_MSW === 'true') {
   // Only show once per session
   if (!sessionStorage.getItem('msw-debug-shown')) {
     console.warn('🔍 [MSW DEBUG] If you see this, the app is loading. Check console for MSW messages.');
@@ -34,8 +34,8 @@ async function enableMocking() {
     return;
   }
 
-  if (import.meta.env.VITE_USE_MSW === 'false') {
-    console.log('[MSW] Skipping MSW - VITE_USE_MSW is false');
+  if (import.meta.env.VITE_USE_MSW !== 'true') {
+    console.log('[MSW] Skipping MSW - VITE_USE_MSW is not true');
     return;
   }
 
