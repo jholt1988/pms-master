@@ -1,4 +1,7 @@
 # User Stories: KeyCheck Integration
+> [!NOTE]
+> **Notice:** The PMS User Stories have been modularized and upgraded to exceed industry-standard expectations. For the comprehensive, module-by-module User Stories covering Tenant and Property Manager personas, please refer to the `docs/user-stories/` directory. This document remains as a specific reference for KeyCheck Integration.
+
 ## Property Management Suite - Inspection & Estimate Workflows
 
 **Project:** KeyCheck Integration  

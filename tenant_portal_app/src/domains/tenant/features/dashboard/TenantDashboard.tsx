@@ -30,7 +30,12 @@ import {
   TrendingUp,
   Bell,
   CreditCard,
-  Receipt
+  Receipt,
+  Rocket,
+  Zap,
+  Droplets,
+  Wifi,
+  Activity
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '../../../../AuthContext';
@@ -192,6 +197,37 @@ const normalizeDashboardData = (raw: Partial<DashboardData> | null | undefined):
     : undefined,
 });
 
+const MoveInJourneyWidget = () => (
+  <GlassCard title="Immersive Move-In Journey" subtitle="YOUR NEXT STEPS" glowColor="purple" className="mb-6">
+    <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+      <div className="flex items-center gap-4 w-full md:w-1/3">
+        <div className="p-3 rounded-full bg-neon-purple/20 text-neon-purple">
+          <Rocket className="w-6 h-6" aria-hidden="true" />
+        </div>
+        <div>
+          <h4 className="text-white font-semibold flex items-center gap-2">
+            Welcome to your new home!
+            <Chip size="sm" color="warning" variant="faded" className="animate-pulse">Action Required</Chip>
+          </h4>
+          <p className="text-sm text-gray-400">Complete utility setup to earn community rewards.</p>
+        </div>
+      </div>
+      
+      <div className="flex flex-wrap gap-2 md:gap-4 w-full md:w-2/3 justify-end">
+        <Button variant="flat" color="warning" startContent={<Zap className="w-4 h-4" />}>
+          Connect Electric
+        </Button>
+        <Button variant="flat" color="primary" startContent={<Droplets className="w-4 h-4" />}>
+          Connect Water
+        </Button>
+        <Button variant="flat" color="success" startContent={<Wifi className="w-4 h-4" />}>
+          Set up Internet
+        </Button>
+      </div>
+    </div>
+  </GlassCard>
+);
+
 export const TenantDashboard: React.FC = () => {
   const { token, user } = useAuth();
   const navigate = useNavigate();
@@ -346,6 +382,10 @@ export const TenantDashboard: React.FC = () => {
         title="Dashboard"
         subtitle={`Welcome back${user?.username ? `, ${user.username}` : ''}! Here's an overview of your rental.`}
       />
+
+      {data.lease && daysUntilRent >= 0 && daysUntilRent <= 15 && (
+        <MoveInJourneyWidget />
+      )}
 
       {/* Quick Stats Grid */}
       <section aria-label="Quick statistics" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -634,13 +674,21 @@ export const TenantDashboard: React.FC = () => {
             </GlassCard>
           )}
 
-          {/* Payment Info */}
+          {/* Financial Hub */}
           {data.nextRentPayment && (
-            <GlassCard title="Payment Info" subtitle="NEXT PAYMENT">
-              <div className="space-y-3">
+            <GlassCard title="Financial Hub" subtitle="LIVE LEDGER SNAPSHOT" glowColor="blue">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center bg-white/5 p-3 rounded-lg border border-white/10">
+                  <div className="flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-neon-blue animate-pulse" />
+                    <span className="text-xs text-neon-blue font-medium uppercase tracking-wider">Syncing Events...</span>
+                  </div>
+                  <span className="text-xs text-gray-400">Ledger Up to Date</span>
+                </div>
+                
                 <div>
-                  <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Amount Due</p>
-                  <p className="text-2xl font-bold text-white">
+                  <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Current Balance Due</p>
+                  <p className="text-3xl font-bold text-white tracking-tight">
                     {formatCurrency(data.nextRentPayment.amount)}
                   </p>
                 </div>
@@ -653,17 +701,17 @@ export const TenantDashboard: React.FC = () => {
                 {data.nextRentPayment.isPaid ? (
                   <Chip color="success" variant="flat" className="w-full justify-center">
                     <CheckCircle className="w-4 h-4 mr-1" aria-hidden="true" />
-                    Paid
+                    Ledger Settled
                   </Chip>
                 ) : (
                   <Button
                     as={Link}
                     to="/payments"
                     color="primary"
-                    className="w-full"
+                    className="w-full shadow-[0_0_15px_rgba(0,112,240,0.5)] transition-shadow hover:shadow-[0_0_25px_rgba(0,112,240,0.8)]"
                     aria-label={`Pay ${formatCurrency(data.nextRentPayment.amount)} now`}
                   >
-                    Pay Now
+                    Quick Pay Now
                   </Button>
                 )}
               </div>

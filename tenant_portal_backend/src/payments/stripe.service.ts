@@ -1,6 +1,7 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import Stripe from 'stripe';
 import { PrismaService } from '../prisma/prisma.service';
+import { EventsService } from '../events/events.service';
 import { Prisma } from '@prisma/client';
 
 export interface CreateStripeCustomerDto {
@@ -57,7 +58,10 @@ export class StripeService {
   private isStripeDisabled =
     process.env.DISABLE_STRIPE === 'true' || process.env.NODE_ENV === 'test';
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventsService: EventsService,
+  ) {
     // In development we want the backend to boot even if Stripe isn’t configured yet.
     // Treat missing STRIPE_SECRET_KEY as "Stripe disabled" instead of a hard crash.
     if (!this.isStripeDisabled && !process.env.STRIPE_SECRET_KEY) {
@@ -452,6 +456,7 @@ export class StripeService {
         }
 
         this.logger.log(`Updated payment ${payment.id} to COMPLETED`);
+        this.eventsService.emitPaymentSuccess(payment.id, leaseId || '', Number(payment.amount));
       } else {
         this.logger.warn(`No payment found for PaymentIntent ${paymentIntent.id}`);
       }
@@ -475,7 +480,9 @@ export class StripeService {
         });
 
         this.logger.log(`Updated payment ${payment.id} to FAILED`);
+        this.eventsService.emitPaymentFailure(payment.id, '', 'Payment failed via stripe webhook');
       }
+
     } catch (error) {
       this.logger.error(`Failed to handle payment failure for ${paymentIntent.id}:`, error);
     }

@@ -1921,6 +1921,7 @@ enum InspectionStatus {
   SCHEDULED
   IN_PROGRESS
   COMPLETED
+  APPROVED
   CANCELLED
 }
 
@@ -2046,6 +2047,8 @@ model RepairEstimate {
   totalProjectCost  Float
   itemsToRepair     Int
   itemsToReplace    Int
+  totalLaborHours   Float?
+  stepByStepPlan    String?
 
   // Metadata
   currency      String         @default("USD")
