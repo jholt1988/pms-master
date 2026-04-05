@@ -60,7 +60,7 @@ export class InspectionsController {
   }
 
   @Post()
-  @Roles('PROPERTY_MANAGER')
+  @Roles('PROPERTY_MANAGER', 'ADMIN', 'OWNER', 'TENANT')
   async create(
     @Body() dto: CreateInspectionDto,
     @Req() req: AuthenticatedRequest,
@@ -110,7 +110,7 @@ export class InspectionsController {
   }
 
   @Put(':id')
-  @Roles('PROPERTY_MANAGER')
+  @Roles('PROPERTY_MANAGER', 'ADMIN', 'OWNER', 'TENANT')
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateInspectionDto,
@@ -129,7 +129,7 @@ export class InspectionsController {
   }
 
   @Put(':id/complete')
-  @Roles('PROPERTY_MANAGER')
+  @Roles('PROPERTY_MANAGER', 'ADMIN', 'OWNER', 'TENANT')
   async complete(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: CompleteInspectionDto,
@@ -139,8 +139,18 @@ export class InspectionsController {
     return this.inspectionsService.complete(id, dto, req.user.sub, orgId);
   }
 
+  @Put(':id/approve')
+  @Roles('PROPERTY_MANAGER', 'ADMIN', 'OWNER')
+  async approve(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
+  ) {
+    return this.inspectionsService.approveInspection(id, req.user.sub, orgId);
+  }
+
   @Post(':id/photos')
-  @Roles('PROPERTY_MANAGER')
+  @Roles('PROPERTY_MANAGER', 'ADMIN', 'OWNER', 'TENANT')
   @UseInterceptors(
     FileInterceptor('photo', {
       storage: memoryStorage(),
@@ -173,7 +183,7 @@ export class InspectionsController {
   }
 
   @Delete(':id')
-  @Roles('PROPERTY_MANAGER')
+  @Roles('PROPERTY_MANAGER', 'ADMIN', 'OWNER')
   async delete(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest, @OrgId() orgId?: string) {
     return this.inspectionsService.delete(id, req.user.sub, orgId);
   }

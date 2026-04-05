@@ -506,6 +506,9 @@ importers:
       '@nestjs/testing':
         specifier: ^11.1.9
         version: 11.1.14(@nestjs/common@11.1.14(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.14)(@nestjs/platform-express@11.1.14)
+      '@types/babel__traverse':
+        specifier: ^7.28.0
+        version: 7.28.0
       '@types/bcrypt':
         specifier: ^6.0.0
         version: 6.0.0
@@ -540,7 +543,7 @@ importers:
         specifier: ^8.18.0
         version: 8.19.0
       prisma:
-        specifier: 6.19.2
+        specifier: ^6.19.2
         version: 6.19.2(typescript@5.9.3)
       supertest:
         specifier: ^7.1.4

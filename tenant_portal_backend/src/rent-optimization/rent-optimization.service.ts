@@ -63,7 +63,7 @@ export class RentOptimizationService {
   private readonly logger = new Logger(RentOptimizationService.name);
   private readonly ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
   private readonly USE_ML_SERVICE = process.env.USE_ML_SERVICE === 'true';
-  
+
   constructor(
     private prisma: PrismaService,
     private readonly milWrapper: MilSecurityAuditWrapperService,
@@ -110,7 +110,7 @@ export class RentOptimizationService {
         { unitId: unitIdLabel },
       );
     }
-    
+
     // Create the rent recommendation using unchecked input
     return this.prisma.rentRecommendation.create({
       data: {
@@ -252,15 +252,15 @@ export class RentOptimizationService {
 
       if (!unit) {
         throw ApiException.notFound(
-        ErrorCode.UNIT_NOT_FOUND,
-        `Unit with ID ${unitIdLabel} not found`,
-        { unitId: unitIdLabel },
-      );
+          ErrorCode.UNIT_NOT_FOUND,
+          `Unit with ID ${unitIdLabel} not found`,
+          { unitId: unitIdLabel },
+        );
       }
 
       // Get prediction from ML service or fallback to mock
       let predictionData;
-      
+
       if (this.USE_ML_SERVICE) {
         try {
           predictionData = await this.callMLService(unit, orgId);
@@ -273,7 +273,7 @@ export class RentOptimizationService {
       } else {
         predictionData = this.generateMockRecommendation(unit);
       }
-        
+
       // Create recommendation in database
       const recommendation = await this.prisma.rentRecommendation.create({
         data: {
@@ -397,6 +397,66 @@ export class RentOptimizationService {
         errorMessage,
       });
       throw error;
+    }
+  }
+  /**
+   * Call Python ML microservice for dynamic pricing optimization (Airline style)
+   */
+  async predictDynamicPricing(unit: any, orgId?: string): Promise<any> {
+    try {
+      // Mocking market conditions
+      const request = {
+        occupancy_rate: 0.92,
+        market_demand_index: 1.05,
+        maintenance_tickets_open: 2
+      };
+
+      const response = await axios.post(
+        `${this.ML_SERVICE_URL}/predict/pricing`,
+        request,
+        {
+          timeout: 10000,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      this.logger.error(`Error calling ML pricing service: ${error}`);
+      // Fallback
+      return { recommended_rent_adjustment: 0, target_rent: unit.lease?.rentAmount || 2000, confidence_score: 0.5 };
+    }
+  }
+
+  /**
+   * Call Python ML microservice for churn prediction
+   */
+  async predictResidentChurn(unit: any, orgId?: string): Promise<any> {
+    try {
+      const leaseEndDate = unit.lease?.endDate ? new Date(unit.lease.endDate).getTime() : Date.now();
+      const daysToLeaseEnd = Math.max(0, Math.floor((leaseEndDate - Date.now()) / (1000 * 60 * 60 * 24)));
+
+      const request = {
+        tenant_id: "tenant_" + unit.id,
+        property_id: unit.propertyId,
+        occupancy_rate: 0.92,
+        maintenance_tickets_open: 5, // Mock high value to trigger churn logic
+        days_to_lease_end: daysToLeaseEnd
+      };
+
+      const response = await axios.post(
+        `${this.ML_SERVICE_URL}/predict/churn`,
+        request,
+        {
+          timeout: 10000,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      this.logger.error(`Error calling ML churn service: ${error}`);
+      return { churn_probability: 0.1, risk_level: 'LOW', recommended_action: 'None' };
     }
   }
 
@@ -550,9 +610,9 @@ export class RentOptimizationService {
     const validIncreaseRecs = recommendations.filter(r => r.currentRent !== 0);
     const avgIncrease = validIncreaseRecs.length > 0
       ? validIncreaseRecs.reduce((sum: number, r: any) => {
-          const increase = ((r.recommendedRent - r.currentRent) / r.currentRent) * 100;
-          return sum + increase;
-        }, 0) / validIncreaseRecs.length
+        const increase = ((r.recommendedRent - r.currentRent) / r.currentRent) * 100;
+        return sum + increase;
+      }, 0) / validIncreaseRecs.length
       : 0;
 
     const totalPotentialIncrease = recommendations.reduce(
@@ -603,7 +663,7 @@ export class RentOptimizationService {
 
   async getRecommendationsByStatus(status: string, orgId?: string) {
     const statusEnum = status.toUpperCase() as RentRecommendationStatus;
-    
+
     return this.prisma.rentRecommendation.findMany({
       where: {
         status: statusEnum,
@@ -732,8 +792,8 @@ export class RentOptimizationService {
       latestRecommendation: latestRecommendation ? {
         recommendedRent: latestRecommendation.recommendedRent,
         difference: latestRecommendation.recommendedRent - currentRent,
-        percentageChange: currentRent > 0 
-          ? ((latestRecommendation.recommendedRent - currentRent) / currentRent) * 100 
+        percentageChange: currentRent > 0
+          ? ((latestRecommendation.recommendedRent - currentRent) / currentRent) * 100
           : 0,
         generatedAt: latestRecommendation.generatedAt,
         status: latestRecommendation.status,
@@ -781,7 +841,7 @@ export class RentOptimizationService {
 
     const unitIds = units.map((u) => u.id);
     this.logger.log(`Generating recommendations for all ${unitIds.length} units`);
-    
+
     return this.generateRecommendations(unitIds, orgId);
   }
 

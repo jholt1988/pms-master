@@ -41,6 +41,8 @@ import { PropertyOsModule } from './property-os/property-os.module'; // Added fo
 import { MilModule } from './mil/mil.module';
 import { LegacyPathMiddleware } from './middleware/legacy-path.middleware';
 import { PerformanceMiddleware } from './monitoring/performance.middleware';
+import { EventsModule } from './events/events.module'; // ADDED
+import { Web3Module } from './web3/web3.module';
 
 const rateLimitEnabled =
   process.env.NODE_ENV !== 'test' && process.env.RATE_LIMIT_ENABLED !== 'false';
@@ -91,6 +93,7 @@ const rateLimitProviders = rateLimitEnabled
     WinstonModule.forRoot(winstonConfig),
     // Rate limiting configuration
     ThrottlerModule.forRoot(throttlerConfigs),
+    EventsModule, // ADDED
     PrismaModule,
     AuthModule,
     MaintenanceModule,
@@ -122,6 +125,7 @@ const rateLimitProviders = rateLimitEnabled
     LeasingModule,
     PropertyOsModule, // Added for Property OS integration
     MilModule,
+    Web3Module,
   ],
   controllers: [AppController],
   providers: [

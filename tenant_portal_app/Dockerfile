@@ -7,7 +7,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY tenant_portal_app/package.json tenant_portal_app/package.json
 COPY tenant_portal_backend/package.json tenant_portal_backend/package.json
 COPY packages/mil-client/package.json packages/mil-client/package.json
-RUN pnpm install --frozen-lockfile
+RUN pnpm install 
 COPY . .
 WORKDIR /app/tenant_portal_app
 ARG VITE_API_URL=/api

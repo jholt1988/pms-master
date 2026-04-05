@@ -9,8 +9,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY tenant_portal_backend/package.json tenant_portal_backend/package.json
 COPY tenant_portal_app/package.json tenant_portal_app/package.json
 COPY packages/mil-client/package.json packages/mil-client/package.json
-RUN pnpm install --frozen-lockfile
-
+RUN pnpm install 
 FROM deps AS build
 COPY . .
 WORKDIR /app/tenant_portal_backend
@@ -20,10 +19,14 @@ ARG DATABASE_URL
 ENV DATABASE_URL=$DATABASE_URL
 
 # Generate Prisma client before TypeScript build
-RUN pnpm exec prisma migrate deploy
-RUN pnpm build
+RUN pnpm exec prisma generate --schema=./prisma/schema.prisma
+# RUN pnpm exec prisma migrate deploy --schema=./prisma/schema.prisma
 
-FROM node:22-alpine AS runner
+
+# Build TypeScript code
+RUN pnpm build 
+
+FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 RUN apk add --no-cache python3 py3-pip

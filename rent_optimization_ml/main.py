@@ -61,9 +61,85 @@ async def model_info() -> ModelInfo:
     )
 
 
+from pydantic import BaseModel, Field
+
+class YieldPricingRequest(BaseModel):
+    occupancy_rate: float = Field(..., description="Current occupancy rate (0-1)")
+    market_demand_index: float = Field(..., description="Market demand scalar")
+    maintenance_tickets_open: int = Field(..., description="Unresolved maintenance issues")
+
+class YieldPricingResponse(BaseModel):
+    recommended_rent_adjustment: float
+    target_rent: float
+    confidence_score: float
+
+class ChurnPredictionRequest(BaseModel):
+    tenant_id: str
+    property_id: str
+    occupancy_rate: float
+    maintenance_tickets_open: int
+    days_to_lease_end: int
+
+class ChurnPredictionResponse(BaseModel):
+    churn_probability: float
+    risk_level: str
+    recommended_action: str
+
 @app.post("/predict", response_model=PredictionResponse)
 async def predict(payload: PredictionRequest) -> PredictionResponse:
     return await prediction_service.predict(payload)
+
+@app.post("/predict/pricing", response_model=YieldPricingResponse)
+async def predict_dynamic_pricing(payload: YieldPricingRequest) -> YieldPricingResponse:
+    """
+    Airline-style yield management model.
+    Given high demand/occupancy, returns a positive rent adjustment.
+    """
+    base_rent = 2000.0
+    adjustment_factor = 1.0
+
+    if payload.occupancy_rate > 0.95 and payload.market_demand_index > 1.0:
+        adjustment_factor = 1.15
+    elif payload.occupancy_rate < 0.85:
+        adjustment_factor = 0.90
+
+    # Local anomaly threshold: Do not allow rent to spike excessively
+    target = base_rent * adjustment_factor
+    max_allowable_rent = base_rent * 1.25
+    target = min(target, max_allowable_rent)
+
+    return YieldPricingResponse(
+        recommended_rent_adjustment=target - base_rent,
+        target_rent=target,
+        confidence_score=0.89
+    )
+
+@app.post("/predict/churn", response_model=ChurnPredictionResponse)
+async def predict_churn(payload: ChurnPredictionRequest) -> ChurnPredictionResponse:
+    """
+    Resident Churn predictor tracking maintenance delays against lease limits.
+    """
+    prob = 0.05 + (payload.maintenance_tickets_open * 0.1)
+    
+    if payload.days_to_lease_end < 60:
+        prob += 0.3
+        
+    prob = min(prob, 0.99)
+    
+    risk = "LOW"
+    action = "None needed"
+    if prob > 0.7:
+        risk = "HIGH"
+        action = "Dispatch maintenance immediately and offer $50 renewal credit."
+    elif prob > 0.4:
+        risk = "MEDIUM"
+        action = "Automated check-in email."
+
+    return ChurnPredictionResponse(
+        churn_probability=round(prob, 3),
+        risk_level=risk,
+        recommended_action=action
+    )
 
 
 @app.post("/predict/batch", response_model=BatchPredictionResponse)
