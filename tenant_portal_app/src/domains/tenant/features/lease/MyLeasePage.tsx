@@ -8,7 +8,7 @@ import {
   downloadSignedDocument,
   downloadCertificate,
 } from '../../../../services/EsignatureApi';
-import { apiFetch } from '../../../../services/apiClient';
+import { apiFetch, getApiBase } from '../../../../services/apiClient';
 import { DegradedStateCard } from '../../../../components/ui/DegradedStateCard';
 
 type LeaseStatus =
@@ -94,7 +94,16 @@ interface Lease {
   autopayEnrollment?: AutopayEnrollment | null;
   history?: LeaseHistoryEntry[];
   esignEnvelopes?: EsignEnvelope[];
-  documents?: Array<{ id: number; fileName: string; category?: string | null; uploadedAt?: string | null; createdAt?: string }>;
+  documents?: Array<{
+    id: number;
+    fileName?: string;
+    category?: string | null;
+    type?: string | null;
+    url?: string;
+    description?: string | null;
+    uploadedAt?: string | null;
+    createdAt?: string;
+  }>;
 }
 
 interface NoticeFormState {
@@ -314,6 +323,39 @@ const MyLeasePage: React.FC = () => {
     }
   };
 
+  const downloadLeaseDocument = async (documentId: number, fileName: string) => {
+    if (!token) {
+      setError('You must be logged in to download lease documents.');
+      return;
+    }
+
+    try {
+      const base = getApiBase();
+      const url = `${base.replace(/\/$/, '')}/documents/${documentId}/download`;
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Unable to download lease document.');
+      }
+
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      window.URL.revokeObjectURL(blobUrl);
+      document.body.removeChild(link);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to download lease document.');
+    }
+  };
+
   const activeOffers = useMemo(
     () => (lease?.renewalOffers ?? []).filter((offer) => offer.status === 'OFFERED'),
     [lease],
@@ -514,6 +556,60 @@ const MyLeasePage: React.FC = () => {
             {lease.autoRenewLeadDays != null && ` · Lead time ${lease.autoRenewLeadDays} days`}
           </p>
         </div>
+      </section>
+
+      <section className="space-y-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+        <header className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Lease Documents</h2>
+            <p className="text-xs text-gray-500">Documents linked to your current lease.</p>
+          </div>
+        </header>
+
+        {(lease?.documents ?? []).length === 0 ? (
+          <p className="text-sm text-gray-600">No lease documents are available yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {(lease?.documents ?? []).map((doc) => {
+              const fallbackName = doc.url ? doc.url.split('/').pop() : undefined;
+              const displayName = doc.fileName || doc.description || fallbackName || `Lease Document #${doc.id}`;
+              const docKind = (doc.category ?? doc.type ?? 'LEASE').replace('_', ' ');
+              const canDirectOpen = Boolean(doc.url && /^https?:\/\//.test(doc.url));
+
+              return (
+                <div key={doc.id} className="flex items-center justify-between rounded border border-gray-200 p-3">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{displayName}</p>
+                    <p className="text-xs text-gray-500">
+                      {docKind}
+                      {doc.createdAt ? ` · Uploaded ${formatDate(doc.createdAt)}` : ''}
+                    </p>
+                  </div>
+                  {canDirectOpen ? (
+                    <a
+                      className="rounded bg-indigo-600 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-700"
+                      href={doc.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={`Open ${displayName}`}
+                    >
+                      Open
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      className="rounded bg-indigo-600 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-700"
+                      onClick={() => downloadLeaseDocument(doc.id, displayName)}
+                      aria-label={`Download ${displayName}`}
+                    >
+                      Download
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       <section className="space-y-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
