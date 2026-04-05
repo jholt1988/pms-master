@@ -47,3 +47,6 @@ docs/MVP_PLAN_AND_PRODUCT_OVERVIEW.html
 reports/background/
 ops/.env.dev
 ops/.env.prod
+
+# Backend runtime logs
+tenant_portal_backend/logs/
