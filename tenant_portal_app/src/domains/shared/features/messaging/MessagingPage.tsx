@@ -25,6 +25,7 @@ const MessagingPage = () => {
   const [selectedConversation, setSelectedConversation] = useState<any | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [attachmentUrls, setAttachmentUrls] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -141,15 +142,25 @@ const MessagingPage = () => {
     if (!selectedConversation || !newMessage.trim() || !token) {
       return;
     }
+    const parsedAttachmentUrls = attachmentUrls
+      .split(/[,\n]/)
+      .map((value) => value.trim())
+      .filter(Boolean);
+
     setSending(true);
     setError(null);
     try {
       await apiFetch('/messaging/messages', {
         token,
         method: 'POST',
-        body: { conversationId: selectedConversation.id, content: newMessage.trim() },
+        body: {
+          conversationId: selectedConversation.id,
+          content: newMessage.trim(),
+          attachmentUrls: parsedAttachmentUrls.length > 0 ? parsedAttachmentUrls : undefined,
+        },
       });
       setNewMessage('');
+      setAttachmentUrls('');
       fetchMessages(selectedConversation.id);
     } catch (error: any) {
       setError(toFriendlyApiMessage(error, 'Failed to send message'));
@@ -383,6 +394,21 @@ const MessagingPage = () => {
                             {isCurrentUser ? 'You' : authorName}
                           </p>
                           <p className="mt-1 whitespace-pre-wrap text-sm">{message.content}</p>
+                          {Array.isArray(message.metadata?.attachments) && message.metadata.attachments.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {message.metadata.attachments.map((url: string, idx: number) => (
+                                <a
+                                  key={`${message.id}-att-${idx}`}
+                                  href={url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-xs underline"
+                                >
+                                  Attachment {idx + 1}
+                                </a>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         <span className="mt-1 text-xs text-gray-500">
                           {formatDateTime(message.createdAt ?? message.sentAt ?? message.updatedAt)}
@@ -393,22 +419,34 @@ const MessagingPage = () => {
                 )}
               </div>
               <div className="border-t border-gray-200 bg-gray-50 px-4 py-3">
-                <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="space-y-2">
                   <textarea
                     rows={2}
                     value={newMessage}
                     onChange={(event) => setNewMessage(event.target.value)}
                     placeholder="Write a message…"
-                    className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    aria-label="Message content"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
-                  <button
-                    type="button"
-                    onClick={handleSendMessage}
-                    disabled={sending || !newMessage.trim()}
-                    className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-300"
-                  >
-                    {sending ? 'Sending…' : 'Send'}
-                  </button>
+                  <input
+                    type="text"
+                    value={attachmentUrls}
+                    onChange={(event) => setAttachmentUrls(event.target.value)}
+                    placeholder="Attachment URLs (comma or newline separated)"
+                    aria-label="Attachment URLs"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleSendMessage}
+                      disabled={sending || !newMessage.trim()}
+                      aria-label="Send message"
+                      className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-300"
+                    >
+                      {sending ? 'Sending…' : 'Send'}
+                    </button>
+                  </div>
                 </div>
               </div>
             </>
