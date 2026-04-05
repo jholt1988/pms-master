@@ -55,26 +55,30 @@ async function runChecks(): Promise<CheckResult[]> {
     status: property ? 'pass' : 'fail',
   });
 
-  const unit = property
-    ? await prisma.unit.findFirst({ where: { name: 'Unit 101', propertyId: property.id } })
-    : null;
+  const units = property
+    ? await prisma.unit.findMany({ where: { name: 'Unit 101', propertyId: property.id } })
+    : [];
+
   results.push({
     label: 'Unit 101 exists under Riverside Flats',
-    status: unit ? 'pass' : 'fail',
+    status: units.length > 0 ? 'pass' : 'fail',
+    details: units.length > 0 ? `count=${units.length}` : undefined,
   });
 
-  const lease = unit
-    ? await prisma.lease.findFirst({ where: { unitId: unit.id, status: 'ACTIVE' } })
+  const unitIds = units.map((u) => u.id);
+
+  const lease = unitIds.length
+    ? await prisma.lease.findFirst({ where: { unitId: { in: unitIds }, status: 'ACTIVE' } })
     : null;
   results.push({
     label: 'Active lease exists for Unit 101',
     status: lease ? 'pass' : 'fail',
   });
 
-  const inspection = unit
+  const inspection = unitIds.length
     ? await prisma.unitInspection.findFirst({
         where: {
-          unitId: unit.id,
+          unitId: { in: unitIds },
           status: InspectionStatus.IN_PROGRESS,
           type: InspectionType.ROUTINE,
         },
