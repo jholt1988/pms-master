@@ -6,6 +6,8 @@ const SUBJECT=process.env.A09_SUBJECT;
 if(!SUBJECT) throw new Error('A09_SUBJECT required');
 const MESSAGE=`A09 attachment message ${Date.now()}`;
 const ATTACH_URL='https://example.com/a09-attachment.png';
+const PM_USERNAME=process.env.A09_PM_USERNAME || 'morgan_pm';
+const PM_PASSWORD=process.env.A09_PM_PASSWORD || 'demo1234';
 
 async function tenantSend(outDir){
  const browser=await chromium.launch({headless:true});
@@ -33,8 +35,8 @@ async function pmVerify(outDir){
  const context=await browser.newContext({recordVideo:{dir:outDir,size:{width:1280,height:720}},viewport:{width:1280,height:720}});
  const page=await context.newPage();
  await page.goto('http://localhost:3000/login',{waitUntil:'networkidle'});
- await page.getByRole('textbox',{name:/Username/i}).fill('admin');
- await page.locator('input[type="password"]').first().fill('Admin123!@#');
+ await page.getByRole('textbox',{name:/Username/i}).fill(PM_USERNAME);
+ await page.locator('input[type="password"]').first().fill(PM_PASSWORD);
  await page.getByRole('button',{name:'Sign in'}).click();
  await page.waitForURL('**/dashboard',{timeout:15000});
  await page.goto('http://localhost:3000/messaging',{waitUntil:'networkidle'});
