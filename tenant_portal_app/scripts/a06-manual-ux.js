@@ -47,7 +47,7 @@ async function tenantPhase(outDir) {
   await page.screenshot({ path: path.join(outDir, 'a06-04-tenant-my-lease.png'), fullPage: true });
 
   const body = (await page.textContent('body')) || '';
-  const hasDoc = body.includes('A06-Test-Lease-Document.pdf');
+  const hasDoc = body.includes('Lease Documents') && (body.includes('A06 Test Lease Document') || body.includes('A06-Test-Lease-Document.pdf') || body.includes('example.com/A06-Test-Lease-Document.pdf'));
 
   await context.close();
   await browser.close();
