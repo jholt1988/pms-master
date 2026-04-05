@@ -13,7 +13,7 @@ async function login(username,password){
   if(!resPm.ok) throw new Error(`property-managers failed ${resPm.status}`);
   const pms=await resPm.json();
   const pm = Array.isArray(pms)
-    ? (pms.find((u)=>u.username==='admin') || pms[0])
+    ? (pms.find((u)=>u.username==='admin') || pms.find((u)=>u.username==='morgan_pm') || pms[0])
     : null;
   if(!pm?.id) throw new Error('No property manager found');
 

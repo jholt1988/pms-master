@@ -20,21 +20,10 @@ export class MessagingService {
     const limit = query?.limit || 20;
     const skip = (page - 1) * limit;
 
-    const orgScope = orgId
-      ? {
-          participants: {
-            some: {
-              user: { organizations: { some: { id: orgId } } },
-            },
-          },
-        }
-      : undefined;
-
     const [conversations, total] = await Promise.all([
       this.prisma.conversation.findMany({
         where: {
           participants: { some: { userId } },
-          ...(orgScope ?? {}),
         },
         include: {
           participants: {
@@ -68,7 +57,6 @@ export class MessagingService {
       this.prisma.conversation.count({
         where: {
           participants: { some: { userId } },
-          ...(orgScope ?? {}),
         },
       }),
     ]);
@@ -681,16 +669,11 @@ export class MessagingService {
     );
   }
 
-  private async ensureConversationParticipant(conversationId: number, userId: string, orgId?: string) {
+  private async ensureConversationParticipant(conversationId: number, userId: string, _orgId?: string) {
     const conversation = await this.prisma.conversation.findFirst({
       where: {
         id: conversationId,
-        AND: [
-          { participants: { some: { userId } } },
-          ...(orgId
-            ? [{ participants: { some: { user: { organizations: { some: { id: orgId } } } } } }]
-            : []),
-        ],
+        participants: { some: { userId } },
       },
     });
 
