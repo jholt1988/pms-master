@@ -1,231 +1,332 @@
 # User Stories: AI-Powered Applicant Prescreening
 
-**Module:** `ai_prescreening_service`
-**Focus:** Radically decreasing application processing time from days to seconds while eliminating implicit bias, detecting sophisticated document fraud, and utilizing passive biometrics.
+**Module:** `ai_prescreening_service`  
+**Normalized Scope:** application intake enrichment, AI screening, fairness controls, denial/waitlist handoffs, and applicant decision support.  
+**Canonical Lifecycle Domains:** applications, AI screening, denials, waitlist, onboarding handoff.
+
+## File-Level Notes
+- This file now covers the application-to-decision workflow with explicit lifecycle transitions.
+- Original biometric and forgery concepts are preserved as advanced screening options, not assumed defaults.
+- Where legal/compliance detail is unresolved, the story marks the gap instead of converting it into fixed policy.
 
 ---
 
-## 1. Persona: Tenant (Applicant)
+## Story ID: LSG-001
+**Title:** Applicant submits rental application with optional verification inputs  
+**Primary Actor:** Prospective tenant  
+**Business Goal:** Submit a reviewable application that can feed automated and manual screening.
 
-### Epic: The Instant, Equitable Application
-**Story 1.1: Bank-Linked Instant Income Verification**
-- **As a** Prospective Tenant
-- **I want to** authenticate my bank account via a secure OAuth portal (e.g., Plaid/Teller) during the application rather than uploading PDF pay stubs
-- **So that** my income and rental payment history are verified instantly without manually redacting sensitive documents.
-- **Acceptance Criteria:**
-  - [ ] System automatically calculates Average Monthly Net Income directly from bank transaction histories, excluding anomalous lump sums.
-  - [ ] Plaid/Teller API integration generates an immutable "Verified Income Data Card" injected right into the application payload.
-  - [ ] Zero PDF storage required, reducing PII exposure dramatically.
+**Trigger:** Applicant opens the public application link and begins submission.  
+**Preconditions:** Application form is active; property or unit is accepting applications; fee settings and optional verification integrations are configured if used.  
+**Main Flow:**
+1. Applicant enters required identity, contact, employment, income, and unit-selection data.
+2. Applicant optionally completes supported verification steps such as bank-link or document upload.
+3. Applicant submits the application.
+4. System stores the application snapshot and routes it into review/scoring.
 
-### 🔷 Property OS Augmentation
-- **Expected Loss Definition:** The financial risk of accepting an applicant with falsified income or the cost of compliance penalties from storing excessive PII.
-- **ActionIntent Mapping:** Produces `IncomeVerifiedIntent` which is consumed by the risk scoring system.
-- **Priority Logic:** High priority for applicants with stable, recurring deposits versus erratic lump-sum patterns.
+**Alternate Flows:**
+- No external verification is used and application proceeds with standard data only.
+- Draft save is supported if enabled by the application flow.
 
-### 🔷 UI Enhancements
-- Risk indicators showing the probability of income stability over the next 12 months.
-- Expected loss display showing the projected monetary impact of a default based on the verified income.
-- Visual prioritization ranking applications by verified income stability.
+**Failure / Exception Flows:**
+- Missing required fields blocks final submission.
+- Verification integration failure routes the application to manual review rather than discarding it.
+- Fee failure keeps application in `Fee Pending` when a fee is required.
 
-### 🔷 Simulation Layer
-- Scenario modeling to compare the likelihood of default for edge-case incomes under different macroeconomic conditions.
+**Data Captured / Affected:** Applicant identity, contact information, employment/income data, selected property/unit, consent artifacts, optional verification artifacts, fee status, immutable submission snapshot.  
+**Notifications:** Submission confirmation to applicant; optional operator alert for newly submitted application.  
+**Permissions / Approval Gates:** Applicant submits; operator review occurs downstream.  
+**Audit Log Requirements:** Submission event, applicant actor, timestamp, fee attempt/result, verification attempt/result, property/unit at submission.  
+**State Transitions:** Application `Draft -> Submitted` or `Draft -> Fee Pending -> Submitted`; downstream handoff to screening.  
+**Dependencies:** Public application UI, payment integration, verification integrations when used, application persistence.
 
-### 🔷 Feedback & Learning
-- Track actual tenant payment history against the initial predicted income stability.
-- Feed variance back into the verification model to adjust future risk scoring.
+**Acceptance Criteria:**
+- Application cannot be finalized with missing required fields.
+- Payment result is persisted when a fee is required.
+- Optional verification attempts are logged and do not silently delete the application on failure.
+- Application is linked to property and, when applicable, unit.
+- Submission creates an immutable application record.
 
-### 🔷 Model Integrity & Governance
-- Allow admin to override and manually approve alternative verifiable income forms with required justification.
-
-### 🔷 Execution Flow
-- **Trigger**: Applicant initiates the background/income check phase of the application form.
-- **Preconditions**: Applicant has consented to third-party bank linking; system has received valid Plaid/Teller integration tokens.
-- **Execution Intent**: Securely ingest raw bank transaction data to calculate an objective, verified net income average without handling PDFs.
-- **System Changes**: A standard immutable `VerifiedIncomeRecord` is attached to the applicant's profile.
-- **Output**: An `IncomeVerifiedIntent` payload containing the calculated average income, confidence score, and verification timestamp.
-
-### 🔷 State Transition
-- **Before State**: `Applicant.IncomeVerification = Pending`
-- **After State**: `Applicant.IncomeVerification = Verified` OR `Applicant.IncomeVerification = Failed` (if bank integration is rejected/insufficient).
-
-### 🔷 Lifecycle Continuity
-- **Upstream Source**: Prospect completing the initial Applicant Profile via the Web Portal.
-- **Downstream Paths**: Proceeds to `DecisionEngine` for final tenancy scoring, OR enters `ManualReview` if the Plaid connection fails.
-
-**Story 1.2: Passive Biometric Identity Verification**
-- **As a** Prospective Tenant
-- **I want to** verify my identity by capturing a 3-second live selfie video matched against my scanned government ID
-- **So that** my application is highly secure against identity theft and skip-traces are minimized.
-- **Acceptance Criteria:**
-  - [ ] Liveness detection AI ensures the applicant is a real person and not using a high-res photo or deepfake.
-  - [ ] Facial recognition safely maps the selfie to the ID document with high confidence scoring.
-  - [ ] Data is ephemeral; biometric vectors are deleted immediately post-validation to satisfy privacy laws (BIPA).
-
-### 🔷 Property OS Augmentation
-- **Expected Loss Definition:** The probable loss from a skip-trace identity fraud scenario ($10,000+ per unit eviction/recovery cost).
-- **ActionIntent Mapping:** Produces `BiometricValidatedIntent` to authorize application advancement.
-- **Priority Logic:** Applications missing biometric validation are deprioritized or flagged with manual intervention flags.
-
-### 🔷 UI Enhancements
-- Security risk indicator visualizing the liveness match confidence score.
-- Dashboard alerts explicitly explaining "Why this action? - Identity verification confidence below 95% threshold".
-
-### 🔷 Feedback & Learning
-- Track false positives/negatives in biometric matching against eventual fraud discovery.
-- Improve underlying identity heuristics using obfuscated match performance metrics.
-
-### 🔷 Model Integrity & Governance
-- Provide a clear fallback mechanism for human verification if biometrics fail.
-
-### 🔷 Execution Flow
-- **Trigger**: Applicant completes the ID upload step of the application.
-- **Preconditions**: Valid photo ID document is parsed; user device camera is accessible.
-- **Execution Intent**: Run liveness checks and facial comparison against the ID to confirm physical identity.
-- **System Changes**: The biometric match score is logged into the application security matrix.
-- **Output**: `BiometricValidatedIntent` (Pass/Fail) and deletion of the raw biometric vectors.
-
-### 🔷 State Transition
-- **Before State**: `Application.IdentityVerification = Unverified`
-- **After State**: `Application.IdentityVerification = Passed_Biometrics` OR `Application.IdentityVerification = Flagged_Manual_Review`
-
-### 🔷 Lifecycle Continuity
-- **Upstream Source**: Application flow immediately following basic PII entry.
-- **Downstream Paths**: Application moves to credit/background check phase if successful; otherwise, routes to PM Audit Queue.
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_BUSINESS_RULE`: Co-applicant and guarantor policy is not defined.
+- `MISSING_EXTERNAL_INTEGRATION_SPEC`: External verification providers are not locked.
+- `MISSING_DATA_MAPPING`: Document upload requirements are not fully defined.
 
 ---
 
-## 2. Persona: Admin / PM / Owner
+## Story ID: LSG-002
+**Title:** System runs AI pre-screening and stores recommendation  
+**Primary Actor:** Property manager  
+**Business Goal:** Produce a fast recommendation that can be reviewed, overridden, and audited.
 
-### Epic: Fraud Elimination & Fair Housing Compliance
-**Story 2.1: Automated PDF Forgery Detection**
-- **As an** Admin / PM
-- **I want to** have an AI model automatically scan any uploaded paystub, bank statement, or employment letter for digital alterations
-- **So that** I am protected against the rising tide of sophisticated application fraud and fabricated financial documents.
-- **Acceptance Criteria:**
-  - [ ] Computer Vision / ML service extracts document metadata (EXIF/XMP) and flags discrepancies in font rendering, layered object manipulations, or mismatched creation dates.
-  - [ ] If fraud is detected with >90% confidence, the application is sequestered in a "High-Risk Audit Queue" rather than auto-declined.
-  - [ ] PM sees a visual heat-map of exactly where the PDF was tampered with (e.g., a changed digit in the "Net Salary" field).
+**Trigger:** Application enters `Submitted` with the minimum data required for scoring.  
+**Preconditions:** Application is complete enough to score; screening logic is configured.  
+**Main Flow:**
+1. System ingests submitted application data.
+2. System strips unsupported data from the scoring payload where fair-housing safeguards apply.
+3. AI/rules engine computes score, recommendation, and supporting rationale.
+4. System stores the result and moves the application to `AI Scored`.
+5. Manager reviews automated output.
 
-### 🔷 Property OS Augmentation
-- **Expected Loss Definition:** Calculates the precise loss exposure ($ lease value) if the fabricated financial document was accepted.
-- **ActionIntent Mapping:** Consumes uploaded documents; produces a `FraudReviewIntent`.
-- **Priority Logic:** Audits are ranked strictly by highest risk exposure and highest model confidence of forgery.
+**Alternate Flows:**
+- Score unavailable falls back to manual review.
+- Manager manually overrides recommendation with required justification.
 
-### 🔷 UI Enhancements
-- Fraud severity indicators color-coding applications in the queue (Red = Critical Forgery, Yellow = Anomaly).
-- Quantified loss exposure display ($) on hover over the forged document.
-- Explicit visual explanation attached to the heat-map stating exactly why the area is flagged.
+**Failure / Exception Flows:**
+- Scoring service error creates visible manual review work and does not silently pass.
+- Missing required inputs block automated scoring.
 
-### 🔷 Simulation Layer
-- Simulates the risk cost of accepting a marginally manipulated document vs requesting a new bank integration.
+**Data Captured / Affected:** Screening inputs, sanitized scoring payload, score, recommendation, explanation, override metadata, model/rules version.  
+**Notifications:** Optional manager notification when screening is complete.  
+**Permissions / Approval Gates:** Automated recommendation does not remove manager review authority unless separate auto-approval policy is defined; override requires authorized operator.  
+**Audit Log Requirements:** Scoring timestamp, inputs used, sanitized payload marker, model/rules version, recommendation, override actor/reason if changed.  
+**State Transitions:** Application `Submitted -> AI Scored`; downstream handoff to approval, denial, or waitlist decision.  
+**Dependencies:** Screening engine, fair-housing sanitization rules, application data normalization, manager review UI.
 
-### 🔷 Feedback & Learning
-- Monitor subsequent human review outcomes to reduce anomaly false-positive rates.
-- Add confirmed forged documents to the training dataset.
+**Acceptance Criteria:**
+- Recommendation is persisted, reviewable, and auditable.
+- Score generation does not silently fail.
+- Manager can distinguish automated vs overridden outcome.
+- Screening handoff into approval/denial/waitlist is explicit.
 
-### 🔷 Model Integrity & Governance
-- Human-in-the-loop requirement to permanently reject an application solely based on forgery likelihood.
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_BUSINESS_RULE`: Hard underwriting thresholds are not defined.
+- `MISSING_LEGAL_RULE`: Adverse action explanation logic is not defined.
+- `MISSING_LEGAL_RULE`: Fairness/compliance review criteria are not fully defined.
 
-### 🔷 Execution Flow
-- **Trigger**: Applicant uploads a financial document (e.g., PDF paystub, bank statement).
-- **Preconditions**: Target document successfully uploaded to the temporary ingestion bucket.
-- **Execution Intent**: Parse PDF layers and metadata to detect digital tampering or logical inconsistencies in the document text.
-- **System Changes**: Document is permanently tagged with a forgery confidence score; application risk state is updated.
-- **Output**: `FraudReviewIntent` if forgery > 90%; otherwise, a `DocumentCleared` event.
+---
 
-### 🔷 State Transition
-- **Before State**: `Document.Status = Pending_Scan`
-- **After State**: `Document.Status = Cleared` OR `Document.Status = Quarantined` (with associated alert).
+## Story ID: LSG-003
+**Title:** Denial triggers formal communication and blocks onboarding  
+**Primary Actor:** Property manager  
+**Business Goal:** Ensure denied applicants receive a consistent notice without accidentally entering onboarding.
 
-### 🔷 Lifecycle Continuity
-- **Upstream Source**: Document upload component in the standard manual application flow (fallback for non-Plaid users).
-- **Downstream Paths**: Routes to manual PM review if Quarantined; proceeds to Income Calculation if Cleared.
+**Trigger:** Application is moved to `Denied` after review.  
+**Preconditions:** Denial decision exists; denial communication template is available.  
+**Main Flow:**
+1. System prepares denial communication from the decision context.
+2. Manager reviews or approves send when policy requires.
+3. System sends or queues the denial notice.
+4. System records the communication and ensures no onboarding artifacts are created.
 
-**Story 2.2: Algorithmic Fair Housing Guardrails**
-- **As a** Property Owner / PM
-- **I want to** ensure the prescreening AI exclusively uses equitable, non-discriminatory variables strictly related to financial viability
-- **So that** my screening process is legally bulletproof against Fair Housing Act (FHA) disparate impact violations.
-- **Acceptance Criteria:**
-  - [ ] Model architecture mathematically excludes zip codes, demographic proxies, and names from the decision matrix before risk scoring.
-  - [ ] Regular automated "Bias Audits" simulate thousands of demographic profiles through the model to monitor and certify statistical parity.
-  - [ ] A "Traceability Log" explains to the PM in plain English *why* an application was flagged (e.g., "Rent-to-Income ratio is 55%, minimum required is 33%").
+**Alternate Flows:**
+- Automatic send occurs when policy permits.
+- Manual review gate holds the notice for operator approval.
 
-### 🔷 Property OS Augmentation
-- **Expected Loss Definition:** The potential liability and legal costs associated with a Fair Housing lawsuit versus the opportunity cost of denying a valid applicant.
-- **ActionIntent Mapping:** Produces `FairHousingAuditIntent` before issuing any lease decisions.
-- **Priority Logic:** Applications with flagged parity alerts immediately escalated above standard work streams.
+**Failure / Exception Flows:**
+- Delivery failure leaves denial intact and surfaces retry requirements.
+- Missing required denial data blocks send and marks the case incomplete.
 
-### 🔷 UI Enhancements
-- Compliance health dashboard with continuous statistical parity alerts.
-- Decision explanation explicitly confirming the exclusion of protected classes in the scoring.
+**Data Captured / Affected:** Denial reason, template/version, channel, delivery status, application decision metadata.  
+**Notifications:** Denial notice to applicant; optional operator alert for failed delivery.  
+**Permissions / Approval Gates:** Manager approval required if denial sends are not fully automated; this policy remains unresolved.  
+**Audit Log Requirements:** Denial decision timestamp, decision actor, communication template, channel, send result, explicit no-onboarding handoff.  
+**State Transitions:** Application `AI Scored -> Denied` or `Under Review -> Denied`; downstream handoff is terminal for applicant unless appeal/reapply policy exists.  
+**Dependencies:** Decision workflow, communications service, template management, onboarding service guardrail.
 
-### 🔷 Feedback & Learning
-- Aggregate applicant demographic acceptance rates against county-level baselines over trailing 12 months.
-- Automatically retrain algorithms if drift is detected outside FHA parity boundaries.
+**Acceptance Criteria:**
+- Denied status can trigger a standardized notice.
+- Denial communication is logged.
+- Approval gate exists when policy requires operator review.
+- Denial does not create onboarding or lease artifacts.
 
-### 🔷 Model Integrity & Governance
-- Complete immutability of the removed demographic variables in the algorithmic reasoning trail.
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_APPROVAL_GATE`: Automatic vs manager-approved denial sending is not locked.
+- `MISSING_LEGAL_RULE`: Jurisdiction-specific denial/adverse-action content is not defined.
 
-### 🔷 Execution Flow
-- **Trigger**: System prepares to run the Predictive Tenancy Risk Score on a completed application.
-- **Preconditions**: All required applicant data (income, credit, rental history) has been gathered.
-- **Execution Intent**: Strip all protected class proxies (zip codes, names) from the data payload before it is submitted to the ML risk model.
-- **System Changes**: A sanitized, mathematically "fair" temporary payload is generated for the scoring engine.
-- **Output**: `FairHousingAuditIntent` containing the sanitized matrix and a parity check pass/fail boolean.
+---
 
-### 🔷 State Transition
-- **Before State**: `Application.DataState = Raw`
-- **After State**: `Application.DataState = Sanitized_For_Scoring`
+## Story ID: LSG-004
+**Title:** Approved applicant enters waitlist when no unit is available  
+**Primary Actor:** Property manager  
+**Business Goal:** Retain approved leads without prematurely starting tenancy.
 
-### 🔷 Lifecycle Continuity
-- **Upstream Source**: Finalization of the application data gathering phase.
-- **Downstream Paths**: Exclusively directly upstream of the Predictive Tenancy Risk Scoring execution.
+**Trigger:** Application is approvable but inventory is unavailable.  
+**Preconditions:** Approval decision exists; no unit is currently releasable.  
+**Main Flow:**
+1. System places the applicant into `Waitlisted`.
+2. System records waitlist timing and release conditions.
+3. Applicant remains outside onboarding until inventory is released.
+4. Manager can later release the applicant into onboarding.
 
-### 🔷 Execution Context
-- **Lifecycle Role**: Governance and Compliance Middleware.
-- **Enabled Capabilities**: Safe, legally-defensible ML scoring.
-- **Dependencies**: Depends on the accuracy of the predefined prohibited variable list.
+**Alternate Flows:**
+- Waitlist expires after configured hold duration.
+- Applicant withdraws before release.
 
-**Story 2.3: Predictive Tenancy Risk Scoring**
-- **As a** Property Manager
-- **I want to** receive a comprehensive "Tenancy Success Score" that weighs credit, predictive debt-to-income limits, and verified rental history
-- **So that** the system instantly auto-approves A-tier applicants, turning them into signed leases before competitors can process them.
-- **Acceptance Criteria:**
-  - [ ] Applicants scoring above a PM-defined threshold (e.g., >850 Tenant Score) bypass human review entirely, automatically generating and sending the Lease Draft via API.
-  - [ ] Model continuously learns from past eviction/delinquency data (Internal Data Sandbox) to refine the weighting of what makes a successful tenant at that specific property class.
+**Failure / Exception Flows:**
+- Invalid inventory linkage blocks release into onboarding.
+- Missing hold-duration configuration leaves the applicant waitlisted but operationally ambiguous and must be flagged.
 
-### 🔷 Property OS Augmentation
-- **Expected Loss Definition:** Calculates the total expected delinquency, turn cost, and vacancy days based on the predictive score.
-- **ActionIntent Mapping:** Consumes all tenant data streams to emit an `ApproveTenantIntent` or `DeclineTenantIntent`.
-- **Priority Logic:** Ranks applicants by lowest expected risk and highest lifetime value metrics.
+**Data Captured / Affected:** Waitlist start date, hold duration, release reason, property/unit preference context, expiration marker if used.  
+**Notifications:** Waitlist placement notice; release or expiration notice where configured.  
+**Permissions / Approval Gates:** Manager controls release from waitlist; applicant cannot self-release.  
+**Audit Log Requirements:** Waitlist entry, expiration, removal, release actor, linked inventory context.  
+**State Transitions:** Application `Approved -> Waitlisted`; downstream handoff to `Onboarding Started` only after release.  
+**Dependencies:** Inventory state management, application workflow, onboarding workflow, notification service.
 
-### 🔷 UI Enhancements
-- Total expected loss/ROI projection visible per scored applicant.
-- Side-by-side comparative ranking to visually suggest the optimal applicant for a unit.
-- Explicit reasoning log showing exact weight distributions (e.g., "Approved due to 88% credit strength and 100% verified rent history").
+**Acceptance Criteria:**
+- Waitlisted applicants are distinct from denied applicants.
+- Waitlisted applicants do not start onboarding until released.
+- Hold duration can be configured.
+- Expiration/removal/release events are logged.
 
-### 🔷 Simulation Layer
-- Compares outcomes of holding the unit vacant for 10 more days vs. accepting the highest current but slightly riskier applicant.
-- Evaluates p50/p90/worst-case scenarios for the specific applicant based on similar historical profiles.
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_BUSINESS_RULE`: Waitlist ranking/order policy is not defined.
+- `MISSING_NOTIFICATION_RULE`: Communication cadence during waitlist is not defined.
 
-### 🔷 Feedback & Learning
-- Automatically compares the predictive tenancy score to the actual behavior (payment timeliness) through the duration of the lease.
-- Feed variance directly into weights for future scoring rounds.
+---
 
-### 🔷 Model Integrity & Governance
-- Provide manual override allowing PMs to override rejection, enforcing mandatory written justifications.
+## Story ID: ONB-001
+**Title:** Approved applicant proceeds into onboarding without duplicate entry  
+**Primary Actor:** Property manager  
+**Business Goal:** Move approved applicants into onboarding and portal provisioning using the application as the source record.
 
-### 🔷 Execution Flow
-- **Trigger**: Receipt of the `FairHousingAuditIntent` (cleared sanitized data) for a complete application.
-- **Preconditions**: Income verified, ID validated, and data explicitly stripped of FHA-protected proxies.
-- **Execution Intent**: Calculate the overarching probability of lease default, weighted by historical portfolio data.
-- **System Changes**: Applicant is assigned a definitive `TenancySuccessScore` (e.g., 850) and a system decision.
-- **Output**: `ApproveTenantIntent` OR `DeclineTenantIntent`, triggering automated communications.
+**Trigger:** Application reaches `Approved` and is not waitlisted.  
+**Preconditions:** Approval exists; unit path is valid; applicant record can map into tenant onboarding fields.  
+**Main Flow:**
+1. System creates onboarding record from application data.
+2. System maps applicant data into tenant profile fields.
+3. System provisions or stages a portal account.
+4. Workflow advances toward lease drafting.
 
-### 🔷 State Transition
-- **Before State**: `Application.DecisionState = Under_Review`
-- **After State**: `Application.DecisionState = Approved` OR `Application.DecisionState = Rejected` OR `Application.DecisionState = Waitlisted`.
+**Alternate Flows:**
+- Portal provisioning is delayed pending manual identity verification if required.
 
-### 🔷 Lifecycle Continuity
-- **Upstream Source**: Output of the algorithmic fair housing guardrails.
-- **Downstream Paths**: If Approved, automatically triggers the Ledger & Smart Contracts system to Draft the Lease. If Rejected, sends FCRA compliant adverse action letter.
+**Failure / Exception Flows:**
+- Missing mapping fields block onboarding start.
+- Portal provisioning failure keeps onboarding open and visible for operator retry.
+
+**Data Captured / Affected:** Onboarding record, mapped tenant profile, portal provisioning status, linked application ID.  
+**Notifications:** Onboarding start notification to applicant; internal alert on provisioning failure.  
+**Permissions / Approval Gates:** Approval required upstream; onboarding activation is system-driven; manual identity review may be required if later defined.  
+**Audit Log Requirements:** Approval-to-onboarding handoff, field mapping event, portal provisioning attempt/result.  
+**State Transitions:** Applicant-to-Tenant `Approved Applicant -> Onboarding Started -> Portal Provisioned`; downstream handoff to `Lease Drafted`.  
+**Dependencies:** Application service, identity/user service, portal provisioning, source-of-truth field mapping.
+
+**Acceptance Criteria:**
+- Approval creates an onboarding record.
+- Applicant data maps into tenant profile fields.
+- Portal account can be provisioned or staged.
+- Waitlisted applicants do not enter onboarding.
+- Onboarding hands off to lease drafting without duplicate data entry.
+
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_BUSINESS_RULE`: Identity verification step is not specified.
+- `MISSING_DATA_MAPPING`: Source-of-truth field mapping is not fully defined.
+- `MISSING_BUSINESS_RULE`: Portal activation timing is not fully defined.
+
+---
+
+## Story ID: ONB-002
+**Title:** Lease draft is pre-populated from application data  
+**Primary Actor:** Property manager  
+**Business Goal:** Avoid repeated manual entry and preserve traceability from application to lease.
+
+**Trigger:** Onboarding reaches lease preparation stage.  
+**Preconditions:** Tenant profile exists; unit is assigned; lease template exists.  
+**Main Flow:**
+1. System generates draft lease from approved application and onboarding data.
+2. System populates mapped fields automatically.
+3. Manager reviews and edits where necessary.
+4. Draft becomes ready for sending/signature workflow.
+
+**Alternate Flows:**
+- Manager manually edits one or more mapped fields before sending.
+
+**Failure / Exception Flows:**
+- Missing required field mapping blocks draft completion.
+- Missing template version or template conflict prevents safe generation.
+
+**Data Captured / Affected:** Template version, mapped fields, edited values, linked application/tenant/unit/lease records.  
+**Notifications:** Optional internal notification that lease draft is ready.  
+**Permissions / Approval Gates:** Draft editing requires authorized manager access.  
+**Audit Log Requirements:** Draft creation, source mapping used, edited fields, actor, timestamp, prior/new values for changed mapped data.  
+**State Transitions:** Applicant-to-Tenant `Portal Provisioned -> Lease Drafted`; downstream handoff to `Lease Sent`.  
+**Dependencies:** Lease template service, application-to-lease field mapping, lease persistence.
+
+**Acceptance Criteria:**
+- Mapped fields populate automatically.
+- Manager can edit before sending.
+- Changed values are audited.
+- Draft creation has a downstream handoff into signature workflow.
+
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_DATA_MAPPING`: Formal field mapping specification is not defined.
+- `MISSING_BUSINESS_RULE`: Lease template versioning requirements are not defined.
+
+---
+
+## Story ID: ONB-003
+**Title:** Lease and related documents are sent for signature  
+**Primary Actor:** Property manager  
+**Business Goal:** Complete digital signature workflow without activating tenancy early.
+
+**Trigger:** Lease draft is marked ready to send.  
+**Preconditions:** Lease draft exists; required documents are assembled; signer set is known.  
+**Main Flow:**
+1. System packages lease and related documents.
+2. System sends packet for signature.
+3. System tracks signature completion state per required signer.
+4. Workflow remains blocked from active tenancy until required signatures complete.
+
+**Alternate Flows:**
+- Multiple documents are included in a single packet.
+- Partial completion keeps the workflow in `Lease Sent`.
+
+**Failure / Exception Flows:**
+- Signature service failure blocks progression and surfaces retry.
+- Expired or incomplete signature package prevents move-in activation.
+
+**Data Captured / Affected:** Document set, signer list, signature completion metadata, final signed artifacts, packet timestamps.  
+**Notifications:** Signature requests, reminders, completion confirmation.  
+**Permissions / Approval Gates:** Manager initiates sending; tenancy activation requires all required signatures.  
+**Audit Log Requirements:** Packet creation, send event, recipients, reminder sends, completion timestamps, linked documents/version references.  
+**State Transitions:** Applicant-to-Tenant `Lease Drafted -> Lease Sent -> Lease Signed`; downstream handoff to move-in scheduling.  
+**Dependencies:** E-signature provider, document management, onboarding workflow, move-in scheduling workflow.
+
+**Acceptance Criteria:**
+- Multiple required documents can be included.
+- Signature completion is tracked.
+- Incomplete signatures block activation of tenancy.
+- Completion events are logged.
+- Fully executed packet hands off into move-in scheduling.
+
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_BUSINESS_RULE`: Signer order is not specified.
+- `MISSING_BUSINESS_RULE`: Co-signer/guarantor flows are not defined.
+
+---
+
+## Story ID: LSG-005
+**Title:** High-risk document review and advanced verification remain manual-review gated  
+**Primary Actor:** Property manager  
+**Business Goal:** Preserve fraud-detection intent without overclaiming automated certainty.
+
+**Trigger:** Applicant submits uploaded verification documents or advanced verification artifacts.  
+**Preconditions:** Manual document flow is enabled; uploaded document exists.  
+**Main Flow:**
+1. System stores the document for review/scanning.
+2. Optional AI/ML analysis produces a risk signal when configured.
+3. High-risk results route the application to manual review rather than direct denial.
+
+**Alternate Flows:**
+- Low-risk result allows application to continue through normal screening.
+
+**Failure / Exception Flows:**
+- Analysis service unavailable falls back to manual review.
+
+**Data Captured / Affected:** Document metadata, optional forgery score, review queue flag, linked application context.  
+**Notifications:** Optional operator alert for high-risk review queue item.  
+**Permissions / Approval Gates:** Human-in-the-loop review required before permanent rejection on fraud grounds.  
+**Audit Log Requirements:** Document upload, scan attempt/result, queue placement, review decision actor.  
+**State Transitions:** Application remains in `Under Review` until manual resolution; downstream handoff back into scoring or denial path.  
+**Dependencies:** Document storage, optional analysis integration, review queue.
+
+**Acceptance Criteria:**
+- High-risk documents can be routed to manual review instead of silent rejection.
+- Analysis failure falls back to manual review.
+- Queue placement and outcomes are auditable.
+
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_EXTERNAL_INTEGRATION_SPEC`: Forgery/biometric provider contract is not defined.
+- `MISSING_LEGAL_RULE`: Biometric privacy/deletion rules are not sufficiently specified for implementation-safe completeness.

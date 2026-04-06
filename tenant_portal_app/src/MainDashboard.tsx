@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { apiFetch } from './services/apiClient';
+import { getDashboardActionItems, getOpexAnomalies, getPortfolioHeatmap, type ActionIntentItem, type OpexAnomaly, type PortfolioHeatmapRow } from './domains/property-manager/services/managerApi';
+import { PortfolioHeatmap } from './domains/property-manager/features/dashboard/PortfolioHeatmap';
 
 // Import your existing feature widgets
 // Note: You will need to update these components later to remove their own 
@@ -211,6 +213,9 @@ const MainDashboard = () => {
   const [propertyLocations, setPropertyLocations] = useState<PropertyLocationsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [engineHealth, setEngineHealth] = useState<EngineHealth | null>(null);
+  const [portfolioHeatmap, setPortfolioHeatmap] = useState<PortfolioHeatmapRow[]>([]);
+  const [opexAnomalies, setOpexAnomalies] = useState<OpexAnomaly[]>([]);
+  const [actionItems, setActionItems] = useState<ActionIntentItem[]>([]);
   const isOwnerView = user?.role === 'OWNER';
 
   useEffect(() => {
@@ -220,12 +225,18 @@ const MainDashboard = () => {
         return;
       }
       try {
-        const [data, locations] = await Promise.all([
+        const [data, locations, heatmap, anomalies, intents] = await Promise.all([
           apiFetch('/dashboard/metrics', { token }),
           apiFetch('/dashboard/property-locations', { token }),
+          getPortfolioHeatmap(token),
+          getOpexAnomalies(token),
+          getDashboardActionItems(token),
         ]);
         setMetrics(data);
         setPropertyLocations(locations);
+        setPortfolioHeatmap(heatmap);
+        setOpexAnomalies(anomalies);
+        setActionItems(intents.filter((intent) => intent.type === 'DAILY_ACTION_ITEM').slice(0, 6));
       } catch (error) {
         console.error('Error fetching dashboard metrics:', error);
         // Set fallback empty metrics on error
@@ -245,6 +256,9 @@ const MainDashboard = () => {
           missingCoordinates: 0,
           properties: [],
         });
+        setPortfolioHeatmap([]);
+        setOpexAnomalies([]);
+        setActionItems([]);
       }
 
       try {
@@ -339,6 +353,36 @@ const MainDashboard = () => {
           <p className="text-sm text-gray-400">No mapped property coordinates found yet.</p>
         )}
       </GlassCard>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+        <div className="xl:col-span-2">
+          <PortfolioHeatmap rows={portfolioHeatmap} loading={loading} />
+        </div>
+        <GlassCard title="OPEX Anomalies" subtitle="MONTH-OVER-MONTH DRIFT" glowColor="pink">
+          {opexAnomalies.length === 0 ? (
+            <p className="text-sm text-gray-400">No significant OPEX anomalies detected.</p>
+          ) : (
+            <div className="space-y-3">
+              {opexAnomalies.slice(0, 5).map((anomaly) => (
+                <div key={`${anomaly.propertyId}-${anomaly.propertyName}`} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-white text-sm font-medium">{anomaly.propertyName}</p>
+                      <p className="text-xs text-gray-400">
+                        Avg ${anomaly.trailingMonthlyAvg.toFixed(0)} vs now ${anomaly.currentMonthTotal.toFixed(0)}
+                      </p>
+                    </div>
+                    <div className={`text-sm font-mono ${anomaly.direction === 'ABOVE' ? 'text-rose-300' : 'text-amber-300'}`}>
+                      {anomaly.direction === 'ABOVE' ? '+' : ''}
+                      {anomaly.deviationPercent}%
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </GlassCard>
+      </div>
 
       {/* --- SECTION 2: BENTO GRID LAYOUT --- */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
@@ -450,6 +494,21 @@ const MainDashboard = () => {
         {/* BLOCK F: ActionIntent Feed (Full Width Bottom) */}
         <div className="md:col-span-12">
           <GlassCard glowColor="purple">
+            {actionItems.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-white font-light mb-3">Daily Action Items</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  {actionItems.map((item) => (
+                    <div key={item.id} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm text-white">{item.description}</p>
+                        <span className="text-[10px] font-mono text-gray-300">{item.priority}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <ActionIntentFeed />
           </GlassCard>
         </div>

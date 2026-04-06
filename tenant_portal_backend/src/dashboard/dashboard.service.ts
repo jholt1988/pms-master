@@ -2,12 +2,16 @@ import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
 import { LeadApplicationStatus, MaintenancePriority, Status } from '@prisma/client';
+import { AuditLogService } from '../shared/audit-log.service';
 
 @Injectable()
 export class DashboardService {
   private readonly logger = new Logger(DashboardService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly auditLogService: AuditLogService,
+  ) {}
 
   async getActionIntents(orgId?: string) {
     try {
@@ -567,8 +571,158 @@ const [
     };
   }
 
+  async getOperationalCalendar(orgId?: string, options?: { days?: number; actorId?: string }) {
+    const days = Math.min(Math.max(options?.days ?? 30, 1), 120);
+    const start = new Date();
+    const end = new Date();
+    end.setDate(end.getDate() + days);
+
+    const [scheduledEvents, inspections, expiringLeases, overdueInvoices] = await Promise.all([
+      this.prisma.scheduleEvent.findMany({
+        where: {
+          date: { gte: start, lte: end },
+          ...(orgId ? { property: { organizationId: orgId } } : {}),
+        },
+        include: {
+          property: { select: { id: true, name: true } },
+          unit: { select: { id: true, name: true } },
+          tenant: { select: { id: true, username: true } },
+        },
+        orderBy: { date: 'asc' },
+        take: 200,
+      }),
+      this.prisma.unitInspection.findMany({
+        where: {
+          scheduledDate: { gte: start, lte: end },
+          ...(orgId ? { property: { organizationId: orgId } } : {}),
+        },
+        include: {
+          property: { select: { id: true, name: true } },
+          unit: { select: { id: true, name: true } },
+          tenant: { select: { id: true, username: true } },
+        },
+        orderBy: { scheduledDate: 'asc' },
+        take: 100,
+      }),
+      this.prisma.lease.findMany({
+        where: {
+          endDate: { gte: start, lte: end },
+          status: { in: ['ACTIVE', 'RENEWAL_PENDING', 'NOTICE_GIVEN'] },
+          ...(orgId ? { unit: { property: { organizationId: orgId } } } : {}),
+        },
+        include: {
+          tenant: { select: { id: true, username: true } },
+          unit: { include: { property: { select: { id: true, name: true } } } },
+        },
+        orderBy: { endDate: 'asc' },
+        take: 100,
+      }),
+      this.prisma.invoice.findMany({
+        where: {
+          dueDate: { lt: start },
+          status: { not: 'PAID' },
+          ...(orgId ? { lease: { unit: { property: { organizationId: orgId } } } } : {}),
+        },
+        include: {
+          lease: {
+            include: {
+              tenant: { select: { id: true, username: true } },
+              unit: { include: { property: { select: { id: true, name: true } } } },
+            },
+          },
+        },
+        orderBy: { dueDate: 'asc' },
+        take: 100,
+      }),
+    ]);
+
+    const events = [
+      ...scheduledEvents.map((event) => ({
+        id: `schedule-${event.id}`,
+        source: 'schedule',
+        type: event.type,
+        title: event.title,
+        date: event.date,
+        priority: event.priority,
+        propertyId: event.propertyId,
+        propertyName: event.property?.name ?? null,
+        unitId: event.unitId,
+        unitName: event.unit?.name ?? null,
+        tenantId: event.tenantId,
+        tenantName: event.tenant?.username ?? null,
+        status: event.status ?? 'SCHEDULED',
+      })),
+      ...inspections.map((inspection) => ({
+        id: `inspection-${inspection.id}`,
+        source: 'inspection',
+        type: 'INSPECTION',
+        title: `${inspection.type} Inspection`,
+        date: inspection.scheduledDate,
+        priority: inspection.type === 'MOVE_OUT' ? 'HIGH' : 'MEDIUM',
+        propertyId: inspection.propertyId,
+        propertyName: inspection.property?.name ?? null,
+        unitId: inspection.unitId,
+        unitName: inspection.unit?.name ?? null,
+        tenantId: inspection.tenantId,
+        tenantName: inspection.tenant?.username ?? null,
+        status: inspection.status,
+      })),
+      ...expiringLeases.map((lease) => ({
+        id: `lease-expiration-${lease.id}`,
+        source: 'lease',
+        type: 'LEASE_EXPIRATION',
+        title: `Lease Expiration`,
+        date: lease.endDate,
+        priority: lease.status === 'NOTICE_GIVEN' ? 'HIGH' : 'MEDIUM',
+        propertyId: lease.unit?.propertyId ?? null,
+        propertyName: lease.unit?.property?.name ?? null,
+        unitId: lease.unitId,
+        unitName: lease.unit?.name ?? null,
+        tenantId: lease.tenantId,
+        tenantName: lease.tenant?.username ?? null,
+        status: lease.status,
+      })),
+      ...overdueInvoices.map((invoice) => ({
+        id: `invoice-${invoice.id}`,
+        source: 'payment',
+        type: 'PAYMENT_DUE',
+        title: `Overdue Invoice`,
+        date: invoice.dueDate,
+        priority: 'HIGH',
+        propertyId: invoice.lease?.unit?.propertyId ?? null,
+        propertyName: invoice.lease?.unit?.property?.name ?? null,
+        unitId: invoice.lease?.unitId ?? null,
+        unitName: invoice.lease?.unit?.name ?? null,
+        tenantId: invoice.lease?.tenantId ?? null,
+        tenantName: invoice.lease?.tenant?.username ?? null,
+        status: invoice.status,
+      })),
+    ]
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .slice(0, 250);
+
+    await this.recordAudit({
+      orgId,
+      actorId: options?.actorId,
+      action: 'OPERATIONAL_CALENDAR_VIEWED',
+      entityType: 'DashboardCalendar',
+      entityId: orgId ?? 'global',
+      metadata: {
+        days,
+        eventCount: events.length,
+      },
+    });
+
+    return {
+      generatedAt: new Date().toISOString(),
+      days,
+      eventCount: events.length,
+      events,
+    };
+  }
+
   async getTenantDashboard(userId: string) {
-    const [leases, maintenanceRequests, recentInspections] = await Promise.all([
+    const [leases, maintenanceRequests, recentInspections, notifications, upcomingEvents] = await Promise.all([
       this.prisma.lease.findMany({
         where: { tenantId: userId },
         include: {
@@ -590,12 +744,60 @@ const [
         orderBy: { scheduledDate: 'desc' },
         take: 3,
       }),
+      this.prisma.notification.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      }),
+      this.prisma.scheduleEvent.findMany({
+        where: {
+          tenantId: userId,
+          date: { gte: new Date() },
+        },
+        orderBy: { date: 'asc' },
+        take: 5,
+      }),
     ]);
+
+    const activeLease = leases.find((lease) => lease.status === 'ACTIVE') ?? leases[0];
+    const upcomingBalance = leases.reduce((sum, lease) => sum + Number(lease.currentBalance ?? 0), 0);
 
     return {
       leases,
+      summary: {
+        activeLeaseId: activeLease?.id ?? null,
+        currentBalance: upcomingBalance,
+        openMaintenanceCount: maintenanceRequests.filter((request) => request.status !== 'COMPLETED').length,
+        upcomingEventCount: upcomingEvents.length,
+      },
       maintenanceRequests,
       recentInspections,
+      recentNotifications: notifications,
+      upcomingEvents,
     };
+  }
+
+  private async recordAudit(event: {
+    orgId?: string;
+    actorId?: string;
+    action: string;
+    entityType: string;
+    entityId?: string | number;
+    metadata?: Record<string, unknown>;
+  }) {
+    try {
+      await this.auditLogService.record({
+        orgId: event.orgId,
+        actorId: event.actorId ?? null,
+        module: 'DASHBOARD',
+        action: event.action,
+        entityType: event.entityType,
+        entityId: event.entityId,
+        result: 'SUCCESS',
+        metadata: event.metadata,
+      });
+    } catch (error) {
+      this.logger.warn(`Failed to write dashboard audit event ${event.action}: ${String(error)}`);
+    }
   }
 }

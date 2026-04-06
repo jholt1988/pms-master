@@ -5,13 +5,15 @@ import { BulkMessagingService } from './bulk-messaging.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { AuditLogService } from '../shared/audit-log.service';
+import { SentimentAnalysisService } from './sentiment-analysis.service';
+
 @Module({
   imports: [PrismaModule],
   // NOTE: We intentionally register a single MessagingController for /api/messaging/*.
   // The legacy controller used the same routes but returned different response shapes,
   // which made the API non-deterministic for clients.
   controllers: [MessagingController],
-  providers: [MessagingService, BulkMessagingService, OrgContextGuard, AuditLogService],
-  exports: [MessagingService, BulkMessagingService],
+  providers: [MessagingService, BulkMessagingService, SentimentAnalysisService, OrgContextGuard, AuditLogService],
+  exports: [MessagingService, BulkMessagingService, SentimentAnalysisService],
 })
 export class MessagingModule {}

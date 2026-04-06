@@ -1,252 +1,613 @@
 # User Stories: Web Portal (Tenant & Management)
 
-**Module:** `tenant_portal_app`
-**Focus:** Bringing an industry-leading, frictionless web experience to Tenants and Property Managers (PMs) through omnichannel support, unified dashboards, and highly automated workflows.
+**Module:** `tenant_portal_app`  
+**Normalized Scope:** tenant-facing and manager-facing web workflows for onboarding, inspections, maintenance intake, communications, dashboard visibility, and owner reporting.  
+**Canonical Lifecycle Domains:** onboarding, move-in, inspections, maintenance, communications, dashboard/calendar, analytics.
+
+## File-Level Notes
+- This file was normalized to match the Keyring OS lifecycle model.
+- Where the original story described aspirational UX or AI behavior without an operational workflow, the workflow has been preserved but marked with explicit unresolved gaps.
+- This file intentionally does not define legal or accounting policy beyond what is required for portal-facing workflows.
 
 ---
 
-## 1. Persona: Tenant
+## Story ID: ONB-004
+**Title:** Move-in date is scheduled and visible on shared calendar  
+**Primary Actor:** Property manager or owner  
+**Business Goal:** Make move-in operationally visible so staff can prepare the unit and handoff.
 
-### Epic: Frictionless Move-In & Lease Management
-**Story 1.1: Immersive Digital Move-In**
-- **As a** Tenant
-- **I want to** complete my move-in checklist, review utilities setup, and sign documents from a unified, gamified web dashboard
-- **So that** I have zero administrative overhead on move-in day and automatically receive recommendations for local smart-home integrations.
-- **Acceptance Criteria:**
-  - [ ] Dashboard displays a 3D or visually engaging "Move-In Journey" map.
-  - [ ] Automated integration with utility providers allows one-click service enablement.
-  - [ ] AI chatbot proactively offers support during onboarding, anticipating common FAQs based on lease addenda.
+**Trigger:** Lease becomes fully signed and a move-in date is ready to schedule.  
+**Preconditions:** Lease is executed; applicant has reached `Lease Signed`; unit assignment is valid.  
+**Main Flow:**
+1. Manager schedules a move-in date from the portal.
+2. System creates a move-in calendar event linked to tenant, unit, property, and lease.
+3. Relevant roles can view the event on the dashboard and calendar.
+4. System keeps the event visible until move-in is completed or rescheduled.
 
-### 🔷 Property OS Coverage
-- **Coverage Level:** Partial
-- **Reason:** This is a UI/UX conversion and support feature. While it uses AI (chatbots), it primarily serves to reduce support tickets rather than executing high-stakes financial priority logic.
+**Alternate Flows:**
+- Manager reschedules the move-in date and the system versions the change.
+- Owner has read-only visibility when the role model permits.
 
-### 🔷 Execution Flow
-- **Trigger**: Tenant logs into the portal for the first time post-lease execution.
-- **Preconditions**: Lease is Active. Move-in date is within standard bounding (-7 to +7 days).
-- **Execution Intent**: Guide the tenant through mandatory administrative setups (utilities, renter's insurance) using a persistent workflow state.
-- **System Changes**: `MoveInChecklist` items are sequentially marked complete.
-- **Output**: Generates a `MoveInCompleteIntent` upon 100% checklist fulfillment.
+**Failure / Exception Flows:**
+- Invalid or conflicting date blocks save and surfaces the exception to the manager.
+- Missing executed lease or invalid unit linkage blocks scheduling.
 
-### 🔷 State Transition
-- **Before State**: `Tenant.Onboarding = Incomplete`
-- **After State**: `Tenant.Onboarding = Complete`
+**Data Captured / Affected:** Move-in date, lease ID, tenant ID, unit ID, property ID, event visibility metadata, prior and new scheduled dates.  
+**Notifications:** Calendar event notification to relevant roles; optional tenant move-in confirmation when enabled.  
+**Permissions / Approval Gates:** Scheduling requires authorized manager or owner access; no tenant self-scheduling is assumed.  
+**Audit Log Requirements:** Event creation, reschedule action, actor, timestamp, old/new date, linked lease and unit context.  
+**State Transitions:** `Lease Signed -> Move-In Scheduled` within Applicant-to-Tenant lifecycle.  
+**Dependencies:** Lease execution workflow, calendar service, dashboard event rendering, role visibility rules.
 
-### 🔷 Lifecycle Continuity
-- **Upstream Source**: The successful execution of a lease contract.
-- **Downstream Paths**: Terminal for onboarding; transitions tenant to standard "active resident" portal view.
+**Acceptance Criteria:**
+- Move-in event appears on dashboard/calendar.
+- Event links to tenant, unit, property, and lease.
+- Visibility follows role-appropriate access.
+- Date changes are auditable and versioned.
+- Move-in scheduling has a downstream handoff into onboarding communication and move-in inspection workflows.
 
-### 🔷 Execution Context
-- **Lifecycle Role**: Tenant retention and administrative compliance offloading.
-- **Enabled Capabilities**: Guaranteed compliance for renter's insurance and utility transfers.
-- **Dependencies**: Depends on external utility and insurance provider verification APIs.
-
-**Story 1.2: Predictive Maintenance & Self-Triage**
-- **As a** Tenant
-- **I want to** submit maintenance requests through an AI-powered conversational interface that automatically triages the issue
-- **So that** simple fixes can be suggested immediately (reducing wait times) and complex issues are auto-categorized and prioritized without human routing.
-- **Acceptance Criteria:**
-  - [ ] Uploading a photo uses computer vision to automatically detect the appliance brand and failure type.
-  - [ ] Conversation agent offers "Self-Fix" videos for low-risk issues (e.g., garbage disposal reset).
-  - [ ] System automatically suggests inspection dates by comparing tenant calendar availability with technician schedules.
-
-### 🔷 Property OS Augmentation
-- **Expected Loss Definition:** Compares the cost of delayed maintenance (water damage compounding) against the cost of an emergency after-hours dispatch.
-- **ActionIntent Mapping:** Consumes ticket details and calendar availability to produce a `ScheduleMaintenanceIntent`.
-- **Priority Logic:** Automatically elevates tickets with structural risk (e.g., HVAC failure in winter) above cosmetic requests, overriding standard SLA timers.
-
-### 🔷 UI Enhancements
-- Triage reasoning displayed to the tenant: "Your issue has been categorized as High Priority (Water Risk) and jumped the queue."
-
-### 🔷 Simulation Layer
-- Simulates the cascading scheduling delays if an emergency ticket forces the rescheduling of 5 cosmetic tickets.
-
-### 🔷 Feedback & Learning
-- Tracks if the "Self-Fix" videos actually prevent technician dispatches and tunes the recommendation engine to stop showing ineffective videos.
-
-- PM maintains full visibility into the AI's schedule routing and can manually force-dispatch a vendor if the automated triage miscalculates severity.
-
-### 🔷 Execution Flow
-- **Trigger**: Tenant submits a text prompt or photo via the maintenance dialogue.
-- **Preconditions**: Natural language is parsed into issue categorization; calendar matrices for tenant/vendors are accessible.
-- **Execution Intent**: Assess the urgency of the repair, propose timeslots matching technician routes, and soft-lock the dispatch.
-- **System Changes**: A `MaintenanceTicket` is instantiated with severity, trade category (e.g., Plumbing), and proposed timeslots.
-- **Output**: `ScheduleMaintenanceIntent` pushed to the PM/Vendor queues.
-
-### 🔷 State Transition
-- **Before State**: `WorkOrder = Unsubmitted`
-- **After State**: `WorkOrder = Triaged_And_Scheduled` OR `WorkOrder = Escalated_Emergency`
-
-### 🔷 Lifecycle Continuity
-- **Upstream Source**: Tenant UX action in the web portal or mobile app.
-- **Downstream Paths**: Outputs routing directions to the Mobile Task Routing application for the field technician.
-
-**Story 1.3: Frictionless Financial Hub & Micro-investing (Optional)**
-- **As a** Tenant
-- **I want to** view rent payments, automatic ledger splits with roommates, and opt into rent-reporting for credit building directly from the finance hub
-- **So that** managing shared finances is completely automated, and paying rent provides tangible long-term financial benefits.
-- **Acceptance Criteria:**
-  - [ ] Ability to invite roommates and dynamically split rent percentages.
-  - [ ] Dashboard shows real-time impact of rent payments on credit scores (Equifax/Experian/TransUnion sync).
-  - [ ] Support for paying via Plaid bank-link, Apple Pay on Web, and crypto-wallets.
-
-### 🔷 Property OS Augmentation
-- **Expected Loss Definition:** Calculates the probabilistic risk of chargebacks or NSF (Non-Sufficient Funds) fees based on the payment method chosen.
-- **ActionIntent Mapping:** Consumes `InitiatePaymentIntent` and produces `UpdateTenantCreditIntent` via reporting pipelines.
-- **Priority Logic:** System subtly prioritizes/incentivizes ACH bank-links over credit cards to minimize processing fee loss for the owner.
-
-### 🔷 UI Enhancements
-- Interactive dial tracking credit score improvements based on consecutive on-time rent reporting.
-
-### 🔷 Feedback & Learning
-- Monitor which payment pathways harbor the highest delinquency recovery rates and adapt UI prompts to encourage those rails for risky tenants.
-
-- Explicit opt-in records required under FCRA (Fair Credit Reporting Act) before sharing tenant ledger data with Equifax/Experian.
-
-### 🔷 Execution Flow
-- **Trigger**: Tenant clicks "Setup Payment" or "Enable Credit Building" within the Web Portal.
-- **Preconditions**: Tokenized banking integration must be ready; tenant must successfully pass Identity/KYC requirements.
-- **Execution Intent**: Vault payment credentials or establish credit bureau sync pipes for consecutive on-time reporting.
-- **System Changes**: `PaymentMethod` object is securely tokenized; `CreditReporting` configuration is set to active.
-- **Output**: Submits `InitiatePaymentIntent` toward the Zero-Latency Ledger system.
-
-### 🔷 State Transition
-- **Before State**: `Tenant.PaymentMethod = Missing`, `Tenant.CreditSync = Disabled`
-- **After State**: `Tenant.PaymentMethod = Vaulted`, `Tenant.CreditSync = Enabled`
-
-### 🔷 Lifecycle Continuity
-- **Upstream Source**: Move-In Onboarding flow or arbitrary tenant settings change.
-- **Downstream Paths**: Downstream dependency for the Zero-Latency Payment core and automated late-fee calculation.
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_ROLE_PERMISSION_RULE`: Calendar permission model is not fully defined.
+- `MISSING_BUSINESS_RULE`: Conflict-detection policy for overlapping move-ins is not defined.
 
 ---
 
-## 2. Persona: Property Manager (PM) / Admin / Owner
+## Story ID: ONB-005
+**Title:** Welcome package is sent after move-in is scheduled  
+**Primary Actor:** Newly approved tenant  
+**Business Goal:** Provide onboarding instructions and next steps before occupancy.
 
-### Epic: Autonomous Property Management
-**Story 2.1: Unified Command Center & Anomaly Detection**
-- **As a** Property Manager
-- **I want to** view a "Command Center" dashboard that uses anomaly detection to highlight properties requiring my immediate attention
-- **So that** I don't waste time reviewing healthy properties and instead focus on predictive risk (e.g., impending vacancy, pending maintenance disaster).
-- **Acceptance Criteria:**
-  - [ ] Dashboard curates a daily "Action Item" list driven by machine learning (e.g., "Unit 102 HVAC showing high energy usage, schedule preventative maintenance before failure").
-  - [ ] Financial alerts highlight significant deviations from trailing 12-month OPEX averages.
-  - [ ] Portfolio-level heatmaps visually depict financial health, occupancy risk, and tenant satisfaction sentiment.
+**Trigger:** Move-in reaches `Move-In Scheduled` and required onboarding prerequisites are satisfied.  
+**Preconditions:** Lease is signed; move-in date exists; prerequisite onboarding steps are complete.  
+**Main Flow:**
+1. System composes a welcome package from configured content.
+2. System sends the package through approved channels.
+3. System records delivery attempts and results.
+4. Tenant can access the package before move-in.
 
-### 🔷 Property OS Augmentation
-- **Expected Loss Definition:** Aggregates portfolio-wide risk mapping down to a single dollar-value exposure metric (e.g., "Currently exposed to $45,000 in flight risk this month").
-- **ActionIntent Mapping:** Consumes telemetry to trigger `PortfolioReviewIntent`.
-- **Priority Logic:** Ranks command center tiles strictly by highest variance to the trailing 12-month median, hiding nominal operations.
+**Alternate Flows:**
+- Delivery occurs by email, in-app, or both when configured.
+- Manager may manually resend the package.
 
-### 🔷 UI Enhancements
-- Anomaly alerts with built-in "Quick Actions" (e.g., direct generation of a retention offer if vacancy risk spikes).
+**Failure / Exception Flows:**
+- Delivery failure leaves the onboarding state intact and surfaces a retry path.
+- Missing required onboarding prerequisites blocks automatic send.
 
-### 🔷 Simulation Layer
-- Models macroeconomic shifts (e.g., interest rate changes) against the current tenant demographic to project portfolio delinquency risk 6 months out.
+**Data Captured / Affected:** Package template/version, recipient, send timestamp, delivery channel, delivery outcome, linked tenant/lease/unit context.  
+**Notifications:** Welcome package to tenant; optional manager notice if send fails.  
+**Permissions / Approval Gates:** Automated send allowed only after prerequisite checks; manual resend requires authorized manager access.  
+**Audit Log Requirements:** Trigger condition satisfied, send attempt, channel, delivery result, manual resend actor if applicable.  
+**State Transitions:** No new lifecycle state; downstream handoff from `Move-In Scheduled` into move-in preparation.  
+**Dependencies:** Notification service, content template configuration, onboarding prerequisite checks.
 
-### 🔷 Feedback & Learning
-- Evaluates the accuracy of the anomaly detector by having PMs click "Useful" or "Noise" on command center alerts.
+**Acceptance Criteria:**
+- Welcome package can be delivered by email or in-app.
+- Send event and delivery outcome are logged.
+- Content is configurable.
+- Welcome package is only triggered after required prerequisites are met.
+- Failed delivery is visible and retriable.
 
-- "Noise" overrides are logged to ensure PMs aren't muting critical financial early-warning systems masking poor property performance.
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_BUSINESS_RULE`: Package contents are not specified.
+- `MISSING_NOTIFICATION_RULE`: SMS inclusion is not decided.
 
-### 🔷 Execution Flow
-- **Trigger**: Automated nightly data aggregation or an ad-hoc PM login.
-- **Preconditions**: Full data warehousing integration spanning maintenance, finance, and leasing systems must be up to date.
-- **Execution Intent**: Run statistical variance checks against the trailing 12-month means for key performance indicators (KPIs) and flag deviations above 1-Sigma.
-- **System Changes**: Temporary `AnomalyAlert` rows are cached for rendering in the presentation layer.
-- **Output**: A fully populated Command Center UI dispatching a `PortfolioReviewIntent`.
+---
 
-### 🔷 State Transition
-- **Before State**: `Dashboard.ViewState = Stale`
-- **After State**: `Dashboard.ViewState = Real_Time_Refreshed` (with anomaly tiles highlighted).
+## Story ID: MIN-001
+**Title:** Tenant completes move-in inspection in app or web  
+**Primary Actor:** Tenant  
+**Business Goal:** Record unit condition at move-in so pre-existing issues are documented.
 
-### 🔷 Lifecycle Continuity
-- **Upstream Source**: Mass telemetry streams from every subsystem (Leasing, Maintenance, Accounting).
-- **Downstream Paths**: Resolving an anomaly triggers downstream workflows (e.g., initiating a capital improvement or eviction action).
+**Trigger:** Move-in inspection is made available after move-in scheduling.  
+**Preconditions:** Tenant has portal access; inspection record exists in `Scheduled`; tenant is linked to the unit and lease.  
+**Main Flow:**
+1. Tenant opens the move-in inspection.
+2. Tenant completes checklist items, adds notes, and uploads photos.
+3. Tenant submits the inspection.
+4. System locks the submitted inspection as a time-stamped record.
+5. Inspection enters manager review.
 
-**Story 2.2: Omnichannel Universal Inbox & Sentiment Analysis**
-- **As an** Admin / PM
-- **I want to** manage tenant communications (SMS, Email, Portal Chat, Voice summaries) from a single Unified Inbox equipped with Sentiment Analysis
-- **So that** I can instantly gauge the urgency and emotion of tenant requests, responding efficiently or allowing AI to auto-Draft responses.
-- **Acceptance Criteria:**
-  - [ ] Incoming messages are automatically tagged with sentiment markers (Positive, Neutral, Frustrated, Urgent).
-  - [ ] AI Draft suggests 3 contextual responses saving the PM from typing repetitive answers.
-  - [ ] Auto-translation detects languages and translates incoming/outgoing messages in real time.
+**Alternate Flows:**
+- Draft save is supported if enabled and inspection remains `In Progress`.
+- Tenant returns later to finish a draft before submission deadline.
 
-### 🔷 Property OS Augmentation
-- **Expected Loss Definition:** Cost of escalated disputes and legal friction caused by miscommunication vs nominal cost of LLM token processing.
-- **ActionIntent Mapping:** Consumes `InboundMessageIntent`, analyzes sentiment, and produces `DraftResponseIntent`.
-- **Priority Logic:** Inbox dynamically re-sorts, pushing "Frustrated" or "Urgent" sentiment messages to the top immediately.
+**Failure / Exception Flows:**
+- Required fields or required photo evidence missing prevents submission.
+- Attachment upload failure preserves draft state and surfaces retry options.
 
-### 🔷 UI Enhancements
-- Color-coded sentiment tags (Red/Yellow/Green) next to every inbox thread.
-- "Confidence level" indicator showing how certain the AI is about the auto-drafted response.
+**Data Captured / Affected:** Checklist responses, notes, media attachments, draft timestamps, submit timestamp, tenant/unit/lease linkage.  
+**Notifications:** Submission confirmation to tenant; manager review notification.  
+**Permissions / Approval Gates:** Tenant can submit only their linked move-in inspection; manager approval occurs downstream.  
+**Audit Log Requirements:** Draft save events, final submit event, actor, timestamps, lock event, linked tenancy/unit context.  
+**State Transitions:** Inspection `Scheduled -> In Progress -> Submitted`; Applicant-to-Tenant lifecycle remains at `Move-In Scheduled` until occupancy activation.  
+**Dependencies:** Inspection UI, media handling, tenancy linkage, manager review workflow.
 
-### 🔷 Feedback & Learning
-- If the PM heavily edits an AI-Drafted response prior to sending, the delta is locally cached to improve the prompt weighting for that specific tenant.
+**Acceptance Criteria:**
+- Tenant can submit notes and photos.
+- Inspection is linked to unit and tenancy.
+- Submitted inspection becomes a locked time-stamped record.
+- Draft mode is supported when enabled.
+- Submission hands off into manager review with no dead-end state.
 
-- AI is restricted from legally binding the property (e.g., auto-approving a lease break) without requiring a human PM to click "Send."
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_BUSINESS_RULE`: Deadline after move-in is not defined.
+- `MISSING_DATA_MAPPING`: Required checklist structure is not defined.
 
-### 🔷 Execution Flow
-- **Trigger**: Ingestion webhook fires from SMS, Email, or the built-in Portal chat.
-- **Preconditions**: The message's sender identity must be mapped to a known Tenant or Prospect ID.
-- **Execution Intent**: Process the text through an LLM to assign sentiment metadata and draft contextual replies using RAG (Retrieval-Augmented Generation) against property policies.
-- **System Changes**: A unified `ThreadMessage` is created and annotated with `SentimentScore`.
-- **Output**: `DraftResponseIntent` populated in the PM's single-pane-of-glass inbox.
+---
 
-### 🔷 State Transition
-- **Before State**: `Inbox.Thread = Unread_Uncategorized`
-- **After State**: `Inbox.Thread = Triage_Categorized_With_Draft`
+## Story ID: MIN-002
+**Title:** Manager reviews and approves move-in inspection  
+**Primary Actor:** Property manager  
+**Business Goal:** Validate move-in findings and create repair actions when appropriate.
 
-### 🔷 Lifecycle Continuity
-- **Upstream Source**: Inbound tenant communications via multiple uncoupled channels.
-- **Downstream Paths**: Allows PM to finalize and send a response, resolving the `ThreadState` to closed.
+**Trigger:** Move-in inspection enters `Submitted`.  
+**Preconditions:** Tenant-submitted inspection exists; manager has access to linked unit/property context.  
+**Main Flow:**
+1. Manager reviews tenant notes and media.
+2. Manager approves, rejects, or requests follow-up.
+3. Approved findings generate repair candidates.
+4. Inspection either advances to `Approved` or returns to a follow-up/review path.
 
-### 🔶 Unresolved Dependency
-- **Missing Link**: Outbound SMS/Email provider configuration.
-- **Why Missing**: It is unclear if we are using an internal notification microservice or direct SendGrid/Twilio integrations for outbound dispatch.
-- **Impact**: While the inbox curates and drafts responses, actual message delivery requires the underlying notification fabric.
+**Alternate Flows:**
+- Manager requests follow-up information instead of approving or rejecting.
+- Manager approves only a subset of findings for repair action.
 
-**Story 2.3: Owner Portfolio Deep-Dive & Yield Projections**
-- **As a** Property Owner
-- **I want to** access a real-time investor portal that models future ROI, capital expenditure amortization, and predictive asset appreciation
-- **So that** I can make high-level capital decisions without needing to request static PDF reports from my managers.
-- **Acceptance Criteria:**
-  - [ ] Investor view highlights Cap Rate, Cash on Cash Return, and Net Operating Income (NOI) dynamically.
-  - [ ] "What-If" sliders allow owners to model the ROI of capital improvements (e.g., "If I upgrade kitchens in Building B, how does that impact modeled rent rates and IRR over 5 years?").
-  - [ ] Drill-down capabilities from highest-level portfolio view down to a specific unit's maintenance ledger.
+**Failure / Exception Flows:**
+- Rejection requires reason and preserves original submitted record.
+- Missing review evidence or inaccessible attachments blocks review completion.
 
-### 🔷 Property OS Augmentation
-- **Expected Loss Definition:** Cost of capital misallocation due to static spreadsheet analysis vs real-time algorithmic forecasting.
-- **ActionIntent Mapping:** Consumes property data to execute `CapitalAllocationIntent`.
-- **Priority Logic:** Highlights sub-performing assets against internal benchmarks to direct owner attention instantly.
+**Data Captured / Affected:** Review decision, manager notes, rejection or follow-up reason, approved findings, generated repair candidates.  
+**Notifications:** Review outcome to tenant when configured; internal maintenance intake notice for approved issues.  
+**Permissions / Approval Gates:** Manager review required; tenant cannot self-approve findings.  
+**Audit Log Requirements:** Review action, actor, timestamp, rationale, approved findings, repair-candidate generation event.  
+**State Transitions:** Inspection `Submitted -> Under Manager Review -> Approved` or review exception path; downstream handoff to estimate/timeline workflow.  
+**Dependencies:** Inspection review UI, repair candidate generation, audit logging.
 
-### 🔷 UI Enhancements
-- Interactive "What-If" sliders manipulating real-time charts rather than generating static PDF reports.
+**Acceptance Criteria:**
+- Manager can approve, reject, or request follow-up.
+- Rejection requires a reason.
+- Approval creates repair candidates where needed.
+- Review and approval events are auditable.
+- Approved findings hand off into estimate and schedule generation.
 
-### 🔷 Simulation Layer
-- Deep Monte Carlo simulation of capital expenditures yielding IRR (Internal Rate of Return) ranges over 1, 3, and 5-year holds.
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_EXCEPTION_PATH`: Formal tenant/manager dispute adjudication is not defined.
 
-### 🔷 Feedback & Learning
-- Continually cross-references the predictive asset appreciation models against actual market sales comps to automatically recalibrate portfolio net worth.
+---
 
-- Tracks all parameters used in the ROI calculation, allowing third-party auditors (or lenders) to trace the exact mathematical assumptions supporting a property's displayed valuation.
+## Story ID: MIN-003
+**Title:** Approved move-in issues generate repair estimates and timelines  
+**Primary Actor:** Property manager  
+**Business Goal:** Convert approved move-in findings into scoped repair work without leaving inspection findings orphaned.
 
-### 🔷 Execution Flow
-- **Trigger**: Owner accesses the Investor deep-dive module.
-- **Preconditions**: Owner must have confirmed syndicate credentials tied securely to the specific LLC/Asset entity.
-- **Execution Intent**: Calculate live performance metrics (NOI, IRR) by reading the unified accounting layer and correlating with market assumptions.
-- **System Changes**: Execution is read-only against production financial data; generates client-side render state only.
-- **Output**: Generates a rich, interactive data-visualization DOM `CapitalAllocationIntent`.
+**Trigger:** Move-in inspection findings are approved for action.  
+**Preconditions:** Inspection is in `Approved`; actionable findings exist; linked unit and tenancy context remain available.  
+**Main Flow:**
+1. System converts approved findings into repair candidates.
+2. System creates repair estimates or estimate placeholders for each approved issue set.
+3. System creates an expected completion timeline and links it to the approved findings.
+4. Actionable repair scope is handed off into maintenance planning.
 
-### 🔷 State Transition
-- **Before State**: `InvestorPortal = Un-Rendered`
-- **After State**: `InvestorPortal = Interactive_Dashboard_Loaded`
+**Alternate Flows:**
+- Manager groups multiple approved findings into a single repair scope when the same trade or visit can address them.
+- Timeline remains provisional until vendor or internal assignment occurs.
 
-### 🔷 Lifecycle Continuity
-- **Upstream Source**: Aggregate data from the Accounting ERP and Ledger systems.
-- **Downstream Paths**: Terminal analytical presentation layer. No system state mutates without an explicit external governance vote/transfer.
+**Failure / Exception Flows:**
+- Missing estimate inputs or inaccessible repair evidence prevents estimate generation and creates an operator-visible exception.
+- Approved findings with no valid work type mapping remain approved but unplanned until manually categorized.
 
-### 🔷 Execution Context
-- **Lifecycle Role**: High-level Owner advising mechanism.
-- **Enabled Capabilities**: Automated, non-manual investor reporting.
-- **Dependencies**: Depends entirely on the accuracy and real-time syncing of the `Frictionless Accounting Sync`.
+**Data Captured / Affected:** Approved inspection findings, repair estimate records, target completion timeline, linked work-scope metadata, unit and tenancy references.  
+**Notifications:** Internal repair-planning notification; tenant progress notification only when the source workflow is configured to notify.  
+**Permissions / Approval Gates:** Manager approval already occurred upstream; estimate/timeline generation may be system-driven after approval.  
+**Audit Log Requirements:** Repair estimate generation, timeline creation, grouped-scope decisions, exception events, linked inspection approval reference.  
+**State Transitions:** Inspection `Approved -> Repair Actions Generated`; downstream handoff to maintenance `Submitted/Under Review -> Estimate Generated -> Scheduled`.  
+**Dependencies:** Inspection review workflow, estimation logic, work-order system, maintenance planning workflow.
+
+**Acceptance Criteria:**
+- Approved findings can generate repair estimate records or placeholders.
+- A completion timeline is created or explicitly held for planning.
+- Repair scope remains linked to the originating inspection.
+- Approved issues have a downstream handoff into maintenance planning rather than ending at inspection approval.
+
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_DATA_MAPPING`: Work-type mapping from inspection finding to maintenance category is not fully defined.
+- `MISSING_EXTERNAL_INTEGRATION_SPEC`: Vendor bidding/estimate enrichment contract is not defined.
+
+---
+
+## Story ID: MNT-001
+**Title:** Tenant submits maintenance request with photo and description  
+**Primary Actor:** Tenant  
+**Business Goal:** Let tenants initiate maintenance from the portal without losing unit or tenancy context.
+
+**Trigger:** Tenant reports a maintenance issue from web or mobile-supported portal flows.  
+**Preconditions:** Tenant has access to a unit under an active or pending occupancy relationship; maintenance intake is enabled.  
+**Main Flow:**
+1. Tenant enters issue description.
+2. Tenant uploads one or more photos.
+3. Tenant optionally flags the request as emergency.
+4. System creates a maintenance request linked to tenant, unit, and property.
+5. System confirms submission and places the request into intake workflow.
+
+**Alternate Flows:**
+- Tenant submits a non-emergency request that proceeds to normal review.
+- Tenant submits a draft if draft maintenance intake is later enabled.
+
+**Failure / Exception Flows:**
+- Attachment validation failure blocks submission.
+- Missing unit or tenancy linkage blocks request creation.
+
+**Data Captured / Affected:** Description, photos, emergency flag, category placeholder, tenant ID, unit ID, property ID, timestamps.  
+**Notifications:** Submission confirmation to tenant; manager intake notice when configured.  
+**Permissions / Approval Gates:** Tenant can create only requests tied to their linked unit; approval happens downstream in maintenance review.  
+**Audit Log Requirements:** Submission actor, timestamp, emergency flag, attachments, tenant/unit/property linkage.  
+**State Transitions:** Maintenance `Submitted`; downstream handoff to review or emergency escalation.  
+**Dependencies:** Maintenance intake API, media storage, tenant/unit/property linkage, maintenance review workflow.
+
+**Acceptance Criteria:**
+- Request supports description and photos.
+- Request is linked to tenant, unit, and property.
+- Emergency flag can be set.
+- Submission confirmation is shown and logged.
+- Request has a downstream handoff into maintenance review or escalation.
+
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_DATA_MAPPING`: Category taxonomy is not defined.
+- `MISSING_EXTERNAL_INTEGRATION_SPEC`: Video/audio support is not defined.
+
+---
+
+## Story ID: MNT-002
+**Title:** Emergency maintenance auto-escalates  
+**Primary Actor:** Property manager or owner  
+**Business Goal:** Prevent urgent issues from staying in the normal queue.
+
+**Trigger:** Maintenance request is flagged or classified as emergency.  
+**Preconditions:** Request exists; emergency flag or policy threshold is present.  
+**Main Flow:**
+1. System elevates request priority immediately.
+2. System routes the request into emergency handling.
+3. System notifies manager/owner immediately.
+4. SLA timer starts automatically when configured.
+
+**Alternate Flows:**
+- Manager downgrades a false emergency with documented justification.
+
+**Failure / Exception Flows:**
+- Notification failure does not clear the escalation and must remain visible.
+- Missing emergency policy leaves the request escalated but with unresolved dispatch logic.
+
+**Data Captured / Affected:** Priority, emergency reason, escalation timestamp, SLA start, dispatch metadata if present.  
+**Notifications:** Immediate owner/manager notification; optional vendor dispatch notification if supported.  
+**Permissions / Approval Gates:** Auto-escalation may be automatic; manual downgrade requires authorized operator with justification.  
+**Audit Log Requirements:** Escalation trigger, system or human actor, timestamp, SLA start, downgrade event and reason if applicable.  
+**State Transitions:** Maintenance `Submitted -> Escalated Emergency`; downstream handoff to dispatch/scheduling.  
+**Dependencies:** Maintenance rules, notification service, SLA timer, dispatch workflow.
+
+**Acceptance Criteria:**
+- Emergency flag raises priority automatically.
+- Manager/owner are notified immediately.
+- Request enters escalated state.
+- SLA timer can start automatically.
+- Escalated request has a downstream handoff into scheduling or dispatch.
+
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_BUSINESS_RULE`: Emergency definition/policy is not fully defined.
+- `MISSING_EXTERNAL_INTEGRATION_SPEC`: After-hours vendor dispatch logic is not defined.
+
+---
+
+## Story ID: MNT-003
+**Title:** Approved maintenance gets estimate, schedule, and assignment  
+**Primary Actor:** Property manager  
+**Business Goal:** Move approved maintenance from intake into executable work.
+
+**Trigger:** Maintenance request or approved repair scope is marked ready for planning.  
+**Preconditions:** Maintenance item has reached `Under Review` or `Approved`; issue category and location context are available.  
+**Main Flow:**
+1. Manager or system creates an estimate for the approved work.
+2. Work is scheduled into an available service window.
+3. Assignment is made to internal staff or an external vendor.
+4. Work order transitions into active execution with visible status updates.
+
+**Alternate Flows:**
+- Manager assigns to internal staff when supported capacity exists.
+- External vendor assignment is used when in-house assignment is unavailable.
+- Work may remain waiting for parts or vendor confirmation after initial scheduling.
+
+**Failure / Exception Flows:**
+- Missing category, scope, or unit-access details blocks scheduling/assignment.
+- Scheduling conflict or unavailable assignee keeps the work in planning state and surfaces the exception.
+
+**Data Captured / Affected:** Work order, estimate, schedule window, assignee or vendor reference, unit access notes, status history.  
+**Notifications:** Assignment notices, schedule confirmations, status-change notifications to affected parties when configured.  
+**Permissions / Approval Gates:** Manager approval required to move from intake into planned work; assignment changes require authorized operator access.  
+**Audit Log Requirements:** Work-order creation, estimate creation, assignment decision, schedule changes, reassignment, status transitions.  
+**State Transitions:** Maintenance `Under Review -> Approved -> Estimate Generated -> Scheduled -> In Progress` or `Awaiting Parts/Vendor`.  
+**Dependencies:** Maintenance intake, estimation logic, scheduling workflow, vendor/internal assignment model, notification service.
+
+**Acceptance Criteria:**
+- Approved work can generate an estimate.
+- Approved work can be scheduled.
+- Approved work can be assigned to internal staff or vendor.
+- Planning and assignment actions are auditable.
+- Planned work transitions into active execution or explicit waiting state.
+
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_ROLE_PERMISSION_RULE`: Exact assignment authority across manager/staff/vendor roles is not fully defined.
+- `MISSING_EXTERNAL_INTEGRATION_SPEC`: Vendor dispatch/availability integration is not defined.
+
+---
+
+## Story ID: MNT-004
+**Title:** Manager sign-off closes completed maintenance work  
+**Primary Actor:** Property manager  
+**Business Goal:** Prevent work from closing without final operator review and a frozen closure record.
+
+**Trigger:** Work order is marked completed by staff or vendor.  
+**Preconditions:** Work order exists in `Completed`; completion summary and actual completion date are available.  
+**Main Flow:**
+1. Completed work is presented for manager review.
+2. Manager validates completion details.
+3. Manager signs off and closes the work order.
+4. Final work summary is frozen for reporting and future disputes.
+
+**Alternate Flows:**
+- Manager returns the work to active remediation if completion is insufficient.
+- Tenant completion notice is sent when the workflow is configured to notify.
+
+**Failure / Exception Flows:**
+- Missing completion summary or completion date blocks sign-off.
+- Disputed completion keeps work out of `Closed` and requires follow-up.
+
+**Data Captured / Affected:** Completion summary, actual completion date, sign-off actor, closure state, follow-up reason if returned.  
+**Notifications:** Optional tenant completion notice; internal closure confirmation.  
+**Permissions / Approval Gates:** Manager sign-off required to transition from `Completed` to `Closed`.  
+**Audit Log Requirements:** Completion submitted, sign-off decision, closure timestamp, returned-for-follow-up decision, frozen closure summary reference.  
+**State Transitions:** Maintenance `Completed -> Manager Signed Off -> Closed` or back to `In Progress`/follow-up path when rejected.  
+**Dependencies:** Work-order status system, completion summary capture, notification service, reporting/analytics consumers.
+
+**Acceptance Criteria:**
+- Only manager sign-off closes the job.
+- Closure records actual completion date and final summary.
+- Closed work becomes a stable record for analytics and disputes.
+- Rejected closure returns the work to a non-closed state with an auditable reason.
+
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_NOTIFICATION_RULE`: Tenant completion-notice policy is not fully defined.
+- `MISSING_EXCEPTION_PATH`: Formal customer satisfaction or dispute flow after closure is not defined.
+
+---
+
+## Story ID: MOV-001
+**Title:** Tenant performs move-out inspection before departure  
+**Primary Actor:** Tenant  
+**Business Goal:** Capture the tenant’s view of unit condition before final closeout.
+
+**Trigger:** Move-out process is initiated and move-out inspection window opens.  
+**Preconditions:** Lease is in move-out workflow; tenant has access to the linked unit and move-out inspection record.  
+**Main Flow:**
+1. Tenant opens the move-out inspection.
+2. Tenant adds notes and photos documenting unit condition.
+3. Tenant submits the inspection.
+4. Submitted inspection enters manager/staff review queue.
+
+**Alternate Flows:**
+- Draft save is supported if enabled before final submission.
+
+**Failure / Exception Flows:**
+- Missing required evidence blocks submission when the checklist requires it.
+- Attachment failure preserves draft state and surfaces retry.
+
+**Data Captured / Affected:** Move-out inspection, notes, photos, submit timestamp, linked lease/unit/tenant references.  
+**Notifications:** Submission confirmation to tenant; manager/staff review notice.  
+**Permissions / Approval Gates:** Tenant can submit only for their linked move-out inspection; manager review occurs downstream.  
+**Audit Log Requirements:** Draft/save events, submit event, attachments added, linked move-out workflow context.  
+**State Transitions:** Applicant-to-Tenant `Move-Out Pending`; inspection `Scheduled -> In Progress -> Submitted`; downstream handoff to manager move-out inspection.  
+**Dependencies:** Inspection UI, media upload, move-out workflow, manager/staff inspection review.
+
+**Acceptance Criteria:**
+- Tenant can submit notes and photos for move-out.
+- Submission is time-stamped and linked to unit and lease context.
+- Submitted inspection enters manager/staff review queue.
+- Move-out inspection has a downstream handoff rather than ending at submission.
+
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_BUSINESS_RULE`: Deadline for tenant move-out inspection submission is not defined.
+- `MISSING_EXCEPTION_PATH`: Formal dispute path between tenant submission and manager assessment is not defined.
+
+---
+
+## Story ID: MOV-002
+**Title:** Manager or staff move-out inspection creates turn scope and timeline  
+**Primary Actor:** Property manager or staff member  
+**Business Goal:** Define post-occupancy cleaning, repair, and turn work needed to return the unit to service.
+
+**Trigger:** Move-out inspection review begins after tenant submission or scheduled vacancy walkthrough.  
+**Preconditions:** Unit is entering turn workflow; move-out inspection context exists; manager/staff has access to unit history.  
+**Main Flow:**
+1. Manager or staff completes the formal move-out inspection.
+2. System identifies damage, cleaning, and turn items.
+3. Turn scope and timeline are created from the inspection results.
+4. Resulting turn work is handed off into maintenance planning and closeout charging.
+
+**Alternate Flows:**
+- Manager/staff inspection proceeds even if no tenant inspection was submitted.
+- Heavy-cleaning and repair items are grouped into separate turn work scopes where needed.
+
+**Failure / Exception Flows:**
+- Missing inspection evidence or inaccessible prior records blocks final turn approval.
+- Turn scope cannot be finalized if required damage/cleaning categorization is incomplete.
+
+**Data Captured / Affected:** Move-out inspection findings, repair/cleaning estimates or placeholders, turn scope, target turn timeline, unit turn state.  
+**Notifications:** Internal assignment or turn-preparation notices; optional owner visibility notices when configured.  
+**Permissions / Approval Gates:** Manager/staff review required; final turn scope approval requires authorized operator action.  
+**Audit Log Requirements:** Manager/staff inspection results, turn scope creation, timeline creation, unit turn state change, follow-up changes.  
+**State Transitions:** Unit turn `Move-Out Scheduled -> Awaiting Move-Out Inspection -> Turn Scope Defined -> Turn Work Scheduled`; downstream handoff to work execution and final charges.  
+**Dependencies:** Inspection workflow, estimation logic, unit turn workflow, maintenance planning, closeout charging workflow.
+
+**Acceptance Criteria:**
+- Manager/staff move-out inspection can be completed with linked unit/lease context.
+- Turn scope and target timeline can be created from findings.
+- Resulting turn work is handed off into execution and closeout workflows.
+- Unit turn state changes are auditable.
+
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_LEGAL_RULE`: Deposit-deduction policy for damage vs normal wear is not defined.
+- `MISSING_DATA_MAPPING`: Damage/heavy-cleaning categorization rules are not fully defined.
+
+---
+
+## Story ID: PRP-001
+**Title:** Property records can be created and edited in the operations portal  
+**Primary Actor:** Property manager or owner  
+**Business Goal:** Keep property-level operational, geographic, and financial metadata current for downstream workflows.
+
+**Trigger:** Authorized operator creates or edits a property record.  
+**Preconditions:** Operator has property-management permissions.  
+**Main Flow:**
+1. Operator creates or updates a property record.
+2. System stores operational metadata, geographic coordinates, amenities, media references, and mortgage-related metadata where supported.
+3. Updated property record becomes available to unit, listing, and reporting workflows.
+
+**Alternate Flows:**
+- Media and amenities are updated independently of financial metadata.
+
+**Failure / Exception Flows:**
+- Permission failure blocks create/edit.
+- Invalid property data blocks persistence and returns validation errors.
+
+**Data Captured / Affected:** Property record, address, latitude/longitude, amenities, media references, mortgage metadata, audit history.  
+**Notifications:** Optional internal change notification when configured.  
+**Permissions / Approval Gates:** Role-based create/edit permissions required.  
+**Audit Log Requirements:** Property create/update, actor, changed fields, prior/new values where applicable.  
+**State Transitions:** No lifecycle state machine; downstream handoff to unit management, listing, and reporting workflows.  
+**Dependencies:** Property form, permission model, media management, reporting consumers.
+
+**Acceptance Criteria:**
+- Property records support address, latitude/longitude, amenities, media references, and mortgage-related metadata.
+- Authorized operators can create and edit property records.
+- Property changes are auditable.
+- Property records are usable by unit, listing, and reporting workflows.
+
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_DATA_MAPPING`: Exact mortgage metadata schema is not fully defined.
+- `MISSING_ROLE_PERMISSION_RULE`: Fine-grained owner vs manager edit boundaries are not fully defined.
+
+---
+
+## Story ID: UNT-001
+**Title:** Unit records can be created and edited in the operations portal  
+**Primary Actor:** Property manager or owner  
+**Business Goal:** Maintain unit-level operational data for leasing, maintenance, and listing workflows.
+
+**Trigger:** Authorized operator creates or edits a unit record under a property.  
+**Preconditions:** Parent property exists; operator has unit-management permissions.  
+**Main Flow:**
+1. Operator creates or updates a unit record.
+2. System stores status, amenities, layouts, media references, and unit attributes.
+3. Updated unit record becomes available to leasing, listing, maintenance, and reporting workflows.
+
+**Alternate Flows:**
+- Unit status changes without editing other attributes.
+
+**Failure / Exception Flows:**
+- Missing property linkage blocks unit creation.
+- Invalid status or required data blocks persistence.
+
+**Data Captured / Affected:** Unit record, parent property reference, status, amenities, layout/media references, unit attributes, audit history.  
+**Notifications:** Optional internal change notice when configured.  
+**Permissions / Approval Gates:** Role-based create/edit permissions required.  
+**Audit Log Requirements:** Unit create/update, actor, changed fields, status changes, prior/new values where applicable.  
+**State Transitions:** Unit availability/operational status updates support downstream leasing, listing, maintenance, and turn workflows.  
+**Dependencies:** Unit form, property linkage, permission model, media management, downstream ops workflows.
+
+**Acceptance Criteria:**
+- Unit records support status, amenities, layouts, and media references.
+- Units remain linked to parent properties.
+- Status changes are auditable.
+- Unit data can be consumed by leasing, listing, maintenance, and reporting workflows.
+
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_DATA_MAPPING`: Normalized unit status taxonomy is not fully defined.
+- `TERMINOLOGY_MISMATCH`: Rent-ready, available, and listed state boundaries are not fully normalized across repo stories.
+
+---
+
+## Story ID: DSH-001
+**Title:** Dashboard shows key dates and operational calendar  
+**Primary Actor:** Property manager or owner  
+**Business Goal:** Present role-appropriate operational obligations immediately after login.
+
+**Trigger:** Authorized user logs in or dashboard data refreshes.  
+**Preconditions:** Source workflows emit calendar-relevant events.  
+**Main Flow:**
+1. System loads payments, inspections, move-ins, move-outs, court dates, and other operational events.
+2. Dashboard displays a calendar-centric view.
+3. Each event links back to its source workflow.
+4. Dashboard reflects live changes without manual reconciliation where event feeds exist.
+
+**Alternate Flows:**
+- Owner sees read-only or filtered views based on role.
+- Dashboard can emphasize anomalies or action items when analytics are available.
+
+**Failure / Exception Flows:**
+- Partial source failure surfaces incomplete data warning instead of silently omitting events.
+
+**Data Captured / Affected:** Calendar event aggregates, event links, visibility rules, refresh timestamps.  
+**Notifications:** No direct outbound notification; dashboard displays upstream event data.  
+**Permissions / Approval Gates:** Role-based visibility required.  
+**Audit Log Requirements:** Dashboard data refresh generation time and source linkage audit where operationally relevant.  
+**State Transitions:** No domain state change; visibility layer for downstream workflows.  
+**Dependencies:** Calendar aggregation service, event sources from payments/inspections/move-in/move-out/legal flows, role visibility model.
+
+**Acceptance Criteria:**
+- Calendar shows payments, inspections, move-ins, move-outs, court dates, and other major events.
+- Entries link to source workflows.
+- Visibility is role-appropriate.
+- Event changes appear without manual reconciliation where the underlying source emits updates.
+
+**Open Gaps / Unresolved Decisions:**
+- `ABSENT_ANALYTICS_REQUIREMENT`: Widget prioritization rules are not defined.
+- `MISSING_ROLE_PERMISSION_RULE`: Fine-grained dashboard visibility model is not fully defined.
+
+---
+
+## Story ID: COM-001
+**Title:** System supports multi-channel communications in the portal context  
+**Primary Actor:** Property manager  
+**Business Goal:** Reach tenants reliably through configured channels and preserve operational message history.
+
+**Trigger:** A portal workflow requires outbound communication.  
+**Preconditions:** Recipient exists; event supports one or more delivery channels.  
+**Main Flow:**
+1. System determines configured delivery channels for the event.
+2. System attempts delivery through email, SMS, in-app, and physical markers where applicable.
+3. Delivery attempts and outcomes are recorded.
+4. Related workflow retains communication linkage for dispute reconstruction.
+
+**Alternate Flows:**
+- Channel fallback occurs when the primary channel fails.
+- Manual communication can be recorded when sent outside the automated flow.
+
+**Failure / Exception Flows:**
+- All-channel failure remains visible and retriable.
+- Physical delivery can be marked without proof artifacts when proof workflow is not defined.
+
+**Data Captured / Affected:** Recipient, channel set, message type, attempt timestamps, delivery status, linked workflow objects.  
+**Notifications:** The outbound communication itself.  
+**Permissions / Approval Gates:** Manager approval required where the source workflow requires it; this story does not remove source approval gates.  
+**Audit Log Requirements:** Actor or system source, timestamp, channel, message type, target, sent/failed/delivered state, manual communication records.  
+**State Transitions:** No standalone lifecycle transition; communications attach to source workflows.  
+**Dependencies:** Notification service, template configuration, audit logging, source workflow approval rules.
+
+**Acceptance Criteria:**
+- Email, SMS, in-app, and physical markers are supported where applicable.
+- Delivery attempts are logged.
+- Failures are visible.
+- Manual communications can be recorded.
+- Communication records are linkable to tenant, unit, property, and source workflow.
+
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_EXTERNAL_INTEGRATION_SPEC`: Print/mail workflow is not defined.
+- `MISSING_AUDIT_REQUIREMENT`: Proof of mailbox/door posting is not defined.

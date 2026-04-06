@@ -461,6 +461,28 @@ export class StripeService {
           }
         }
 
+        if (organizationId && leaseId) {
+          const allocation = await this.recordYieldSweepAllocation(
+            organizationId,
+            leaseId,
+            payment.id,
+            grossAmountMinor,
+          );
+
+          await this.prisma.paymentLedgerEntry.updateMany({
+            where: {
+              paymentId: payment.id,
+              sourceEventId,
+            },
+            data: {
+              tierSnapshot: {
+                ...(tierSnapshot ?? {}),
+                yieldSweepAllocation: allocation,
+              } as any,
+            },
+          });
+        }
+
         this.logger.log(`Updated payment ${payment.id} to COMPLETED`);
         this.eventsService.emitPaymentSuccess(payment.id, leaseId || '', Number(payment.amount));
         
@@ -703,7 +725,79 @@ export class StripeService {
       error &&
         typeof error === 'object' &&
         'code' in error &&
-        (error as { code?: unknown }).code === 'P2002',
+      (error as { code?: unknown }).code === 'P2002',
     );
+  }
+
+  private async recordYieldSweepAllocation(
+    orgId: string,
+    leaseId: string,
+    paymentId: number,
+    amountCents: number,
+  ) {
+    const allocation = await this.computeYieldSweepAllocation(orgId, amountCents);
+    const account = await (this.prisma as any).ledgerAccount.findUnique({
+      where: {
+        organizationId_leaseId: {
+          organizationId: orgId,
+          leaseId,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!account) {
+      return allocation;
+    }
+
+    await (this.prisma as any).ledgerTransaction.create({
+      data: {
+        accountId: account.id,
+        paymentId,
+        entryType: 'PAYMENT',
+        direction: 'CREDIT',
+        amountCents,
+        effectiveDate: new Date(),
+        categoryCode: 'yield_sweep',
+        sourceType: 'yield_sweep',
+        sourceId: String(paymentId),
+        description: 'Yield sweep allocation recorded',
+        metadata: allocation as any,
+      },
+    });
+
+    return allocation;
+  }
+
+  private async computeYieldSweepAllocation(orgId: string, amountCents: number) {
+    const activeCycle = await this.prisma.orgPlanCycle.findFirst({
+      where: { organizationId: orgId, status: 'ACTIVE' },
+      include: { activeFeeSchedule: true },
+      orderBy: { startsAt: 'desc' },
+    });
+
+    const feeConfig = (activeCycle?.activeFeeSchedule?.feeConfig as Record<string, any> | undefined) ?? {};
+    const managementFeePct = typeof feeConfig.baseManagementFeePct === 'number' ? feeConfig.baseManagementFeePct : 0.08;
+    const reservePct = typeof feeConfig.reservePct === 'number' ? feeConfig.reservePct : 0.05;
+    const ownerYieldPct = Math.max(0, 1 - managementFeePct - reservePct);
+
+    const managementFeeCents = Math.round(amountCents * managementFeePct);
+    const reserveContributionCents = Math.round(amountCents * reservePct);
+    const ownerYieldCents = Math.max(0, amountCents - managementFeeCents - reserveContributionCents);
+
+    return {
+      amountCents,
+      configurationSource: activeCycle?.activeFeeScheduleId ? 'active_fee_schedule' : 'default_rule',
+      percentages: {
+        managementFeePct,
+        reservePct,
+        ownerYieldPct,
+      },
+      allocations: {
+        managementFeeCents,
+        reserveContributionCents,
+        ownerYieldCents,
+      },
+    };
   }
 }

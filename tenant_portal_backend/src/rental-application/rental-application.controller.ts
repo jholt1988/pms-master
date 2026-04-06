@@ -163,4 +163,22 @@ export class RentalApplicationController {
   getAiReview(@Param('id') id: string, @OrgId() orgId?: string) {
     return this.rentalApplicationService.getAiReview(Number(id), orgId);
   }
+
+  @Post(':id/outcomes')
+  @HttpCode(200)
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles('PROPERTY_MANAGER')
+  recordOutcome(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      actualOutcome: 'LEASE_COMPLETED' | 'DELINQUENT' | 'EVICTION_FILED' | 'EARLY_MOVE_OUT' | 'UNKNOWN';
+      daysToDelinquency?: number;
+      notes?: string;
+    },
+    @Request() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
+  ) {
+    return this.rentalApplicationService.recordPredictedOutcomeFeedback(Number(id), body, req.user, orgId);
+  }
 }

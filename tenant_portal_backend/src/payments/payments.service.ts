@@ -1,6 +1,6 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Invoice, Payment, Role, Prisma, ManualPayment, ManualCharge, ManualPaymentAppliedTo, ManualPaymentMethod, ManualChargeType } from '@prisma/client';
+import { Invoice, Payment, Role, Prisma, ManualPayment, ManualCharge, ManualPaymentAppliedTo, ManualPaymentMethod, ManualChargeType, LeaseNoticeType, LeaseStatus, LeaseTerminationParty } from '@prisma/client';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { CreateStripeCheckoutSessionDto } from './dto/create-stripe-checkout-session.dto';
@@ -8,6 +8,13 @@ import { AIPaymentService } from './ai-payment.service';
 import { EmailService } from '../email/email.service';
 import { StripeService } from './stripe.service';
 import { calculateFee } from '../billing/fee-engine';
+import { AuditLogService } from '../shared/audit-log.service';
+import { IssueDelinquencyNoticeDto } from './dto/issue-delinquency-notice.dto';
+import { DelinquencyResolutionMode, ResolveDelinquencyLegalHoldDto } from './dto/resolve-delinquency-legal-hold.dto';
+import { ReferDelinquencyAttorneyDto } from './dto/refer-delinquency-attorney.dto';
+import { RecordCourtDateDto } from './dto/record-court-date.dto';
+import { WorkflowEventService } from '../policy/workflow-event.service';
+import { WorkflowEventProcessor } from '../policy/workflow-event-processor.service';
 
 type CreateManualPaymentInput = {
   leaseId: string;
@@ -56,6 +63,9 @@ export class PaymentsService {
     private readonly aiPaymentService: AIPaymentService,
     private readonly emailService: EmailService,
     private readonly stripeService: StripeService,
+    private readonly auditLogService: AuditLogService,
+    @Optional() private readonly workflowEventService?: WorkflowEventService,
+    @Optional() private readonly workflowEventProcessor?: WorkflowEventProcessor,
   ) { }
 
   async createInvoice(dto: CreateInvoiceDto, orgId: string): Promise<Invoice> {
@@ -737,6 +747,91 @@ export class PaymentsService {
     return payment;
   }
 
+  async getLedgerAccountForLease(leaseId: string, orgId?: string) {
+    return this.ensureLedgerAccountForLease(leaseId, orgId);
+  }
+
+  async createOperationalLedgerEntry(
+    orgId: string,
+    leaseId: string,
+    data: {
+      paymentId?: number;
+      entryType: 'CHARGE' | 'CREDIT' | 'PAYMENT' | 'REVERSAL' | 'RETURN_FEE' | 'WRITEOFF';
+      direction: 'DEBIT' | 'CREDIT';
+      amountCents: number;
+      effectiveDate: Date;
+      categoryCode?: string;
+      sourceType: string;
+      sourceId?: string;
+      description?: string;
+      reversesEntryId?: string;
+      reasonCode?: string;
+      createdById?: string;
+      metadata?: Record<string, unknown>;
+    },
+  ) {
+    const account = await this.ensureLedgerAccountForLease(leaseId, orgId);
+    return this.createLedgerTransactionIfMissing(this.prisma, {
+      accountId: account.id,
+      ...data,
+    });
+  }
+
+  async computeYieldSweepAllocation(orgId: string, amountCents: number) {
+    if (amountCents <= 0) {
+      throw new BadRequestException('amountCents must be greater than zero');
+    }
+
+    const activeCycle = await this.prisma.orgPlanCycle.findFirst({
+      where: { organizationId: orgId, status: 'ACTIVE' },
+      include: { activeFeeSchedule: true },
+      orderBy: { startsAt: 'desc' },
+    });
+
+    const feeConfig = (activeCycle?.activeFeeSchedule?.feeConfig as Record<string, any> | undefined) ?? {};
+    const managementFeePct = typeof feeConfig.baseManagementFeePct === 'number' ? feeConfig.baseManagementFeePct : 0.08;
+    const reservePct = typeof feeConfig.reservePct === 'number' ? feeConfig.reservePct : 0.05;
+    const ownerYieldPct = Math.max(0, 1 - managementFeePct - reservePct);
+
+    const managementFeeCents = Math.round(amountCents * managementFeePct);
+    const reserveContributionCents = Math.round(amountCents * reservePct);
+    const ownerYieldCents = Math.max(0, amountCents - managementFeeCents - reserveContributionCents);
+
+    return {
+      amountCents,
+      configurationSource: activeCycle?.activeFeeScheduleId ? 'active_fee_schedule' : 'default_rule',
+      percentages: {
+        managementFeePct,
+        reservePct,
+        ownerYieldPct,
+      },
+      allocations: {
+        managementFeeCents,
+        reserveContributionCents,
+        ownerYieldCents,
+      },
+    };
+  }
+
+  async recordYieldSweepAllocation(orgId: string, leaseId: string, paymentId: number, amountCents: number) {
+    const allocation = await this.computeYieldSweepAllocation(orgId, amountCents);
+
+    await this.createOperationalLedgerEntry(orgId, leaseId, {
+      paymentId,
+      entryType: 'PAYMENT',
+      direction: 'CREDIT',
+      amountCents,
+      effectiveDate: new Date(),
+      categoryCode: 'yield_sweep',
+      sourceType: 'yield_sweep',
+      sourceId: String(paymentId),
+      description: 'Yield sweep allocation recorded',
+      metadata: allocation as any,
+    });
+
+    return allocation;
+  }
+
   async markPaymentReconciled(paymentId: number, externalId: string): Promise<Payment> {
     return this.prisma.payment.update({
       where: { id: paymentId },
@@ -764,6 +859,7 @@ export class PaymentsService {
       reversesEntryId?: string;
       reasonCode?: string;
       createdById?: string;
+      metadata?: Record<string, unknown>;
     },
   ) {
     if (data.amountCents <= 0) {
@@ -824,8 +920,13 @@ export class PaymentsService {
       return existing;
     }
 
+    const createData: Prisma.LedgerTransactionUncheckedCreateInput = {
+      ...data,
+      metadata: data.metadata as Prisma.InputJsonValue | undefined,
+    };
+
     return prismaLike.ledgerTransaction.create({
-      data,
+      data: createData,
     });
   }
 
@@ -1049,6 +1150,21 @@ export class PaymentsService {
       `Payment plan created for invoice ${invoiceId}: ` +
       `${plan.installments} installments of $${plan.amountPerInstallment.toFixed(2)} (ID: ${paymentPlan.id})`,
     );
+
+    await this.recordAudit({
+      orgId,
+      action: 'PAYMENT_PLAN_CREATED',
+      entityType: 'PaymentPlan',
+      entityId: paymentPlan.id,
+      metadata: {
+        invoiceId,
+        leaseId: invoice.leaseId,
+        installments: plan.installments,
+        amountPerInstallment: plan.amountPerInstallment,
+        totalAmount: plan.totalAmount,
+        status: paymentPlan.status,
+      },
+    });
 
     return {
       id: paymentPlan.id,
@@ -1554,7 +1670,7 @@ export class PaymentsService {
     const safeOffset = Math.max(params.offset ?? 0, 0);
     rows = rows.slice(safeOffset, safeOffset + safeLimit);
 
-    return {
+    const result = {
       generatedAt: today,
       count: rows.length,
       total,
@@ -1569,6 +1685,23 @@ export class PaymentsService {
       },
       items: rows,
     };
+
+    await this.recordAudit({
+      orgId: params.orgId,
+      action: 'DELINQUENCY_QUEUE_VIEWED',
+      entityType: 'DelinquencyQueue',
+      entityId: params.orgId ?? 'global',
+      metadata: {
+        bucket: result.bucket,
+        count: result.count,
+        total: result.total,
+        sortBy: result.sortBy,
+        sortOrder: result.sortOrder,
+        propertyId: params.propertyId ?? null,
+      },
+    });
+
+    return result;
   }
 
   async getPaymentsOpsSummary(orgId?: string, limit = 25) {
@@ -1625,7 +1758,7 @@ export class PaymentsService {
       },
     }));
 
-    return {
+    const summary = {
       generatedAt: new Date().toISOString(),
       counts: {
         delinquentAccounts: recommendedReminders.length,
@@ -1638,6 +1771,20 @@ export class PaymentsService {
       delinquency: recommendedReminders,
       failedPayments: failedPaymentItems,
     };
+
+    await this.recordAudit({
+      orgId,
+      action: 'PAYMENTS_OPS_SUMMARY_VIEWED',
+      entityType: 'PaymentsOpsSummary',
+      entityId: orgId ?? 'global',
+      metadata: {
+        delinquentAccounts: summary.counts.delinquentAccounts,
+        failedPayments: summary.counts.failedPayments,
+        limit: safeLimit,
+      },
+    });
+
+    return summary;
   }
 
   async executePaymentsBulkAction(
@@ -1665,7 +1812,7 @@ export class PaymentsService {
       const simulationTokenOut = Buffer.from(
         JSON.stringify({ action, ids: uniqueIds, actorId: actor.userId, orgId: orgId || null }),
       ).toString('base64url');
-      return {
+      const simulation = {
         action,
         simulate: true,
         requiresConfirm: highImpact,
@@ -1676,6 +1823,20 @@ export class PaymentsService {
         successes: uniqueIds.map((id) => ({ id, result: { simulated: true } })),
         failures: [],
       };
+
+      await this.recordAudit({
+        orgId,
+        actorId: actor.userId,
+        action: 'PAYMENTS_BULK_ACTION_SIMULATED',
+        entityType: 'PaymentsBulkAction',
+        entityId: action,
+        metadata: {
+          requested: uniqueIds.length,
+          highImpact,
+        },
+      });
+
+      return simulation;
     }
 
     if (highImpact && !confirm) {
@@ -1723,7 +1884,7 @@ export class PaymentsService {
       }
     }
 
-    return {
+    const execution = {
       action,
       simulate: false,
       confirmed: confirm,
@@ -1733,6 +1894,22 @@ export class PaymentsService {
       successes,
       failures,
     };
+
+    await this.recordAudit({
+      orgId,
+      actorId: actor.userId,
+      action: 'PAYMENTS_BULK_ACTION_EXECUTED',
+      entityType: 'PaymentsBulkAction',
+      entityId: action,
+      metadata: {
+        requested: execution.requested,
+        succeeded: execution.succeeded,
+        failed: execution.failed,
+        confirmed: execution.confirmed,
+      },
+    });
+
+    return execution;
   }
 
   /**
@@ -1800,6 +1977,797 @@ export class PaymentsService {
     // This function seems to be for 'manual' or 'specific' reminders.
 
     this.logger.log(`Created payment reminder notification for invoice ${invoiceId}`);
+
+    await this.recordAudit({
+      action: 'PAYMENT_REMINDER_CREATED',
+      entityType: 'Notification',
+      entityId: invoiceId,
+      metadata: {
+        invoiceId,
+        leaseId: invoice.leaseId,
+        tenantId: invoice.lease.tenantId,
+        channel: reminder.channel,
+        urgency: reminder.urgency,
+      },
+    });
+  }
+
+  async issueDelinquencyNotice(
+    dto: IssueDelinquencyNoticeDto,
+    actorId: string,
+    orgId: string,
+  ) {
+    if (!dto.approvalConfirmed) {
+      throw new BadRequestException('approvalConfirmed must be true before issuing a delinquency notice');
+    }
+
+    const lease = await this.prisma.lease.findFirst({
+      where: {
+        id: dto.leaseId,
+        unit: { property: { organizationId: orgId } },
+      },
+      include: {
+        tenant: true,
+        unit: { include: { property: true } },
+      },
+    });
+
+    if (!lease) {
+      throw new NotFoundException('Lease not found');
+    }
+
+    const overdueInvoices = await this.prisma.invoice.findMany({
+      where: {
+        leaseId: lease.id,
+        status: { not: 'PAID' },
+        dueDate: { lt: new Date() },
+      },
+      orderBy: { dueDate: 'asc' },
+    });
+
+    if (overdueInvoices.length === 0) {
+      throw new BadRequestException('No overdue balance exists for this lease');
+    }
+
+    const amountDueCents = overdueInvoices.reduce((sum, invoice) => sum + Math.round(Number(invoice.amount) * 100), 0);
+    const oldestDueDate = overdueInvoices[0]?.dueDate;
+    const message =
+      dto.message?.trim() ||
+      `Delinquency notice issued for overdue balance of $${(amountDueCents / 100).toFixed(2)} across ${overdueInvoices.length} invoice(s).`;
+
+    const [notice] = await this.prisma.$transaction([
+      this.prisma.leaseNotice.create({
+        data: {
+          lease: { connect: { id: lease.id } },
+          type: LeaseNoticeType.OTHER,
+          deliveryMethod: dto.deliveryMethod,
+          message,
+          createdBy: { connect: { id: actorId } },
+        },
+      }),
+      this.prisma.lease.update({
+        where: { id: lease.id },
+        data: {
+          status: LeaseStatus.NOTICE_GIVEN,
+          terminationRequestedBy: LeaseTerminationParty.MANAGER,
+        },
+      }),
+      this.prisma.leaseHistory.create({
+        data: {
+          leaseId: lease.id,
+          actorId,
+          fromStatus: lease.status,
+          toStatus: LeaseStatus.NOTICE_GIVEN,
+          note: 'Delinquency notice issued',
+          metadata: {
+            noticeKind: 'DELINQUENCY',
+            deliveryMethod: dto.deliveryMethod,
+            overdueInvoiceIds: overdueInvoices.map((invoice) => invoice.id),
+            amountDueCents,
+            oldestDueDate: oldestDueDate?.toISOString() ?? null,
+          },
+        },
+      }),
+      this.prisma.notification.create({
+        data: {
+          userId: lease.tenantId,
+          type: 'LEASE_NOTICE' as any,
+          title: 'Delinquency Notice Issued',
+          message,
+          metadata: {
+            leaseId: lease.id,
+            propertyId: lease.unit?.propertyId,
+            unitId: lease.unitId,
+            overdueInvoiceIds: overdueInvoices.map((invoice) => invoice.id),
+            amountDueCents,
+            deliveryMethod: dto.deliveryMethod,
+            noticeKind: 'DELINQUENCY',
+          },
+        },
+      }),
+    ]);
+
+    await this.recordAudit({
+      orgId,
+      actorId,
+      action: 'DELINQUENCY_NOTICE_ISSUED',
+      entityType: 'LeaseNotice',
+      entityId: notice.id,
+      metadata: {
+        leaseId: lease.id,
+        tenantId: lease.tenantId,
+        propertyId: lease.unit?.propertyId,
+        unitId: lease.unitId,
+        deliveryMethod: dto.deliveryMethod,
+        overdueInvoiceIds: overdueInvoices.map((invoice) => invoice.id),
+        amountDueCents,
+        approvalConfirmed: dto.approvalConfirmed,
+      },
+    });
+
+    return {
+      noticeId: notice.id,
+      leaseId: lease.id,
+      status: LeaseStatus.NOTICE_GIVEN,
+      overdueInvoiceIds: overdueInvoices.map((invoice) => invoice.id),
+      amountDueCents,
+      oldestDueDate,
+    };
+  }
+
+  async resolveDelinquencyLegalHold(
+    dto: ResolveDelinquencyLegalHoldDto,
+    actorId: string,
+    orgId: string,
+  ) {
+    const lease = await this.prisma.lease.findFirst({
+      where: {
+        id: dto.leaseId,
+        unit: { property: { organizationId: orgId } },
+      },
+      include: {
+        unit: { include: { property: true } },
+      },
+    });
+
+    if (!lease) {
+      throw new NotFoundException('Lease not found');
+    }
+
+    const overdueInvoices = await this.prisma.invoice.findMany({
+      where: {
+        leaseId: lease.id,
+        status: { not: 'PAID' },
+        dueDate: { lt: new Date() },
+      },
+      include: {
+        paymentPlan: true,
+      },
+    });
+
+    const outstandingDueCents = overdueInvoices.reduce((sum, invoice) => sum + Math.round(Number(invoice.amount) * 100), 0);
+    const activePlanExists = overdueInvoices.some((invoice) =>
+      invoice.paymentPlan && ['ACTIVE', 'PENDING', 'COMPLETED'].includes((invoice.paymentPlan.status || '').toUpperCase()),
+    );
+
+    if (dto.resolutionMode === DelinquencyResolutionMode.PAID && outstandingDueCents > 0) {
+      throw new BadRequestException('Outstanding overdue balance still exists for this lease');
+    }
+
+    if (dto.resolutionMode === DelinquencyResolutionMode.PAYMENT_PLAN && !activePlanExists) {
+      throw new BadRequestException('No active or pending payment plan exists for this delinquency');
+    }
+
+    const targetStatus = LeaseStatus.ACTIVE;
+    await this.prisma.$transaction([
+      this.prisma.lease.update({
+        where: { id: lease.id },
+        data: {
+          status: targetStatus,
+          terminationReason: dto.reason?.trim() || lease.terminationReason,
+        },
+      }),
+      this.prisma.leaseHistory.create({
+        data: {
+          leaseId: lease.id,
+          actorId,
+          fromStatus: lease.status,
+          toStatus: targetStatus,
+          note: `Delinquency legal hold resolved via ${dto.resolutionMode.toLowerCase().replace('_', ' ')}`,
+          metadata: {
+            resolutionMode: dto.resolutionMode,
+            outstandingDueCents,
+            activePlanExists,
+            reason: dto.reason?.trim() || null,
+          },
+        },
+      }),
+      this.prisma.notification.create({
+        data: {
+          userId: lease.tenantId,
+          type: 'LEASE_NOTICE' as any,
+          title: 'Delinquency Notice Resolved',
+          message:
+            dto.resolutionMode === DelinquencyResolutionMode.PAID
+              ? 'Your delinquency notice has been resolved after payment review.'
+              : 'Your delinquency notice has been placed on hold because a payment plan is active.',
+          metadata: {
+            leaseId: lease.id,
+            propertyId: lease.unit?.propertyId,
+            unitId: lease.unitId,
+            resolutionMode: dto.resolutionMode,
+            outstandingDueCents,
+          },
+        },
+      }),
+    ]);
+
+    await this.recordAudit({
+      orgId,
+      actorId,
+      action: 'DELINQUENCY_LEGAL_HOLD_RESOLVED',
+      entityType: 'Lease',
+      entityId: lease.id,
+      metadata: {
+        resolutionMode: dto.resolutionMode,
+        outstandingDueCents,
+        activePlanExists,
+        previousStatus: lease.status,
+        newStatus: targetStatus,
+      },
+    });
+
+    return {
+      leaseId: lease.id,
+      previousStatus: lease.status,
+      status: targetStatus,
+      resolutionMode: dto.resolutionMode,
+      outstandingDueCents,
+      activePlanExists,
+    };
+  }
+
+  async referDelinquencyToAttorney(
+    dto: ReferDelinquencyAttorneyDto,
+    actorId: string,
+    orgId: string,
+  ) {
+    if (!dto.approvalConfirmed) {
+      throw new BadRequestException('approvalConfirmed must be true before evaluating an attorney referral');
+    }
+
+    const lease = await this.prisma.lease.findFirst({
+      where: {
+        id: dto.leaseId,
+        unit: { property: { organizationId: orgId } },
+      },
+      include: {
+        tenant: true,
+        unit: { include: { property: true } },
+      },
+    });
+
+    if (!lease) {
+      throw new NotFoundException('Lease not found');
+    }
+
+    const overdueInvoices = await this.prisma.invoice.findMany({
+      where: {
+        leaseId: lease.id,
+        status: { not: 'PAID' },
+        dueDate: { lt: new Date() },
+      },
+      orderBy: { dueDate: 'asc' },
+    });
+
+    if (overdueInvoices.length === 0) {
+      throw new BadRequestException('No overdue balance exists for this lease');
+    }
+
+    const amountDueCents = overdueInvoices.reduce((sum, invoice) => sum + Math.round(Number(invoice.amount) * 100), 0);
+    const latestNotice = await this.prisma.leaseNotice.findFirst({
+      where: { leaseId: lease.id },
+      orderBy: { sentAt: 'desc' },
+    });
+
+    if (lease.status !== LeaseStatus.NOTICE_GIVEN && !latestNotice) {
+      throw new BadRequestException('A prior notice is required before attorney referral');
+    }
+
+    const evaluationTimestamp = new Date();
+    const noticeExpired = latestNotice
+      ? evaluationTimestamp.getTime() - new Date(latestNotice.sentAt).getTime() >= 3 * 24 * 60 * 60 * 1000
+      : false;
+    const serviceProofPresent =
+      latestNotice?.deliveryMethod === 'PRINT' ||
+      latestNotice?.deliveryMethod === 'OTHER' ||
+      latestNotice?.deliveryMethod === 'EMAIL';
+
+    if (!noticeExpired) {
+      throw new BadRequestException('Notice period has not expired for attorney referral');
+    }
+
+    if (!this.workflowEventService) {
+      throw new BadRequestException('Policy workflow events are not available for attorney referral evaluation');
+    }
+
+    const summary =
+      dto.summary?.trim() ||
+      `Attorney referral for lease ${lease.id} with overdue balance of $${(amountDueCents / 100).toFixed(2)} across ${overdueInvoices.length} invoice(s).`;
+
+    const workflowEvent = await this.workflowEventService.emitIfNotExists({
+      propertyId: lease.unit?.propertyId ?? '',
+      aggregateType: 'DelinquencyCase',
+      aggregateId: `lease:${lease.id}`,
+      eventType: 'attorney.referral.check',
+      idempotencyKey: `attorney_referral:lease:${lease.id}:${latestNotice?.id ?? 'none'}`,
+      payload: {
+        propertyId: lease.unit?.propertyId ?? '',
+        tenantId: lease.tenantId,
+        leaseId: lease.id,
+        delinquencyCaseId: `lease:${lease.id}`,
+        noticeId: String(latestNotice?.id ?? ''),
+        noticeType: 'THREE_DAY',
+        attorneyEmail: dto.attorneyEmail.trim(),
+        attorneyName: dto.attorneyName?.trim() || null,
+        summary,
+        noticeServed: Boolean(latestNotice),
+        serviceProofPresent,
+        noticeExpired,
+        unpaidAfterNotice: amountDueCents > 0,
+        outstandingBalance: amountDueCents / 100,
+        evaluatedAt: evaluationTimestamp.toISOString(),
+      },
+    });
+
+    let processingResult: Awaited<ReturnType<WorkflowEventProcessor['processEventById']>> | null = null;
+    let processingError: string | null = null;
+
+    if (this.workflowEventProcessor) {
+      try {
+        processingResult = await this.workflowEventProcessor.processEventById(workflowEvent.id);
+      } catch (error) {
+        processingError = String(error);
+      }
+    }
+    const evaluation = processingResult?.results?.[0];
+
+    await this.recordAudit({
+      orgId,
+      actorId,
+      action: 'DELINQUENCY_ATTORNEY_REFERRAL_EVALUATED',
+      entityType: 'PolicyWorkflowEvent',
+      entityId: workflowEvent.id,
+      metadata: {
+        leaseId: lease.id,
+        tenantId: lease.tenantId,
+        propertyId: lease.unit?.propertyId,
+        unitId: lease.unitId,
+        attorneyEmail: dto.attorneyEmail.trim(),
+        latestNoticeId: latestNotice?.id ?? null,
+        overdueInvoiceIds: overdueInvoices.map((invoice) => invoice.id),
+        amountDueCents,
+        evaluationId: evaluation?.evaluationId ?? null,
+        approvalTaskId: evaluation?.approvalTaskId ?? null,
+        decision: evaluation?.decision ?? null,
+        processingError,
+      },
+    });
+
+    return {
+      leaseId: lease.id,
+      attorneyEmail: dto.attorneyEmail.trim(),
+      latestNoticeId: latestNotice?.id ?? null,
+      overdueInvoiceIds: overdueInvoices.map((invoice) => invoice.id),
+      amountDueCents,
+      workflowEventId: workflowEvent.id,
+      evaluationId: evaluation?.evaluationId ?? null,
+      approvalTaskId: evaluation?.approvalTaskId ?? null,
+      decision: evaluation?.decision ?? null,
+      status: evaluation?.approvalTaskId
+        ? 'PENDING_APPROVAL'
+        : processingError
+        ? 'EVENT_QUEUED'
+        : 'PROCESSED',
+      processingError,
+    };
+  }
+
+  async recordCourtDate(
+    dto: RecordCourtDateDto,
+    actorId: string,
+    orgId: string,
+  ) {
+    const lease = await this.prisma.lease.findFirst({
+      where: {
+        id: dto.leaseId,
+        unit: { property: { organizationId: orgId } },
+      },
+      include: {
+        tenant: true,
+        unit: { include: { property: true } },
+      },
+    });
+
+    if (!lease) {
+      throw new NotFoundException('Lease not found');
+    }
+
+    const courtDate = new Date(dto.courtDate);
+    const latestReferral = await this.prisma.communicationLog.findFirst({
+      where: {
+        leaseId: lease.id,
+        metadata: {
+          path: ['workflow'],
+          equals: 'DELINQUENCY_ATTORNEY_REFERRAL',
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const [history] = await this.prisma.$transaction([
+      this.prisma.leaseHistory.create({
+        data: {
+          leaseId: lease.id,
+          actorId,
+          fromStatus: lease.status,
+          toStatus: lease.status,
+          note: 'Court date recorded for delinquency matter',
+          metadata: {
+            legalStage: 'COURT_SCHEDULED',
+            courtDate: courtDate.toISOString(),
+            docketNumber: dto.docketNumber?.trim() || null,
+            courtroom: dto.courtroom?.trim() || null,
+            notes: dto.notes?.trim() || null,
+            relatedReferralCommunicationId: latestReferral?.id ?? null,
+          },
+        },
+      }),
+      this.prisma.communicationLog.create({
+        data: {
+          channel: 'INTERNAL',
+          direction: 'OUTBOUND',
+          to: 'legal-operations',
+          from: 'system',
+          subject: `Court date recorded for lease ${lease.id}`,
+          message:
+            dto.notes?.trim() ||
+            `Court date scheduled for ${courtDate.toISOString()} for lease ${lease.id}.`,
+          metadata: {
+            workflow: 'DELINQUENCY_COURT_TRACKING',
+            leaseId: lease.id,
+            propertyId: lease.unit?.propertyId,
+            unitId: lease.unitId,
+            tenantId: lease.tenantId,
+            courtDate: courtDate.toISOString(),
+            docketNumber: dto.docketNumber?.trim() || null,
+            courtroom: dto.courtroom?.trim() || null,
+            relatedReferralCommunicationId: latestReferral?.id ?? null,
+          },
+          tenantId: lease.tenantId,
+          propertyId: lease.unit?.propertyId,
+          unitId: lease.unitId,
+          leaseId: lease.id,
+          createdById: actorId,
+        },
+      }),
+      this.prisma.notification.create({
+        data: {
+          userId: actorId,
+          type: 'SYSTEM_ALERT' as any,
+          title: 'Court Date Recorded',
+          message: `Court date recorded for lease ${lease.id}.`,
+          metadata: {
+            workflow: 'DELINQUENCY_COURT_TRACKING',
+            leaseId: lease.id,
+            courtDate: courtDate.toISOString(),
+            docketNumber: dto.docketNumber?.trim() || null,
+          },
+        },
+      }),
+    ]);
+
+    await this.recordAudit({
+      orgId,
+      actorId,
+      action: 'DELINQUENCY_COURT_DATE_RECORDED',
+      entityType: 'LeaseHistory',
+      entityId: history.id,
+      metadata: {
+        leaseId: lease.id,
+        tenantId: lease.tenantId,
+        propertyId: lease.unit?.propertyId,
+        unitId: lease.unitId,
+        courtDate: courtDate.toISOString(),
+        docketNumber: dto.docketNumber?.trim() || null,
+        courtroom: dto.courtroom?.trim() || null,
+        relatedReferralCommunicationId: latestReferral?.id ?? null,
+      },
+    });
+
+    return {
+      leaseId: lease.id,
+      courtDate,
+      docketNumber: dto.docketNumber?.trim() || null,
+      courtroom: dto.courtroom?.trim() || null,
+      relatedReferralCommunicationId: latestReferral?.id ?? null,
+      historyId: history.id,
+    };
+  }
+
+  async getDelinquencyLegalTracker(leaseId: string, orgId: string) {
+    const lease = await this.prisma.lease.findFirst({
+      where: {
+        id: leaseId,
+        unit: { property: { organizationId: orgId } },
+      },
+      include: {
+        tenant: true,
+        unit: { include: { property: true } },
+      },
+    });
+
+    if (!lease) {
+      throw new NotFoundException('Lease not found');
+    }
+
+    const [overdueInvoices, notices, history, communications] = await Promise.all([
+      this.prisma.invoice.findMany({
+        where: {
+          leaseId: lease.id,
+          status: { not: 'PAID' },
+          dueDate: { lt: new Date() },
+        },
+        orderBy: { dueDate: 'asc' },
+      }),
+      this.prisma.leaseNotice.findMany({
+        where: { leaseId: lease.id },
+        orderBy: { sentAt: 'desc' },
+      }),
+      this.prisma.leaseHistory.findMany({
+        where: { leaseId: lease.id },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.communicationLog.findMany({
+        where: { leaseId: lease.id },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    const amountDueCents = overdueInvoices.reduce((sum, invoice) => sum + Math.round(Number(invoice.amount) * 100), 0);
+    const attorneyReferrals = communications.filter((entry: any) => entry.metadata?.workflow === 'DELINQUENCY_ATTORNEY_REFERRAL');
+    const courtEntries = history.filter((entry: any) => entry.metadata?.legalStage === 'COURT_SCHEDULED');
+
+    return {
+      leaseId: lease.id,
+      leaseStatus: lease.status,
+      tenantId: lease.tenantId,
+      propertyId: lease.unit?.propertyId,
+      unitId: lease.unitId,
+      overdueInvoiceIds: overdueInvoices.map((invoice) => invoice.id),
+      amountDueCents,
+      noticeCount: notices.length,
+      latestNoticeAt: notices[0]?.sentAt ?? null,
+      attorneyReferralCount: attorneyReferrals.length,
+      latestAttorneyReferralAt: attorneyReferrals[0]?.createdAt ?? null,
+      courtDates: courtEntries.map((entry: any) => ({
+        historyId: entry.id,
+        courtDate: entry.metadata?.courtDate ?? null,
+        docketNumber: entry.metadata?.docketNumber ?? null,
+        courtroom: entry.metadata?.courtroom ?? null,
+        createdAt: entry.createdAt,
+      })),
+    };
+  }
+
+  async getAttorneyPacketChecklist(
+    leaseId: string,
+    authUser: { userId: string; role: Role },
+    orgId?: string,
+  ) {
+    const parsedLeaseId = this.parseLeaseId(leaseId);
+    const lease = await this.prisma.lease.findFirst({
+      where: {
+        id: parsedLeaseId,
+        ...(orgId ? { unit: { property: { organizationId: orgId } } } : {}),
+      },
+      include: {
+        tenant: true,
+        unit: { include: { property: true } },
+        documents: { orderBy: { createdAt: 'desc' } },
+        generalDocuments: {
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+
+    if (!lease) {
+      throw new NotFoundException('Lease not found');
+    }
+
+    if (authUser.role === Role.TENANT) {
+      throw new ForbiddenException('You do not have access to this attorney packet');
+    }
+
+    const [notices, ledger, communications] = await Promise.all([
+      this.prisma.leaseNotice.findMany({
+        where: { leaseId: parsedLeaseId },
+        orderBy: { sentAt: 'desc' },
+      }),
+      this.getOperationalLedgerAccount(parsedLeaseId, authUser, orgId),
+      this.prisma.communicationLog.findMany({
+        where: { leaseId: parsedLeaseId },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    const latestNotice = notices[0] ?? null;
+    const delinquencyNotice =
+      notices.find((notice) => (notice.message || '').toLowerCase().includes('delinquency')) ?? latestNotice;
+    const attorneyReferral =
+      communications.find((entry: any) => entry.metadata?.workflow === 'DELINQUENCY_ATTORNEY_REFERRAL') ?? null;
+
+    const leaseDocuments = lease.documents.map((doc) => ({
+      id: doc.id,
+      type: doc.type,
+      url: doc.url,
+      description: doc.description,
+      createdAt: doc.createdAt,
+    }));
+
+    const relatedDocuments = lease.generalDocuments
+      .filter((doc) => ['LEASE', 'NOTICE', 'INVOICE', 'OTHER'].includes(String(doc.category)))
+      .map((doc) => ({
+        id: doc.id,
+        fileName: doc.fileName,
+        category: doc.category,
+        filePath: doc.filePath,
+        description: doc.description,
+        createdAt: doc.createdAt,
+      }));
+
+    const checklist = [
+      {
+        key: 'lease_record',
+        label: 'Executed lease record',
+        status: lease.status === LeaseStatus.ACTIVE || lease.status === LeaseStatus.NOTICE_GIVEN ? 'READY' : 'MISSING',
+        details: {
+          leaseId: lease.id,
+          status: lease.status,
+          startDate: lease.startDate,
+          endDate: lease.endDate,
+          rentAmount: lease.rentAmount,
+        },
+      },
+      {
+        key: 'lease_documents',
+        label: 'Lease documents',
+        status: leaseDocuments.length > 0 || relatedDocuments.some((doc) => doc.category === 'LEASE') ? 'READY' : 'MISSING',
+        details: {
+          count: leaseDocuments.length,
+          relatedCount: relatedDocuments.filter((doc) => doc.category === 'LEASE').length,
+        },
+      },
+      {
+        key: 'three_day_notice',
+        label: 'Three-day or delinquency notice evidence',
+        status: delinquencyNotice ? 'READY' : 'MISSING',
+        details: delinquencyNotice
+          ? {
+              noticeId: delinquencyNotice.id,
+              deliveryMethod: delinquencyNotice.deliveryMethod,
+              createdAt: delinquencyNotice.sentAt,
+              type: delinquencyNotice.type,
+            }
+          : null,
+      },
+      {
+        key: 'ledger_snapshot',
+        label: 'Ledger snapshot',
+        status: ledger.entryCount > 0 ? 'READY' : 'MISSING',
+        details: {
+          currentBalanceCents: ledger.currentBalanceCents,
+          entryCount: ledger.entryCount,
+          overdueInvoiceIds: ledger.entries
+            .filter((entry: any) => entry.source === 'invoice' && entry.signedAmountCents > 0)
+            .map((entry: any) => entry.id),
+        },
+      },
+      {
+        key: 'attorney_referral',
+        label: 'Attorney referral communication',
+        status: attorneyReferral ? 'READY' : 'MISSING',
+        details: attorneyReferral
+          ? {
+              communicationId: attorneyReferral.id,
+              to: attorneyReferral.to,
+              createdAt: attorneyReferral.createdAt,
+            }
+          : null,
+      },
+    ];
+
+    await this.recordAudit({
+      orgId,
+      actorId: authUser.userId,
+      action: 'ATTORNEY_PACKET_CHECKLIST_VIEWED',
+      entityType: 'Lease',
+      entityId: parsedLeaseId,
+      metadata: {
+        leaseId: parsedLeaseId,
+        checklistStatuses: checklist.map((item) => ({ key: item.key, status: item.status })),
+        noticeCount: notices.length,
+        leaseDocumentCount: leaseDocuments.length,
+        relatedDocumentCount: relatedDocuments.length,
+        ledgerEntryCount: ledger.entryCount,
+      },
+    });
+
+    return {
+      leaseId: parsedLeaseId,
+      tenantId: lease.tenantId,
+      propertyId: lease.unit?.propertyId,
+      unitId: lease.unitId,
+      packetStatus: checklist.every((item) => item.status === 'READY') ? 'READY' : 'INCOMPLETE',
+      checklist,
+      leaseSummary: {
+        status: lease.status,
+        startDate: lease.startDate,
+        endDate: lease.endDate,
+        rentAmount: lease.rentAmount,
+        currentBalance: lease.currentBalance,
+      },
+      noticeSummary: delinquencyNotice
+        ? {
+            noticeId: delinquencyNotice.id,
+            type: delinquencyNotice.type,
+            deliveryMethod: delinquencyNotice.deliveryMethod,
+            createdAt: delinquencyNotice.sentAt,
+            message: delinquencyNotice.message,
+          }
+        : null,
+      ledgerSummary: {
+        currentBalanceCents: ledger.currentBalanceCents,
+        entryCount: ledger.entryCount,
+        latestEntries: ledger.entries.slice(-5).reverse(),
+      },
+      documents: {
+        leaseDocuments,
+        relatedDocuments,
+      },
+      attorneyReferral: attorneyReferral
+        ? {
+            communicationId: attorneyReferral.id,
+            to: attorneyReferral.to,
+            subject: attorneyReferral.subject,
+            createdAt: attorneyReferral.createdAt,
+          }
+        : null,
+    };
+  }
+
+  private async recordAudit(event: {
+    orgId?: string;
+    actorId?: string;
+    action: string;
+    entityType: string;
+    entityId?: string | number;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      await this.auditLogService.record({
+        orgId: event.orgId,
+        actorId: event.actorId ?? null,
+        module: 'PAYMENTS',
+        action: event.action,
+        entityType: event.entityType,
+        entityId: event.entityId,
+        result: 'SUCCESS',
+        metadata: event.metadata,
+      });
+    } catch (error) {
+      this.logger.warn(`Failed to write payments audit event ${event.action}: ${String(error)}`);
+    }
   }
 }
 

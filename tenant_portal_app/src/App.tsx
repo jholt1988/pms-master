@@ -32,6 +32,7 @@ const InspectionDetailPage = lazy(() => import('./InspectionDetailPage'));
 const MaintenanceManagementPage = lazy(() => import('./MaintenanceManagementPage'));
 const QuickBooksPage = lazy(() => import('./QuickBooksPage'));
 const RentOptimizationDashboard = lazy(() => import('./domains/property-manager/features/rent-optimization/RentOptimizationDashboard'));
+const LeasePricingPage = lazy(() => import('./domains/property-manager/features/rent-optimization/LeasePricingPage'));
 const PropertySearchPage = lazy(() => import('./pages/properties/PropertySearchPage').then(m => ({ default: m.PropertySearchPage })));
 const TermsPage = lazy(() => import('./pages/legal/TermsPage'));
 const PrivacyPage = lazy(() => import('./pages/legal/PrivacyPage'));
@@ -255,6 +256,7 @@ export default function App({className}: {className: string}): React.ReactElemen
                 <Route path="expense-tracker" element={<ExpenseTrackerPageModern />} />
                 <Route path="rent-estimator" element={<RentEstimatorPage />} />
                 <Route path="rent-optimization" element={<RentOptimizationDashboard />} />
+                <Route path="rent-optimization/lease-pricing" element={<LeasePricingPage />} />
                 <Route path="security-events" element={<AuditLogPage />} />
                 <Route path="user-management" element={<UserManagementPage />} />
                 <Route path="documents" element={<DocumentManagementPage />} />

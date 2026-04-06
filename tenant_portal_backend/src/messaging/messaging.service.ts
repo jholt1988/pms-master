@@ -1,5 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { SentimentAnalysisService } from './sentiment-analysis.service';
 import {
   CreateMessageDto,
   CreateConversationDto,
@@ -10,7 +11,75 @@ import {
 
 @Injectable()
 export class MessagingService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private sentimentAnalysis: SentimentAnalysisService
+  ) {}
+
+  private async createMessageWithAnalysis(
+    prismaClient: any,
+    baseData: any,
+    content: string,
+    attachmentUrls?: string[],
+    orgId?: string,
+    senderId?: string
+  ) {
+    const detectedLanguage = this.sentimentAnalysis.detectLanguage(content);
+    const translatedContent = this.sentimentAnalysis.translateToEnglish(content, detectedLanguage);
+    const sentimentInput = translatedContent || content;
+    const sentiment = this.sentimentAnalysis.analyzeIncomingText(sentimentInput);
+    const aiDraft = this.sentimentAnalysis.generateDraftReply(sentimentInput, sentiment);
+    
+    let metadata: any = attachmentUrls?.length ? { attachments: attachmentUrls } : {};
+    metadata = {
+      ...metadata,
+      sentiment,
+      aiDraft,
+      detectedLanguage,
+      translatedContent: translatedContent !== content ? translatedContent : null,
+      translationApplied: translatedContent !== content,
+    };
+
+    const message = await prismaClient.message.create({
+      data: {
+        ...baseData,
+        metadata
+      },
+      include: {
+        sender: {
+          select: { id: true, username: true, role: true },
+        },
+      },
+    });
+
+    if (sentiment === 'URGENT' || sentiment === 'FRUSTRATED') {
+      try {
+        await (this.prisma as any).actionIntent.create({
+          data: {
+            type: 'URGENT_MESSAGE_RECEIVED',
+            description: `A ${sentiment.toLowerCase()} message requires priority review.`,
+            status: 'PENDING',
+            priority: 'HIGH',
+            organizationId: orgId,
+            userId: senderId,
+            metadata: {
+              messageId: message.id,
+              conversationId: message.conversationId,
+              content,
+              translatedContent: metadata.translatedContent,
+              detectedLanguage,
+              sentiment,
+              aiDraft
+            }
+          }
+        });
+      } catch (e) {
+        console.error('Failed to create action intent:', e);
+      }
+    }
+
+    return message;
+  }
 
   /**
    * Get all conversations for a user with pagination
@@ -196,13 +265,18 @@ export class MessagingService {
 
       // If initial message provided, create it
       if (dto.initialMessage) {
-        await prisma.message.create({
-          data: {
+        await this.createMessageWithAnalysis(
+          prisma,
+          {
             content: dto.initialMessage,
             senderId: creatorIdStr,
             conversationId: conversation.id,
           },
-        });
+          dto.initialMessage,
+          undefined,
+          orgId,
+          creatorIdStr
+        );
       }
 
       return conversation;
@@ -258,23 +332,18 @@ export class MessagingService {
         },
       });
 
-      const message = await prisma.message.create({
-        data: {
+      const message = await this.createMessageWithAnalysis(
+        prisma,
+        {
           senderId: creatorId,
           conversationId: conversation.id,
           content: dto.content,
-          metadata: dto.attachmentUrls?.length ? { attachments: dto.attachmentUrls } : undefined,
         },
-        include: {
-          sender: {
-            select: {
-              id: true,
-              username: true,
-              role: true,
-            },
-          },
-        },
-      });
+        dto.content,
+        dto.attachmentUrls,
+        orgId,
+        creatorId
+      );
 
       return {
         ...conversation,
@@ -291,23 +360,18 @@ export class MessagingService {
     if (dto.conversationId) {
       await this.ensureConversationParticipant(dto.conversationId, senderId, orgId);
       
-      return this.prisma.message.create({
-        data: {
+      return this.createMessageWithAnalysis(
+        this.prisma,
+        {
           senderId,
           conversationId: dto.conversationId,
           content: dto.content,
-          metadata: dto.attachmentUrls?.length ? { attachments: dto.attachmentUrls } : undefined,
         },
-        include: {
-          sender: {
-            select: {
-              id: true,
-              username: true,
-              role: true,
-            },
-          },
-        },
-      });
+        dto.content,
+        dto.attachmentUrls,
+        orgId,
+        senderId
+      );
     }
 
     // If recipientId provided, find or create conversation
@@ -341,23 +405,18 @@ export class MessagingService {
       const existingConversation = await this.findConversationBetweenUsers(senderId, dto.recipientId);
 
       if (existingConversation) {
-        return this.prisma.message.create({
-          data: {
+        return this.createMessageWithAnalysis(
+          this.prisma,
+          {
             senderId,
             conversationId: existingConversation.id,
             content: dto.content,
-            metadata: dto.attachmentUrls?.length ? { attachments: dto.attachmentUrls } : undefined,
           },
-          include: {
-            sender: {
-              select: {
-                id: true,
-                username: true,
-                role: true,
-              },
-            },
-          },
-        });
+          dto.content,
+          dto.attachmentUrls,
+          orgId,
+          senderId
+        );
       }
 
       // Create new conversation
@@ -370,23 +429,18 @@ export class MessagingService {
           },
         });
 
-        return prisma.message.create({
-          data: {
+        return this.createMessageWithAnalysis(
+          prisma,
+          {
             senderId,
             conversationId: conversation.id,
             content: dto.content,
-            metadata: dto.attachmentUrls?.length ? { attachments: dto.attachmentUrls } : undefined,
           },
-          include: {
-            sender: {
-              select: {
-                id: true,
-                username: true,
-                role: true,
-              },
-            },
-          },
-        });
+          dto.content,
+          dto.attachmentUrls,
+          orgId,
+          senderId
+        );
       });
     }
 

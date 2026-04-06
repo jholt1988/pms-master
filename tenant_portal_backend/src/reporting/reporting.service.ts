@@ -1,10 +1,14 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LeaseStatus, SyndicationChannel } from '@prisma/client';
+import { AuditLogService } from '../shared/audit-log.service';
 
 @Injectable()
 export class ReportingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogService: AuditLogService,
+  ) {}
 
   async getRentRoll(filters?: { propertyId?: string; status?: LeaseStatus; orgId?: string }) {
     const propertyId = filters?.propertyId;
@@ -385,6 +389,252 @@ export class ReportingService {
       chargeDate: c.chargeDate,
       dueDate: c.dueDate,
     }));
+  }
+
+  async getDelinquencyAnalytics(filters?: {
+    propertyId?: string;
+    startDate?: Date;
+    endDate?: Date;
+    orgId?: string;
+    actorId?: string;
+  }) {
+    const startDate = filters?.startDate || new Date(new Date().getFullYear(), 0, 1);
+    const endDate = filters?.endDate || new Date();
+    const propertyId = filters?.propertyId;
+    const orgId = filters?.orgId;
+    const now = new Date();
+
+    const invoices = await this.prisma.invoice.findMany({
+      where: {
+        issuedAt: {
+          gte: startDate,
+          lte: endDate,
+        },
+        ...(propertyId && {
+          lease: {
+            unit: {
+              propertyId,
+            },
+          },
+        }),
+        ...(orgId && {
+          lease: {
+            unit: {
+              property: { organizationId: orgId },
+            },
+          },
+        }),
+      },
+      include: {
+        lease: {
+          include: {
+            tenant: {
+              select: {
+                id: true,
+                username: true,
+              },
+            },
+            unit: {
+              include: {
+                property: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        payments: {
+          where: {
+            status: 'COMPLETED',
+          },
+          select: {
+            id: true,
+            amount: true,
+            paymentDate: true,
+          },
+        },
+        paymentPlan: {
+          include: {
+            paymentPlanPayments: {
+              include: {
+                payment: {
+                  select: {
+                    id: true,
+                    amount: true,
+                    paymentDate: true,
+                    status: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const paymentPlans = invoices
+      .map((invoice) => invoice.paymentPlan)
+      .filter((plan): plan is NonNullable<typeof plan> => Boolean(plan));
+
+    const invoicesWithBalances = invoices.map((invoice) => {
+      const totalPaid = invoice.payments.reduce((sum, payment) => sum + payment.amount, 0);
+      const outstandingBalance = Math.max(invoice.amount - totalPaid, 0);
+      const isOverdue = invoice.status !== 'PAID' && invoice.dueDate < now && outstandingBalance > 0;
+      const isPartial = totalPaid > 0 && outstandingBalance > 0;
+
+      return {
+        invoice,
+        totalPaid,
+        outstandingBalance,
+        isOverdue,
+        isPartial,
+      };
+    });
+
+    const overdueInvoices = invoicesWithBalances.filter((item) => item.isOverdue);
+    const partialInvoices = invoicesWithBalances.filter((item) => item.isPartial);
+
+    const leaseLateCounts = new Map<string, number>();
+    overdueInvoices.forEach((item) => {
+      const leaseId = item.invoice.leaseId;
+      leaseLateCounts.set(leaseId, (leaseLateCounts.get(leaseId) || 0) + 1);
+    });
+
+    const repeatLateLeases = Array.from(leaseLateCounts.entries())
+      .filter(([, count]) => count >= 2)
+      .map(([leaseId, count]) => {
+        const sample = overdueInvoices.find((item) => item.invoice.leaseId === leaseId);
+        return {
+          leaseId,
+          occurrences: count,
+          tenant: sample?.invoice.lease.tenant.username || 'Unknown',
+          property: sample?.invoice.lease.unit.property.name || 'Unknown',
+          unit: sample?.invoice.lease.unit.name || 'Unknown',
+        };
+      });
+
+    const paymentPlanStatusCounts = paymentPlans.reduce<Record<string, number>>((acc, plan) => {
+      acc[plan.status] = (acc[plan.status] || 0) + 1;
+      return acc;
+    }, {});
+
+    const paymentPlanDetails = paymentPlans.map((plan) => {
+      const relatedInvoice = invoices.find((invoice) => invoice.paymentPlan?.id === plan.id);
+      const planPayments = plan.paymentPlanPayments.filter((installment) => installment.payment?.status === 'COMPLETED');
+      const amountPaid = planPayments.reduce((sum, installment) => sum + (installment.payment?.amount || 0), 0);
+      const remainingAmount = Math.max(plan.totalAmount - amountPaid, 0);
+
+      return {
+        id: plan.id,
+        status: plan.status,
+        installments: plan.installments,
+        totalAmount: plan.totalAmount,
+        amountPaid,
+        remainingAmount,
+        acceptedAt: plan.acceptedAt,
+        completedAt: plan.completedAt,
+        cancelledAt: plan.cancelledAt,
+        tenant: relatedInvoice?.lease.tenant.username || 'Unknown',
+        property: relatedInvoice?.lease.unit.property.name || 'Unknown',
+        unit: relatedInvoice?.lease.unit.name || 'Unknown',
+      };
+    });
+
+    const result = {
+      totalInvoices: invoices.length,
+      overdueInvoices: overdueInvoices.length,
+      overdueBalance: overdueInvoices.reduce((sum, item) => sum + item.outstandingBalance, 0),
+      partialPaymentInvoices: partialInvoices.length,
+      partiallyPaidBalance: partialInvoices.reduce((sum, item) => sum + item.outstandingBalance, 0),
+      invoicesOnPaymentPlans: paymentPlans.length,
+      paymentPlansByStatus: paymentPlanStatusCounts,
+      repeatLateLeasesCount: repeatLateLeases.length,
+      repeatLateLeases,
+      paymentPlanDetails,
+    };
+
+    await this.auditLogService.record({
+      orgId,
+      actorId: filters?.actorId,
+      module: 'reporting',
+      action: 'DELINQUENCY_ANALYTICS_VIEWED',
+      entityType: 'portfolio',
+      result: 'SUCCESS',
+      metadata: {
+        propertyId,
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        totalInvoices: result.totalInvoices,
+        overdueInvoices: result.overdueInvoices,
+        invoicesOnPaymentPlans: result.invoicesOnPaymentPlans,
+        repeatLateLeasesCount: result.repeatLateLeasesCount,
+      },
+    });
+
+    return result;
+  }
+
+  async getAccountingSyncStatus(filters: { orgId?: string; actorId?: string }) {
+    if (!filters.orgId) {
+      throw new BadRequestException('Organization context is required');
+    }
+
+    const connections = await this.prisma.quickBooksConnection.findMany({
+      where: {
+        organizationId: filters.orgId,
+      },
+      orderBy: {
+        updatedAt: 'desc',
+      },
+      select: {
+        id: true,
+        companyId: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+        tokenExpiresAt: true,
+        refreshTokenExpiresAt: true,
+      },
+    });
+
+    const activeConnections = connections.filter((connection) => connection.isActive);
+    const latestConnection = activeConnections[0] || connections[0] || null;
+    const now = new Date();
+
+    const result = {
+      connected: activeConnections.length > 0,
+      activeConnections: activeConnections.length,
+      latestConnection: latestConnection
+        ? {
+            companyId: latestConnection.companyId,
+            isActive: latestConnection.isActive,
+            connectedAt: latestConnection.createdAt,
+            lastSyncAt: latestConnection.updatedAt,
+            tokenExpiresAt: latestConnection.tokenExpiresAt,
+            refreshTokenExpiresAt: latestConnection.refreshTokenExpiresAt,
+            syncFreshnessHours: Math.round((now.getTime() - latestConnection.updatedAt.getTime()) / (1000 * 60 * 60)),
+          }
+        : null,
+    };
+
+    await this.auditLogService.record({
+      orgId: filters.orgId,
+      actorId: filters.actorId,
+      module: 'reporting',
+      action: 'ACCOUNTING_SYNC_STATUS_VIEWED',
+      entityType: 'quickbooksConnection',
+      result: 'SUCCESS',
+      metadata: {
+        connected: result.connected,
+        activeConnections: result.activeConnections,
+        latestCompanyId: result.latestConnection?.companyId,
+      },
+    });
+
+    return result;
   }
 
   async logSyndicationError(input: {

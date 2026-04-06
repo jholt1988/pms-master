@@ -155,6 +155,7 @@ model Organization {
   manualPayments         ManualPayment[]
   manualCharges          ManualCharge[]
   ledgerAccounts         LedgerAccount[]
+  actionIntents          ActionIntent[]
 }
 
 model UserOrganization {
@@ -272,6 +273,13 @@ model Property {
   inspectionRequests   InspectionRequest[]
   manualPayments       ManualPayment[]
   manualCharges        ManualCharge[]
+  policyBundles        PolicyBundle[]
+  policyWorkflowEvents PolicyWorkflowEvent[]
+  policyRuleEvaluations PolicyRuleEvaluation[]
+  policyServiceProofs  PolicyServiceProof[]
+  policyAttorneyReferrals PolicyAttorneyReferral[]
+  policyMonthlyCloses  PolicyMonthlyClose[]
+  policyRuleActionLogs PolicyRuleActionLog[]
 
   @@index([organizationId])
   @@index([city, state])
@@ -2376,6 +2384,190 @@ model MilAuditEvent {
   @@index([result, createdAt])
 }
 
+enum PolicyArtifactType {
+  LEASE
+  LEDGER_SNAPSHOT
+  NOTICE
+  COMM_LOG
+  TENANT_PROFILE
+}
+
+enum PolicyDecisionType {
+  APPROVE
+  CONDITIONAL_APPROVE
+  DENY
+  WAITLIST
+  ESCALATE
+  NO_ACTION
+  GENERATE_NOTICE
+  GENERATE_PAYMENT_PLAN
+  REFER_ATTORNEY
+  APPLY_LATE_FEE
+}
+
+enum PolicyWorkflowEventStatus {
+  PENDING
+  PROCESSED
+  FAILED
+  SKIPPED
+}
+
+enum PolicyRuleApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model PolicyBundle {
+  id          String   @id @default(uuid()) @db.Uuid
+  propertyId  String   @db.Uuid
+  version     String
+  isActive    Boolean  @default(true)
+  bundleJson  Json
+  createdAt   DateTime @default(now())
+  activatedAt DateTime?
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyId, version])
+  @@index([propertyId, isActive])
+}
+
+model PolicyWorkflowEvent {
+  id            String                    @id @default(uuid()) @db.Uuid
+  propertyId    String                    @db.Uuid
+  aggregateType String
+  aggregateId   String
+  eventType     String
+  eventVersion  Int                       @default(1)
+  payload       Json
+  status        PolicyWorkflowEventStatus @default(PENDING)
+  createdAt     DateTime                  @default(now())
+  processedAt   DateTime?
+
+  property        Property               @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  ruleEvaluations PolicyRuleEvaluation[]
+
+  @@index([propertyId, eventType, status])
+  @@index([aggregateType, aggregateId])
+}
+
+model PolicyRuleEvaluation {
+  id                 String             @id @default(uuid()) @db.Uuid
+  workflowEventId    String             @db.Uuid
+  propertyId         String             @db.Uuid
+  ruleName           String
+  decisionType       PolicyDecisionType
+  confidence         Float?
+  reasonsJson        Json?
+  inputSnapshotJson  Json
+  outputSnapshotJson Json
+  policyVersion      String
+  createdAt          DateTime           @default(now())
+
+  workflowEvent PolicyWorkflowEvent @relation(fields: [workflowEventId], references: [id], onDelete: Cascade)
+  property      Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  approvals     PolicyRuleApproval[]
+  actionLogs    PolicyRuleActionLog[]
+
+  @@index([propertyId, ruleName, createdAt])
+}
+
+model PolicyRuleApproval {
+  id               String                   @id @default(uuid()) @db.Uuid
+  ruleEvaluationId String                   @db.Uuid
+  approverUserId   String                   @db.Uuid
+  approverRole     String
+  status           PolicyRuleApprovalStatus
+  reason           String?
+  createdAt        DateTime                 @default(now())
+
+  ruleEvaluation PolicyRuleEvaluation @relation(fields: [ruleEvaluationId], references: [id], onDelete: Cascade)
+
+  @@index([ruleEvaluationId, status])
+}
+
+model PolicyServiceProof {
+  id                String   @id @default(uuid()) @db.Uuid
+  propertyId        String   @db.Uuid
+  relatedEntityType String
+  relatedEntityId   String
+  method            String
+  photoUrl          String?
+  geoLat            Float?
+  geoLng            Float?
+  trackingNumber    String?
+  attestationText   String?
+  servedAt          DateTime
+  createdAt         DateTime @default(now())
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId, relatedEntityType, relatedEntityId])
+}
+
+model PolicyAttorneyReferral {
+  id            String   @id @default(uuid()) @db.Uuid
+  propertyId    String   @db.Uuid
+  tenantId      String   @db.Uuid
+  caseStatus    String
+  handoffMethod String
+  payloadJson   Json
+  createdAt     DateTime @default(now())
+
+  property  Property                       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  artifacts PolicyAttorneyReferralArtifact[]
+
+  @@index([propertyId, tenantId, caseStatus])
+}
+
+model PolicyAttorneyReferralArtifact {
+  id         String             @id @default(uuid()) @db.Uuid
+  referralId String             @db.Uuid
+  type       PolicyArtifactType
+  uri        String
+  createdAt  DateTime           @default(now())
+
+  referral PolicyAttorneyReferral @relation(fields: [referralId], references: [id], onDelete: Cascade)
+
+  @@index([referralId, type])
+}
+
+model PolicyMonthlyClose {
+  id             String   @id @default(uuid()) @db.Uuid
+  propertyId     String   @db.Uuid
+  month          String
+  closedAt       DateTime?
+  closedByUserId String?  @db.Uuid
+  isLocked       Boolean  @default(false)
+  reopenReason   String?
+  createdAt      DateTime @default(now())
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyId, month])
+}
+
+model PolicyRuleActionLog {
+  id               String   @id @default(uuid()) @db.Uuid
+  propertyId       String   @db.Uuid
+  ruleEvaluationId String?  @db.Uuid
+  actorType        String
+  actorId          String?  @db.Uuid
+  entityType       String
+  entityId         String
+  action           String
+  beforeJson       Json?
+  afterJson        Json?
+  createdAt        DateTime @default(now())
+
+  property       Property              @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  ruleEvaluation PolicyRuleEvaluation? @relation(fields: [ruleEvaluationId], references: [id], onDelete: SetNull)
+
+  @@index([propertyId, entityType, entityId, createdAt])
+  @@index([ruleEvaluationId, createdAt])
+}
+
 enum CommunicationChannel {
   UI
   SMS
@@ -2581,21 +2773,21 @@ model ApprovalTask {
 }
 
 model ActionIntent {
-  id             String   @id @default(uuid()) @db.Uuid
-  organizationId String?  @db.Uuid
-  userId         String?  @db.Uuid
-  type           String   // e.g. QUICKBOOKS_ANOMALY, LATE_FEE_SUPPRESSED
-  description    String?  
-  status         String   @default("PENDING") // PENDING, RESOLVED, DISMISSED, EXECUTED
-  priority       String   @default("MEDIUM") // HIGH, MEDIUM, LOW
+  id             String  @id @default(uuid()) @db.Uuid
+  organizationId String? @db.Uuid
+  userId         String? @db.Uuid
+  type           String // e.g. QUICKBOOKS_ANOMALY, LATE_FEE_SUPPRESSED
+  description    String?
+  status         String  @default("PENDING") // PENDING, RESOLVED, DISMISSED, EXECUTED
+  priority       String  @default("MEDIUM") // HIGH, MEDIUM, LOW
   metadata       Json?
-  
-  resolvedAt     DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  
-  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  user           User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  resolvedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, status])
 }

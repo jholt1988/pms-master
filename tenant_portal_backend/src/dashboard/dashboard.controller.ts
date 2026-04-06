@@ -26,6 +26,18 @@ export class DashboardController {
     return this.dashboardService.getPropertyManagerDashboardMetrics(orgId);
   }
 
+  @Get('calendar')
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles('PROPERTY_MANAGER', 'OWNER')
+  getOperationalCalendar(
+    @Request() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
+  ) {
+    return this.dashboardService.getOperationalCalendar(orgId, {
+      actorId: req.user.userId,
+    });
+  }
+
   @Get('action-intents')
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles('PROPERTY_MANAGER', 'OWNER')

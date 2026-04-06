@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
 import { isUUID } from 'class-validator';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -10,6 +10,7 @@ import {
   MaintenanceRequest,
   MaintenanceRequestHistory,
   MaintenanceSlaPolicy,
+  NotificationType,
   OrgRole,
   Prisma,
   Role,
@@ -17,6 +18,7 @@ import {
   Technician,
   TechnicianRole,
 } from '@prisma/client';
+import { EventPriority } from '../schedule/dto/create-schedule-event.dto';
 import { CreateMaintenanceRequestDto } from './dto/create-maintenance-request.dto';
 import { UpdateMaintenanceStatusDto } from './dto/update-maintenance-status.dto';
 import { AssignTechnicianDto } from './dto/assign-technician.dto';
@@ -28,6 +30,9 @@ import { SystemUserService } from '../shared/system-user.service';
 import { AIMaintenanceMetricsService } from './ai-maintenance-metrics.service';
 import { ApiException } from '../common/errors';
 import { ErrorCode } from '../common/errors/error-codes.enum';
+import { NotificationsService } from '../notifications/notifications.service';
+import { ScheduleService } from '../schedule/schedule.service';
+import { EventType } from '../schedule/dto/create-schedule-event.dto';
 
 interface MaintenanceListFilters {
   status?: Status;
@@ -51,6 +56,8 @@ export class MaintenanceService {
     private readonly aiMaintenanceService: AIMaintenanceService,
     private readonly systemUserService: SystemUserService,
     private readonly aiMetrics?: AIMaintenanceMetricsService,
+    @Optional() private readonly notificationsService?: NotificationsService,
+    @Optional() private readonly scheduleService?: ScheduleService,
   ) { }
 
   /**
@@ -615,6 +622,11 @@ export class MaintenanceService {
       await this.addNote(id, { body: dto.note }, actorId);
     }
 
+    if (dto.status === Status.COMPLETED) {
+      await this.completeMaintenanceScheduleEvent(updated);
+      await this.notifyTenantOfCompletion(updated, dto.note);
+    }
+
     return updated;
   }
 
@@ -787,6 +799,9 @@ export class MaintenanceService {
       toStatus: updated.status,
       note,
     });
+
+    await this.ensureMaintenanceScheduleEvent(updated);
+    await this.notifyTechnicianAssignment(updated, aiAssignmentUsed, assignmentDetails);
 
     return updated;
   }
@@ -1095,6 +1110,8 @@ export class MaintenanceService {
 
     await this.addNote(numericRequestId, { body: note }, tenantId);
 
+    await this.completeMaintenanceScheduleEvent(req);
+
     // Return fresh copy
     return this.findById(numericRequestId);
   }
@@ -1279,6 +1296,180 @@ export class MaintenanceService {
         note: data.note,
       },
     });
+  }
+
+  private async ensureMaintenanceScheduleEvent(
+    request: Pick<
+      MaintenanceRequest,
+      'id' | 'title' | 'description' | 'priority' | 'propertyId' | 'unitId' | 'dueAt' | 'responseDueAt' | 'completedAt'
+    > & { leaseId?: string | null },
+  ): Promise<void> {
+    const eventDate = request.dueAt ?? request.responseDueAt ?? request.completedAt ?? new Date();
+    const existing = await this.prisma.scheduleEvent.findFirst({
+      where: {
+        type: EventType.MAINTENANCE,
+        propertyId: request.propertyId ?? undefined,
+        unitId: request.unitId ?? undefined,
+        title: this.getMaintenanceScheduleTitle(request.title),
+      },
+    });
+
+    const tenantId = request.leaseId
+      ? (await this.prisma.lease.findUnique({
+          where: { id: request.leaseId },
+          select: { tenantId: true },
+        }))?.tenantId
+      : undefined;
+
+    if (existing) {
+      await this.prisma.scheduleEvent.update({
+        where: { id: existing.id },
+        data: {
+          date: eventDate,
+          priority: this.toEventPriority(request.priority),
+          description: this.getMaintenanceScheduleDescription(request),
+          status: request.completedAt ? 'COMPLETED' : 'SCHEDULED',
+          tenantId,
+        },
+      });
+      return;
+    }
+
+    if (!this.scheduleService || !request.propertyId) {
+      return;
+    }
+
+    await this.scheduleService.createEvent(
+      {
+        type: EventType.MAINTENANCE,
+        title: this.getMaintenanceScheduleTitle(request.title),
+        date: eventDate.toISOString(),
+        priority: this.toEventPriority(request.priority),
+        description: this.getMaintenanceScheduleDescription(request),
+        propertyId: request.propertyId,
+        unitId: request.unitId ?? undefined,
+        tenantId,
+      },
+      undefined,
+      undefined,
+    );
+  }
+
+  private async completeMaintenanceScheduleEvent(
+    request: Pick<MaintenanceRequest, 'id' | 'title' | 'propertyId' | 'unitId' | 'completedAt'>,
+  ): Promise<void> {
+    const existing = await this.prisma.scheduleEvent.findFirst({
+      where: {
+        type: EventType.MAINTENANCE,
+        propertyId: request.propertyId ?? undefined,
+        unitId: request.unitId ?? undefined,
+        title: this.getMaintenanceScheduleTitle(request.title),
+      },
+    });
+
+    if (!existing) {
+      return;
+    }
+
+    await this.prisma.scheduleEvent.update({
+      where: { id: existing.id },
+      data: {
+        status: 'COMPLETED',
+        date: request.completedAt ?? existing.date,
+      },
+    });
+  }
+
+  private async notifyTechnicianAssignment(
+    request: Pick<MaintenanceRequest, 'id' | 'title' | 'priority' | 'propertyId' | 'unitId' | 'leaseId'> & {
+      assigneeId?: number | null;
+      assignee?: { id: number; name?: string | null; userId?: string | null } | null;
+      property?: { name?: string | null } | null;
+      unit?: { name?: string | null } | null;
+    },
+    aiAssignmentUsed: boolean,
+    assignmentDetails: { score?: number; reasons?: string[] },
+  ): Promise<void> {
+    if (!this.notificationsService || !request.assignee?.userId) {
+      return;
+    }
+
+    await this.notificationsService.create({
+      userId: request.assignee.userId,
+      type: NotificationType.SYSTEM_ALERT,
+      title: `Maintenance assignment: ${request.title}`,
+      message: `You have been assigned to maintenance request "${request.title}"${request.property?.name ? ` at ${request.property.name}` : ''}${request.unit?.name ? `, unit ${request.unit.name}` : ''}.`,
+      metadata: {
+        maintenanceRequestId: request.id,
+        priority: request.priority,
+        propertyId: request.propertyId,
+        unitId: request.unitId,
+        aiAssignmentUsed,
+        assignmentScore: assignmentDetails.score,
+        assignmentReasons: assignmentDetails.reasons,
+      },
+      sendEmail: true,
+      urgency: request.priority === MaintenancePriority.HIGH ? 'HIGH' : 'MEDIUM',
+    });
+  }
+
+  private async notifyTenantOfCompletion(
+    request: Pick<MaintenanceRequest, 'id' | 'title' | 'priority' | 'leaseId' | 'propertyId' | 'unitId'> & {
+      property?: { name?: string | null } | null;
+      unit?: { name?: string | null } | null;
+    },
+    completionNote?: string,
+  ): Promise<void> {
+    if (!this.notificationsService || !request.leaseId) {
+      return;
+    }
+
+    const lease = await this.prisma.lease.findUnique({
+      where: { id: request.leaseId },
+      select: { tenantId: true },
+    });
+
+    if (!lease?.tenantId) {
+      return;
+    }
+
+    await this.notificationsService.create({
+      userId: lease.tenantId,
+      type: NotificationType.MAINTENANCE_COMPLETED,
+      title: `Maintenance completed: ${request.title}`,
+      message: `Maintenance request "${request.title}" has been marked complete${request.property?.name ? ` at ${request.property.name}` : ''}${request.unit?.name ? `, unit ${request.unit.name}` : ''}.`,
+      metadata: {
+        maintenanceRequestId: request.id,
+        priority: request.priority,
+        propertyId: request.propertyId,
+        unitId: request.unitId,
+        completionNote: completionNote?.trim() || undefined,
+      },
+      sendEmail: true,
+      urgency: request.priority === MaintenancePriority.HIGH ? 'HIGH' : 'MEDIUM',
+    });
+  }
+
+  private getMaintenanceScheduleTitle(title: string): string {
+    return `Maintenance Visit - ${title}`;
+  }
+
+  private getMaintenanceScheduleDescription(
+    request: Pick<MaintenanceRequest, 'id' | 'description' | 'priority'>,
+  ): string {
+    return `Request #${request.id} - ${request.description}${request.priority ? ` (Priority: ${request.priority})` : ''}`;
+  }
+
+  private toEventPriority(priority: MaintenancePriority): EventPriority {
+    switch (priority) {
+      case MaintenancePriority.HIGH:
+        return EventPriority.HIGH;
+      case MaintenancePriority.LOW:
+        return EventPriority.LOW;
+      case MaintenancePriority.MEDIUM:
+      default:
+        return EventPriority.MEDIUM;
+    }
   }
 
   private parseTechnicianRole(role?: string): TechnicianRole {

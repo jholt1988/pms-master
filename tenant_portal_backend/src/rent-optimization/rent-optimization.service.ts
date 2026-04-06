@@ -460,6 +460,144 @@ export class RentOptimizationService {
     }
   }
 
+  async generateSeasonalPricingMatrix(unitId: string, baseRent?: number, orgId?: string) {
+    const normalizedUnitId = String(unitId);
+    await this.assertUnitInOrg(normalizedUnitId, orgId);
+
+    const unit = await this.prisma.unit.findUnique({
+      where: { id: normalizedUnitId },
+      include: {
+        property: true,
+        lease: true,
+      },
+    }) as Prisma.UnitGetPayload<{ include: { property: true; lease: true } }>;
+
+    if (!unit) {
+      throw ApiException.notFound(
+        ErrorCode.UNIT_NOT_FOUND,
+        `Unit with ID ${normalizedUnitId} not found`,
+        { unitId: normalizedUnitId },
+      );
+    }
+
+    const effectiveBaseRent = baseRent ?? unit.lease?.rentAmount ?? 1000;
+    const monthMultipliers = [0.96, 0.95, 0.97, 1.0, 1.03, 1.06, 1.08, 1.09, 1.04, 1.01, 0.98, 0.97];
+    const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const termMultipliers: Record<number, number> = {
+      6: 1.04,
+      9: 1.02,
+      12: 1.0,
+      15: 0.985,
+      18: 0.97,
+    };
+
+    const options = monthMultipliers.flatMap((seasonalFactor, monthIndex) => {
+      return Object.entries(termMultipliers).map(([termMonths, termFactor]) => {
+        const term = Number(termMonths);
+        const monthlyRent = Math.round(effectiveBaseRent * seasonalFactor * termFactor);
+        const seasonalAdjustmentPercent = Number((((seasonalFactor * termFactor) - 1) * 100).toFixed(1));
+        const recommended = monthIndex >= 4 && monthIndex <= 7 && term >= 12;
+        const reason = recommended
+          ? 'Targets peak leasing season with a longer retention window.'
+          : seasonalAdjustmentPercent >= 0
+            ? 'Captures stronger near-term demand.'
+            : 'Discounts to reduce expected vacancy drag.';
+
+        return {
+          termMonths: term,
+          targetStartMonth: monthIndex + 1,
+          targetStartMonthLabel: monthLabels[monthIndex],
+          monthlyRent,
+          seasonalAdjustmentPercent,
+          recommended,
+          reason,
+        };
+      });
+    });
+
+    return {
+      unitId: normalizedUnitId,
+      propertyId: unit.propertyId,
+      unitName: unit.name,
+      baseRent: effectiveBaseRent,
+      generatedAt: new Date().toISOString(),
+      options,
+    };
+  }
+
+  async generateRenewalOffers(orgId?: string) {
+    const targetDate = new Date();
+    targetDate.setDate(targetDate.getDate() + 90);
+
+    const leases = await this.prisma.lease.findMany({
+      where: {
+        status: 'ACTIVE',
+        endDate: {
+          gte: new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate()),
+          lt: new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate() + 1),
+        },
+        ...(orgId ? { unit: { property: { organizationId: orgId } } } : {}),
+      },
+      include: {
+        tenant: true,
+        unit: {
+          include: {
+            property: true,
+          },
+        },
+      },
+    });
+
+    const offers = [];
+
+    for (const lease of leases) {
+      const existingIntents = await (this.prisma as any).actionIntent.findMany({
+        where: {
+          type: 'RENEWAL_PRICING_GENERATED',
+          status: 'PENDING',
+        },
+      });
+      const alreadyExists = existingIntents.some((intent: any) => intent.metadata?.leaseId === lease.id);
+      if (alreadyExists) {
+        continue;
+      }
+
+      const pricing = await this.generateSeasonalPricingMatrix(lease.unitId, lease.rentAmount ?? undefined, orgId);
+      const recommendedOption = pricing.options.find((option) => option.recommended) ?? pricing.options[0];
+      const churnPrediction = await this.predictResidentChurn({
+        ...lease.unit,
+        lease,
+      }, orgId);
+
+      const intent = await (this.prisma as any).actionIntent.create({
+        data: {
+          type: 'RENEWAL_PRICING_GENERATED',
+          description: `Renewal pricing ready for ${lease.unit?.name || lease.unitId}.`,
+          status: 'PENDING',
+          priority: churnPrediction?.risk_level === 'HIGH' ? 'HIGH' : 'MEDIUM',
+          organizationId: lease.unit?.property?.organizationId ?? orgId,
+          metadata: {
+            leaseId: lease.id,
+            unitId: lease.unitId,
+            tenantId: lease.tenantId,
+            currentRent: lease.rentAmount,
+            recommendedRent: recommendedOption?.monthlyRent,
+            recommendedTermMonths: recommendedOption?.termMonths,
+            targetStartMonth: recommendedOption?.targetStartMonth,
+            reason: recommendedOption?.reason,
+            churnRisk: churnPrediction?.churn_probability,
+            riskLevel: churnPrediction?.risk_level,
+            pricingMatrix: pricing.options,
+          },
+        },
+      });
+
+      offers.push(intent);
+    }
+
+    return offers;
+  }
+
   /**
    * Map database property type to ML service property type
    */

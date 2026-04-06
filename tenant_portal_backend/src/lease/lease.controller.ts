@@ -134,9 +134,7 @@ export class LeaseController {
     @Request() req: AuthenticatedRequest,
     @OrgId() orgId?: string,
   ) {
-    const notice = await this.leaseService.recordLeaseNotice(id, dto, req.user.userId, orgId);
-    await this.auditLogService.record({ orgId, actorId: String(req.user.userId), module: 'LEASE', action: 'LEASE_NOTICE_RECORDED', entityType: 'LeaseNotice', entityId: notice.id, result: 'SUCCESS', metadata: { leaseId: id } });
-    return notice;
+    return this.leaseService.recordLeaseNotice(id, dto, req.user.userId, orgId);
   }
 
   @Post(':id/renewal-offers/:offerId/respond')

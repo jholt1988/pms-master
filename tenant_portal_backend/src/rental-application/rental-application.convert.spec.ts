@@ -8,6 +8,7 @@ import { ScheduleService } from '../schedule/schedule.service';
 import { ApplicationLifecycleService } from './application-lifecycle.service';
 import { RentalApplicationAiService } from './rental-application.ai.service';
 import { RentalApplicationService } from './rental-application.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 describe('RentalApplicationService convertApprovedApplicationToLease', () => {
   const prisma = {
@@ -24,6 +25,8 @@ describe('RentalApplicationService convertApprovedApplicationToLease', () => {
     },
     $transaction: jest.fn(),
   } as any;
+  const scheduleService = { createEvent: jest.fn() } as any;
+  const notificationsService = { create: jest.fn() } as any;
 
   let service: RentalApplicationService;
 
@@ -36,7 +39,8 @@ describe('RentalApplicationService convertApprovedApplicationToLease', () => {
         { provide: ApplicationLifecycleService, useValue: {} },
         { provide: RentalApplicationAiService, useValue: {} },
         { provide: AuditLogService, useValue: { record: jest.fn() } },
-        { provide: ScheduleService, useValue: {} },
+        { provide: ScheduleService, useValue: scheduleService },
+        { provide: NotificationsService, useValue: notificationsService },
       ],
     }).compile();
 
@@ -99,5 +103,15 @@ describe('RentalApplicationService convertApprovedApplicationToLease', () => {
       }),
     );
     expect(prisma.leaseHistory.create).toHaveBeenCalled();
+    expect(scheduleService.createEvent).toHaveBeenCalled();
+    expect(notificationsService.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'tenant-1',
+        metadata: expect.objectContaining({
+          workflow: 'APPLICATION_TO_LEASE_CONVERSION',
+          leaseId: 'lease-1',
+        }),
+      }),
+    );
   });
 });

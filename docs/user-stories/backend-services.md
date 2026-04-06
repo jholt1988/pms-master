@@ -1,198 +1,631 @@
 # User Stories: Backend Services & API Ecosystem
 
-**Module:** `tenant_portal_backend`
-**Focus:** Creating a highly scalable, event-driven, self-healing architecture that supports headless integrations, seamless third-party ERP/Accounting syncing, and unparalleled security.
+**Module:** `tenant_portal_backend`  
+**Normalized Scope:** ledger, payments, delinquency, notices, accounting sync/export, reporting, auditability, and platform service guardrails.  
+**Canonical Lifecycle Domains:** payments, delinquency, payment plans, notices, legal escalation support, reporting, accounting, audit logging.
+
+## File-Level Notes
+- This file now carries the operational backend stories that underpin finance, delinquency, sync, and auditability.
+- Listing syndication remains in scope only as an integration workflow, not as a claim of specific partner behavior.
+- Infrastructure resilience is preserved as a platform story but is not allowed to substitute for missing business workflows.
 
 ---
 
-## 1. Persona: Tenant
+## Story ID: PAY-003
+**Title:** Ledger supports full, partial, manual, and third-party payments  
+**Primary Actor:** Property manager  
+**Business Goal:** Keep tenant balances accurate regardless of payment source or posting method.
 
-### Epic: Instant Financial Reconciliation & Security
-**Story 1.1: Zero-Latency Payment Ledgers**
-- **As a** Tenant
-- **I want to** ensure that the exact moment I make a rent payment, my ledger, the landlord's bank, and my receipt reflect the new balance instantly
-- **So that** I am never caught in a "payment pending" limbo that could trigger automated late fees.
-- **Acceptance Criteria:**
-  - [ ] Backend leverages stream processing (e.g., Kafka/RabbitMQ) to emit ledger update events across all microservices identically.
-  - [ ] Webhook ingestion from payment gateways correctly guarantees idempotency (no double charges possible under network retries).
-  - [ ] System automatically suppresses late fee cron jobs the nanosecond a valid intent-to-pay is received.
+**Trigger:** Payment or adjustment is posted from Stripe, Plaid, cash, money order, or manual operator action.  
+**Preconditions:** Lease ledger exists; tenant and unit/property linkage are valid.  
+**Main Flow:**
+1. System ingests a payment or adjustment event.
+2. System posts the event to the ledger with a source reference.
+3. System recalculates outstanding balance.
+4. Downstream reporting, reminders, delinquency, and accounting processes consume the updated ledger state.
 
-### 🔷 Property OS Augmentation
-- **Expected Loss Definition:** Calculates the cost and tenant friction of mistaken late fees vs the risk of delayed availability of funds.
-- **ActionIntent Mapping:** Consumes `PaymentInitiatedIntent` to produce a `LedgerUpdatedIntent`.
-- **Priority Logic:** Ranks webhook ingestion from payment gateways above standard background jobs.
+**Alternate Flows:**
+- Partial payment leaves residual balance due and transitions account to `Partially Paid`.
+- Manual adjustment posts with explicit operator attribution.
 
-### 🔷 UI Enhancements
-- High-visibility "Processing" state explicitly displaying "Late fees paused" confidence banner on the tenant dashboard.
+**Failure / Exception Flows:**
+- Duplicate or ambiguous posting is held for reconciliation review.
+- Invalid tenant or lease linkage blocks ledger mutation.
 
-### 🔷 Feedback & Learning
-- Track instances where "intent to pay" fails settlement and adjust the confidence requirement for suppressing late fees.
+**Data Captured / Affected:** Amount, source, payment method, tenant, lease, unit/property, before/after balance, origin reference, manual adjustment reason.  
+**Notifications:** Payment receipt or posting confirmation when configured; operator alert for reconciliation exception.  
+**Permissions / Approval Gates:** Manual adjustments require authorized operator permissions.  
+**Audit Log Requirements:** Every ledger mutation records actor/system source, timestamp, amount, method, before/after balance, linked records, and reconciliation exception if applicable.  
+**State Transitions:** Payment lifecycle `Due -> Partially Paid -> Paid` as applicable; downstream handoff to reminders, late fees, reporting, and accounting sync.  
+**Dependencies:** Payment integrations, ledger service, reconciliation workflow, reporting pipeline, accounting sync.
 
-### 🔷 Model Integrity & Governance
-- Write-ahead logging ensures every state transition of the ledger is auditable and verifiable.
+**Acceptance Criteria:**
+- Stripe, Plaid, cash, money order, and manual adjustments are supported.
+- Partial payments are reflected in outstanding balance.
+- Every ledger mutation is auditable.
+- Each entry is linked to tenant and unit/property context.
+- Ledger updates have downstream handoffs into reporting and delinquency workflows.
 
-### 🔷 Execution Flow
-- **Trigger**: Payment gateway (e.g., Stripe) fires a `charge.succeeded` webhook.
-- **Preconditions**: Tenant has an active lease ledger; webhook signature is mathematically validated.
-- **Execution Intent**: Instantly credit the tenant's ledger and pause any scheduled late fees to prevent double-jeopardy.
-- **System Changes**: Ledger entity is appended with a credit row; `LateFeeCron` entry is deactivated for the current cycle.
-- **Output**: `LedgerUpdatedIntent` broadcasted to the tenant's dashboard and the accounting sync queue.
-
-### 🔷 State Transition
-- **Before State**: `Ledger.Balance = -RentAmount`, `LateFee.Status = Scheduled`
-- **After State**: `Ledger.Balance = 0`, `LateFee.Status = Suppressed`
-
-### 🔷 Lifecycle Continuity
-- **Upstream Source**: Third-party payment gateway processing a successful rent charge.
-- **Downstream Paths**: Broadcasts downstream to the `AccountingSync` service and triggers the creation of a digital receipt.
-
-**Story 1.2: Right-to-be-Forgotten & Data Portability**
-- **As a** Tenant
-- **I want to** execute a self-service data export or deletion request at the end of my lease cycle
-- **So that** the system complies with rigorous data privacy standards (GDPR/CCPA/SOC2) and affords me agency over my PII.
-- **Acceptance Criteria:**
-  - [ ] Backend API handles automated anonymization of database rows upon a "Forget Me" trigger, leaving only non-identifiable financial aggregates for owner reporting.
-  - [ ] System generates a standardized JSON export of all historical user data within minutes via a background job.
-
-### 🔷 Property OS Coverage
-- **Coverage Level:** Partial
-- **Missing Components:** Expected Loss, Simulation, Priority Logic
-- **Reason:** This is a low decision-relevance, compliance-focused story that does not directly impact cost, risk, or scheduling. Data portability is a fundamental feature, not an optimized decision node.
-
-### 🔷 Execution Flow
-- **Trigger**: Former tenant clicks "Request Data Export/Deletion" in the portal.
-- **Preconditions**: Tenant must have an inactive/terminated lease status with a zero balance.
-- **Execution Intent**: Scrape all distributed databases to compile the user's history, then package it or execute row-level anonymization scripts.
-- **System Changes**: PII fields are replaced with UUIDs or `NULL`; an export artifact is generated.
-- **Output**: A secure download link (S3 presigned URL) emailed to the user, or a `UserAnonymized` event.
-
-### 🔷 State Transition
-- **Before State**: `User.DataRetention = Active`
-- **After State**: `User.DataRetention = Deleted/Anonymized` OR `User.DataRetention = Export_Generated`
-
-### 🔷 Lifecycle Continuity
-- **Upstream Source**: User interacting with privacy settings post-move-out.
-- **Downstream Paths**: No downstream business logic; this is an terminal state compliance action.
-
-### 🔷 Execution Context
-- **Lifecycle Role**: Compliance and Governance mechanism.
-- **Enabled Capabilities**: GDPR / CCPA regulatory defense.
-- **Dependencies**: Depends on the termination state of the lease contract.
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_BUSINESS_RULE`: Refund/reversal workflow is not defined.
+- `MISSING_EXCEPTION_PATH`: Duplicate payment reconciliation policy is not defined.
 
 ---
 
-## 2. Persona: Admin / Developer / Owner
+## Story ID: PAY-001
+**Title:** Tenant receives rent reminders via email, SMS, and in-app messaging  
+**Primary Actor:** Tenant  
+**Business Goal:** Reduce missed payments by issuing reminders before due date.
 
-### Epic: Unbeatable API Extensibility & System Resilience
-**Story 2.1: Frictionless Accounting Sync (Zero-Touch QuickBooks/ERP)**
-- **As an** Admin / Accountant
-- **I want to** rely on a backend integration that maps complex lease charges to exact Chart of Accounts ledger items without manual batching
-- **So that** financial reporting is perfectly reconciled at the end of every day automatically.
-- **Acceptance Criteria:**
-  - [ ] Bi-directional sync mechanism that automatically retrieves updated tax rates or chart mappings from the ERP.
-  - [ ] Webhook-based syncing handles rate limits gracefully using exponential backoff queues without silent failures.
-  - [ ] Automatic anomaly detection intercepts bizarre sync data (e.g., syncing a rent payment of $500,000) and routes it to an accountant's manual review queue before posting to the ERP.
+**Trigger:** Lease payment reaches configured pre-due reminder threshold.  
+**Preconditions:** Active lease, due schedule, and available contact channels.  
+**Main Flow:**
+1. System identifies upcoming due payments.
+2. System schedules reminder deliveries by configured channels.
+3. System sends reminders and records outcomes.
+4. Reminder state remains linked to the current charge period.
 
-### 🔷 Property OS Augmentation
-- **Expected Loss Definition:** The financial risk of posting corrupt or erroneous data into the primary accounting system (tax implications, incorrect distributions).
-- **ActionIntent Mapping:** Produces `AccountingAnomalyIntent` calling for manual resolution.
-- **Priority Logic:** Escalations ranked by dollar value variance from the historical median.
+**Alternate Flows:**
+- Contact preferences alter channel selection where preferences are allowed.
 
-### 🔷 UI Enhancements
-- Anomaly queue highlights the exact discrepancy ($ value difference) and provides a "1-click revert" or "confirm exception" interface.
+**Failure / Exception Flows:**
+- Channel failure is logged and surfaced; failed delivery does not mark the reminder complete.
+- Missing due-date data blocks reminder generation and surfaces data-quality issue.
 
-### 🔷 Simulation Layer
-- Simulates the portfolio-wide impact of accepting the anomalous data (e.g., "Approving this $50,000 repair sync will drop this month's property NOI by 400%").
+**Data Captured / Affected:** Due date, reminder cadence, channel selection, delivery outcomes, linked ledger period.  
+**Notifications:** Reminder notifications by email, SMS, and in-app messaging.  
+**Permissions / Approval Gates:** Automated by policy; operator can manually resend when authorized.  
+**Audit Log Requirements:** Reminder trigger, channels attempted, timestamps, send/fail outcomes, linked tenant and charge period.  
+**State Transitions:** Payment lifecycle `Upcoming -> Due`; downstream handoff to missed-payment and delinquency logic if unpaid.  
+**Dependencies:** Notification service, payment schedule service, preference service, audit logging.
 
-### 🔷 Feedback & Learning
-- Accountant resolutions are fed back to the anomaly detection service to prevent flagging expected seasonal or structural payments.
+**Acceptance Criteria:**
+- Reminders can be scheduled before due date.
+- Email, SMS, and in-app channels are supported.
+- Reminder events are auditable.
+- Preferences/rules can be applied when allowed.
 
-### 🔷 Model Integrity & Governance
-- Complete audit trail of the accountant's review detailing exactly who allowed the anomaly to pass into the accounting system.
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_NOTIFICATION_RULE`: Reminder cadence is not fully specified.
 
-### 🔷 Execution Flow
-- **Trigger**: Nightly cron job or event-driven `LedgerUpdatedIntent` hits the reporting queue.
-- **Preconditions**: Valid API linkage to QuickBooks/ERP; ledger items must have an assigned Chart of Accounts code.
-- **Execution Intent**: Translate internal billing events into ERP-compliant journal entries while trapping statistical anomalies.
-- **System Changes**: `SyncStatus` for the targeted internal invoices are marked as synced; external ERP is mutated.
-- **Output**: Successful API response logs OR an `AccountingAnomalyIntent` pushed to the accountant's queue.
+---
 
-### 🔷 State Transition
-- **Before State**: `Invoice.SyncStatus = Pending`
-- **After State**: `Invoice.SyncStatus = Synced` OR `Invoice.SyncStatus = Failed_Anomaly_Hold`
+## Story ID: PAY-002
+**Title:** Missed payments notify operator side after threshold  
+**Primary Actor:** Property manager or owner  
+**Business Goal:** Surface delinquency quickly when rent remains unpaid.
 
-### 🔷 Lifecycle Continuity
-- **Upstream Source**: Local ledger updating via the Zero-Latency Payment stream.
-- **Downstream Paths**: Data is passed definitively to the third-party ERP. If flagged, loops back to human Manual Review.
+**Trigger:** Payment remains unpaid after configured missed-payment threshold.  
+**Preconditions:** Ledger status is current and due date has passed.  
+**Main Flow:**
+1. System evaluates whether due payment is unpaid or partially paid after the threshold.
+2. System computes current status accurately.
+3. System notifies manager/owner through operator channels.
+4. Workflow hands off into late-fee and notice eligibility logic when still unresolved.
 
-**Story 2.2: Automated Listing Syndication Mesh**
-- **As a** Property Manager
-- **I want to** publish a single unit vacancy and have the backend automatically syndicate rich content to 50+ ILS platforms (Zillow, Apartments.com, etc.)
-- **So that** marketing is mathematically optimized for SEO and audience reach without duplicate data entry.
-- **Acceptance Criteria:**
-  - [ ] Data transformation layer normalizes internal property schema to the specific ILS required formats.
-  - [ ] Webhooks ingest inquiries and prospect leads back from ILS platforms into the unified CRM inbox with 99.99% uptime.
-  - [ ] Vacancy status auto-terminates active listings immediately upon countersignature of a lease agreement.
+**Alternate Flows:**
+- Partial payment produces `Partially Paid` rather than `Paid`.
 
-### 🔷 Property OS Augmentation
-- **Expected Loss Definition:** Cost of acquiring leads for unavailable units (marketing spend) vs. risk of prematurely terminating listing before a confirmed lease.
-- **ActionIntent Mapping:** Consumes `LeaseCountersignedIntent` to produce a `TerminateMarketingIntent`.
-- **Priority Logic:** Deprovisioning listings for signed units ranks immediately over syncing new property photos to reduce wasted ad spend daily.
+**Failure / Exception Flows:**
+- Data inconsistency blocks status calculation and surfaces operational exception instead of sending wrong notices.
 
-### 🔷 UI Enhancements
-- Display real-time syndication status across all ILS platforms, tracking the "time to offload" for signed units.
+**Data Captured / Affected:** Due amount, paid amount, threshold date, current payment state, notification result.  
+**Notifications:** Operator-side missed-payment notifications by email and app.  
+**Permissions / Approval Gates:** Automated by policy; role-specific visibility applies to owners/managers.  
+**Audit Log Requirements:** Status calculation run, threshold used, resulting state, notification delivery result.  
+**State Transitions:** Payment lifecycle `Due -> Late` or `Due -> Partially Paid`; downstream handoff to late fee, payment plan, and notices.  
+**Dependencies:** Ledger service, delinquency rules, notification service, role visibility.
 
-### 🔷 Feedback & Learning
-- Track the latency between lease signing and final ILS delisting to optimize webhook configurations and minimize marketing spend.
+**Acceptance Criteria:**
+- Notification can trigger two days after a missed due date.
+- Email and app notifications are supported.
+- Full and partial payment states are computed correctly.
+- Event is logged and traceable.
 
-### 🔷 Model Integrity & Governance
-- Provide a manual override to re-list a property instantly if a tenant breaks the newly signed lease prior to move-in.
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_ROLE_PERMISSION_RULE`: Owner notification rules by property/role are not fully defined.
 
-### 🔷 Execution Flow
-- **Trigger**: System emits a `LeaseCountersignedIntent` (lease is fully executed).
-- **Preconditions**: The specific unit must be currently active on the unified marketing queue.
-- **Execution Intent**: Send HTTP DELETE or unlist payloads to all connected ILS (Internet Listing Service) APIs to remove the vacancy.
-- **System Changes**: Internal `Unit.MarketingStatus` is set to `Leased`.
-- **Output**: `TerminateMarketingIntent` causing external platforms to drop the listing.
+---
 
-### 🔷 State Transition
-- **Before State**: `Unit.LifecycleState = Vacant_Marketed`
-- **After State**: `Unit.LifecycleState = Leased_PreMoveIn`, `Unit.Syndication = Paused`
+## Story ID: PAY-004
+**Title:** Late fees are applied automatically after grace period  
+**Primary Actor:** Property manager  
+**Business Goal:** Apply delinquency policy consistently and traceably.
 
-### 🔷 Lifecycle Continuity
-- **Upstream Source**: Smart Contract / E-Signature service validating both landlord and tenant execution.
-- **Downstream Paths**: Terminates the marketing lifecycle explicitly. Passes control to the Move-In Workflow generation.
+**Trigger:** Account remains unpaid or underpaid past configured grace period.  
+**Preconditions:** Late-fee policy exists; grace period has ended.  
+**Main Flow:**
+1. System evaluates grace-period expiration.
+2. System calculates late fee based on policy.
+3. System posts fee to ledger.
+4. Operator can review/override only if policy explicitly permits.
 
-**Story 2.3: Self-Healing Infrastructure & Rate Limiting**
-- **As a** DevOps / Systems Engineer
-- **I want to** ensure the backend implements circuit breakers, auto-scaling, and intelligent API rate limiting
-- **So that** a spike in tenant traffic or a DDoS attack does not disrupt core business continuity.
-- **Acceptance Criteria:**
-  - [ ] High-volume endpoints implement Token-bucket rate limiting segmented by IP and Tenant ID.
-  - [ ] Calls to third-party services (like Experian or Plaid) use Circuit Breakers to fail fast and serve cached fallbacks during external outages.
-  - [ ] Real-time tracing and telemetry is emitted for instantaneous root-cause analysis.
+**Alternate Flows:**
+- Manual override occurs with documented justification when allowed.
 
-### 🔷 Property OS Coverage
-- **Coverage Level:** Partial
-- **Missing Components:** ActionIntent, Expected Loss
-- **Reason:** This is an infrastructure-level story focused on system resilience and availability. The focus is stability, not business decision-making.
+**Failure / Exception Flows:**
+- Invalid fee configuration blocks automatic posting and surfaces policy error.
+- Jurisdiction uncertainty prevents safe automatic enforcement if local rule is unknown.
 
-### 🔷 Execution Flow
-- **Trigger**: Volumetric threshold exceeded on the API gateway (e.g., >1000 requests/sec).
-- **Preconditions**: Rate limiting proxy (e.g., Redis Token Bucket) is active.
-- **Execution Intent**: Halt abusive traffic or shed load before internal microservices are exhausted.
-- **System Changes**: Originating IP/Tenant ID is temporarily blacklisted in the proxy cache.
-- **Output**: HTTP 429 Too Many Requests returned to the client; telemetry alert fired to Datadog/PagerDuty.
+**Data Captured / Affected:** Fee policy reference, grace period, fee amount, ledger entry, override reason and actor if used.  
+**Notifications:** Optional tenant notice of late fee; operator alert for configuration error or manual review.  
+**Permissions / Approval Gates:** Policy-driven automation; manual override requires authorized operator.  
+**Audit Log Requirements:** Fee calculation, policy used, post event, override actor/reason, linked lease and ledger period.  
+**State Transitions:** Payment lifecycle `Late -> Late Fee Applied`; downstream handoff to payment plan or notice eligibility if unresolved.  
+**Dependencies:** Policy engine, ledger service, communications service, compliance guidance.
 
-### 🔷 State Transition
-- **Before State**: `API.TrafficState = Normal`
-- **After State**: `API.TrafficState = RateLimited_Degraded`
+**Acceptance Criteria:**
+- Grace period is configurable.
+- Fee application is policy-driven.
+- Fee appears on ledger.
+- Manager review/override path exists when allowed.
 
-### 🔷 Lifecycle Continuity
-- **Upstream Source**: External internet traffic hitting the load balancer.
-- **Downstream Paths**: Prevents the request from continuing downstream at all.
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_LEGAL_RULE`: Jurisdiction-specific fee constraints are not defined.
 
-### 🔷 Execution Context
-- **Lifecycle Role**: High-availability infrastructure defense.
-- **Enabled Capabilities**: Ensures the main app can survive peak load events without dying.
-- **Dependencies**: N/A (Lowest-level infrastructure story).
+---
+
+## Story ID: PAY-005
+**Title:** System proposes payment plans before legal escalation  
+**Primary Actor:** Property manager or owner  
+**Business Goal:** Offer a structured cure path before legal escalation.
+
+**Trigger:** Delinquency reaches payment-plan threshold before notice/legal progression.  
+**Preconditions:** Tenant is delinquent; legal escalation has not passed the point where a plan can no longer be offered.  
+**Main Flow:**
+1. System generates a recommended installment structure.
+2. Manager reviews and approves the proposal.
+3. Tenant accepts or rejects the plan.
+4. Accepted plans are tracked through completion or default.
+5. Plan outcome feeds reporting and future delinquency logic.
+
+**Alternate Flows:**
+- Manager declines to send the plan and delinquency proceeds through standard path.
+- Tenant rejects the plan and account remains in delinquency path.
+
+**Failure / Exception Flows:**
+- Accepted plan later defaults and the account returns to delinquency progression with preserved history.
+- Missing operator approval blocks plan issuance.
+
+**Data Captured / Affected:** Proposal terms, approval metadata, acceptance status, installment schedule, completion/default outcomes.  
+**Notifications:** Plan offer, acceptance confirmation, installment reminders, missed-installment notices.  
+**Permissions / Approval Gates:** Manager approval required before offer issuance.  
+**Audit Log Requirements:** Proposal generation, approval, tenant decision, installment events, completion/default outcomes.  
+**State Transitions:** Payment lifecycle `Late Fee Applied -> Payment Plan Proposed -> Payment Plan Active`; downstream handoff to resolved or notice eligibility depending on outcome.  
+**Dependencies:** Payment plan engine, ledger service, notifications, reporting pipeline, delinquency workflow.
+
+**Acceptance Criteria:**
+- System can recommend installment structure.
+- Manager approval is required before offer is issued.
+- Plan acceptance and completion/default are tracked.
+- Proposed plan logic and outcome trail are auditable.
+- Payment plan outcomes feed reporting/analytics.
+
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_BUSINESS_RULE`: Plan generation criteria are not defined.
+- `MISSING_EXCEPTION_PATH`: Modification/default policy is not fully defined.
+- `ABSENT_REPORTING_REQUIREMENT`: Reporting format for payment-plan outcomes is not specified, though tracking is required.
+
+---
+
+## Story ID: PAY-006
+**Title:** Delinquency analytics track repeat lateness and partial-payment patterns  
+**Primary Actor:** Property manager or owner  
+**Business Goal:** Make delinquency trends measurable for reporting, intervention, and predictive models.
+
+**Trigger:** Payment-history analytics refresh runs or an authorized operator requests delinquency analytics.  
+**Preconditions:** Sufficient payment history exists across the relevant lease, tenant, property, or portfolio scope.  
+**Main Flow:**
+1. System aggregates historical payment events, partial-payment behavior, and delinquency frequency.
+2. System computes repeat-lateness and partial-payment metrics.
+3. Metrics become available to reporting and predictive workflows.
+4. Analytics remain linked back to the source ledger history.
+
+**Alternate Flows:**
+- Metrics can be generated at tenant, unit, property, or portfolio level where the source data supports it.
+
+**Failure / Exception Flows:**
+- Missing or inconsistent ledger history blocks complete metric generation and surfaces a data-quality warning instead of silently omitting records.
+
+**Data Captured / Affected:** Ledger history, delinquency metrics, partial-payment metrics, rollup scope, analytics refresh timestamp.  
+**Notifications:** Internal analytics/report refresh notice only when configured.  
+**Permissions / Approval Gates:** Authorized manager/owner access required to view generated analytics.  
+**Audit Log Requirements:** Analytics refresh run, source period, scope evaluated, metric generation timestamp, data-quality exception events.  
+**State Transitions:** No direct lifecycle state change; downstream handoff to reporting, dashboard, and predictive-model consumers.  
+**Dependencies:** Ledger history, analytics layer, reporting pipeline, dashboard consumers.
+
+**Acceptance Criteria:**
+- Repeat lateness can be measured.
+- Partial-payment patterns can be measured.
+- Metrics can roll up by tenant, unit, property, or portfolio where relevant.
+- Analytics remain linked to source ledger history.
+
+**Open Gaps / Unresolved Decisions:**
+- `ABSENT_ANALYTICS_REQUIREMENT`: Final thresholding and intervention logic for delinquency analytics are not defined.
+- `MISSING_DATA_MAPPING`: Exact metric definitions and rollup formulas are not fully specified.
+
+---
+
+## Story ID: LEG-001
+**Title:** Manager can generate three-day notice from delinquency state  
+**Primary Actor:** Property manager  
+**Business Goal:** Progress unresolved delinquency into formal notice using current lease and ledger context.
+
+**Trigger:** Account reaches `Notice Eligible`.  
+**Preconditions:** Lease and balance context are current; manager review is available.  
+**Main Flow:**
+1. System generates notice draft from lease and ledger context.
+2. Manager reviews and approves issuance.
+3. System records issuance and preserves the contextual snapshot used.
+4. Delinquency workflow advances into formal notice stage.
+
+**Alternate Flows:**
+- Notice remains in draft until manager approval.
+
+**Failure / Exception Flows:**
+- Missing lease/balance context blocks notice generation.
+- Delivery failure leaves notice generated but not completed, requiring follow-up.
+
+**Data Captured / Affected:** Notice template/version, lease snapshot, balance snapshot, issuance timestamp, delivery metadata.  
+**Notifications:** Formal notice to tenant; operator confirmation of issuance or delivery failure.  
+**Permissions / Approval Gates:** Manager approval required before issuance.  
+**Audit Log Requirements:** Draft generation, approval actor, issuance time, delivery result, preserved lease and balance context.  
+**State Transitions:** Payment lifecycle `Notice Eligible -> Notice Issued`; downstream handoff to legal review if unresolved.  
+**Dependencies:** Ledger, lease data, communications service, notice templates.
+
+**Acceptance Criteria:**
+- Notice is generated from current ledger and lease context.
+- Notice requires manager approval.
+- Issuance is logged with timestamp and actor.
+- Source lease and balance context are preserved.
+
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_LEGAL_RULE`: Jurisdiction-specific notice template logic is not defined.
+- `MISSING_AUDIT_REQUIREMENT`: Service/delivery proof workflow is not defined.
+
+---
+
+## Story ID: LEG-002
+**Title:** Manager can initiate attorney referral after notice failure  
+**Primary Actor:** Property manager  
+**Business Goal:** Hand off unresolved delinquency into legal review with the correct packet.
+
+**Trigger:** Post-notice nonpayment persists beyond cure threshold.  
+**Preconditions:** Notice has been issued; cure window has expired or otherwise failed.  
+**Main Flow:**
+1. System assembles referral packet from lease, notice, and account context.
+2. Manager reviews and approves referral.
+3. System records referral and links it to court-tracking workflow.
+
+**Alternate Flows:**
+- Referral remains pending until packet is complete.
+
+**Failure / Exception Flows:**
+- Missing packet components block referral.
+- Attorney delivery failure preserves legal-review-pending state.
+
+**Data Captured / Affected:** Referral packet contents, approval metadata, linked legal matter, communication status.  
+**Notifications:** Attorney referral communication; operator confirmation/failure notice.  
+**Permissions / Approval Gates:** Manager approval required before referral.  
+**Audit Log Requirements:** Packet generation, approval, referral event, linked legal matter creation.  
+**State Transitions:** Payment lifecycle `Notice Issued -> Legal Review Pending -> Attorney Referred`; downstream handoff to court tracking.  
+**Dependencies:** Notice workflow, document packet generation, legal case tracking, communications.
+
+**Acceptance Criteria:**
+- Referral packages lease, notice, and account context.
+- Manager approval is required.
+- Referral event is audit logged.
+- Referred matter links to court-tracking workflow.
+
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_EXTERNAL_INTEGRATION_SPEC`: Attorney communication mechanism is only loosely defined.
+- `MISSING_BUSINESS_RULE`: Packet completeness checklist is not formalized.
+
+---
+
+## Story ID: LEG-003
+**Title:** Accepted payment can terminate legal progression with sign-off  
+**Primary Actor:** Property manager  
+**Business Goal:** Stop unnecessary legal escalation when delinquency is cured.
+
+**Trigger:** Payment or cure event resolves delinquency before court progression becomes irreversible.  
+**Preconditions:** Legal progression is active and cancellation is still allowed.  
+**Main Flow:**
+1. System detects cure or accepted payment.
+2. Authorized operator signs off on halting legal progression.
+3. System updates legal status, tenant status, and ledger context.
+4. Workflow transitions to resolved state.
+
+**Alternate Flows:**
+- Partial cure does not stop legal progression and remains in active path.
+
+**Failure / Exception Flows:**
+- Missing required sign-off blocks cancellation even if payment is present.
+- Ledger or legal-state mismatch blocks resolution.
+
+**Data Captured / Affected:** Resolution amount/context, sign-off actor, reason, updated legal and payment status.  
+**Notifications:** Internal legal cancellation notice; tenant communication if policy requires.  
+**Permissions / Approval Gates:** Sign-off required by authorized role.  
+**Audit Log Requirements:** Resolution trigger, sign-off, reason, resulting state change across legal and ledger records.  
+**State Transitions:** Payment lifecycle `Legal Review Pending` or `Attorney Referred -> Resolved`; downstream handoff out of legal progression.  
+**Dependencies:** Ledger resolution logic, legal workflow, approval roles, communications.
+
+**Acceptance Criteria:**
+- Legal progression can be cancelled prior to court where allowed.
+- Cancellation requires sign-off.
+- Resolution reason is logged.
+- Tenant/legal/ledger states update consistently.
+
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_ROLE_PERMISSION_RULE`: Exact sign-off actor set is not fully locked.
+
+---
+
+## Story ID: LEG-004
+**Title:** Court dates are tracked and surfaced operationally  
+**Primary Actor:** Property manager or owner  
+**Business Goal:** Keep legal milestones visible so teams can prepare for court obligations.
+
+**Trigger:** Court date is received or updated for an active legal matter.  
+**Preconditions:** Legal matter exists and has already reached court-tracking stage.  
+**Main Flow:**
+1. System records the court date and linked case context.
+2. Court event is surfaced to operational calendar/dashboard views.
+3. Relevant parties are notified when configured.
+4. Updated court information remains linked to the underlying legal matter.
+
+**Alternate Flows:**
+- Existing court event is updated when schedule changes.
+
+**Failure / Exception Flows:**
+- Missing case linkage blocks court-event creation.
+- Invalid or incomplete court details prevent the event from being marked operationally ready.
+
+**Data Captured / Affected:** Court event, legal case reference, scheduled date/time, operational calendar linkage, update history.  
+**Notifications:** Calendar/event notices to relevant internal parties when configured.  
+**Permissions / Approval Gates:** Authorized operator entry/update required; external attorney-originated data does not bypass local validation.  
+**Audit Log Requirements:** Court event creation, update history, actor/source, linked case, notification send events.  
+**State Transitions:** Payment/legal lifecycle `Attorney Referred -> Court Scheduled`; downstream handoff to operational dashboard/calendar and later legal resolution.  
+**Dependencies:** Legal workflow state model, calendar/dashboard system, notification service.
+
+**Acceptance Criteria:**
+- Court dates can be recorded against legal matters.
+- Court events surface operationally on calendar/dashboard views.
+- Updates are auditable.
+- Court tracking has a downstream handoff into operational preparation and legal resolution workflows.
+
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_EXTERNAL_INTEGRATION_SPEC`: Attorney-to-system data handoff contract is not defined.
+- `MISSING_ROLE_PERMISSION_RULE`: Exact data-entry ownership between attorney, manager, and internal staff is not fully defined.
+
+---
+
+## Story ID: ACC-001
+**Title:** System exports or syncs financial data to accounting tools  
+**Primary Actor:** Property manager or owner  
+**Business Goal:** Keep operational financial events aligned with accounting systems.
+
+**Trigger:** Accounting export/sync runs on schedule or in response to ledger events.  
+**Preconditions:** Accounting connection and record mappings exist.  
+**Main Flow:**
+1. System gathers rent, charges, repairs, taxes, mortgage-related items, and other mapped events.
+2. System exports or syncs them to the accounting tool.
+3. System records success/failure and preserves origin references.
+4. Failed syncs remain visible for operator review.
+
+**Alternate Flows:**
+- Batch export is used instead of real-time sync when configured.
+
+**Failure / Exception Flows:**
+- Sync failure results in visible failed state instead of silent drop.
+- Statistical anomaly triggers review hold before posting to external accounting system.
+
+**Data Captured / Affected:** Sync batch metadata, origin references, mapped accounting payloads, failure state, anomaly flags.  
+**Notifications:** Optional operator alerts for failure or anomaly hold.  
+**Permissions / Approval Gates:** Automated sync may run by policy; anomaly release requires authorized accountant/operator review.  
+**Audit Log Requirements:** Sync start/end, actor or scheduler, records included, failure reason, anomaly hold/release event.  
+**State Transitions:** No direct tenant lifecycle transition; downstream handoff to monthly financial reporting and accounting reconciliation.  
+**Dependencies:** Accounting integration, mapping store, anomaly detection, reporting services.
+
+**Acceptance Criteria:**
+- Rent, charges, repairs, taxes, and mortgage-related items can be exported/synced.
+- Sync/export events are auditable.
+- Failed sync states are visible.
+- Origin references are preserved.
+- Anomalous sync payloads can be held for review before posting.
+
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_DATA_MAPPING`: QuickBooks/chart-of-accounts mapping schema is not defined.
+- `MISSING_EXTERNAL_INTEGRATION_SPEC`: Real-time sync vs batch export is not decided.
+
+---
+
+## Story ID: RPT-001
+**Title:** Monthly financial summaries aggregate property economics  
+**Primary Actor:** Property manager or owner  
+**Business Goal:** Evaluate property performance using monthly operational finance data.
+
+**Trigger:** Monthly reporting cycle runs or authorized operator requests report generation.  
+**Preconditions:** Ledger, expense, tax, mortgage, and repair data are available.  
+**Main Flow:**
+1. System aggregates rent, repairs, taxes, mortgage, and other expenses.
+2. Report rolls up by property and unit where relevant.
+3. Source ledger provenance is preserved.
+4. Report output is made available for review/export.
+
+**Alternate Flows:**
+- On-demand report generation reuses the same monthly aggregation logic.
+
+**Failure / Exception Flows:**
+- Missing source data produces completeness warning rather than silent omission.
+
+**Data Captured / Affected:** Reporting period, property/unit rollups, revenue/expense totals, provenance references.  
+**Notifications:** Optional report-ready notification.  
+**Permissions / Approval Gates:** Authorized manager/owner access required.  
+**Audit Log Requirements:** Report generation event, actor or scheduler, period, data-source references.  
+**State Transitions:** No domain lifecycle change; downstream handoff into owner review and accounting reconciliation.  
+**Dependencies:** Ledger reporting pipeline, expense categorization, accounting sync/export, dashboard/reporting UI.
+
+**Acceptance Criteria:**
+- Reports include rent, repairs, taxes, mortgage, and other expenses.
+- Rollups are available by property and unit where relevant.
+- Source provenance is preserved.
+- Missing data is surfaced instead of hidden.
+
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_BUSINESS_RULE`: Final report output format is not selected.
+- `MISSING_BUSINESS_RULE`: Accounting close rules are not defined.
+
+---
+
+## Story ID: MOV-003
+**Title:** Final charges and closeout are posted and communicated to the former tenant  
+**Primary Actor:** Property manager  
+**Business Goal:** Turn approved closeout charges into an auditable statement and collection/closure path.
+
+**Trigger:** Turn, damage, deposit-offset, or closeout charges are finalized for a former tenant.  
+**Preconditions:** Former-tenant closeout context exists; charge amounts and offsets have been reviewed/finalized by an authorized operator.  
+**Main Flow:**
+1. System posts final charges and offsets to the ledger.
+2. System creates a closeout statement showing charges, credits, and deposit treatment.
+3. System communicates the statement to the former tenant.
+4. Resulting balance is handed off into collection or account closure workflow.
+
+**Alternate Flows:**
+- Zero-balance closeout still generates an archival statement when required.
+- Deposit offsets appear as credits against posted charges when deposit workflow supports them.
+
+**Failure / Exception Flows:**
+- Missing charge finalization or incomplete offset data blocks statement generation.
+- Delivery failure does not roll back the ledger posting and must remain visible for follow-up.
+
+**Data Captured / Affected:** Final ledger charges, offsets/credits, former-tenant statement, delivery outcome, closeout balance state.  
+**Notifications:** Email/app closeout statement to former tenant; optional internal alert on failed delivery.  
+**Permissions / Approval Gates:** Manager finalization required before posting or sending the final statement.  
+**Audit Log Requirements:** Charge posting, offset application, statement generation, send result, finalization actor, resulting balance state.  
+**State Transitions:** Applicant-to-Tenant `Move-Out Pending -> Former Tenant`; downstream handoff to collection workflow or account closure.  
+**Dependencies:** Ledger, messaging, deposit-offset handling, closeout workflow.
+
+**Acceptance Criteria:**
+- Final charges can be posted to the ledger.
+- Offset/credit handling can be reflected in the statement.
+- Former tenant receives a detailed statement through supported channels.
+- Finalized closeout has a downstream handoff into collection or closure.
+
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_LEGAL_RULE`: Statement-format and required closeout disclosures may vary by jurisdiction.
+- `MISSING_AUDIT_REQUIREMENT`: Proof-of-delivery requirements for final charge statements are not fully defined.
+
+---
+
+## Story ID: COM-002
+**Title:** Communication and critical-action records remain reconstructable through central audit logging  
+**Primary Actor:** System  
+**Business Goal:** Make communications and critical operational actions searchable for reporting, legal defense, and dispute reconstruction.
+
+**Trigger:** A tracked communication or critical workflow action occurs.  
+**Preconditions:** Source event exists and is emitted by a tracked workflow.  
+**Main Flow:**
+1. System captures communication and critical-action metadata in the central audit store.
+2. Audit records remain linked to the source tenant, unit, property, lease, payment, or work-order context where available.
+3. Authorized operators can query records for reporting, legal defense, or dispute review.
+
+**Alternate Flows:**
+- Manual communications are recorded with human actor attribution.
+- System-generated communications/actions are marked distinctly from human-originated ones.
+
+**Failure / Exception Flows:**
+- Partial metadata does not prevent base event capture.
+- Audit-store failure surfaces an operational alert instead of silently dropping the event when avoidable.
+
+**Data Captured / Affected:** Audit entry, source object references, message metadata, human/system actor, timestamps, related workflow context.  
+**Notifications:** Not directly user-facing; optional operator alert on audit-ingestion failure.  
+**Permissions / Approval Gates:** No separate approval gate for event capture; read access is role-controlled.  
+**Audit Log Requirements:** Communication send/fail/delivery states, manual communication records, critical workflow transitions, before/after context where applicable.  
+**State Transitions:** Cross-cutting audit layer; downstream handoff to reporting, legal defense, analytics, and dispute review.  
+**Dependencies:** Central audit subsystem, event propagation, reporting/search surfaces, role-based access controls.
+
+**Acceptance Criteria:**
+- Communication records are centrally captured and queryable.
+- Human and system actions are distinguishable.
+- Related workflow/entity context is preserved when available.
+- Audit capture failures are surfaced rather than silently ignored.
+
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_AUDIT_REQUIREMENT`: Immutable-vs-editable audit policy is not fully defined.
+- `MISSING_AUDIT_REQUIREMENT`: Communication-record retention period is not fully defined.
+
+---
+
+## Story ID: SYS-001
+**Title:** System preserves end-to-end auditability  
+**Primary Actor:** Operator, owner, or reviewer  
+**Business Goal:** Ensure disputes, compliance, and analytics are supportable across backend workflows.
+
+**Trigger:** Any critical action, communication, financial mutation, or legal/payment state transition occurs.  
+**Preconditions:** Domain object and event context exist.  
+**Main Flow:**
+1. System records critical action with actor/system source, timestamp, object, and action.
+2. Where appropriate, before/after values are captured.
+3. Audit records remain queryable across tenant, property, unit, lease, payment, notice, and work-order contexts.
+
+**Alternate Flows:**
+- System-generated events are marked differently from human-generated events.
+
+**Failure / Exception Flows:**
+- Audit persistence failure surfaces as an operational defect and must not silently pass where avoidable.
+
+**Data Captured / Affected:** Actor, object, action, timestamp, before/after state, workflow correlation ID.  
+**Notifications:** Optional operator alert on audit-persistence failure.  
+**Permissions / Approval Gates:** Read access to audit data is role-controlled.  
+**Audit Log Requirements:** This story defines the minimum audit envelope for all critical backend mutations.  
+**State Transitions:** Cross-cutting requirement across all backend workflows.  
+**Dependencies:** Central audit service, event propagation, query surfaces, role access controls.
+
+**Acceptance Criteria:**
+- All critical workflow transitions are logged.
+- Logs include actor, timestamp, object, action, and before/after where appropriate.
+- Human and system actions are distinguishable.
+- Audit data is queryable across core operating objects.
+
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_AUDIT_REQUIREMENT`: Retention/archival policy is not defined.
+- `MISSING_AUDIT_REQUIREMENT`: Tamper-resistance requirements are not defined.
+
+---
+
+## Story ID: INF-001
+**Title:** Platform services apply resilience controls without obscuring business workflow outcomes  
+**Primary Actor:** DevOps / systems engineer  
+**Business Goal:** Protect core API workflows from abuse and third-party outages.
+
+**Trigger:** Traffic spikes, rate-limit thresholds, or third-party instability affect backend service health.  
+**Preconditions:** Rate limiting, circuit breaker, and telemetry infrastructure are configured.  
+**Main Flow:**
+1. System applies rate limiting to high-volume endpoints.
+2. Circuit breakers fail fast on unstable external dependencies.
+3. Telemetry captures degraded behavior for operator review.
+4. Business workflows surface degraded-state outcomes instead of silently succeeding.
+
+**Alternate Flows:**
+- Cached or fallback behavior is used when external systems are unavailable.
+
+**Failure / Exception Flows:**
+- Excess load returns explicit error state such as `429`.
+- Third-party dependency failure downgrades the workflow and records fallback mode.
+
+**Data Captured / Affected:** Traffic-state metrics, rate-limit decisions, fallback mode, circuit breaker state.  
+**Notifications:** Operational alerts to monitoring tools.  
+**Permissions / Approval Gates:** Operational controls owned by platform/admin roles.  
+**Audit Log Requirements:** Degraded-mode entry/exit, fallback decisions, rate-limit events where materially relevant.  
+**State Transitions:** Infrastructure `Normal -> RateLimited/Degraded`; downstream handoff back into affected business workflows for retry or manual intervention.  
+**Dependencies:** Rate limiter, telemetry, circuit breaker, caching/fallback mechanisms.
+
+**Acceptance Criteria:**
+- Rate limiting exists for high-volume endpoints.
+- Third-party failures can fail fast with fallback behavior.
+- Real-time tracing/telemetry is emitted.
+- Degraded states are explicit and do not hide business workflow failure.
+
+**Open Gaps / Unresolved Decisions:**
+- `ABSENT_DOWNSTREAM_HANDOFF`: Some workflow-specific fallback behaviors are not modeled in the source stories.

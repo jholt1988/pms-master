@@ -10,6 +10,7 @@ import { PaymentsModule } from '../payments/payments.module';
 import { EsignatureModule } from '../esignature/esignature.module';
 import { RentOptimizationModule } from '../rent-optimization/rent-optimization.module';
 import { ReportingModule } from '../reporting/reporting.module';
+import { PolicyModule } from '../policy/policy.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { ReportingModule } from '../reporting/reporting.module';
     MaintenanceModule,
     NotificationsModule,
     PaymentsModule,
+    PolicyModule,
     EsignatureModule,
     RentOptimizationModule,
     ReportingModule,

@@ -11,11 +11,13 @@ import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { AuditLogService } from '../shared/audit-log.service';
 import { MaintenanceFeatureExtractionService } from './ai/maintenance-feature-extraction.service';
 import { MaintenanceDataQualityService } from './ai/maintenance-data-quality.service';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { EventScheduleModule } from '../schedule/schedule.module';
 
 const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
 
 @Module({
-  imports: [PrismaModule, ConfigModule],
+  imports: [PrismaModule, ConfigModule, NotificationsModule, EventScheduleModule],
   controllers: legacyEnabled ? [MaintenanceController, MaintenanceLegacyController] : [MaintenanceController],
   providers: [
     MaintenanceService,

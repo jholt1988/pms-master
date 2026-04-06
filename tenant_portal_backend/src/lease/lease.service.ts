@@ -18,6 +18,7 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { RespondRenewalOfferDto, RenewalDecision } from './dto/respond-renewal-offer.dto';
 import { TenantSubmitNoticeDto } from './dto/tenant-submit-notice.dto';
 import { AILeaseRenewalService } from './ai-lease-renewal.service';
+import { AuditLogService } from '../shared/audit-log.service';
 
 @Injectable()
 export class LeaseService {
@@ -26,6 +27,7 @@ export class LeaseService {
   constructor(
     private prisma: PrismaService,
     private readonly aiLeaseRenewalService: AILeaseRenewalService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   private readonly leaseInclude: Prisma.LeaseInclude = {
@@ -352,13 +354,39 @@ export class LeaseService {
       rentAmount: proposedRent,
     });
 
+    await this.ensureScheduleEvent({
+      type: 'LEASE_RENEWAL',
+      title: `Renewal Response Due - ${lease.unit?.name ?? 'Lease'}`,
+      date: updated.renewalDueAt ?? offer.expiresAt ?? this.addDays(lease.endDate, -30),
+      priority: 'HIGH',
+      description: `Renewal offer pending for lease ${leaseId}. Response due before expiration.`,
+      propertyId: lease.unit?.propertyId,
+      unitId: lease.unitId,
+      tenantId: lease.tenantId,
+    });
+
+    await this.recordAudit({
+      orgId,
+      actorId: actorIdStr,
+      action: 'LEASE_RENEWAL_OFFER_CREATED',
+      entityType: 'LeaseRenewalOffer',
+      entityId: offer.id,
+      metadata: {
+        leaseId,
+        proposedRent,
+        proposedStart: proposedStart.toISOString(),
+        proposedEnd: proposedEnd.toISOString(),
+        aiRentUsed,
+      },
+    });
+
     return updated;
   }
 
   async recordLeaseNotice(id: string | number, dto: RecordLeaseNoticeDto, actorId: string | number, orgId?: string) {
     const leaseId = this.normalizeNumericId(id);
     const actorIdStr = this.normalizeId(actorId);
-    await this.ensureLease(leaseId, orgId);
+    const lease = await this.ensureLease(leaseId, orgId);
 
     const notice = await this.prisma.leaseNotice.create({
       data: {
@@ -387,6 +415,33 @@ export class LeaseService {
       fromStatus: notice.lease.status,
       toStatus: updatedStatus ?? notice.lease.status,
       note: `Notice recorded (${dto.type})`,
+    });
+
+    if (dto.type === LeaseNoticeType.MOVE_OUT) {
+      await this.ensureScheduleEvent({
+        type: 'MOVE_OUT',
+        title: `Move-Out Notice - ${lease.unit?.name ?? lease.id}`,
+        date: lease.moveOutAt ?? lease.endDate,
+        priority: 'HIGH',
+        description: 'Manager-recorded move-out notice requires operational follow-up.',
+        propertyId: lease.unit?.propertyId,
+        unitId: lease.unitId,
+        tenantId: lease.tenantId,
+      });
+    }
+
+    await this.recordAudit({
+      orgId,
+      actorId: actorIdStr,
+      action: 'LEASE_NOTICE_RECORDED',
+      entityType: 'LeaseNotice',
+      entityId: notice.id,
+      metadata: {
+        leaseId,
+        noticeType: dto.type,
+        deliveryMethod: dto.deliveryMethod,
+        statusUpdatedTo: updatedStatus ?? null,
+      },
     });
 
     return this.getLeaseById(leaseId, orgId);
@@ -478,6 +533,20 @@ export class LeaseService {
       metadata: historyMetadata,
     });
 
+    await this.recordAudit({
+      orgId,
+      actorId: tenantUserIdStr,
+      action: 'LEASE_RENEWAL_OFFER_RESPONDED',
+      entityType: 'LeaseRenewalOffer',
+      entityId: offerIdNum,
+      metadata: {
+        leaseId: leaseIdNum,
+        decision: dto.decision,
+        respondedAt: respondedAt.toISOString(),
+        resultingLeaseStatus: updatedLease.status,
+      },
+    });
+
     return this.getLeaseById(leaseIdNum, orgId);
   }
 
@@ -534,6 +603,32 @@ export class LeaseService {
       toStatus: updatedLease.status,
       note: noteParts.join(' '),
       metadata,
+    });
+
+    if (dto.type === LeaseNoticeType.MOVE_OUT) {
+      await this.ensureScheduleEvent({
+        type: 'MOVE_OUT',
+        title: `Tenant Move-Out - ${lease.unit?.name ?? 'Lease'}`,
+        date: moveOutAt,
+        priority: 'HIGH',
+        description: 'Tenant-submitted move-out notice requires inspection and turn planning.',
+        propertyId: lease.unit?.propertyId,
+        unitId: lease.unitId,
+        tenantId: lease.tenantId,
+      });
+    }
+
+    await this.recordAudit({
+      orgId,
+      actorId: tenantUserIdStr,
+      action: 'TENANT_NOTICE_SUBMITTED',
+      entityType: 'LeaseNotice',
+      entityId: leaseIdNum,
+      metadata: {
+        noticeType: dto.type,
+        requestedMoveOut: dto.type === LeaseNoticeType.MOVE_OUT ? moveOutAt.toISOString() : null,
+        resultingLeaseStatus: updatedLease.status,
+      },
     });
 
     return this.getLeaseById(leaseIdNum, orgId);
@@ -749,7 +844,95 @@ export class LeaseService {
       note: `Prepared for vacancy due to low renewal likelihood. Unit marked available on ${lease.endDate.toISOString()}, inspection scheduled for ${inspectionDate.toISOString()}`,
     });
 
+    await this.ensureScheduleEvent({
+      type: 'MOVE_OUT',
+      title: `Move-Out Inspection Prep - ${lease.unit?.property?.name ?? 'Lease'}`,
+      date: inspectionDate,
+      priority: 'HIGH',
+      description: 'Vacancy preparation triggered. Confirm move-out inspection and turn readiness.',
+      propertyId: lease.unit?.propertyId,
+      unitId: lease.unitId,
+      tenantId: lease.tenantId,
+    });
+
+    await this.recordAudit({
+      actorId: undefined,
+      action: 'LEASE_VACANCY_PREPARED',
+      entityType: 'Lease',
+      entityId: leaseIdNum,
+      metadata: {
+        unitId: lease.unitId,
+        propertyId: lease.unit?.propertyId,
+        inspectionDate: inspectionDate.toISOString(),
+        leaseEndDate: lease.endDate.toISOString(),
+      },
+    });
+
     this.logger.log(`Successfully prepared for vacancy: Lease ${leaseId}, Unit ${lease.unitId}`);
+  }
+
+  private async ensureScheduleEvent(event: {
+    type: 'LEASE_RENEWAL' | 'MOVE_OUT';
+    title: string;
+    date: Date;
+    priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+    description?: string;
+    propertyId?: string | null;
+    unitId?: string | null;
+    tenantId?: string | null;
+  }) {
+    const existing = await this.prisma.scheduleEvent.findFirst({
+      where: {
+        type: event.type,
+        title: event.title,
+        date: event.date,
+        propertyId: event.propertyId ?? null,
+        unitId: event.unitId ?? null,
+        tenantId: event.tenantId ?? null,
+      },
+      select: { id: true },
+    });
+
+    if (existing) {
+      return existing;
+    }
+
+    return this.prisma.scheduleEvent.create({
+      data: {
+        type: event.type,
+        title: event.title,
+        date: event.date,
+        priority: event.priority,
+        description: event.description,
+        propertyId: event.propertyId ?? undefined,
+        unitId: event.unitId ?? undefined,
+        tenantId: event.tenantId ?? undefined,
+      },
+    });
+  }
+
+  private async recordAudit(event: {
+    orgId?: string;
+    actorId?: string;
+    action: string;
+    entityType: string;
+    entityId?: string | number;
+    metadata?: Record<string, unknown>;
+  }) {
+    try {
+      await this.auditLogService.record({
+        orgId: event.orgId,
+        actorId: event.actorId ?? null,
+        module: 'LEASE',
+        action: event.action,
+        entityType: event.entityType,
+        entityId: event.entityId,
+        result: 'SUCCESS',
+        metadata: event.metadata,
+      });
+    } catch (error) {
+      this.logger.warn(`Failed to write lease audit event ${event.action}: ${String(error)}`);
+    }
   }
 
   private addDays(date: Date, days: number) {

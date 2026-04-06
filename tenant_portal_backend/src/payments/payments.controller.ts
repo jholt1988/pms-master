@@ -16,6 +16,10 @@ import { ReverseManualPaymentDto } from './dto/reverse-manual-payment.dto';
 import { CreateManualChargeDto } from './dto/create-manual-charge.dto';
 import { VoidManualChargeDto } from './dto/void-manual-charge.dto';
 import { UpdateDelinquencyPriorityConfigDto } from './dto/update-delinquency-priority-config.dto';
+import { IssueDelinquencyNoticeDto } from './dto/issue-delinquency-notice.dto';
+import { ResolveDelinquencyLegalHoldDto } from './dto/resolve-delinquency-legal-hold.dto';
+import { ReferDelinquencyAttorneyDto } from './dto/refer-delinquency-attorney.dto';
+import { RecordCourtDateDto } from './dto/record-court-date.dto';
 import { Request as ExpressRequest } from 'express';
 import { AuditLogService } from '../shared/audit-log.service';
 
@@ -165,6 +169,70 @@ export class PaymentsController {
       },
     });
     return result;
+  }
+
+  @Post('delinquency/issue-notice')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async issueDelinquencyNotice(
+    @Body() dto: IssueDelinquencyNoticeDto,
+    @Request() req: AuthenticatedRequest,
+    @OrgId() orgId: string,
+  ) {
+    return this.paymentsService.issueDelinquencyNotice(dto, req.user.userId, orgId);
+  }
+
+  @Post('delinquency/resolve-legal-hold')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async resolveDelinquencyLegalHold(
+    @Body() dto: ResolveDelinquencyLegalHoldDto,
+    @Request() req: AuthenticatedRequest,
+    @OrgId() orgId: string,
+  ) {
+    return this.paymentsService.resolveDelinquencyLegalHold(dto, req.user.userId, orgId);
+  }
+
+  @Post('delinquency/refer-attorney')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async referDelinquencyToAttorney(
+    @Body() dto: ReferDelinquencyAttorneyDto,
+    @Request() req: AuthenticatedRequest,
+    @OrgId() orgId: string,
+  ) {
+    return this.paymentsService.referDelinquencyToAttorney(dto, req.user.userId, orgId);
+  }
+
+  @Post('delinquency/record-court-date')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async recordCourtDate(
+    @Body() dto: RecordCourtDateDto,
+    @Request() req: AuthenticatedRequest,
+    @OrgId() orgId: string,
+  ) {
+    return this.paymentsService.recordCourtDate(dto, req.user.userId, orgId);
+  }
+
+  @Get('delinquency/legal-tracker/:leaseId')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async getDelinquencyLegalTracker(
+    @Param('leaseId') leaseId: string,
+    @Request() req: AuthenticatedRequest,
+    @OrgId() orgId: string,
+  ) {
+    return this.paymentsService.getDelinquencyLegalTracker(leaseId, orgId);
+  }
+
+  @Get('delinquency/attorney-packet/:leaseId')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async getAttorneyPacketChecklist(
+    @Param('leaseId') leaseId: string,
+    @Request() req: AuthenticatedRequest,
+    @OrgId() orgId: string,
+  ) {
+    return this.paymentsService.getAttorneyPacketChecklist(
+      leaseId,
+      { userId: req.user.userId, role: req.user.role },
+      orgId,
+    );
   }
 
   @Post('stripe/checkout-session')

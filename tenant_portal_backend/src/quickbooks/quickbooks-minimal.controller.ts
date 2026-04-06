@@ -15,6 +15,7 @@ import { Inject } from '@nestjs/common';
 import { QuickBooksMinimalService } from './quickbooks-minimal.service';
 import { AbstractQuickBooksService } from './quickbooks.types';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
+import { AccountingAnomalyService } from './accounting-anomaly.service';
 
 @ApiTags('QuickBooks Integration')
 @ApiBearerAuth()
@@ -23,7 +24,10 @@ import { OrgContextGuard } from '../common/org-context/org-context.guard';
 export class QuickBooksController {
   private readonly logger = new Logger(QuickBooksController.name);
 
-  constructor(@Inject(AbstractQuickBooksService) private readonly quickBooksService: AbstractQuickBooksService) {}
+  constructor(
+    @Inject(AbstractQuickBooksService) private readonly quickBooksService: AbstractQuickBooksService,
+    private readonly accountingAnomalyService: AccountingAnomalyService,
+  ) {}
 
   @Get('auth-url')
   @ApiOperation({ summary: 'Get QuickBooks authorization URL' })
@@ -141,6 +145,29 @@ export class QuickBooksController {
       this.logger.warn('QuickBooks status unavailable, returning disconnected state', error as any);
       return { connected: false };
     }
+  }
+
+  @Get('anomalies')
+  @ApiOperation({ summary: 'List recent QuickBooks accounting anomalies' })
+  @ApiResponse({
+    status: 200,
+    description: 'Recent QuickBooks anomalies retrieved successfully',
+  })
+  async listAnomalies(
+    @Request() req: any,
+    @Query('status') status?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const orgId = req.org?.orgId as string | undefined;
+
+    if (!orgId) {
+      throw new HttpException('Missing organization context', HttpStatus.BAD_REQUEST);
+    }
+
+    return this.accountingAnomalyService.listRecentAnomalies(orgId, {
+      status,
+      limit: limit ? Number(limit) : undefined,
+    });
   }
 
   @Post('sync')

@@ -1,187 +1,203 @@
 # User Stories: Rent Optimization & Yield Management
 
-**Module:** `rent_optimization_ml`
-**Focus:** Automating pricing strategies, maximizing Net Operating Income (NOI), and minimizing vacancy loss using dynamic, real-time market learning curves.
+**Module:** `rent_optimization_ml`  
+**Normalized Scope:** renewal offers, retention decisions, vacancy pricing, and owner-facing pricing analytics.  
+**Canonical Lifecycle Domains:** renewals, retention offers, listings/availability handoff, dashboard analytics.
+
+## File-Level Notes
+- This file now anchors renewal and retention pricing workflows to the tenant lifecycle.
+- Market automation remains explicitly bounded by unresolved data-provider and approval-policy gaps.
+- This file does not replace the operational payment, listing, or accounting stories; it hands off into them.
 
 ---
 
-## 1. Persona: Tenant (Applicant / Renewing Resident)
+## Story ID: REN-001
+**Title:** Renewal reminders trigger at 90 and 30 days with pricing context  
+**Primary Actor:** Property manager or tenant  
+**Business Goal:** Surface renewal timing early enough to support retention, repricing, or move-out planning.
 
-### Epic: Transparent & Flexible Pricing Options
-**Story 1.1: Dynamic Lease Term Pricing Options**
-- **As a** Tenant (Prospect or Renewing Resident)
-- **I want to** see a matrix of dynamically generated rent prices tied to exact lease end-dates
-- **So that** I have the freedom to choose a 10-month or 14-month lease that fits my schedule, while receiving a fair, algorithmically derived price.
-- **Acceptance Criteria:**
-  - [ ] The user interface presents an interactive timeline or matrix where dragging the lease end-date instantly updates the monthly rent cost.
-  - [ ] The algorithm incentivizes moving out during high-demand months (e.g., June/July) by lowering the rent for lease terms that end in the summer, and slightly raising rent for terms ending in winter.
-  - [ ] Renewal offers are generated transparently 90 days out, allowing tenants ample time to accept dynamically optimized 'early-bird' incentives.
+**Trigger:** Active lease reaches 90-day or 30-day pre-expiration threshold.  
+**Preconditions:** Lease has valid end date; lease is eligible for renewal workflow.  
+**Main Flow:**
+1. System detects threshold crossing for active leases.
+2. System generates reminder event and links it to renewal workflow.
+3. Where pricing context exists, reminder can reference pending renewal options.
+4. If no renewal is pursued, workflow hands off into move-out planning.
 
-### 🔷 Property OS Augmentation
-- **Expected Loss Definition:** Calculates the probabilistic vacancy loss (turn cost + days empty) if the tenant is priced out vs the lost margin of under-pricing the renewal.
-- **ActionIntent Mapping:** System produces a `GenerateRenewalPricingIntent`.
-- **Priority Logic:** Prioritizes lease ends occurring in low-demand winter months to aggressively capture early renewals.
+**Alternate Flows:**
+- 90-day and 30-day reminders go to different recipient sets when property policy permits.
 
-### 🔷 UI Enhancements
-- Visual matrix for tenants showing exactly how they "save money" by selecting specific dates.
-- For PMs, dual display of "Competitor Average" vs "Our Proposal" to justify the algorithm's pricing strategy.
+**Failure / Exception Flows:**
+- Missing lease-end date blocks reminder generation and raises data-quality exception.
 
-### 🔷 Simulation Layer
-- Simulates total portfolio revenue if 50% of expiring leases take the 10-month vs the 14-month option.
+**Data Captured / Affected:** Lease end date, reminder threshold, recipient set, linked renewal workflow, pricing context reference if available.  
+**Notifications:** Reminder notifications to tenant and manager/owner as configured.  
+**Permissions / Approval Gates:** Automated reminder generation; role-based visibility determines recipients.  
+**Audit Log Requirements:** Threshold crossing, reminder generation, recipients, channels, linked lease/workflow.  
+**State Transitions:** Applicant-to-Tenant `Active Tenant -> Renewal Pending`; downstream handoff to retention offer or move-out workflow.  
+**Dependencies:** Lease data, notification service, renewal workflow, role configuration.
 
-### 🔷 Feedback & Learning
-- Tracks the acceptance rate of algorithmically generated offers; if acceptance is >80%, the model increases prices in the next cycle.
+**Acceptance Criteria:**
+- 90-day reminder exists.
+- 30-day reminder exists.
+- Reminders are logged.
+- Reminder links to renewal workflow and does not dead-end.
 
-### 🔷 Model Integrity & Governance
-- PM override allows manual adjustment of the generated pricing, with the system permanently logging the variance between human and machine performance.
-
-### 🔷 Execution Flow
-- **Trigger**: System clock hits 90 days prior to a lease expiration date for a current active tenant.
-- **Preconditions**: Lease must be in good standing (no active eviction intents); property must be accepting renewals.
-- **Execution Intent**: Generate a dynamically weighted pricing sheet based on projected seasonality and market vacancy rates to entice renewal.
-- **System Changes**: A `RenewalOffer` object is created and bound to the lease renewal terms.
-- **Output**: `GenerateRenewalPricingIntent` sent to the tenant portal for UI rendering and notification dispatch.
-
-### 🔷 State Transition
-- **Before State**: `Lease.Status = Active_Nearing_End`, `Renewal_Offer = Null`
-- **After State**: `Lease.Status = Active_Pending_Renewal_Response`, `Renewal_Offer = Generated/Emailed`
-
-### 🔷 Lifecycle Continuity
-- **Upstream Source**: Simple temporal (time-based) trigger scanning active leases daily.
-- **Downstream Paths**: If accepted by the tenant, routes back to the Ledger & Smart Contracts module for execution. If ignored/rejected, routes to PM for manual retention attempt or triggers marketing syndication 30 days prior to move-out.
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_ROLE_PERMISSION_RULE`: Exact recipient set by role/property is not fully defined.
 
 ---
 
-## 2. Persona: Admin / PM / Owner
+## Story ID: REN-002
+**Title:** System can generate dynamic lease-term pricing and retention offers  
+**Primary Actor:** Property manager or owner  
+**Business Goal:** Present structured renewal options that balance retention and vacancy economics.
 
-### Epic: Autonomous Revenue Maximization
-**Story 2.1: Hyper-Local Market Sentinel & Price Adjustment**
-- **As a** Property Manager
-- **I want to** utilize an ML model that endlessly scrapes competitive ILS listings within a customizable micro-market radius
-- **So that** my daily asking rents are automatically adjusted to respond to competitor supply dumps or spikes in localized demand.
-- **Acceptance Criteria:**
-  - [ ] Geofenced scraping isolates "comparable" units based on bedroom count, square footage, and luxury tier indexing.
-  - [ ] The system proposes a daily "Optimized Rent" for every vacant unit.
-  - [ ] PM can set the autopilot mode to fully autonomous (automatically updates ILS syndicate pricing daily) or "Review-Only" (requires PM click-to-approve).
+**Trigger:** Lease enters renewal window and pricing generation is requested or scheduled.  
+**Preconditions:** Lease is in good standing for renewal workflow; property accepts renewals; pricing inputs are available.  
+**Main Flow:**
+1. System generates renewal pricing options for allowed lease terms/end dates.
+2. System records offer details and associated assumptions.
+3. Manager/owner reviews and presents a retention offer to the tenant.
+4. Accepted offer hands off into lease update/execution workflow.
+5. Declined or expired offer hands off into move-out or marketing preparation.
 
-### 🔷 Property OS Augmentation
-- **Expected Loss Definition:** Lost yield from reacting too slowly to a sudden spike in neighborhood demand.
-- **ActionIntent Mapping:** Consumes scraped ILS data to produce a `PriceAdjustmentIntent`.
-- **Priority Logic:** Price adjustments are ranked by highest variance from current asking rent.
+**Alternate Flows:**
+- Manager overrides generated pricing with documented justification.
+- Offer remains internal until operator chooses to send.
 
-### 🔷 UI Enhancements
-- Autopilot confidence gauge indicating when the ML model feels strongly enough to automate the change.
-- Delta indicator showing $ change and % change over the last 7 days for the hyper-local market.
+**Failure / Exception Flows:**
+- Missing pricing inputs blocks generation.
+- Invalid override without operator attribution cannot be saved.
 
-### 🔷 Feedback & Learning
-- Correlation engine tracks whether a lowered price actually results in faster lease velocity based on the scrape dates.
+**Data Captured / Affected:** Generated pricing matrix, offer terms, assumptions, override metadata, tenant decision, linked lease.  
+**Notifications:** Offer presentation notice to tenant; internal review notice when generation completes.  
+**Permissions / Approval Gates:** Operator review/presentation required; pricing generation does not auto-bind the tenant.  
+**Audit Log Requirements:** Generation event, assumptions used, override actor/reason, offer send event, tenant response.  
+**State Transitions:** Applicant-to-Tenant `Renewal Pending`; downstream handoff to lease renewal execution or move-out workflow.  
+**Dependencies:** Lease data, pricing engine, notification service, lease update/signature workflow, move-out workflow.
 
-### 🔷 Model Integrity & Governance
-- Hard price ceilings/floors set by ownership prevent the algorithm from causing a flash-crash in property valuation.
+**Acceptance Criteria:**
+- Dynamic pricing options can be generated.
+- Retention offers can be created and presented.
+- Override path is auditable.
+- Accepted offers flow into renewal/lease update process.
+- Declined offers can transition to move-out planning.
 
-### 🔷 Execution Flow
-- **Trigger**: Scheduled execution of the hyper-local scraper (e.g., matching ILS URLs).
-- **Preconditions**: The property must have active vacant units and mapped geographical bounding boxes (geofences).
-- **Execution Intent**: Ingest competitor prices, detect negative/positive variance thresholds against internal rents, and propose the adjustment.
-- **System Changes**: Current `MarketAskRent` on vacant unit entity is updated.
-- **Output**: `PriceAdjustmentIntent` routed either securely to ILS syndicators (if autopilot) or to the PM approval dashboard.
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_BUSINESS_RULE`: Offer-approval boundaries are not defined.
+- `MISSING_BUSINESS_RULE`: Final lease-term option set per property is not defined.
 
-### 🔷 State Transition
-- **Before State**: `Unit.AskRent = $1500`, `Market.Alignment = Outdated`
-- **After State**: `Unit.AskRent = $1475`, `Market.Alignment = Optimized`
+---
 
-### 🔷 Lifecycle Continuity
-- **Upstream Source**: Independent web scraping or external data purchasing APIs.
-- **Downstream Paths**: Pushes updated pricing downstream to the `Automated Listing Syndication Mesh` module.
+## Story ID: REN-003
+**Title:** Predictive churn analytics inform retention prioritization without bypassing approval  
+**Primary Actor:** Asset manager or owner  
+**Business Goal:** Identify likely non-renewals early enough to target retention action.
 
-### 🔶 Unresolved Dependency
-- **Missing Link**: Anti-scraping defenses from ILS platforms.
-- **Why Missing**: Major listing sites actively block robotic scraping.
-- **Impact**: Without an official data provider API (e.g., RentCast, Costar) or proxies, the scraping mechanism fails.
+**Trigger:** Scheduled churn-analysis job evaluates leases approaching renewal.  
+**Preconditions:** Sufficient historical tenant and property data exists.  
+**Main Flow:**
+1. System calculates churn/renewal-likelihood indicators.
+2. System surfaces retention risk on dashboard/ops views.
+3. Operators use the signal to prioritize retention offers or vacancy preparation.
 
-**Story 2.2: Predictive Churn & Renewal Yield Matrix**
-- **As an** Asset Manager / Owner
-- **I want to** view a "Predictive Churn" dashboard that calculates the probability of specific tenants vacating at the end of their lease
-- **So that** I can accurately project vacancy costs versus the risk of pushing a severe rent increase during renewal negotiations.
-- **Acceptance Criteria:**
-  - [ ] ML Service integrates recent maintenance dispute frequency, payment punctuality, and external market delta to form a "Likelihood to Renew" score for each unit.
-  - [ ] Dashboard suggests the mathematically optimal renewal increase percentage that maximizes revenue while avoiding the cost-intensity of a turn (vacancy loss, cleaning, leasing commissions).
-  - [ ] Simulator graph projects the financial consequences of bumping rent 3% vs 8% on total portfolio NOI.
+**Alternate Flows:**
+- Low-confidence models are surfaced as advisory only.
 
-### 🔷 Property OS Augmentation
-- **Expected Loss Definition:** The exact dollar value of a tenant vacating (cleaning + leasing commission + vacancy days) compared to the yield of a higher rent bump.
-- **ActionIntent Mapping:** Consumes tenant behavioral data to produce a `RetentionRiskIntent`.
-- **Priority Logic:** Units with highest predicted churn risk and lowest market rent delta are flagged for immediate retention action.
+**Failure / Exception Flows:**
+- Missing required historical data suppresses the score and logs the gap.
 
-### 🔷 UI Enhancements
-- "Likelihood to Renew" speedometer gauge (Red, Yellow, Green) for every unit approaching renewal.
-- "Projected Turn Cost vs. Increased Yield" visual scale for direct comparison.
+**Data Captured / Affected:** Churn score, input factors, linked lease/unit/property, suggested retention priority.  
+**Notifications:** Optional internal retention-risk alerts.  
+**Permissions / Approval Gates:** Analytics do not auto-issue offers or change tenant status.  
+**Audit Log Requirements:** Scoring run, input range, resulting risk signal, operator overrides if converted into action.  
+**State Transitions:** No direct lifecycle transition; downstream handoff into renewal offer or vacancy preparation.  
+**Dependencies:** Tenant history, maintenance/payment signals, dashboard surfaces, renewal workflow.
 
-### 🔷 Simulation Layer
-- Full Monte Carlo simulation evaluating portfolio NOI across variable rent increase proposals (3% to 10%).
+**Acceptance Criteria:**
+- Renewal/churn risk can be computed when sufficient data exists.
+- Signal is visible for operator review.
+- Analytics do not bypass human offer/review gates.
+- Missing-data conditions are explicit.
 
-### 🔷 Feedback & Learning
-- Ingest actual tenant responses (Renewed vs Vacated) to refine the baseline "Likelihood to Renew" probability scoring recursively.
+**Open Gaps / Unresolved Decisions:**
+- `ABSENT_ANALYTICS_REQUIREMENT`: Final model-governance and redline thresholds are not defined.
+- `MISSING_DATA_MAPPING`: Required source-data feature set is not fully specified.
 
-### 🔷 Model Integrity & Governance
-- Excludes protected class data from the churn prediction model to ensure fair housing compliance.
+---
 
-### 🔷 Execution Flow
-- **Trigger**: Batch cron job executed nightly evaluating all tenants crossing the 120-day pre-renewal threshold.
-- **Preconditions**: Sufficient historical data for the tenant exists (e.g., at least 6 months of payment history/work orders).
-- **Execution Intent**: Calculate a `LikelihoodToRenew` score and run a Monte Carlo cross-reference to suggest an optimized rent increase percentage.
-- **System Changes**: `Tenant.ChurnProbabilityScore` and `SuggestedRentIncrease` are updated in the database.
-- **Output**: `RetentionRiskIntent` surfaced on the PM command center.
+## Story ID: LST-001
+**Title:** Market pricing can hand off into listing and vacancy workflows for available units  
+**Primary Actor:** Property manager  
+**Business Goal:** Adjust asking rent for vacant units while preserving operator control when autonomy is not explicitly approved.
 
-### 🔷 State Transition
-- **Before State**: `Tenant.RiskProfile = Stale`
-- **After State**: `Tenant.RiskProfile = Churn_Risk_Evaluated`
+**Trigger:** Vacant/available unit enters pricing review cycle.  
+**Preconditions:** Unit is vacant or nearing listing availability; comparable pricing inputs are available.  
+**Main Flow:**
+1. System evaluates current market pricing inputs.
+2. System proposes optimized asking rent for the available/listed unit.
+3. If autopilot is enabled by policy, pricing update can be applied; otherwise it waits for operator approval.
+4. Approved pricing hands off into listing syndication workflow.
 
-### 🔷 Lifecycle Continuity
-- **Upstream Source**: Ingested tenant telemetry (maintenance complaints, late payments).
-- **Downstream Paths**: Outputs feed directly into the `Dynamic Lease Term Pricing Options` module to constrain or expand the renewal offer margins.
+**Alternate Flows:**
+- Review-only mode requires explicit PM approval.
 
-**Story 2.3: Amenity Value Extraction Model**
-- **As a** Property Owner
-- **I want to** run a regression analysis on my portfolio to determine the exact rent premium commanded by specific amenities (e.g., "Smart locks" vs "Hardwood floors")
-- **So that** I make data-backed CAPEX decisions rather than guessing what upgrades tenants will pay for.
-- **Acceptance Criteria:**
-  - [ ] The model isolates variables internally and across comparable scraped listings to find the delta ($/month) attributed to specific features.
-  - [ ] Output generates an ROI matrix: "Adding in-unit washer/dryers will cost $1,500/unit and increase market rent capture by $115/mo, resulting in a 13-month payback period."
+**Failure / Exception Flows:**
+- Missing comparable data blocks recommendation.
+- Unsupported data-provider or scraping failure suppresses automatic repricing.
 
-### 🔷 Property OS Augmentation
-- **Expected Loss Definition:** Opportunity cost of deploying capital into low-ROI upgrades rather than high-yield upgrades.
-- **ActionIntent Mapping:** Produces a `CapitalExpenditureIntent` ranking upgrades.
-- **Priority Logic:** CAPEX sorted strictly by shortest payback period and highest total ROI.
+**Data Captured / Affected:** Current ask, proposed ask, market inputs, approval mode, operator decision, linked unit/listing.  
+**Notifications:** Optional operator alert when pricing proposal is ready or blocked.  
+**Permissions / Approval Gates:** Review-only and autopilot modes are distinct; autopilot cannot be assumed unless explicitly configured.  
+**Audit Log Requirements:** Pricing run, source inputs, proposed amount, approval/apply event, operator override.  
+**State Transitions:** Unit lifecycle `Available/Listable` pricing support; downstream handoff to listing publication/syndication.  
+**Dependencies:** Market data source, unit availability state, listing workflow, dashboard visibility.
 
-### 🔷 UI Enhancements
-- Interactive "upgrade configurator" allowing the owner to add/remove virtual amenities and instantly see the projected ROI timeline matrix.
+**Acceptance Criteria:**
+- Proposed optimized rent can be generated for a vacant unit.
+- Approval mode is explicit.
+- Pricing changes are auditable.
+- Approved pricing hands off into listing workflow.
 
-### 🔷 Simulation Layer
-- Simulates the debt-service impact if the upgrades are financed rather than paid in cash.
+**Open Gaps / Unresolved Decisions:**
+- `MISSING_EXTERNAL_INTEGRATION_SPEC`: Comparable-market data source/provider is not locked.
+- `MISSING_BUSINESS_RULE`: Autopilot approval policy is not fully defined.
+- `CONFLICTING_EXISTING_STORIES`: Prior scraping-centric language conflicts with the requirement not to assume unsupported integrations as complete.
 
-### 🔷 Feedback & Learning
-- Post-CAPEX evaluation tracks if the actual new rents achieved match the model's prediction 6 months post-renovation.
+---
 
-### 🔷 Model Integrity & Governance
-- Model documents the specific subset of comparable listings used to derive the premium calculation, ensuring transparent reasoning.
+## Story ID: RPT-002
+**Title:** Pricing and retention analytics support owner review without overstating financial finality  
+**Primary Actor:** Property owner  
+**Business Goal:** Give owners decision support on pricing, amenity value, and retention strategy while handing off final actions to operational systems.
 
-### 🔷 Execution Flow
-- **Trigger**: Owner or Admin explicitly requests a "CapEx Upgrade Analysis" via the portfolio dashboard for a specific asset class.
-- **Preconditions**: Internal data on historical amenity tags AND scraped external market amenity keywords must be fully populated.
-- **Execution Intent**: Perform isolated multi-variate regression to find the exact monthly rental increase associated with specific new amenities.
-- **System Changes**: System generates a temporary analytical report artifact (no production state mutated).
-- **Output**: `CapitalExpenditureIntent` (a UI rendering displaying the ROI payback matrix).
+**Trigger:** Owner requests pricing/yield analysis or system refreshes analytical views.  
+**Preconditions:** Required internal and external data inputs exist for the requested analysis.  
+**Main Flow:**
+1. System generates analytical views such as renewal yield comparisons or amenity value estimates.
+2. Owner reviews projected outcomes.
+3. Approved business action hands off into pricing, retention, or capital planning workflows.
 
-### 🔷 State Transition
-- **Before State**: `CapExAnalysis.State = Uninitiated`
-- **After State**: `CapExAnalysis.State = Generated_Awaiting_Owner_Decision`
+**Alternate Flows:**
+- Analysis remains advisory-only with no direct state mutation.
 
-### 🔷 Lifecycle Continuity
-- **Upstream Source**: Discretionary analytical request from the Owner.
-- **Downstream Paths**: If the owner approves the CAPEX, this pivots into a physical vendor procurement and renovation workflow.
+**Failure / Exception Flows:**
+- Missing market or internal data produces incomplete analysis warning.
 
-### 🔷 Execution Context
-- **Lifecycle Role**: High-level Owner advising mechanism.
-- **Enabled Capabilities**: Data-driven physical property modifications.
-- **Dependencies**: Depends heavily on the accuracy of the `Hyper-Local Market Sentinel` data.
+**Data Captured / Affected:** Analysis request, source datasets, scenario outputs, owner review action.  
+**Notifications:** Optional analysis-ready notice.  
+**Permissions / Approval Gates:** Analytical access is role-controlled; analytical output does not auto-commit operational changes.  
+**Audit Log Requirements:** Analysis generation event, data ranges, user access, downstream action initiation when taken.  
+**State Transitions:** No direct lifecycle transition; downstream handoff into retention, listing, or capital planning workflows.  
+**Dependencies:** Market data, internal property/unit history, owner portal/dashboard, downstream operational workflows.
+
+**Acceptance Criteria:**
+- Analytical outputs are distinguishable from committed operational changes.
+- Missing data is surfaced.
+- Owner review can hand off into a real downstream workflow.
+- Analytical generation is auditable.
+
+**Open Gaps / Unresolved Decisions:**
+- `ABSENT_ANALYTICS_REQUIREMENT`: Final amenity-value methodology is not defined.
+- `MISSING_EXTERNAL_INTEGRATION_SPEC`: External comparable-source contract is not defined.
