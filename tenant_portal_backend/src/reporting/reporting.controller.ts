@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards, Req, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, Req } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
@@ -55,6 +55,16 @@ export class ReportingController {
         upgradeCost: parseFloat(upgradeCost),
         expectedRentIncreaseAmount: parseFloat(rentBump)
     });
+  }
+
+  @Get('analytics/heatmap')
+  async getPortfolioHeatmap(@OrgId() orgId?: string) {
+    return this.analyticsService.getPortfolioHealthHeatmap(orgId);
+  }
+
+  @Get('analytics/opex-anomalies')
+  async getOpexAnomalies(@OrgId() orgId?: string) {
+    return this.analyticsService.getOpexAnomalies(orgId);
   }
 
   @Get('profit-loss')
@@ -139,6 +149,31 @@ export class ReportingController {
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
       orgId,
+    });
+  }
+
+  @Get('delinquency-analytics')
+  async getDelinquencyAnalytics(
+    @Req() req: AuthenticatedRequest,
+    @Query('propertyId') propertyId?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @OrgId() orgId?: string,
+  ) {
+    return this.reportingService.getDelinquencyAnalytics({
+      propertyId: propertyId && propertyId.trim() ? propertyId.trim() : undefined,
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined,
+      orgId,
+      actorId: req.user?.sub,
+    });
+  }
+
+  @Get('accounting-sync-status')
+  async getAccountingSyncStatus(@Req() req: AuthenticatedRequest, @OrgId() orgId?: string) {
+    return this.reportingService.getAccountingSyncStatus({
+      orgId,
+      actorId: req.user?.sub,
     });
   }
 }

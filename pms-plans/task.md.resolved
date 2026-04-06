@@ -1,0 +1,27 @@
+# Phase 7 Implementation Tasks
+
+## Phase 7A: PM Command Center Intelligence
+- `[/]` Add `generateDailyActionItems()` to `AnalyticsService` — scans leases, maintenance, delinquencies
+- `[ ]` Add `getPortfolioHealthHeatmap()` to `AnalyticsService` — per-property financial/occupancy/sentiment scores
+- `[ ]` Add `getOpexAnomalies()` to `AnalyticsService` — current month vs trailing 12-month average
+- `[ ]` Wire 6 AM cron `generateDailyActionItems` in `scheduled-jobs.service.ts`
+- `[ ]` Add `GET /reporting/analytics/heatmap` and `GET /reporting/analytics/opex-anomalies` endpoints
+- `[ ]` Add API client functions in `property_pulse/lib/api/manager.ts`
+- `[ ]` Build `PortfolioHeatmap` component in dashboard
+- `[ ]` Integrate heatmap + OPEX anomalies + `DAILY_ACTION_ITEM` rendering into dashboard page
+
+## Phase 7B: Auto-Translation
+- `[ ]` Add `detectLanguage()` and `translateToEnglish()` to `SentimentAnalysisService`
+- `[ ]` Pipe translation through `createMessageWithAnalysis()` in `MessagingService`
+
+## Phase 7C: Dynamic Lease Term Pricing
+- `[ ]` Add `generateSeasonalPricingMatrix()` to `RentOptimizationService`
+- `[ ]` Add `GET /rent-optimization/seasonal-pricing` endpoint
+- `[ ]` Add 90-day renewal offer cron to `scheduled-jobs.service.ts`
+- `[ ]` Build interactive lease-term pricing page at `/manager/rent-optimization/lease-pricing`
+
+## Phase 7D: AI Prescreening — Fair Housing & Risk Scoring
+- `[ ]` Add `sanitizeForFairHousing()` to `RentalApplicationAiService` — strips protected-class proxies
+- `[ ]` Add `computeTenancySuccessScore()` with plain-English traceability log
+- `[ ]` Add auto-approve threshold logic emitting `ApproveTenantIntent`
+- `[ ]` Add feedback loop tracking predicted vs actual tenant outcomes

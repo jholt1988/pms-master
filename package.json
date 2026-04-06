@@ -19,8 +19,12 @@
     "contracts:core-routes": "node scripts/check-core-route-contracts.js"
   },
   "dependencies": {
+    "@nestjs/microservices": "^11.1.18",
     "@types/node": "^24.11.0",
+    "amqp-connection-manager": "^4.1.15",
+    "amqplib": "^0.10.9",
     "dotenv": "^17.3.1",
+    "ethers": "^6.16.0",
     "husky": "^9.1.7"
   },
   "devDependencies": {

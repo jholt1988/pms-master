@@ -1,0 +1,247 @@
+# Unfulfilled Acceptance Criteria — Prioritized Attack Plan
+
+## Audit Summary
+
+Across **6 user story files**, there are **8 fulfilled** and **50 unfulfilled** acceptance criteria. Below is the full breakdown by feasibility tier, followed by the proposed implementation batch.
+
+---
+
+## Tier Classification
+
+### 🟢 Tier 1: Implementable Now (Within our NestJS + Next.js stack)
+
+These require no external API keys, hardware, or mobile-native capabilities. They can be built with our existing database schema, backend services, and frontend.
+
+| # | File | Story | Criterion | Approach |
+|---|------|-------|-----------|----------|
+| 1 | `tenant-portal-web` | 2.1 — PM Command Center | Daily "Action Item" list driven by ML | Cron job aggregating lease expirations, overdue maintenance, delinquencies into `ActionIntents` |
+| 2 | `tenant-portal-web` | 2.1 — PM Command Center | Financial alerts for OPEX deviations | Compare current month expenses against trailing 12-month average; emit `OPEX_ANOMALY_INTENT` |
+| 3 | `tenant-portal-web` | 2.1 — PM Command Center | Portfolio heatmap for financial health / occupancy / sentiment | Frontend component reading property-level aggregates + a new API endpoint |
+| 4 | `tenant-portal-web` | 2.2 — Messaging | Auto-translation of messages | Add language detection + translation stub to `SentimentAnalysisService` |
+| 5 | `rent-optimization-ml` | 1.1 — Dynamic Lease Pricing | Interactive lease-term pricing timeline | Frontend UI + backend endpoint generating seasonal pricing matrix |
+| 6 | `rent-optimization-ml` | 1.1 — Dynamic Lease Pricing | Seasonal demand incentive algorithm | Extend `RentOptimizationService` with month-demand weighting |
+| 7 | `rent-optimization-ml` | 1.1 — Dynamic Lease Pricing | 90-day renewal offer generation | Cron job scanning leases expiring in 90 days, generating `RENEWAL_PRICING_GENERATED` intents |
+| 8 | `ai-prescreening` | 2.2 — Fair Housing | Traceability Log (plain English decision explanations) | Add `decisionExplanation` field to application scoring |
+| 9 | `ai-prescreening` | 2.2 — Fair Housing | Exclude protected-class proxies from scoring | Pre-sanitization middleware in the scoring pipeline |
+| 10 | `ai-prescreening` | 2.3 — Tenancy Risk Scoring | Auto-approve above threshold + auto lease draft | Extend `RentalApplicationService` with threshold-based `ApproveTenantIntent` |
+| 11 | `ai-prescreening` | 2.3 — Tenancy Risk Scoring | Continuous learning from eviction/delinquency data | Feedback loop storing actual outcomes vs predicted scores |
+| 12 | `contracts` | 1.1 — Smart Escrow | Escrow state tracking (Funded/Held/Disputed/Released) | Extend billing/ledger with escrow state machine |
+| 13 | `contracts` | 2.2 — Yield Sweeps | Rule engine for rent bifurcation | Post-payment webhook logic splitting management fees / reserves / owner yield |
+| 14 | `backend-services` | 1.2 — Right to be Forgotten | Anonymization API endpoint | New controller + service for GDPR data export/deletion |
+| 15 | `backend-services` | 2.1 — Accounting Sync | Anomaly detection on sync data | Extend QuickBooks service with statistical anomaly guards |
+
+### 🟡 Tier 2: Requires External API Stubs (Plaid, Vision, Translation)
+
+These involve third-party APIs that we can architect with clean interfaces and local mock/heuristic implementations.
+
+| # | File | Story | Criterion |
+|---|------|-------|-----------|
+| 16 | `ai-prescreening` | 1.1 — Income Verification | Calculate Average Monthly Net Income from bank txns (Plaid) |
+| 17 | `ai-prescreening` | 1.1 — Income Verification | Verified Income Data Card |
+| 18 | `ai-prescreening` | 2.1 — Forgery Detection | ML document metadata/forgery scan |
+| 19 | `tenant-portal-web` | 1.2 — Maintenance AI | Computer vision for appliance detection |
+| 20 | `tenant-portal-web` | 1.2 — Maintenance AI | Self-Fix video suggestions |
+| 21 | `rent-optimization-ml` | 2.1 — Market Sentinel | Geofenced comparable scraping |
+
+### 🔴 Tier 3: Mobile-Native / Hardware-Dependent (Out of Scope)
+
+These require React Native, ARKit, BLE hardware, or native mobile SDKs — not buildable in our web stack.
+
+| File | Stories | Count |
+|------|---------|-------|
+| `tenant-portal-mobile` | All 6 stories (Digital Wallet, AR, Smart Sensors, Voice, Geofencing, Rich Notifications) | **18 criteria** |
+| `ai-prescreening` | 1.2 — Biometric Verification (Liveness/Facial Recognition) | **3 criteria** |
+
+---
+
+## Proposed Implementation Batch (Phase 7)
+
+Given the audit, I recommend attacking **Tier 1 items 1–7** as a single coherent phase, since they form a natural cluster around:
+
+1. **PM Command Center Intelligence** (items 1–3) — Makes the dashboard truly autonomous
+2. **Auto-Translation** (item 4) — Completes the messaging triage story
+3. **Dynamic Lease Term Pricing** (items 5–7) — The biggest unfulfilled feature cluster in rent-optimization
+
+### Phase 7A: PM Command Center Intelligence
+
+#### [NEW] `tenant_portal_backend/src/jobs/daily-action-items.service.ts`
+- Cron job running at 6 AM scanning:
+  - Leases expiring within 60 days without renewal offers
+  - Maintenance tickets open >7 days
+  - Tenants with >2 late payments in trailing 6 months
+  - Units with occupancy gaps
+- Emits `DAILY_ACTION_ITEM` intents with structured metadata
+
+#### [MODIFY] `tenant_portal_backend/src/reporting/analytics.service.ts`
+- Add `getPortfolioHealthHeatmap()` method computing per-property scores for: financial health (NOI margin), occupancy risk (vacancy rate), tenant sentiment (average sentiment score from messages)
+- Add `getOpexAnomalies()` comparing current month vs trailing 12-month average
+
+#### [NEW] `property_pulse/app/manager/dashboard/components/PortfolioHeatmap.tsx`
+- Interactive grid visualization with color-coded health indicators per property
+- Click-through to individual property drill-downs
+
+#### [MODIFY] `property_pulse/app/manager/dashboard/page.tsx`
+- Integrate heatmap component and OPEX anomaly alerts
+- Handle `DAILY_ACTION_ITEM` intent rendering
+
+---
+
+### Phase 7B: Auto-Translation
+
+#### [MODIFY] `tenant_portal_backend/src/messaging/sentiment-analysis.service.ts`
+- Add `detectLanguage()` and `translateToEnglish()` methods (heuristic/pattern-based for common languages)
+- Append `detectedLanguage` and `translatedContent` to message metadata
+
+---
+
+### Phase 7C: Dynamic Lease Term Pricing
+
+#### [MODIFY] `tenant_portal_backend/src/rent-optimization/rent-optimization.service.ts`
+- Add `generateSeasonalPricingMatrix(unitId, baseRent)` returning a 12-month pricing grid weighted by seasonal demand curves
+- Add `generateRenewalOffers()` scanning leases expiring in 90 days
+
+#### [NEW] `property_pulse/app/manager/rent-optimization/lease-pricing/page.tsx`
+- Interactive slider/timeline UI where dragging the lease end-date updates the monthly rent
+- Visual "savings" indicator for high-demand months
+
+#### [MODIFY] `tenant_portal_backend/src/jobs/scheduled-jobs.service.ts`
+- Add nightly cron for `generateRenewalOffers()` emitting `RENEWAL_PRICING_GENERATED` intents
+
+---
+
+## Proposed Implementation Batch (Phase 8)
+
+Phase 8 picks up the remaining **Tier 1 items 8-15** and groups them into four backend-heavy delivery tracks:
+
+1. **AI Prescreening Compliance + Risk Scoring** (items 8-11)
+2. **Smart Escrow State Tracking** (item 12)
+3. **Yield Sweeps / Rent Bifurcation** (item 13)
+4. **Platform Governance & Sync Safeguards** (items 14-15)
+
+This phase is intentionally less UI-heavy than Phase 7. The main complexity is in compliance, ledger correctness, auditability, and safe automation boundaries.
+
+### Phase 8A: AI Prescreening Compliance + Tenancy Risk Scoring
+
+#### [MODIFY] `tenant_portal_backend/src/rental-application/rental-application.ai.service.ts`
+- Add `sanitizeForFairHousing()` to strip direct protected-class fields and redact obvious protected-class proxies from free text
+- Add `computeTenancySuccessScore()` returning:
+  - `score`
+  - `decisionBand`
+  - `decisionExplanation`
+  - `traceabilityLog`
+- Keep all scoring deterministic and explainable
+
+#### [MODIFY] `tenant_portal_backend/src/rental-application/rental-application.service.ts`
+- Invoke fair-housing sanitization before any risk scoring
+- Attach traceability output to screening results and AI review metadata
+- Emit `ApproveTenantIntent` when application score clears a configurable threshold
+- Persist predicted score metadata for later calibration against actual outcomes
+
+#### [MODIFY] `tenant_portal_backend/src/rental-application/dto/*`
+- Extend DTOs only if needed to surface:
+  - decision explanation
+  - traceability log
+  - predicted tenancy score
+
+#### [FOLLOW-UP / PERSISTENCE] Rental outcome feedback loop
+- Add or extend a persistence surface to record:
+  - `applicationId`
+  - `predictedScore`
+  - `predictedBand`
+  - `approvedAutomatically`
+  - `actualOutcome`
+  - delinquency / eviction / lease-completion markers
+- This phase only records outcomes. It does not introduce retraining automation.
+
+### Phase 8B: Smart Escrow State Tracking
+
+#### [MODIFY] Billing / ledger services
+- Introduce an escrow state machine with explicit states:
+  - `FUNDED`
+  - `HELD`
+  - `DISPUTED`
+  - `RELEASED`
+- Associate escrow state changes with payment / deposit lifecycle events
+- Ensure transitions are auditable and idempotent
+
+#### [MODIFY] Relevant controllers and reporting surfaces
+- Expose escrow status through existing billing or lease-related endpoints
+- Add event history or ledger notes so operators can reconstruct the state path for any escrowed funds
+
+### Phase 8C: Yield Sweeps / Rent Bifurcation
+
+#### [MODIFY] Payment processing / post-payment flow
+- Add a rent bifurcation rule engine for post-payment allocation:
+  - management fee slice
+  - reserve contribution
+  - owner yield / disbursement
+- Support property- or organization-level rule configuration
+- Persist resulting split details in ledger-compatible metadata
+
+#### [MODIFY] Payment webhook / posting logic
+- Apply bifurcation after successful rent posting, not before funds are recognized
+- Guard against double-splitting on webhook retries by using deterministic idempotency keys
+
+### Phase 8D: Right to be Forgotten / GDPR Anonymization
+
+#### [NEW] Privacy or compliance controller/service
+- Add anonymization endpoint(s) for user data export and deletion workflows
+- Support:
+  - identify subject records
+  - export relevant data snapshot
+  - anonymize or delete personal data where permitted
+- Keep legal / financial records intact where retention is required, but sever or redact personal identifiers
+
+#### [MODIFY] Cross-module data services
+- Define a consistent anonymization policy for:
+  - users
+  - messages
+  - leases
+  - payments
+  - applications
+  - audit metadata
+
+### Phase 8E: Accounting Sync Anomaly Detection
+
+#### [MODIFY] `tenant_portal_backend/src/quickbooks/*`
+- Add anomaly detection around sync payloads and reconciliation output
+- Detect mismatches such as:
+  - duplicate invoice syncs
+  - unexpected balance deltas
+  - unusually large transaction variance
+  - missing linked entities
+- Emit operator-facing anomaly intents instead of silently failing or auto-correcting
+
+#### [MODIFY] Dashboard / ops surfacing
+- Reuse existing action-intent and admin monitoring surfaces where possible
+- Provide enough metadata for operators to manually reconcile the anomaly
+
+---
+
+## Verification Plan
+
+### Automated
+- TypeScript compilation (`npx tsc --noEmit`) for both workspaces
+- Verify cron registration in `app.module.ts`
+- Check acceptance criteria boxes in user story docs
+- Unit tests for:
+  - fair-housing sanitization
+  - tenancy success scoring
+  - escrow state transitions
+  - yield bifurcation calculations
+  - anonymization redaction behavior
+  - QuickBooks anomaly thresholds
+
+### Manual
+- Visual review of heatmap component in browser
+- Verify intent rendering for new intent types on the dashboard
+- Validate that auto-approval produces a traceable explanation and does not use protected-class inputs
+- Walk an escrow item through each state transition
+- Simulate a payment posting with yield sweep allocation rules
+- Verify anonymized user records are no longer identifiable in operational UIs
+- Simulate accounting sync anomalies and confirm they surface as operator-review events
+
+## Open Questions
+
+> [!NOTE]
+> The remaining **18 mobile-native criteria** (Tier 3) are architecturally out of scope for our web stack and would require a separate React Native project. These should be deferred.

@@ -5,11 +5,13 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardBody, Spinner, Button } from '@nextui-org/react';
+import { useNavigate } from 'react-router-dom';
 import { RentRecommendationCard } from './RentRecommendationCard';
 import { RentRecommendation } from '../../../shared/ai-services/types';
 import { apiFetch } from '../../../../services/apiClient';
 
 export const RentOptimizationDashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [recommendations, setRecommendations] = useState<RentRecommendation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -205,6 +207,9 @@ export const RentOptimizationDashboard: React.FC = () => {
           </p>
         </div>
         <div className="flex gap-3">
+          <Button color="secondary" variant="flat" onPress={() => navigate('/rent-optimization/lease-pricing')}>
+            Lease Pricing Matrix
+          </Button>
           <Button color="success" onPress={handleGenerateRecommendations} isLoading={generating}>
             {generating ? 'Generating…' : 'Generate New'}
           </Button>

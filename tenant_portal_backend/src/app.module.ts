@@ -44,6 +44,8 @@ import { LegacyPathMiddleware } from './middleware/legacy-path.middleware';
 import { PerformanceMiddleware } from './monitoring/performance.middleware';
 import { EventsModule } from './events/events.module'; // ADDED
 import { Web3Module } from './web3/web3.module';
+import { PrivacyModule } from './privacy/privacy.module';
+import { PolicyModule } from './policy/policy.module';
 
 const rateLimitEnabled =
   process.env.NODE_ENV !== 'test' && process.env.RATE_LIMIT_ENABLED !== 'false';
@@ -95,6 +97,7 @@ const rateLimitProviders = rateLimitEnabled
     // Rate limiting configuration
     ThrottlerModule.forRoot(throttlerConfigs),
     EventsModule, // ADDED
+    PolicyModule,
     PrismaModule,
     AuthModule,
     MaintenanceModule,
@@ -127,6 +130,7 @@ const rateLimitProviders = rateLimitEnabled
     PropertyOsModule, // Added for Property OS integration
     MilModule,
     Web3Module,
+    PrivacyModule,
   ],
   controllers: [AppController],
   providers: [

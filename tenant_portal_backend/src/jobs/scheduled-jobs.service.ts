@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsService } from '../payments/payments.service';
@@ -11,6 +11,8 @@ import { EsignatureService } from '../esignature/esignature.service';
 import { RentOptimizationService } from '../rent-optimization/rent-optimization.service';
 import { AnalyticsService } from '../reporting/analytics.service';
 import { addDays } from 'date-fns';
+import { WorkflowEventService } from '../policy/workflow-event.service';
+import { WorkflowEventProcessor } from '../policy/workflow-event-processor.service';
 
 @Injectable()
 export class ScheduledJobsService {
@@ -25,6 +27,8 @@ export class ScheduledJobsService {
     private readonly esignatureService: EsignatureService,
     private readonly rentOptimizationService: RentOptimizationService,
     private readonly analyticsService: AnalyticsService,
+    @Optional() private readonly workflowEventService?: WorkflowEventService,
+    @Optional() private readonly workflowEventProcessor?: WorkflowEventProcessor,
   ) {}
 
   /**
@@ -38,58 +42,8 @@ export class ScheduledJobsService {
     this.logger.log('Beginning Predictive Churn and Dynamic Pricing scan...');
 
     try {
-      // Find active leases expiring in the next 120 days that DON'T already have a pricing intent
-      const upcomingExpiringLeases = await this.prisma.lease.findMany({
-        where: {
-          status: 'ACTIVE',
-          endDate: {
-            lte: addDays(new Date(), 120) // Ending within 120 days
-          }
-        },
-        include: { unit: { include: { property: true } }, tenant: true }
-      });
-
-      this.logger.log(`Found ${upcomingExpiringLeases.length} leases nearing expiration to evaluate.`);
-
-      for (const lease of upcomingExpiringLeases) {
-        // Check if an intent already exists for this lease
-        const existingIntents = await (this.prisma as any).actionIntent.findMany({
-          where: {
-            type: 'RENEWAL_PRICING_GENERATED',
-            status: 'PENDING',
-          }
-        });
-        const alreadyGenerated = existingIntents.some((i: any) => i.metadata?.leaseId === lease.id);
-        
-        if (alreadyGenerated) continue; // Already generated pricing logic
-        
-        const orgId = lease.unit?.property?.organizationId;
-
-        // Execute LLM / ML Microservice computations
-        const churnPred = await this.rentOptimizationService.predictResidentChurn(lease.unit, orgId);
-        const pricePred = await this.rentOptimizationService.predictDynamicPricing(lease.unit, orgId);
-
-        // Map to ActionIntent
-        await (this.prisma as any).actionIntent.create({
-           data: {
-             type: 'RENEWAL_PRICING_GENERATED',
-             description: `Lease for unit ${lease.unit?.name || lease.unitId} ending soon. Yield generated.`,
-             status: 'PENDING',
-             priority: churnPred?.risk_level === 'HIGH' ? 'HIGH' : 'MEDIUM',
-             organizationId: orgId,
-             metadata: {
-               leaseId: lease.id,
-               unitId: lease.unitId,
-               churnRisk: churnPred?.churn_probability,
-               riskLevel: churnPred?.risk_level,
-               recommendedRent: pricePred?.target_rent,
-               marketIndex: pricePred?.market_demand_index ?? 1.05
-             }
-           }
-        });
-
-        this.logger.log(`Generated RENEWAL_PRICING_GENERATED intent for lease ${lease.id}`);
-      }
+      const intents = await this.rentOptimizationService.generateRenewalOffers();
+      this.logger.log(`Generated ${intents.length} renewal pricing intents.`);
 
     } catch (error) {
        this.logger.error('Failed to run evaluateUpcomingRenewals CRON: ', error);
@@ -110,6 +64,27 @@ export class ScheduledJobsService {
       await this.analyticsService.generateCapitalAllocationIntents();
     } catch (e) {
       this.logger.error('Failed to execute automated CapEx audit:', e);
+    }
+  }
+
+  /**
+   * Phase 7A: Daily Action Items — PM Command Center Intelligence
+   * Generates ML-driven action items surfacing expiring leases, stale maintenance,
+   * chronic delinquency, and vacancy gaps.
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_6AM, {
+    name: 'generateDailyActionItems',
+  })
+  async generateDailyActionItems() {
+    this.logger.log('Generating daily PM Command Center action items...');
+    try {
+      // Clear stale daily action items from previous runs
+      await (this.prisma as any).actionIntent.deleteMany({
+        where: { type: 'DAILY_ACTION_ITEM', status: 'PENDING' },
+      });
+      await this.analyticsService.generateDailyActionItems();
+    } catch (e) {
+      this.logger.error('Failed to generate daily action items:', e);
     }
   }
 
@@ -343,7 +318,7 @@ export class ScheduledJobsService {
         },
       });
 
-      let appliedCount = 0;
+      let processedCount = 0;
 
       for (const invoice of overdueInvoices) {
         try {
@@ -354,27 +329,79 @@ export class ScheduledJobsService {
           
           const isProcessing = invoice.payments.some(p => p.status === 'PROCESSING');
           if (completedPaid < invoice.amount && !isProcessing) {
-            // Apply late fee
-            const lateFeeAmount = Math.max(50, invoice.amount * 0.05);
-            
-            await this.prisma.lateFee.create({
-              data: {
-                amount: lateFeeAmount,
-                invoice: { connect: { id: invoice.id } },
+            const lease = await this.prisma.lease.findUnique({
+              where: { id: invoice.leaseId },
+              include: {
+                unit: { include: { property: true } },
               },
             });
 
-            this.logger.log(`Applied late fee of $${lateFeeAmount} to invoice ${invoice.id}`);
-            appliedCount++;
+            if (!lease?.tenantId || !lease.unit?.propertyId) {
+              this.logger.warn(`Invoice ${invoice.id} missing lease/property context for late fee event`);
+              continue;
+            }
+
+            const dueDate = new Date(invoice.dueDate);
+            const daysLate = Math.max(0, Math.floor((Date.now() - dueDate.getTime()) / (1000 * 60 * 60 * 24)));
+            const outstandingBalance = Number(invoice.amount) - completedPaid;
+            const ledgerPeriod = dueDate.toISOString().slice(0, 7);
+
+            if (this.workflowEventService) {
+              const workflowEvent = await this.workflowEventService.emitIfNotExists({
+                propertyId: lease.unit.propertyId,
+                aggregateType: 'TenantLedger',
+                aggregateId: lease.tenantId,
+                eventType: 'late_fee.check',
+                idempotencyKey: `late_fee:${invoice.id}:${ledgerPeriod}:DEFAULT_RULE_V1`,
+                payload: {
+                  propertyId: lease.unit.propertyId,
+                  tenantId: lease.tenantId,
+                  leaseId: lease.id,
+                  ledgerPeriod,
+                  rentChargeId: String(invoice.id),
+                  outstandingBalance,
+                  daysLate,
+                  dueDate: dueDate.toISOString(),
+                  evaluatedAt: new Date().toISOString(),
+                  priorLateFeeApplied: false,
+                },
+              });
+
+              if (this.workflowEventProcessor) {
+                try {
+                  await this.workflowEventProcessor.processEventById(workflowEvent.id);
+                } catch (error) {
+                  this.logger.warn(`Deferred late fee policy processing for event ${workflowEvent.id}: ${String(error)}`);
+                }
+              }
+
+              this.logger.log(`Processed late fee policy event ${workflowEvent.id} for invoice ${invoice.id}`);
+              processedCount++;
+            }
           }
         } catch (error) {
           this.logger.error(`Failed to apply late fee for invoice ${invoice.id}:`, error);
         }
       }
 
-      this.logger.log(`Applied ${appliedCount} late fees`);
+      this.logger.log(`Processed ${processedCount} late fee policy events`);
     } catch (error) {
       this.logger.error('Failed to apply late fees:', error);
+    }
+  }
+
+  @Cron(CronExpression.EVERY_MINUTE, {
+    name: 'processPolicyWorkflowEvents',
+  })
+  async processPolicyWorkflowEvents() {
+    if (!this.workflowEventProcessor) {
+      return;
+    }
+
+    try {
+      await this.workflowEventProcessor.processPending(25);
+    } catch (error) {
+      this.logger.error('Failed to process policy workflow events', error as Error);
     }
   }
 

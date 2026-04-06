@@ -227,5 +227,39 @@ export class BillingController {
   async runBilling() {
     return this.billingService.manualRun();
   }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles('PROPERTY_MANAGER')
+  @Get('escrow/:leaseId')
+  async getEscrowState(@Param('leaseId') leaseId: string, @OrgId() orgId: string) {
+    return this.billingService.getEscrowState(leaseId, orgId);
+  }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles('PROPERTY_MANAGER')
+  @Post('escrow/:leaseId/transition')
+  async transitionEscrowState(
+    @Param('leaseId') leaseId: string,
+    @Body() body: { nextState: 'FUNDED' | 'HELD' | 'DISPUTED' | 'RELEASED'; reason?: string },
+    @Req() req: AuthenticatedRequest,
+    @OrgId() orgId: string,
+  ) {
+    return this.billingService.transitionEscrowState(
+      leaseId,
+      orgId,
+      { userId: req.user.userId, username: req.user.username, role: req.user.role },
+      body,
+    );
+  }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles('PROPERTY_MANAGER')
+  @Post('yield-sweeps/preview')
+  async previewYieldSweep(
+    @Body() body: { amountCents: number },
+    @OrgId() orgId: string,
+  ) {
+    return this.billingService.computeYieldSweepAllocation(orgId, body.amountCents);
+  }
 }
 

@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { TestDataFactory } from '../../test/factories';
+import { AuditLogService } from '../shared/audit-log.service';
 import { 
   EstimateStatus, 
   InspectionCondition, 
@@ -45,6 +46,7 @@ describe('EstimateService', () => {
   let service: EstimateService;
   let prismaService: PrismaService;
   let emailService: EmailService;
+  let auditLogService: AuditLogService;
 
   // Mock data
   const mockProperty = {
@@ -197,6 +199,10 @@ describe('EstimateService', () => {
     sendNotificationEmail: jest.fn(),
   };
 
+  const mockAuditLogService = {
+    record: jest.fn().mockResolvedValue(undefined),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -209,12 +215,17 @@ describe('EstimateService', () => {
           provide: EmailService,
           useValue: mockEmailService,
         },
+        {
+          provide: AuditLogService,
+          useValue: mockAuditLogService,
+        },
       ],
     }).compile();
 
     service = module.get<EstimateService>(EstimateService);
     prismaService = module.get<PrismaService>(PrismaService);
     emailService = module.get<EmailService>(EmailService);
+    auditLogService = module.get<AuditLogService>(AuditLogService);
 
     // Reset mocks before each test
     jest.clearAllMocks();
@@ -265,6 +276,12 @@ describe('EstimateService', () => {
       });
 
       expect(result).toEqual(mockEstimate);
+      expect(mockAuditLogService.record).toHaveBeenCalledWith(expect.objectContaining({
+        module: 'ESTIMATE',
+        action: 'ESTIMATE_GENERATED',
+        entityType: 'RepairEstimate',
+        entityId: mockEstimate.id,
+      }));
     });
 
     it('should throw NotFoundException when inspection not found', async () => {
@@ -446,6 +463,12 @@ describe('EstimateService', () => {
 
       // Should call the email service for approval notification
       expect(mockEmailService.sendNotificationEmail).toHaveBeenCalled();
+      expect(mockAuditLogService.record).toHaveBeenCalledWith(expect.objectContaining({
+        module: 'ESTIMATE',
+        action: 'ESTIMATE_UPDATED',
+        entityType: 'RepairEstimate',
+        entityId: approvedEstimate.id,
+      }));
     });
 
     it('should throw NotFoundException when estimate not found', async () => {
@@ -487,6 +510,12 @@ describe('EstimateService', () => {
 
       expect(mockPrismaService.maintenanceRequest.create).toHaveBeenCalledTimes(2);
       expect(result).toHaveLength(2);
+      expect(mockAuditLogService.record).toHaveBeenCalledWith(expect.objectContaining({
+        module: 'ESTIMATE',
+        action: 'ESTIMATE_CONVERTED_TO_MAINTENANCE',
+        entityType: 'RepairEstimate',
+        entityId: '44444444-4444-4444-8444-444444444444',
+      }));
     });
 
     it('should throw BadRequestException when estimate is not approved', async () => {

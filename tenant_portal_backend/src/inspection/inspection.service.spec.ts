@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { PropertyOsService } from '../property-os/property-os.service';
+import { AuditLogService } from '../shared/audit-log.service';
 import { 
   InspectionType, 
   InspectionStatus, 
@@ -15,6 +16,7 @@ describe('InspectionService', () => {
   let service: InspectionService;
   let prismaService: PrismaService;
   let emailService: EmailService;
+  let auditLogService: AuditLogService;
 
   // Mock data
   const mockProperty = {
@@ -104,6 +106,10 @@ describe('InspectionService', () => {
     runV16Analysis: jest.fn().mockResolvedValue({}),
   };
 
+  const mockAuditLogService = {
+    record: jest.fn().mockResolvedValue(undefined),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -120,12 +126,17 @@ describe('InspectionService', () => {
           provide: PropertyOsService,
           useValue: mockPropertyOsService,
         },
+        {
+          provide: AuditLogService,
+          useValue: mockAuditLogService,
+        },
       ],
     }).compile();
 
     service = module.get<InspectionService>(InspectionService);
     prismaService = module.get<PrismaService>(PrismaService);
     emailService = module.get<EmailService>(EmailService);
+    auditLogService = module.get<AuditLogService>(AuditLogService);
 
     // Reset mocks
     jest.clearAllMocks();
@@ -165,6 +176,12 @@ describe('InspectionService', () => {
         include: expect.any(Object),
       });
       expect(result).toEqual(mockInspection);
+      expect(mockAuditLogService.record).toHaveBeenCalledWith(expect.objectContaining({
+        module: 'INSPECTION',
+        action: 'INSPECTION_CREATED',
+        entityType: 'UnitInspection',
+        entityId: mockInspection.id,
+      }));
     });
 
     it('should throw NotFoundException if property does not exist', async () => {
@@ -324,6 +341,12 @@ describe('InspectionService', () => {
       });
       expect(result).toEqual(completedInspection);
       expect(mockEmailService.sendNotificationEmail).toHaveBeenCalled();
+      expect(mockAuditLogService.record).toHaveBeenCalledWith(expect.objectContaining({
+        module: 'INSPECTION',
+        action: 'INSPECTION_COMPLETED',
+        entityType: 'UnitInspection',
+        entityId: completedInspection.id,
+      }));
     });
 
     it('should throw BadRequestException if inspection is already completed', async () => {

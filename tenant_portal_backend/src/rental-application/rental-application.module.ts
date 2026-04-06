@@ -12,9 +12,10 @@ import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { RentalApplicationAiService } from './rental-application.ai.service';
 import { AuditLogService } from '../shared/audit-log.service';
 import { EventScheduleModule } from '../schedule/schedule.module';
+import { PolicyModule } from '../policy/policy.module';
 
 @Module({
-  imports: [PrismaModule, SecurityEventsModule, NotificationsModule, HttpModule, EventScheduleModule],
+  imports: [PrismaModule, SecurityEventsModule, NotificationsModule, HttpModule, EventScheduleModule, PolicyModule],
   controllers: [RentalApplicationController],
   providers: [RentalApplicationService, ApplicationLifecycleService, OptionalJwtAuthGuard, OrgContextGuard, RentalApplicationAiService, AuditLogService],
   exports: [RentalApplicationService, ApplicationLifecycleService],

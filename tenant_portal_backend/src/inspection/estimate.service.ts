@@ -28,6 +28,7 @@ import { getLaborRateForTrade } from './pricing/labor-pricing.service';
 import { TradeCategory } from './pricing/pricing.types';
 import Ajv from 'ajv';
 import * as propertyOsSchema from '../../../contracts/property-os/v1.6/property_os_model_contract_api_v1_6_schemas.json';
+import { AuditLogService } from '../shared/audit-log.service';
 
 const ajv = new Ajv({ strict: false, validateFormats: false });
 // v1.6 schema file exposes OpenAPI-style components.schemas (not JSON-Schema definitions)
@@ -196,6 +197,7 @@ export class EstimateService {
   constructor(
     private prisma: PrismaService,
     private emailService: EmailService,
+    private auditLogService: AuditLogService,
   ) {}
 
   /**
@@ -332,6 +334,22 @@ export class EstimateService {
 
     // Send notification
     await this.sendEstimateReadyNotification(estimate);
+
+    await this.recordAudit({
+      orgId,
+      actorId: String(userId),
+      action: 'ESTIMATE_GENERATED',
+      entityType: 'RepairEstimate',
+      entityId: estimate.id,
+      metadata: {
+        sourceType: 'inspection',
+        inspectionId,
+        propertyId: estimate.propertyId ?? null,
+        unitId: estimate.unitId ?? null,
+        status: estimate.status,
+        totalProjectCost: estimate.totalProjectCost,
+      },
+    });
 
     // Attach display-only AI metadata (bid range + confidence) for immediate UI rendering.
     // NOTE: We persist midpoint totals only; these fields are NOT stored.
@@ -524,6 +542,21 @@ export class EstimateService {
 
     await this.sendEstimateReadyNotification(estimate);
 
+    await this.recordAudit({
+      actorId: String(userId),
+      action: 'ESTIMATE_GENERATED',
+      entityType: 'RepairEstimate',
+      entityId: estimate.id,
+      metadata: {
+        sourceType: 'maintenance',
+        maintenanceRequestId: String(requestId),
+        propertyId: estimate.propertyId ?? null,
+        unitId: estimate.unitId ?? null,
+        status: estimate.status,
+        totalProjectCost: estimate.totalProjectCost,
+      },
+    });
+
     // Attach display-only AI metadata (bid range + confidence) for immediate UI rendering.
     const enriched: any = estimate;
     if (typeof estimateResult.estimate_summary.bid_low_total === 'number') {
@@ -702,6 +735,18 @@ export class EstimateService {
       await this.sendEstimateApprovedNotification(updatedEstimate);
     }
 
+    await this.recordAudit({
+      actorId: userId,
+      action: 'ESTIMATE_UPDATED',
+      entityType: 'RepairEstimate',
+      entityId: updatedEstimate.id,
+      metadata: {
+        previousStatus: estimate.status,
+        nextStatus: updatedEstimate.status,
+        approvedAt: updatedEstimate.approvedAt?.toISOString?.() ?? null,
+      },
+    });
+
     return updatedEstimate;
   }
 
@@ -760,6 +805,17 @@ export class EstimateService {
     await this.prisma.repairEstimate.update({
       where: { id: estimateId as any },
       data: { status: 'COMPLETED' },
+    });
+
+    await this.recordAudit({
+      actorId: userId,
+      action: 'ESTIMATE_CONVERTED_TO_MAINTENANCE',
+      entityType: 'RepairEstimate',
+      entityId: estimateId,
+      metadata: {
+        maintenanceRequestIds: requests.map((request) => request.id),
+        maintenanceRequestCount: requests.length,
+      },
     });
 
     return requests;
@@ -997,6 +1053,30 @@ export class EstimateService {
       }
     } catch (error) {
       console.error('Failed to send estimate approved email:', error);
+    }
+  }
+
+  private async recordAudit(event: {
+    orgId?: string;
+    actorId?: string;
+    action: string;
+    entityType: string;
+    entityId?: string | number;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      await this.auditLogService.record({
+        orgId: event.orgId,
+        actorId: event.actorId ?? null,
+        module: 'ESTIMATE',
+        action: event.action,
+        entityType: event.entityType,
+        entityId: event.entityId,
+        result: 'SUCCESS',
+        metadata: event.metadata,
+      });
+    } catch (error) {
+      this.logger.warn(`Failed to write estimate audit event ${event.action}: ${String(error)}`);
     }
   }
 

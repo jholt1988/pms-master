@@ -68,6 +68,19 @@ export class RentOptimizationController {
     return this.rentOptimizationService.getRecommendationByUnit(unitId, orgId);
   }
 
+  @Get('seasonal-pricing/:unitId')
+  async getSeasonalPricingMatrix(
+    @Param('unitId') unitId: string,
+    @Query('baseRent') baseRent?: string,
+    @OrgId() orgId?: string,
+  ) {
+    return this.rentOptimizationService.generateSeasonalPricingMatrix(
+      unitId,
+      baseRent ? Number(baseRent) : undefined,
+      orgId,
+    );
+  }
+
   // Dynamic route - MUST be last to prevent intercepting specific routes
   @Get(':id')
   async getRecommendation(@Param('id') id: string, @OrgId() orgId?: string) {

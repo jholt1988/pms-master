@@ -22,6 +22,10 @@ describe('MaintenanceService - Metrics Integration', () => {
       findMany: jest.fn(),
       update: jest.fn(),
     },
+    scheduleEvent: {
+      findFirst: jest.fn(),
+      update: jest.fn(),
+    },
     maintenanceRequestHistory: {
       create: jest.fn(),
     },
@@ -33,6 +37,9 @@ describe('MaintenanceService - Metrics Integration', () => {
     },
     user: {
       findFirst: jest.fn(),
+    },
+    lease: {
+      findUnique: jest.fn(),
     },
   };
 
@@ -201,6 +208,7 @@ describe('MaintenanceService - Metrics Integration', () => {
       mockAIMaintenanceService.assignTechnician.mockResolvedValue(aiMatch);
       mockPrismaService.maintenanceRequest.update.mockResolvedValue(updatedRequest);
       mockPrismaService.maintenanceRequestHistory.create.mockResolvedValue({} as any);
+      mockPrismaService.scheduleEvent.findFirst.mockResolvedValue(null);
 
       await service.assignTechnician(requestId, dto, actorId);
 
@@ -235,6 +243,7 @@ describe('MaintenanceService - Metrics Integration', () => {
       mockPrismaService.maintenanceRequest.findUnique.mockResolvedValue(existingRequest);
       mockPrismaService.maintenanceRequest.update.mockResolvedValue(updatedRequest);
       mockPrismaService.maintenanceRequestHistory.create.mockResolvedValue({} as any);
+      mockPrismaService.scheduleEvent.findFirst.mockResolvedValue(null);
 
       await service.assignTechnician(requestId, dto, actorId);
 

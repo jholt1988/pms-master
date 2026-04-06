@@ -9,6 +9,7 @@ import { ApplicationLifecycleService } from './application-lifecycle.service';
 import { RentalApplicationAiService } from './rental-application.ai.service';
 import { RentalApplicationService } from './rental-application.service';
 import { RentalApplicationReviewAction } from './dto/review-action.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 describe('RentalApplicationService review actions', () => {
   const prisma = {
@@ -46,6 +47,7 @@ describe('RentalApplicationService review actions', () => {
         { provide: RentalApplicationAiService, useValue: {} },
         { provide: AuditLogService, useValue: { record: jest.fn() } },
         { provide: ScheduleService, useValue: scheduleService },
+        { provide: NotificationsService, useValue: { create: jest.fn() } },
       ],
     }).compile();
 

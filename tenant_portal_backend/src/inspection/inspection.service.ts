@@ -24,6 +24,7 @@ import { createDefaultInspectionRooms, getChecklistTemplate } from '../../prisma
 import { isUUID } from 'class-validator';
 
 import { PropertyOsService } from '../property-os/property-os.service';
+import { AuditLogService } from '../shared/audit-log.service';
 
 @Injectable()
 export class InspectionService {
@@ -31,6 +32,7 @@ export class InspectionService {
     private prisma: PrismaService,
     private emailService: EmailService,
     private propertyOsService: PropertyOsService,
+    private auditLogService: AuditLogService,
   ) {}
 
   private async assertInspectionInOrg(inspectionId: number, orgId?: string) {
@@ -128,7 +130,7 @@ export class InspectionService {
       throw new BadRequestException('An inspection request is already active for this type');
     }
 
-    return (this.prisma as any).inspectionRequest.create({
+    const createdRequest = await (this.prisma as any).inspectionRequest.create({
       data: {
         tenantId: userId,
         propertyId: lease.unit.propertyId,
@@ -138,6 +140,22 @@ export class InspectionService {
         notes: dto.notes,
       },
     });
+
+    await this.recordAudit({
+      orgId,
+      actorId: userId,
+      action: 'REQUEST_CREATED',
+      entityType: 'InspectionRequest',
+      entityId: createdRequest.id,
+      metadata: {
+        type: createdRequest.type,
+        leaseId: createdRequest.leaseId,
+        propertyId: createdRequest.propertyId,
+        unitId: createdRequest.unitId,
+      },
+    });
+
+    return createdRequest;
   }
 
   async decideInspectionRequest(
@@ -165,7 +183,7 @@ export class InspectionService {
       throw new BadRequestException('Decision must be APPROVED or DENIED');
     }
 
-    return (this.prisma as any).inspectionRequest.update({
+    const updatedRequest = await (this.prisma as any).inspectionRequest.update({
       where: { id },
       data: {
         status: decision,
@@ -174,6 +192,21 @@ export class InspectionService {
         decidedById: viewer?.userId,
       },
     });
+
+    await this.recordAudit({
+      orgId,
+      actorId: viewer?.userId,
+      action: 'REQUEST_DECIDED',
+      entityType: 'InspectionRequest',
+      entityId: updatedRequest.id,
+      metadata: {
+        decision,
+        type: updatedRequest.type,
+        decisionNotes: dto.notes ?? null,
+      },
+    });
+
+    return updatedRequest;
   }
 
   async startApprovedInspection(
@@ -239,6 +272,34 @@ export class InspectionService {
         status: 'STARTED',
         startedAt: new Date(),
         startedInspectionId: inspection.id,
+      },
+    });
+
+    await this.recordAudit({
+      orgId,
+      actorId: userId,
+      action: 'REQUEST_STARTED',
+      entityType: 'InspectionRequest',
+      entityId: req.id,
+      metadata: {
+        inspectionId: inspection.id,
+        inspectionStatus: inspection.status,
+        type: req.type,
+      },
+    });
+
+    await this.recordAudit({
+      orgId,
+      actorId: userId,
+      action: 'INSPECTION_STARTED',
+      entityType: 'UnitInspection',
+      entityId: inspection.id,
+      metadata: {
+        requestId: req.id,
+        status: inspection.status,
+        type: inspection.type,
+        propertyId: inspection.propertyId,
+        unitId: inspection.unitId,
       },
     });
 
@@ -354,6 +415,21 @@ export class InspectionService {
 
     // Send notification email
     await this.sendInspectionScheduledNotification(hydrated);
+
+    await this.recordAudit({
+      orgId,
+      actorId: createdById,
+      action: 'INSPECTION_CREATED',
+      entityType: 'UnitInspection',
+      entityId: hydrated.id,
+      metadata: {
+        type: hydrated.type,
+        status: hydrated.status,
+        propertyId: hydrated.propertyId,
+        unitId: hydrated.unitId,
+        leaseId: hydrated.leaseId ?? null,
+      },
+    });
 
     return hydrated;
   }
@@ -571,6 +647,20 @@ export class InspectionService {
       await this.handleStatusChange(inspection, existingInspection.status, dto.status);
     }
 
+    await this.recordAudit({
+      orgId,
+      actorId: undefined,
+      action: dto.status && dto.status !== existingInspection.status ? 'INSPECTION_STATUS_UPDATED' : 'INSPECTION_UPDATED',
+      entityType: 'UnitInspection',
+      entityId: inspection.id,
+      metadata: {
+        previousStatus: existingInspection.status,
+        nextStatus: inspection.status,
+        scheduledDateChanged: Boolean(dto.scheduledDate),
+        completedDateChanged: Boolean(dto.completedDate),
+      },
+    });
+
     return inspection;
   }
 
@@ -641,7 +731,7 @@ export class InspectionService {
       ...((dto as any).itemName !== undefined ? { itemName: (dto as any).itemName } : {}),
     };
 
-    return this.prisma.inspectionChecklistItem.update({
+    const updatedItem = await this.prisma.inspectionChecklistItem.update({
       where: { id: itemId },
       data: safeData,
       include: {
@@ -649,6 +739,21 @@ export class InspectionService {
         subItems: true,
       },
     });
+
+    await this.recordAudit({
+      orgId,
+      actorId: undefined,
+      action: 'CHECKLIST_ITEM_UPDATED',
+      entityType: 'InspectionChecklistItem',
+      entityId: updatedItem.id,
+      metadata: {
+        inspectionId: item.room?.inspectionId ?? null,
+        requiresAction: updatedItem.requiresAction,
+        condition: updatedItem.condition ?? null,
+      },
+    });
+
+    return updatedItem;
   }
 
   /**
@@ -767,7 +872,7 @@ export class InspectionService {
       }
     }
 
-    return this.prisma.inspectionChecklistPhoto.create({
+    const createdPhoto = await this.prisma.inspectionChecklistPhoto.create({
       data: {
         checklistItem: { connect: { id: itemId } },
         url: dto.url,
@@ -775,6 +880,20 @@ export class InspectionService {
         uploadedBy: { connect: { id: uploadedById } },
       },
     });
+
+    await this.recordAudit({
+      orgId,
+      actorId: uploadedById,
+      action: 'CHECKLIST_PHOTO_ADDED',
+      entityType: 'InspectionChecklistPhoto',
+      entityId: createdPhoto.id,
+      metadata: {
+        checklistItemId: itemId,
+        caption: dto.caption ?? null,
+      },
+    });
+
+    return createdPhoto;
   }
 
   /**
@@ -1002,7 +1121,7 @@ Respond in JSON format:
       throw new BadRequestException('User has already signed this inspection');
     }
 
-    return this.prisma.inspectionSignature.create({
+    const signature = await this.prisma.inspectionSignature.create({
       data: {
         inspectionId,
         userId: dto.userId,
@@ -1013,6 +1132,20 @@ Respond in JSON format:
         user: true,
       },
     });
+
+    await this.recordAudit({
+      orgId,
+      actorId: dto.userId,
+      action: 'INSPECTION_SIGNED',
+      entityType: 'InspectionSignature',
+      entityId: signature.id,
+      metadata: {
+        inspectionId,
+        role: dto.role,
+      },
+    });
+
+    return signature;
   }
 
   /**
@@ -1063,6 +1196,19 @@ Respond in JSON format:
     } catch (error) {
       console.error(`Failed to run Property OS analysis for inspection ${updatedInspection.id}:`, error);
     }
+
+    await this.recordAudit({
+      orgId,
+      actorId: undefined,
+      action: 'INSPECTION_COMPLETED',
+      entityType: 'UnitInspection',
+      entityId: updatedInspection.id,
+      metadata: {
+        type: updatedInspection.type,
+        status: updatedInspection.status,
+        completedDate: updatedInspection.completedDate?.toISOString?.() ?? null,
+      },
+    });
 
     return updatedInspection;
   }
@@ -1118,6 +1264,18 @@ Respond in JSON format:
           },
         },
         signatures: { include: { user: true } },
+      },
+    });
+
+    await this.recordAudit({
+      orgId,
+      actorId: viewer?.userId,
+      action: 'INSPECTION_STATUS_UPDATED',
+      entityType: 'UnitInspection',
+      entityId: updated.id,
+      metadata: {
+        previousStatus: inspection.status,
+        nextStatus: updated.status,
       },
     });
 
@@ -1266,6 +1424,30 @@ Respond in JSON format:
       }
     } catch (error) {
       console.error('Failed to send inspection completed email:', error);
+    }
+  }
+
+  private async recordAudit(event: {
+    orgId?: string;
+    actorId?: string;
+    action: string;
+    entityType: string;
+    entityId?: string | number;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      await this.auditLogService.record({
+        orgId: event.orgId,
+        actorId: event.actorId ?? null,
+        module: 'INSPECTION',
+        action: event.action,
+        entityType: event.entityType,
+        entityId: event.entityId,
+        result: 'SUCCESS',
+        metadata: event.metadata,
+      });
+    } catch (error) {
+      console.error(`Failed to write inspection audit event ${event.action}:`, error);
     }
   }
 

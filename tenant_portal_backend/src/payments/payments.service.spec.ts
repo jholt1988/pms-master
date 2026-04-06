@@ -6,17 +6,29 @@ import { AIPaymentService } from './ai-payment.service';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { TestDataFactory } from '../../test/factories';
 import { StripeService } from './stripe.service';
+import { AuditLogService } from '../shared/audit-log.service';
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
   let prismaService: PrismaService;
   let emailService: EmailService;
+  let auditLogService: AuditLogService;
 
   // Mock PrismaService
   const mockPrismaService = {
     lease: {
       findFirst: jest.fn(),
       findUnique: jest.fn(),
+      update: jest.fn(),
+    },
+    leaseNotice: {
+      create: jest.fn(),
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+    },
+    leaseHistory: {
+      create: jest.fn(),
+      findMany: jest.fn(),
     },
     invoice: {
       create: jest.fn(),
@@ -48,6 +60,18 @@ describe('PaymentsService', () => {
     lateFee: {
       findMany: jest.fn(),
     },
+    notification: {
+      create: jest.fn(),
+    },
+    communicationLog: {
+      create: jest.fn(),
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+    },
+    document: {
+      findMany: jest.fn(),
+    },
+    $transaction: jest.fn(),
   };
 
   // Mock EmailService
@@ -69,6 +93,10 @@ describe('PaymentsService', () => {
     processPayment: jest.fn(),
   };
 
+  const mockAuditLogService = {
+    record: jest.fn().mockResolvedValue(undefined),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -77,12 +105,14 @@ describe('PaymentsService', () => {
         { provide: EmailService, useValue: mockEmailService },
         { provide: AIPaymentService, useValue: mockAIPaymentService },
         { provide: StripeService, useValue: mockStripeService },
+        { provide: AuditLogService, useValue: mockAuditLogService },
       ],
     }).compile();
 
     service = module.get<PaymentsService>(PaymentsService);
     prismaService = module.get<PrismaService>(PrismaService);
     emailService = module.get<EmailService>(EmailService);
+    auditLogService = module.get<AuditLogService>(AuditLogService);
   });
 
   afterEach(() => {
@@ -698,6 +728,12 @@ describe('PaymentsService', () => {
         id: mockPaymentPlan.id,
         status: mockPaymentPlan.status,
       });
+      expect(mockAuditLogService.record).toHaveBeenCalledWith(expect.objectContaining({
+        module: 'PAYMENTS',
+        action: 'PAYMENT_PLAN_CREATED',
+        entityType: 'PaymentPlan',
+        entityId: mockPaymentPlan.id,
+      }));
       expect(mockPrismaService.invoice.findUnique).toHaveBeenCalledWith({
         where: { id: invoiceId },
         include: {
@@ -877,6 +913,11 @@ describe('PaymentsService', () => {
       expect(result.sortOrder).toBe('desc');
       expect(result.priorityWeights).toEqual({ daysWeight: 1, amountWeight: 1 });
       expect(result.items[0].priorityScore).toBeGreaterThanOrEqual(result.items[1].priorityScore);
+      expect(mockAuditLogService.record).toHaveBeenCalledWith(expect.objectContaining({
+        module: 'PAYMENTS',
+        action: 'DELINQUENCY_QUEUE_VIEWED',
+        entityType: 'DelinquencyQueue',
+      }));
     });
 
     it('applies default sort and caps limit at 500', async () => {
@@ -956,6 +997,503 @@ describe('PaymentsService', () => {
         amountWeight: 3,
         source: 'org_override',
       });
+    });
+  });
+
+  describe('payment reminders and ops summary auditability', () => {
+    it('records audit event when creating payment reminder notifications', async () => {
+      mockPrismaService.invoice.findUnique.mockResolvedValue({
+        id: 5,
+        leaseId: 'lease-1',
+        lease: {
+          tenantId: 'tenant-1',
+          tenant: { id: 'tenant-1', username: 'tenant@test.com' },
+        },
+      });
+      mockPrismaService.notification.create.mockResolvedValue({ id: 'notif-1' });
+
+      await service.sendPaymentReminder(5, {
+        message: 'Rent is due.',
+        channel: 'EMAIL',
+        urgency: 'MEDIUM',
+      });
+
+      expect(mockPrismaService.notification.create).toHaveBeenCalled();
+      expect(mockAuditLogService.record).toHaveBeenCalledWith(expect.objectContaining({
+        module: 'PAYMENTS',
+        action: 'PAYMENT_REMINDER_CREATED',
+        entityType: 'Notification',
+        entityId: 5,
+      }));
+    });
+
+    it('records audit event when generating ops summary', async () => {
+      mockPrismaService.invoice.findMany.mockResolvedValue([]);
+      mockPrismaService.payment.findMany.mockResolvedValue([]);
+
+      const result = await service.getPaymentsOpsSummary('org-1', 10);
+
+      expect(result.counts).toEqual({
+        delinquentAccounts: 0,
+        failedPayments: 0,
+      });
+      expect(mockAuditLogService.record).toHaveBeenCalledWith(expect.objectContaining({
+        module: 'PAYMENTS',
+        action: 'PAYMENTS_OPS_SUMMARY_VIEWED',
+        entityType: 'PaymentsOpsSummary',
+        entityId: 'org-1',
+      }));
+    });
+  });
+
+  describe('delinquency legal workflow', () => {
+    it('issues a delinquency notice when approval is confirmed and overdue invoices exist', async () => {
+      const now = new Date('2026-04-06T12:00:00.000Z');
+      jest.useFakeTimers().setSystemTime(now);
+
+      mockPrismaService.lease.findFirst.mockResolvedValue({
+        id: 'lease-1',
+        tenantId: 'tenant-1',
+        tenant: { id: 'tenant-1' },
+        status: 'ACTIVE',
+        unitId: 'unit-1',
+        unit: {
+          propertyId: 'property-1',
+          property: { id: 'property-1', organizationId: 'org-1' },
+        },
+      });
+      mockPrismaService.invoice.findMany.mockResolvedValue([
+        {
+          id: 101,
+          amount: 1200,
+          dueDate: new Date('2026-03-01T00:00:00.000Z'),
+        },
+        {
+          id: 102,
+          amount: 300,
+          dueDate: new Date('2026-03-15T00:00:00.000Z'),
+        },
+      ]);
+      mockPrismaService.leaseNotice.create.mockResolvedValue({ id: 'notice-1' });
+      mockPrismaService.lease.update.mockResolvedValue({ id: 'lease-1', status: 'NOTICE_GIVEN' });
+      mockPrismaService.leaseHistory.create.mockResolvedValue({ id: 'history-1' });
+      mockPrismaService.notification.create.mockResolvedValue({ id: 'notification-1' });
+      mockPrismaService.$transaction.mockImplementation(async (operations) => Promise.all(operations));
+
+      const result = await service.issueDelinquencyNotice(
+        {
+          leaseId: 'lease-1',
+          deliveryMethod: 'EMAIL' as any,
+          approvalConfirmed: true,
+        },
+        'manager-1',
+        'org-1',
+      );
+
+      expect(result).toEqual({
+        noticeId: 'notice-1',
+        leaseId: 'lease-1',
+        status: 'NOTICE_GIVEN',
+        overdueInvoiceIds: [101, 102],
+        amountDueCents: 150000,
+        oldestDueDate: new Date('2026-03-01T00:00:00.000Z'),
+      });
+      expect(mockPrismaService.leaseNotice.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          type: 'OTHER',
+          deliveryMethod: 'EMAIL',
+        }),
+      }));
+      expect(mockPrismaService.lease.update).toHaveBeenCalledWith({
+        where: { id: 'lease-1' },
+        data: expect.objectContaining({
+          status: 'NOTICE_GIVEN',
+          terminationRequestedBy: 'MANAGER',
+        }),
+      });
+      expect(mockAuditLogService.record).toHaveBeenCalledWith(expect.objectContaining({
+        module: 'PAYMENTS',
+        action: 'DELINQUENCY_NOTICE_ISSUED',
+        entityType: 'LeaseNotice',
+        entityId: 'notice-1',
+      }));
+
+      jest.useRealTimers();
+    });
+
+    it('rejects delinquency notice issuance when no overdue invoices exist', async () => {
+      mockPrismaService.lease.findFirst.mockResolvedValue({
+        id: 'lease-1',
+        tenantId: 'tenant-1',
+        status: 'ACTIVE',
+        unitId: 'unit-1',
+        unit: { propertyId: 'property-1', property: { organizationId: 'org-1' } },
+      });
+      mockPrismaService.invoice.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.issueDelinquencyNotice(
+          {
+            leaseId: 'lease-1',
+            deliveryMethod: 'EMAIL' as any,
+            approvalConfirmed: true,
+          },
+          'manager-1',
+          'org-1',
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockPrismaService.leaseNotice.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects paid resolution when overdue balance still exists', async () => {
+      mockPrismaService.lease.findFirst.mockResolvedValue({
+        id: 'lease-1',
+        tenantId: 'tenant-1',
+        status: 'NOTICE_GIVEN',
+        unitId: 'unit-1',
+        terminationReason: null,
+        unit: { propertyId: 'property-1', property: { organizationId: 'org-1' } },
+      });
+      mockPrismaService.invoice.findMany.mockResolvedValue([
+        {
+          id: 201,
+          amount: 450,
+          dueDate: new Date('2026-03-01T00:00:00.000Z'),
+          paymentPlan: null,
+        },
+      ]);
+
+      await expect(
+        service.resolveDelinquencyLegalHold(
+          {
+            leaseId: 'lease-1',
+            resolutionMode: 'PAID' as any,
+          },
+          'manager-1',
+          'org-1',
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockPrismaService.lease.update).not.toHaveBeenCalled();
+    });
+
+    it('resolves delinquency legal hold when a payment plan is active', async () => {
+      mockPrismaService.lease.findFirst.mockResolvedValue({
+        id: 'lease-1',
+        tenantId: 'tenant-1',
+        status: 'NOTICE_GIVEN',
+        unitId: 'unit-1',
+        terminationReason: null,
+        unit: {
+          propertyId: 'property-1',
+          property: { id: 'property-1', organizationId: 'org-1' },
+        },
+      });
+      mockPrismaService.invoice.findMany.mockResolvedValue([
+        {
+          id: 301,
+          amount: 450,
+          dueDate: new Date('2026-03-01T00:00:00.000Z'),
+          paymentPlan: { status: 'ACTIVE' },
+        },
+      ]);
+      mockPrismaService.lease.update.mockResolvedValue({ id: 'lease-1', status: 'ACTIVE' });
+      mockPrismaService.leaseHistory.create.mockResolvedValue({ id: 'history-2' });
+      mockPrismaService.notification.create.mockResolvedValue({ id: 'notification-2' });
+      mockPrismaService.$transaction.mockImplementation(async (operations) => Promise.all(operations));
+
+      const result = await service.resolveDelinquencyLegalHold(
+        {
+          leaseId: 'lease-1',
+          resolutionMode: 'PAYMENT_PLAN' as any,
+          reason: 'Manager approved payment-plan hold',
+        },
+        'manager-1',
+        'org-1',
+      );
+
+      expect(result).toEqual({
+        leaseId: 'lease-1',
+        previousStatus: 'NOTICE_GIVEN',
+        status: 'ACTIVE',
+        resolutionMode: 'PAYMENT_PLAN',
+        outstandingDueCents: 45000,
+        activePlanExists: true,
+      });
+      expect(mockPrismaService.lease.update).toHaveBeenCalledWith({
+        where: { id: 'lease-1' },
+        data: expect.objectContaining({
+          status: 'ACTIVE',
+          terminationReason: 'Manager approved payment-plan hold',
+        }),
+      });
+      expect(mockAuditLogService.record).toHaveBeenCalledWith(expect.objectContaining({
+        module: 'PAYMENTS',
+        action: 'DELINQUENCY_LEGAL_HOLD_RESOLVED',
+        entityType: 'Lease',
+        entityId: 'lease-1',
+      }));
+    });
+
+    it('refers delinquency to attorney after notice-stage delinquency', async () => {
+      mockPrismaService.lease.findFirst.mockResolvedValue({
+        id: 'lease-1',
+        tenantId: 'tenant-1',
+        status: 'NOTICE_GIVEN',
+        unitId: 'unit-1',
+        unit: {
+          propertyId: 'property-1',
+          property: { id: 'property-1', organizationId: 'org-1' },
+        },
+      });
+      mockPrismaService.invoice.findMany.mockResolvedValue([
+        {
+          id: 401,
+          amount: 900,
+          dueDate: new Date('2026-03-01T00:00:00.000Z'),
+        },
+      ]);
+      mockPrismaService.leaseNotice.findFirst.mockResolvedValue({ id: 88, createdAt: new Date('2026-03-20T00:00:00.000Z') });
+      mockPrismaService.communicationLog.create.mockResolvedValue({ id: 77 });
+      mockPrismaService.leaseHistory.create.mockResolvedValue({ id: 'history-3' });
+      mockPrismaService.notification.create.mockResolvedValue({ id: 'notification-3' });
+      mockPrismaService.$transaction.mockImplementation(async (operations) => Promise.all(operations));
+
+      const result = await service.referDelinquencyToAttorney(
+        {
+          leaseId: 'lease-1',
+          attorneyEmail: 'counsel@example.com',
+          approvalConfirmed: true,
+          attorneyName: 'Outside Counsel',
+        },
+        'manager-1',
+        'org-1',
+      );
+
+      expect(result).toEqual(expect.objectContaining({
+        leaseId: 'lease-1',
+        communicationId: 77,
+        attorneyEmail: 'counsel@example.com',
+        latestNoticeId: 88,
+        overdueInvoiceIds: [401],
+        amountDueCents: 90000,
+      }));
+      expect(mockPrismaService.communicationLog.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          channel: 'EMAIL',
+          direction: 'OUTBOUND',
+          to: 'counsel@example.com',
+        }),
+      }));
+      expect(mockAuditLogService.record).toHaveBeenCalledWith(expect.objectContaining({
+        module: 'PAYMENTS',
+        action: 'DELINQUENCY_ATTORNEY_REFERRED',
+        entityType: 'CommunicationLog',
+        entityId: 77,
+      }));
+    });
+
+    it('records court date and returns legal tracker entries', async () => {
+      mockPrismaService.lease.findFirst.mockResolvedValue({
+        id: 'lease-1',
+        tenantId: 'tenant-1',
+        status: 'NOTICE_GIVEN',
+        unitId: 'unit-1',
+        unit: {
+          propertyId: 'property-1',
+          property: { id: 'property-1', organizationId: 'org-1' },
+        },
+      });
+      mockPrismaService.communicationLog.findFirst.mockResolvedValue({ id: 77 });
+      mockPrismaService.leaseHistory.create.mockResolvedValue({ id: 55 });
+      mockPrismaService.communicationLog.create.mockResolvedValue({ id: 78 });
+      mockPrismaService.notification.create.mockResolvedValue({ id: 'notification-4' });
+      mockPrismaService.$transaction.mockImplementation(async (operations) => Promise.all(operations));
+
+      const courtResult = await service.recordCourtDate(
+        {
+          leaseId: 'lease-1',
+          courtDate: '2026-05-01T15:00:00.000Z',
+          docketNumber: '24-EV-1001',
+          courtroom: 'Room 2B',
+        },
+        'manager-1',
+        'org-1',
+      );
+
+      expect(courtResult).toEqual({
+        leaseId: 'lease-1',
+        courtDate: new Date('2026-05-01T15:00:00.000Z'),
+        docketNumber: '24-EV-1001',
+        courtroom: 'Room 2B',
+        relatedReferralCommunicationId: 77,
+        historyId: 55,
+      });
+      expect(mockAuditLogService.record).toHaveBeenCalledWith(expect.objectContaining({
+        module: 'PAYMENTS',
+        action: 'DELINQUENCY_COURT_DATE_RECORDED',
+        entityType: 'LeaseHistory',
+        entityId: 55,
+      }));
+
+      mockPrismaService.invoice.findMany.mockResolvedValue([
+        {
+          id: 402,
+          amount: 900,
+          dueDate: new Date('2026-03-01T00:00:00.000Z'),
+        },
+      ]);
+      mockPrismaService.leaseNotice.findMany.mockResolvedValue([
+        { id: 88, createdAt: new Date('2026-03-20T00:00:00.000Z') },
+      ]);
+      mockPrismaService.leaseHistory.findMany.mockResolvedValue([
+        {
+          id: 55,
+          createdAt: new Date('2026-04-10T00:00:00.000Z'),
+          metadata: {
+            legalStage: 'COURT_SCHEDULED',
+            courtDate: '2026-05-01T15:00:00.000Z',
+            docketNumber: '24-EV-1001',
+            courtroom: 'Room 2B',
+          },
+        },
+      ]);
+      mockPrismaService.communicationLog.findMany.mockResolvedValue([
+        {
+          id: 77,
+          createdAt: new Date('2026-04-09T00:00:00.000Z'),
+          metadata: {
+            workflow: 'DELINQUENCY_ATTORNEY_REFERRAL',
+          },
+        },
+      ]);
+
+      const tracker = await service.getDelinquencyLegalTracker('lease-1', 'org-1');
+
+      expect(tracker).toEqual({
+        leaseId: 'lease-1',
+        leaseStatus: 'NOTICE_GIVEN',
+        tenantId: 'tenant-1',
+        propertyId: 'property-1',
+        unitId: 'unit-1',
+        overdueInvoiceIds: [402],
+        amountDueCents: 90000,
+        noticeCount: 1,
+        latestNoticeAt: new Date('2026-03-20T00:00:00.000Z'),
+        attorneyReferralCount: 1,
+        latestAttorneyReferralAt: new Date('2026-04-09T00:00:00.000Z'),
+        courtDates: [
+          {
+            historyId: 55,
+            courtDate: '2026-05-01T15:00:00.000Z',
+            docketNumber: '24-EV-1001',
+            courtroom: 'Room 2B',
+            createdAt: new Date('2026-04-10T00:00:00.000Z'),
+          },
+        ],
+      });
+    });
+
+    it('builds an attorney packet checklist from lease, notice, and ledger evidence', async () => {
+      const leaseRecord = {
+        id: 'lease-1',
+        tenantId: 'tenant-1',
+        status: 'NOTICE_GIVEN',
+        startDate: new Date('2026-01-01T00:00:00.000Z'),
+        endDate: new Date('2026-12-31T00:00:00.000Z'),
+        rentAmount: 1200,
+        currentBalance: 1500,
+        unitId: 'unit-1',
+        documents: [
+          {
+            id: 1,
+            type: 'LEASE_AGREEMENT',
+            url: '/lease.pdf',
+            description: 'Executed lease',
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          },
+        ],
+        generalDocuments: [
+          {
+            id: 2,
+            fileName: 'notice.pdf',
+            category: 'NOTICE',
+            filePath: '/notice.pdf',
+            description: 'Posted notice copy',
+            createdAt: new Date('2026-03-10T00:00:00.000Z'),
+          },
+        ],
+        unit: {
+          propertyId: 'property-1',
+          property: { organizationId: 'org-1' },
+        },
+      };
+      mockPrismaService.lease.findFirst.mockResolvedValue(leaseRecord);
+      mockPrismaService.lease.findUnique.mockResolvedValue(leaseRecord);
+      mockPrismaService.leaseNotice.findMany.mockResolvedValue([
+        {
+          id: 88,
+          type: 'OTHER',
+          deliveryMethod: 'PRINT',
+          message: 'Delinquency notice issued for overdue balance.',
+          createdAt: new Date('2026-03-10T00:00:00.000Z'),
+        },
+      ]);
+      mockPrismaService.communicationLog.findMany.mockResolvedValue([
+        {
+          id: 77,
+          to: 'counsel@example.com',
+          subject: 'Delinquency referral for lease lease-1',
+          createdAt: new Date('2026-03-20T00:00:00.000Z'),
+          metadata: { workflow: 'DELINQUENCY_ATTORNEY_REFERRAL' },
+        },
+      ]);
+      mockPrismaService.ledgerAccount.findUnique.mockResolvedValue({
+        id: 'ledger-1',
+        entries: [
+          {
+            id: 'entry-1',
+            direction: 'DEBIT',
+            sourceType: 'invoice',
+            effectiveDate: new Date('2026-03-01T00:00:00.000Z'),
+            amountCents: 120000,
+            description: 'March rent',
+          },
+          {
+            id: 'entry-2',
+            direction: 'DEBIT',
+            sourceType: 'invoice',
+            effectiveDate: new Date('2026-04-01T00:00:00.000Z'),
+            amountCents: 30000,
+            description: 'Late fee',
+          },
+        ],
+      });
+
+      const result = await service.getAttorneyPacketChecklist(
+        'lease-1',
+        { userId: 'manager-1', role: 'PROPERTY_MANAGER' as any },
+        'org-1',
+      );
+
+      expect(result.packetStatus).toBe('READY');
+      expect(result.noticeSummary).toEqual(expect.objectContaining({
+        noticeId: 88,
+        deliveryMethod: 'PRINT',
+      }));
+      expect(result.ledgerSummary.currentBalanceCents).toBe(150000);
+      expect(result.documents.leaseDocuments).toHaveLength(1);
+      expect(result.attorneyReferral).toEqual(expect.objectContaining({
+        communicationId: 77,
+        to: 'counsel@example.com',
+      }));
+      expect(mockAuditLogService.record).toHaveBeenCalledWith(expect.objectContaining({
+        module: 'PAYMENTS',
+        action: 'ATTORNEY_PACKET_CHECKLIST_VIEWED',
+        entityType: 'Lease',
+        entityId: 'lease-1',
+      }));
     });
   });
 

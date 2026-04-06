@@ -21,6 +21,127 @@ export class BillingService {
     private readonly stripeService: StripeService,
   ) {}
 
+  async getEscrowState(leaseId: string, orgId: string) {
+    const lease = await this.prisma.lease.findFirst({
+      where: {
+        id: leaseId,
+        unit: { property: { organizationId: orgId } },
+      },
+      include: {
+        unit: { include: { property: true } },
+      },
+    });
+
+    if (!lease) {
+      throw new NotFoundException('Lease not found');
+    }
+
+    const account = await this.paymentsService.getLedgerAccountForLease(lease.id, orgId);
+    const latestEscrowEntry = await (this.prisma as any).ledgerTransaction.findFirst({
+      where: {
+        accountId: account.id,
+        categoryCode: { startsWith: 'escrow_' },
+      },
+      orderBy: [{ effectiveDate: 'desc' }, { createdAt: 'desc' }],
+    });
+
+    const currentState = (latestEscrowEntry?.metadata as any)?.escrowState ?? 'UNFUNDED';
+    return {
+      leaseId: lease.id,
+      propertyId: lease.unit?.propertyId,
+      propertyName: lease.unit?.property?.name,
+      depositAmount: lease.depositAmount ?? 0,
+      currentState,
+      lastTransitionAt: latestEscrowEntry?.effectiveDate ?? null,
+      lastTransitionMetadata: latestEscrowEntry?.metadata ?? null,
+    };
+  }
+
+  async transitionEscrowState(
+    leaseId: string,
+    orgId: string,
+    actor: { userId: string; username: string; role: Role },
+    input: {
+      nextState: 'FUNDED' | 'HELD' | 'DISPUTED' | 'RELEASED';
+      reason?: string;
+    },
+  ) {
+    const lease = await this.prisma.lease.findFirst({
+      where: {
+        id: leaseId,
+        unit: { property: { organizationId: orgId } },
+      },
+      include: {
+        unit: { include: { property: true } },
+      },
+    });
+
+    if (!lease) {
+      throw new NotFoundException('Lease not found');
+    }
+
+    const current = await this.getEscrowState(leaseId, orgId);
+    const allowedTransitions: Record<string, Array<string>> = {
+      UNFUNDED: ['FUNDED'],
+      FUNDED: ['HELD', 'DISPUTED', 'RELEASED'],
+      HELD: ['DISPUTED', 'RELEASED'],
+      DISPUTED: ['HELD', 'RELEASED'],
+      RELEASED: [],
+    };
+
+    if (!allowedTransitions[current.currentState]?.includes(input.nextState)) {
+      throw new BadRequestException(`Invalid escrow transition from ${current.currentState} to ${input.nextState}`);
+    }
+
+    const amountCents = Math.round(Number(lease.depositAmount ?? 0) * 100);
+    await this.paymentsService.createOperationalLedgerEntry(orgId, lease.id, {
+      entryType: input.nextState === 'RELEASED' ? 'PAYMENT' : 'CREDIT',
+      direction: input.nextState === 'RELEASED' ? 'CREDIT' : 'DEBIT',
+      amountCents: Math.max(amountCents, 0),
+      effectiveDate: new Date(),
+      categoryCode: `escrow_${input.nextState.toLowerCase()}`,
+      sourceType: 'escrow_state_transition',
+      sourceId: `${lease.id}:${input.nextState}`,
+      description: `Escrow moved to ${input.nextState}`,
+      createdById: actor.userId,
+      metadata: {
+        escrowState: input.nextState,
+        previousState: current.currentState,
+        reason: input.reason,
+        actorId: actor.userId,
+        actorUsername: actor.username,
+      },
+    });
+
+    await this.securityEvents.logEvent({
+      type: SecurityEventType.RECURRING_BILLING_UPDATED,
+      success: true,
+      userId: actor.userId,
+      username: actor.username,
+      metadata: {
+        leaseId,
+        previousState: current.currentState,
+        nextState: input.nextState,
+        reason: input.reason,
+      },
+    });
+
+    return this.getEscrowState(leaseId, orgId);
+  }
+
+  async computeYieldSweepAllocation(orgId: string, amountCents: number) {
+    return this.paymentsService.computeYieldSweepAllocation(orgId, amountCents);
+  }
+
+  async recordYieldSweepAllocation(
+    orgId: string,
+    leaseId: string,
+    paymentId: number,
+    amountCents: number,
+  ) {
+    return this.paymentsService.recordYieldSweepAllocation(orgId, leaseId, paymentId, amountCents);
+  }
+
   @Cron(CronExpression.EVERY_DAY_AT_1AM)
   async runDailyBillingCycle(): Promise<void> {
     await this.generateRecurringInvoices();

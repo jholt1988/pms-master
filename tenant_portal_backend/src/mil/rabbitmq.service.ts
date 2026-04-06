@@ -52,7 +52,7 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
       
       this.logger.log(`Publishing intent: ${routingKey}`);
       await this.channelWrapper.publish(this.EXCHANGE_NAME, routingKey, payload, {
-        persistent: true,
+             
       });
     } catch (error) {
       this.logger.error(`Failed to publish intent ${routingKey}`, error);

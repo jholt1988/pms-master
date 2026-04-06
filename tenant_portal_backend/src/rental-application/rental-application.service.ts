@@ -1,10 +1,11 @@
 
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   ApplicationDecisionReasonCode,
   ApplicationStatus,
   LeaseStatus,
+  NotificationType,
   QualificationStatus,
   Recommendation,
   Role,
@@ -19,6 +20,9 @@ import { AuditLogService } from '../shared/audit-log.service';
 import { ScheduleService } from '../schedule/schedule.service';
 import { EventPriority, EventType } from '../schedule/dto/create-schedule-event.dto';
 import { RentalApplicationReviewAction, RentalApplicationReviewActionDto } from './dto/review-action.dto';
+import { NotificationsService } from '../notifications/notifications.service';
+import { WorkflowEventService } from '../policy/workflow-event.service';
+import { WorkflowEventProcessor } from '../policy/workflow-event-processor.service';
 
 @Injectable()
 export class RentalApplicationService {
@@ -29,6 +33,9 @@ export class RentalApplicationService {
     private readonly aiService: RentalApplicationAiService,
     private readonly auditLogService: AuditLogService,
     private readonly scheduleService: ScheduleService,
+    private readonly notificationsService: NotificationsService,
+    @Optional() private readonly workflowEventService?: WorkflowEventService,
+    @Optional() private readonly workflowEventProcessor?: WorkflowEventProcessor,
   ) {}
   
   async submitApplication(data: SubmitApplicationDto, applicantId?: string) {
@@ -254,9 +261,12 @@ export class RentalApplicationService {
       throw new Error('Rental application not found');
     }
 
-    // Basic screening logic: income must be at least 3x rent
     const rentAmount = application.unit.lease?.rentAmount || 0; // Assuming rent is part of an active lease
-    const requiredIncome = rentAmount * 3;
+    const fairHousingInput = this.aiService.sanitizeForFairHousing({
+      ...application,
+      targetRent: rentAmount,
+    });
+    const tenancyScore = this.aiService.computeTenancySuccessScore(fairHousingInput.sanitizedInput);
 
     const evaluation = this.calculateScreening(application.income, rentAmount, {
       creditScore: application.creditScore ?? undefined,
@@ -281,9 +291,13 @@ export class RentalApplicationService {
       data: {
         qualificationStatus: evaluation.qualificationStatus,
         recommendation: evaluation.recommendation,
-        screeningDetails: evaluation.caption,
-        screeningScore: evaluation.score,
-        screeningReasons: evaluation.reasons,
+        screeningDetails: `${evaluation.caption}\n\nDecision: ${tenancyScore.decisionExplanation}`,
+        screeningScore: tenancyScore.score,
+        screeningReasons: [
+          ...evaluation.reasons,
+          ...tenancyScore.traceabilityLog,
+          ...fairHousingInput.redactionLog.map((entry) => `${entry.field}: ${entry.reason}`),
+        ],
         screenedAt: new Date(),
         screenedBy: { connect: { id: actor.userId } },
       },
@@ -305,8 +319,10 @@ export class RentalApplicationService {
       {
         applicationNumber: `APP-${id}`,
         score: evaluation.score,
+        tenancySuccessScore: tenancyScore.score,
         recommendation: evaluation.recommendation,
         qualificationStatus: evaluation.qualificationStatus,
+        decisionBand: tenancyScore.decisionBand,
       },
     );
 
@@ -323,6 +339,9 @@ export class RentalApplicationService {
         income: application.income,
         rentAmount,
         creditScore: application.creditScore,
+        fairHousingRedactions: fairHousingInput.redactionLog,
+        tenancySuccessScore: tenancyScore.score,
+        decisionBand: tenancyScore.decisionBand,
       },
     });
 
@@ -336,10 +355,95 @@ export class RentalApplicationService {
       result: 'SUCCESS',
       metadata: {
         score: evaluation.score,
+        tenancySuccessScore: tenancyScore.score,
         recommendation: evaluation.recommendation,
         qualificationStatus: evaluation.qualificationStatus,
+        fairHousingRedactions: fairHousingInput.redactionLog,
+        traceabilityLog: tenancyScore.traceabilityLog,
       },
     });
+
+    if (tenancyScore.decisionBand === 'AUTO_APPROVE') {
+      await (this.prisma as any).actionIntent.create({
+        data: {
+          type: 'ApproveTenantIntent',
+          description: `Application APP-${id} exceeds auto-approval threshold.`,
+          status: 'PENDING',
+          priority: 'HIGH',
+          organizationId: orgId,
+          userId: actor.userId,
+          metadata: {
+            applicationId: id,
+            screeningScore: tenancyScore.score,
+            decisionExplanation: tenancyScore.decisionExplanation,
+            traceabilityLog: tenancyScore.traceabilityLog,
+          },
+        },
+      });
+    }
+
+    const incomeToRentRatio = rentAmount > 0 ? Number(application.income) / rentAmount : 0;
+    const creditBand = this.mapCreditBand(application.creditScore ?? undefined);
+    const recommendedDecision =
+      tenancyScore.decisionBand === 'AUTO_APPROVE'
+        ? 'APPROVE'
+        : tenancyScore.decisionBand === 'REVIEW'
+        ? 'CONDITIONAL_APPROVE'
+        : 'DENY';
+    const scoringModelVersion = 'TENANCY_SUCCESS_INTERNAL_V1';
+
+    if (this.workflowEventService) {
+      const workflowEvent = await this.workflowEventService.emitIfNotExists({
+        propertyId: application.propertyId,
+        aggregateType: 'Application',
+        aggregateId: String(updatedApplication.id),
+        eventType: 'application.scored',
+        idempotencyKey: `application_scored:${updatedApplication.id}:${scoringModelVersion}:${updatedApplication.screenedAt?.toISOString() ?? 'unknown'}`,
+        payload: {
+          applicationId: String(updatedApplication.id),
+          propertyId: application.propertyId,
+          applicantId: application.applicantId ?? '',
+          unitId: application.unitId,
+          score: tenancyScore.score,
+          incomeToRentRatio,
+          creditBand,
+          hasRecentEviction: false,
+          thinCredit: !application.creditScore,
+          recommendedDecision,
+          scoredAt: updatedApplication.screenedAt?.toISOString() ?? new Date().toISOString(),
+          scoringModelVersion,
+          scoringSnapshot: {
+            evaluationScore: evaluation.score,
+            tenancySuccessScore: tenancyScore.score,
+            qualificationStatus: updatedApplication.qualificationStatus,
+            recommendation: updatedApplication.recommendation,
+            decisionBand: tenancyScore.decisionBand,
+            screeningReasons: updatedApplication.screeningReasons,
+          },
+        },
+      });
+
+      if (this.workflowEventProcessor) {
+        try {
+          await this.workflowEventProcessor.processEventById(workflowEvent.id);
+        } catch (error) {
+          await this.auditLogService.record({
+            orgId,
+            actorId: actor.userId,
+            module: 'rental-application',
+            action: 'POLICY_EVENT_PROCESSING_DEFERRED',
+            entityType: 'policyWorkflowEvent',
+            entityId: workflowEvent.id,
+            result: 'FAILURE',
+            metadata: {
+              applicationId: updatedApplication.id,
+              eventType: 'application.scored',
+              error: String(error),
+            },
+          });
+        }
+      }
+    }
 
     return updatedApplication;
   }
@@ -419,6 +523,14 @@ export class RentalApplicationService {
     )}/100 — income ${incomeRatio.toFixed(2)}x rent. ${reasons.join(' ')}`;
 
     return { score, reasons, caption, qualificationStatus, recommendation };
+  }
+
+  private mapCreditBand(creditScore?: number): 'POOR' | 'FAIR' | 'GOOD' | 'VERY_GOOD' | 'EXCELLENT' {
+    if (!creditScore || creditScore < 580) return 'POOR';
+    if (creditScore < 670) return 'FAIR';
+    if (creditScore < 740) return 'GOOD';
+    if (creditScore < 800) return 'VERY_GOOD';
+    return 'EXCELLENT';
   }
 
   async addNote(
@@ -910,6 +1022,39 @@ export class RentalApplicationService {
       },
     });
 
+    await this.scheduleService.createEvent(
+      {
+        type: EventType.MOVE_IN,
+        title: `Move-In Scheduled - ${application.fullName}`,
+        date: moveInAt.toISOString(),
+        priority: EventPriority.HIGH,
+        description: `Move-in scheduled for lease ${createdLease.id} created from approved application APP-${applicationId}.`,
+        propertyId: application.propertyId,
+        unitId: application.unitId,
+        tenantId: applicantId,
+      },
+      orgId,
+      actor.userId,
+    );
+
+    await this.notificationsService.create({
+      userId: applicantId,
+      type: NotificationType.SYSTEM_ANNOUNCEMENT,
+      title: 'Lease Draft Ready',
+      message: `Your application has been converted to lease ${createdLease.id}. Your move-in is scheduled for ${moveInAt.toDateString()}. Review the upcoming lease packet and onboarding steps in your portal.`,
+      metadata: {
+        applicationId,
+        leaseId: createdLease.id,
+        moveInAt: moveInAt.toISOString(),
+        propertyId: application.propertyId,
+        unitId: application.unitId,
+        workflow: 'APPLICATION_TO_LEASE_CONVERSION',
+      },
+      sendEmail: true,
+      useAITiming: true,
+      urgency: 'HIGH',
+    });
+
     return createdLease;
   }
 
@@ -919,7 +1064,17 @@ export class RentalApplicationService {
       throw new BadRequestException('Application not found');
     }
 
+    const unitLease = await this.prisma.lease.findFirst({
+      where: { unitId: application.unitId, status: LeaseStatus.ACTIVE },
+      select: { rentAmount: true },
+    });
+
     const review = await this.aiService.getAiReview(String(application.id));
+    const fairHousingInput = this.aiService.sanitizeForFairHousing({
+      ...application,
+      targetRent: unitLease?.rentAmount ?? 0,
+    });
+    const tenancyScore = this.aiService.computeTenancySuccessScore(fairHousingInput.sanitizedInput);
 
     await this.auditLogService.record({
       orgId,
@@ -931,6 +1086,8 @@ export class RentalApplicationService {
       result: 'SUCCESS',
       metadata: {
         recommendation: review.recommendation,
+        tenancySuccessScore: tenancyScore.score,
+        decisionBand: tenancyScore.decisionBand,
       },
     });
 
@@ -939,11 +1096,84 @@ export class RentalApplicationService {
       where: { id: applicationId },
       data: {
         ai_recommendation: review.recommendation,
-        ai_summary: review.summary,
+        ai_summary: `${review.summary}\n\n${tenancyScore.decisionExplanation}`,
         ai_reviewed_at: new Date(),
       },
     });
 
-    return review;
+    await this.auditLogService.record({
+      orgId,
+      actorId: null,
+      module: 'rental-application',
+      action: 'TENANCY_OUTCOME_PREDICTION_RECORDED',
+      entityType: 'rentalApplication',
+      entityId: applicationId,
+      result: 'SUCCESS',
+      metadata: {
+        predictedScore: tenancyScore.score,
+        predictedBand: tenancyScore.decisionBand,
+        decisionExplanation: tenancyScore.decisionExplanation,
+        traceabilityLog: tenancyScore.traceabilityLog,
+      },
+    });
+
+    return {
+      ...review,
+      fairHousingRedactions: fairHousingInput.redactionLog,
+      tenancySuccessScore: tenancyScore.score,
+      decisionBand: tenancyScore.decisionBand,
+      decisionExplanation: tenancyScore.decisionExplanation,
+      traceabilityLog: tenancyScore.traceabilityLog,
+    };
+  }
+
+  async recordPredictedOutcomeFeedback(
+    applicationId: number,
+    outcome: {
+      actualOutcome: 'LEASE_COMPLETED' | 'DELINQUENT' | 'EVICTION_FILED' | 'EARLY_MOVE_OUT' | 'UNKNOWN';
+      daysToDelinquency?: number;
+      notes?: string;
+    },
+    actor: { userId: string; username: string; role: Role },
+    orgId?: string,
+  ) {
+    const application = await this.getApplicationById(applicationId, orgId);
+    if (!application) {
+      throw new BadRequestException('Application not found');
+    }
+
+    await this.auditLogService.record({
+      orgId,
+      actorId: actor.userId,
+      module: 'rental-application',
+      action: 'RECORD_TENANCY_OUTCOME',
+      entityType: 'rentalApplication',
+      entityId: applicationId,
+      result: 'SUCCESS',
+      metadata: {
+        predictedScore: application.screeningScore,
+        predictedRecommendation: application.recommendation,
+        actualOutcome: outcome.actualOutcome,
+        daysToDelinquency: outcome.daysToDelinquency,
+        notes: outcome.notes,
+      },
+    });
+
+    if (outcome.notes?.trim()) {
+      await this.addNote(
+        applicationId,
+        { body: `Outcome tracking: ${outcome.actualOutcome}. ${outcome.notes.trim()}` },
+        actor,
+        orgId,
+      );
+    }
+
+    return {
+      applicationId,
+      predictedScore: application.screeningScore,
+      predictedRecommendation: application.recommendation,
+      actualOutcome: outcome.actualOutcome,
+      recorded: true,
+    };
   }
 }

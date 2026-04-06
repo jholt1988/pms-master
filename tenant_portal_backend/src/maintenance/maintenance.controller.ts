@@ -368,7 +368,21 @@ export class MaintenanceController {
     @Body() dto: ConfirmMaintenanceCompleteDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.maintenanceService.confirmCompleteScoped(id, req.user.userId, dto);
+    const updated = await this.maintenanceService.confirmCompleteScoped(id, req.user.userId, dto);
+    await this.auditLogService.record({
+      actorId: req.user.userId,
+      orgId: (req as any).org?.orgId as string | undefined,
+      module: 'MAINTENANCE',
+      action: 'TENANT_COMPLETION_CONFIRMED',
+      entityType: 'MaintenanceRequest',
+      entityId: updated.id,
+      result: 'SUCCESS',
+      metadata: {
+        status: updated.status,
+        noteProvided: Boolean(dto.note?.trim()),
+      },
+    });
+    return updated;
   }
 
   @Get('technicians')
