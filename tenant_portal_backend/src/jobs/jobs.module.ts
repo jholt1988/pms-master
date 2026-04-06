@@ -8,6 +8,8 @@ import { MaintenanceModule } from '../maintenance/maintenance.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { EsignatureModule } from '../esignature/esignature.module';
+import { RentOptimizationModule } from '../rent-optimization/rent-optimization.module';
+import { ReportingModule } from '../reporting/reporting.module';
 
 @Module({
   imports: [
@@ -17,6 +19,8 @@ import { EsignatureModule } from '../esignature/esignature.module';
     NotificationsModule,
     PaymentsModule,
     EsignatureModule,
+    RentOptimizationModule,
+    ReportingModule,
   ],
   providers: [
     ScheduledJobsService,

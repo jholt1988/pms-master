@@ -10,68 +10,122 @@ export class DashboardService {
   constructor(private prisma: PrismaService) {}
 
   async getActionIntents(orgId?: string) {
-    const workflowBaseUrl = process.env.WORKFLOW_ENGINE_URL ?? 'http://127.0.0.1:3003';
-
     try {
-      const response = await axios.get(`${workflowBaseUrl}/intents`, {
-        params: {
-          tenantId: orgId,
-          limit: 50,
+      // Phase 2: Fetch actionable intents from the database instead of mock/workflow mock.
+      const actionIntents = await (this.prisma as any).actionIntent.findMany({
+        where: {
+          ...(orgId ? { organizationId: orgId } : {}),
+          status: 'PENDING',
         },
-        timeout: 3500,
+        orderBy: { createdAt: 'desc' },
+        take: 50,
       });
 
-      const intents = Array.isArray(response.data?.intents) ? response.data.intents : [];
-
-      return {
-        intents: intents.map((intent: any) => ({
-          id: intent.id,
-          type: String(intent.riskType ?? 'RISK_MITIGATION').toUpperCase(),
-          description: intent.recommendedAction ?? 'No recommended action.',
-          status: intent.status ?? 'DETECTED',
-          priority:
-            intent.tier === 'TIER_1' ? 'HIGH' : intent.tier === 'TIER_3' ? 'LOW' : 'MEDIUM',
-          createdAt: intent.createdAt ?? new Date().toISOString(),
-          raw: intent,
-        })),
-        source: 'workflow-engine',
-      };
-    } catch (error) {
-      this.logger.warn(
-        `Falling back to mock action intents: ${error instanceof Error ? error.message : String(error)}`,
-      );
-
-      return {
-        intents: [
-          {
-            id: '1',
-            type: 'RISK_MITIGATION',
-            description:
-              'HVAC unit #3 at 123 Main St showing signs of failure. Proactive maintenance suggested.',
-            status: 'PENDING',
-            priority: 'HIGH',
-            createdAt: new Date().toISOString(),
-          },
-          {
-            id: '2',
-            type: 'AUTOMATION',
-            description: 'Rent payment for Unit 5B automatically processed.',
-            status: 'EXECUTED',
-            priority: 'LOW',
-            createdAt: new Date(Date.now() - 3600000).toISOString(),
-          },
-          {
-            id: '3',
-            type: 'ALERT',
-            description: 'Lease for 7A expires in 30 days. Renewal notice prepared.',
-            status: 'PENDING',
-            priority: 'MEDIUM',
-            createdAt: new Date(Date.now() - 7200000).toISOString(),
-          },
-        ],
-        source: 'mock',
-      };
+      if (actionIntents.length > 0) {
+        return {
+          intents: actionIntents.map((i: any) => ({
+            id: i.id,
+            type: i.type,
+            description: i.description,
+            status: i.status,
+            priority: i.priority,
+            createdAt: i.createdAt,
+            raw: i.metadata,
+          })),
+          source: 'database'
+        };
+      }
+    } catch(err) {
+      this.logger.warn('Failed to fetch action intents from db, falling back to mock');
     }
+
+    return {
+      intents: [
+        {
+          id: 'mock-1',
+          type: 'RISK_MITIGATION',
+          description: 'HVAC unit #3 at 123 Main St showing signs of failure.',
+          status: 'PENDING',
+          priority: 'HIGH',
+          createdAt: new Date().toISOString(),
+        }
+      ],
+      source: 'mock',
+    };
+  }
+
+  async resolveActionIntent(id: string, action: string, orgId?: string) {
+    // Phase 2: Handle resolution
+    const intent = await (this.prisma as any).actionIntent.findUnique({
+      where: { id }
+    });
+
+    if (!intent) throw new Error('Action Intent not found');
+    if (orgId && intent.organizationId && intent.organizationId !== orgId) throw new Error('Unauthorized');
+
+    let newStatus = action.toUpperCase();
+    if (!['RESOLVED', 'DISMISSED', 'EXECUTED'].includes(newStatus)) {
+      newStatus = 'RESOLVED';
+    }
+
+    // In a real system, "EXECUTED" might trigger actual background logic
+    // For QB anomalies, if FORCE_SYNC, we could drop the entry back onto the bull queue
+    
+    // Phase 3: AI Document Logic
+    if (intent.type === 'AI_ABSTRACTION_REVIEW' && newStatus === 'RESOLVED') {
+      try {
+        const metadata = intent.metadata as any;
+        const leaseId = metadata?.leaseId;
+        const extractedFields = metadata?.extractedFields;
+        if (leaseId && extractedFields) {
+          // Commit to ledger
+          await this.prisma.lease.update({
+            where: { id: leaseId },
+            data: {
+              rentAmount: extractedFields.monthlyRent,
+              startDate: new Date(extractedFields.startDate),
+              endDate: new Date(extractedFields.endDate),
+              // We could store the rest as JSON or map to actual schema
+            }
+          });
+          this.logger.log(`Lease ${leaseId} automatically updated from AI abstracted Document`);
+        }
+      } catch (err) {
+        this.logger.error(`Failed to commit AI abstraction to ledger: ${err}`);
+      }
+    }
+
+    // Phase 4: Dynamic Yield Optimization Logic
+    if (intent.type === 'RENEWAL_PRICING_GENERATED' && newStatus === 'RESOLVED') {
+      try {
+        const metadata = intent.metadata as any;
+        const leaseId = metadata?.leaseId;
+        const recommendedRent = metadata?.recommendedRent;
+        if (leaseId && recommendedRent) {
+          // Commit to ledger - set the lease to RENEWAL_PENDING and update the rent amount/offer
+          await this.prisma.lease.update({
+            where: { id: leaseId },
+            data: {
+              status: 'RENEWAL_PENDING',
+              rentAmount: recommendedRent, // Updating the rent directly to represent the accepted offer for demo
+            }
+          });
+          this.logger.log(`Lease ${leaseId} dynamically adjusted to Yield Price of ${recommendedRent}`);
+        }
+      } catch (err) {
+        this.logger.error(`Failed to commit Yield pricing to ledger: ${err}`);
+      }
+    }
+    
+    await (this.prisma as any).actionIntent.update({
+      where: { id },
+      data: {
+        status: newStatus,
+        resolvedAt: new Date()
+      }
+    });
+
+    return { success: true, status: newStatus };
   }
 
   async getPropertyLocations(orgId?: string) {

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards, Request } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Param, Post, UseGuards, Request } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Role } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
@@ -31,6 +31,17 @@ export class DashboardController {
   @Roles('PROPERTY_MANAGER', 'OWNER')
   getActionIntents(@OrgId() orgId?: string) {
     return this.dashboardService.getActionIntents(orgId);
+  }
+
+  @Patch('action-intents/:id/resolve')
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles('PROPERTY_MANAGER', 'OWNER')
+  resolveActionIntent(
+    @Param('id') id: string,
+    @Body() body: { action: string },
+    @OrgId() orgId?: string,
+  ) {
+    return this.dashboardService.resolveActionIntent(id, body.action || 'RESOLVED', orgId);
   }
 
   @Get('property-locations')

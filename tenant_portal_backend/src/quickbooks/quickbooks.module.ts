@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
+import { BullModule } from '@nestjs/bull';
+import { AccountingAnomalyService } from './accounting-anomaly.service';
+import { QuickBooksSyncProcessor } from './quickbooks-sync.processor';
 
 import { QuickBooksMinimalService } from './quickbooks-minimal.service';
 import { QuickBooksController as QuickBooksMinimalController } from './quickbooks-minimal.controller';
@@ -13,7 +16,12 @@ import { AuditLogService } from '../shared/audit-log.service';
 const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [
+    PrismaModule,
+    BullModule.registerQueue({
+      name: 'quickbooks-sync',
+    }),
+  ],
   controllers: legacyEnabled
     ? [QuickBooksMinimalController, QuickBooksFullController]
     : [QuickBooksMinimalController],
@@ -32,7 +40,9 @@ const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
         AuditLogService,
         // Bind the abstract DI token to the minimal implementation by default
         { provide: AbstractQuickBooksService, useClass: QuickBooksMinimalService },
+        AccountingAnomalyService,
+        QuickBooksSyncProcessor,
       ],
-  exports: [QuickBooksMinimalService, AbstractQuickBooksService],
+  exports: [QuickBooksMinimalService, AbstractQuickBooksService, AccountingAnomalyService],
 })
 export class QuickBooksModule {}

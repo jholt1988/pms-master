@@ -7,9 +7,10 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { DocumentsModule } from '../documents/documents.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
+import { PropertyOsModule } from '../property-os/property-os.module';
 
 @Module({
-  imports: [ConfigModule, PrismaModule, DocumentsModule, NotificationsModule],
+  imports: [ConfigModule, PrismaModule, DocumentsModule, NotificationsModule, PropertyOsModule],
   controllers: [EsignatureController, EsignatureWebhookController],
   providers: [EsignatureService, OrgContextGuard],
   exports: [EsignatureService],

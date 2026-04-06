@@ -10,6 +10,7 @@ import { MilSecurityAuditWrapperService } from './mil-security-audit-wrapper.ser
 import { ModelAccessTraceService } from './model-access-trace.service';
 import { MilAuditEventService } from './mil-audit-event.service';
 import { MilFeatureFlagsService } from './mil-feature-flags.service';
+import { RabbitMQService } from './rabbitmq.service';
 
 @Module({
   imports: [PrismaModule, SecurityEventsModule],
@@ -23,6 +24,7 @@ import { MilFeatureFlagsService } from './mil-feature-flags.service';
     ModelAccessTraceService,
     MilAuditEventService,
     MilFeatureFlagsService,
+    RabbitMQService,
   ],
   exports: [
     MilService,
@@ -30,6 +32,7 @@ import { MilFeatureFlagsService } from './mil-feature-flags.service';
     ModelAccessTraceService,
     MilAuditEventService,
     MilFeatureFlagsService,
+    RabbitMQService,
   ],
 })
 export class MilModule {}

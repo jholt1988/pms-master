@@ -2,6 +2,7 @@ import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import Stripe from 'stripe';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsService } from '../events/events.service';
+import { RabbitMQService } from '../mil/rabbitmq.service';
 import { Prisma } from '@prisma/client';
 
 export interface CreateStripeCustomerDto {
@@ -61,6 +62,7 @@ export class StripeService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventsService: EventsService,
+    private readonly rabbitMQService: RabbitMQService,
   ) {
     // In development we want the backend to boot even if Stripe isn’t configured yet.
     // Treat missing STRIPE_SECRET_KEY as "Stripe disabled" instead of a hard crash.
@@ -366,6 +368,10 @@ export class StripeService {
       case 'payment_intent.succeeded':
         await this.handlePaymentSuccess(event.data.object as Stripe.PaymentIntent, event.id);
         break;
+      case 'payment_intent.created':
+      case 'payment_intent.processing':
+        await this.handlePaymentProcessing(event.data.object as Stripe.PaymentIntent);
+        break;
       case 'payment_intent.payment_failed':
         await this.handlePaymentFailure(event.data.object as Stripe.PaymentIntent);
         break;
@@ -457,6 +463,14 @@ export class StripeService {
 
         this.logger.log(`Updated payment ${payment.id} to COMPLETED`);
         this.eventsService.emitPaymentSuccess(payment.id, leaseId || '', Number(payment.amount));
+        
+        // Broadcast identically across microservices (Property OS Phase 1)
+        await this.rabbitMQService.publishIntent('ledger.updated', {
+          paymentId: payment.id,
+          leaseId: leaseId || '',
+          amountMinor: netAmountMinor,
+          timestamp: new Date().toISOString(),
+        });
       } else {
         this.logger.warn(`No payment found for PaymentIntent ${paymentIntent.id}`);
       }
@@ -485,6 +499,34 @@ export class StripeService {
 
     } catch (error) {
       this.logger.error(`Failed to handle payment failure for ${paymentIntent.id}:`, error);
+    }
+  }
+
+  private async handlePaymentProcessing(paymentIntent: Stripe.PaymentIntent): Promise<void> {
+    try {
+      const payment = await this.prisma.payment.findFirst({
+        where: { externalId: paymentIntent.id },
+      });
+
+      if (payment && payment.status === 'PENDING') {
+        await this.prisma.payment.update({
+          where: { id: payment.id },
+          data: {
+            status: 'PROCESSING',
+          },
+        });
+
+        this.logger.log(`Updated payment ${payment.id} to PROCESSING to suppress late fees`);
+        
+        // Broadcast PaymentInitiatedIntent
+        await this.rabbitMQService.publishIntent('payment.initiated', {
+          paymentId: payment.id,
+          intentId: paymentIntent.id,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    } catch (error) {
+      this.logger.error(`Failed to handle payment processing for ${paymentIntent.id}:`, error);
     }
   }
 
