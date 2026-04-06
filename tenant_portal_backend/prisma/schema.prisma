@@ -123,6 +123,7 @@ model User {
 
   organizations              UserOrganization[]
   feeScheduleVersionsCreated FeeScheduleVersion[] @relation("FeeScheduleVersionCreatedBy")
+  actionIntents              ActionIntent[]
 }
 
 model Organization {
@@ -2577,4 +2578,24 @@ model ApprovalTask {
   @@index([propertyId, createdAt])
   @@index([workOrderId])
   @@index([agentRunId])
+}
+
+model ActionIntent {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String?  @db.Uuid
+  userId         String?  @db.Uuid
+  type           String   // e.g. QUICKBOOKS_ANOMALY, LATE_FEE_SUPPRESSED
+  description    String?  
+  status         String   @default("PENDING") // PENDING, RESOLVED, DISMISSED, EXECUTED
+  priority       String   @default("MEDIUM") // HIGH, MEDIUM, LOW
+  metadata       Json?
+  
+  resolvedAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  user           User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status])
 }

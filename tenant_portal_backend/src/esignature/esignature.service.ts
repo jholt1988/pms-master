@@ -13,6 +13,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { CreateEnvelopeDto } from './dto/create-envelope.dto';
 import { ProviderWebhookDto, ProviderWebhookDocumentDto } from './dto/provider-webhook.dto';
 import { RecipientViewDto } from './dto/recipient-view.dto';
+import { PropertyOsService } from '../property-os/property-os.service';
 
 interface ProviderRecipient {
   email: string;
@@ -45,6 +46,7 @@ export class EsignatureService {
     private readonly configService: ConfigService,
     private readonly documentsService: DocumentsService,
     private readonly notificationsService: NotificationsService,
+    private readonly propertyOsService: PropertyOsService,
   ) {
     // Get OAuth credentials for token refresh
     this.clientId = this.configService.get<string>('ESIGN_PROVIDER_CLIENT_ID') || null;
@@ -2243,6 +2245,23 @@ export class EsignatureService {
         },
       });
     });
+
+    // Phase 3: Initiate Property OS AI Abstraction Pipeline
+    try {
+      const lease = await this.prisma.lease.findUnique({ 
+        where: { id: envelope.leaseId },
+        include: { unit: { include: { property: true } } }
+      });
+      const orgId = lease?.unit?.property?.organizationId;
+      await this.propertyOsService.extractLeaseAbstraction(
+        envelope.id.toString(), 
+        envelope.leaseId.toString(), 
+        orgId ?? undefined,
+        envelope.createdById
+      );
+    } catch (error) {
+      this.logger.error(`Failed to initiate AI abstraction for envelope ${envelope.id}: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   private parseUuidId(value: string | number, field: string): string {

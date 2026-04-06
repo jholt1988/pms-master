@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SecurityEventsService } from '../security-events/security-events.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -12,6 +13,7 @@ export class PropertyOsService {
 
   constructor(
     private readonly securityEventsService: SecurityEventsService,
+    private readonly prisma: PrismaService,
   ) {}
 
   private readonly execFileAsync = promisify(execFile);
@@ -126,4 +128,45 @@ export class PropertyOsService {
       throw error; // Re-throw the error after logging
     }
   }
+
+  async extractLeaseAbstraction(envelopeId: string, leaseId: string, orgId?: string, actorId?: string): Promise<any> {
+    this.logger.log(`Beginning AI Lease Abstraction for Envelope ${envelopeId}`);
+    
+    // Simulate LLM extraction of unstructured PDF Document into a structured schema
+    // In production, this would send the finalized DocuSign PDF to an LLM extraction pipeline.
+    
+    // We mock the extracted payload:
+    const mockExtractedData = {
+      monthlyRent: 2500.00,
+      leaseTermMonths: 12,
+      startDate: new Date().toISOString(),
+      endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString(),
+      baseLateFee: 50.00,
+      lateFeeDaily: 10.00,
+      gracePeriodDays: 5,
+      petsAllowed: true,
+      concessions: '1 month free allocated proportionately over the term',
+      renewalRequiredNoticeDays: 60,
+    };
+
+    // Construct the ActionIntent for the manager so they can quickly "Commit to Ledger"
+    const intent = await (this.prisma as any).actionIntent.create({
+      data: {
+        type: 'AI_ABSTRACTION_REVIEW',
+        description: 'New completed lease contract ready for structured ledger entry.',
+        status: 'PENDING',
+        priority: 'HIGH',
+        organizationId: orgId,
+        metadata: {
+          envelopeId,
+          leaseId,
+          extractedFields: mockExtractedData,
+        }
+      }
+    });
+
+    this.logger.log(`Created AI_ABSTRACTION_REVIEW ActionIntent (${intent.id}) for automated lease sync`);
+    return intent;
+  }
 }
+

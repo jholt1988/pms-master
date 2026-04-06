@@ -8,6 +8,9 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType, Invoice } from '@prisma/client';
 import { subDays } from 'date-fns';
 import { EsignatureService } from '../esignature/esignature.service';
+import { RentOptimizationService } from '../rent-optimization/rent-optimization.service';
+import { AnalyticsService } from '../reporting/analytics.service';
+import { addDays } from 'date-fns';
 
 @Injectable()
 export class ScheduledJobsService {
@@ -20,7 +23,95 @@ export class ScheduledJobsService {
     private readonly aiMetrics: AIPaymentMetricsService,
     private readonly notificationsService: NotificationsService,
     private readonly esignatureService: EsignatureService,
+    private readonly rentOptimizationService: RentOptimizationService,
+    private readonly analyticsService: AnalyticsService,
   ) {}
+
+  /**
+   * Phase 4: Dynamic Rent Pricing & Yield Optimization (Property OS)
+   * Runs daily to evaluate lease renewal churn risk and propose automated airline-style pricing
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, { // Runs every day at 3 AM
+    name: 'evaluateUpcomingRenewals',
+  })
+  async evaluateUpcomingRenewals() {
+    this.logger.log('Beginning Predictive Churn and Dynamic Pricing scan...');
+
+    try {
+      // Find active leases expiring in the next 120 days that DON'T already have a pricing intent
+      const upcomingExpiringLeases = await this.prisma.lease.findMany({
+        where: {
+          status: 'ACTIVE',
+          endDate: {
+            lte: addDays(new Date(), 120) // Ending within 120 days
+          }
+        },
+        include: { unit: { include: { property: true } }, tenant: true }
+      });
+
+      this.logger.log(`Found ${upcomingExpiringLeases.length} leases nearing expiration to evaluate.`);
+
+      for (const lease of upcomingExpiringLeases) {
+        // Check if an intent already exists for this lease
+        const existingIntents = await (this.prisma as any).actionIntent.findMany({
+          where: {
+            type: 'RENEWAL_PRICING_GENERATED',
+            status: 'PENDING',
+          }
+        });
+        const alreadyGenerated = existingIntents.some((i: any) => i.metadata?.leaseId === lease.id);
+        
+        if (alreadyGenerated) continue; // Already generated pricing logic
+        
+        const orgId = lease.unit?.property?.organizationId;
+
+        // Execute LLM / ML Microservice computations
+        const churnPred = await this.rentOptimizationService.predictResidentChurn(lease.unit, orgId);
+        const pricePred = await this.rentOptimizationService.predictDynamicPricing(lease.unit, orgId);
+
+        // Map to ActionIntent
+        await (this.prisma as any).actionIntent.create({
+           data: {
+             type: 'RENEWAL_PRICING_GENERATED',
+             description: `Lease for unit ${lease.unit?.name || lease.unitId} ending soon. Yield generated.`,
+             status: 'PENDING',
+             priority: churnPred?.risk_level === 'HIGH' ? 'HIGH' : 'MEDIUM',
+             organizationId: orgId,
+             metadata: {
+               leaseId: lease.id,
+               unitId: lease.unitId,
+               churnRisk: churnPred?.churn_probability,
+               riskLevel: churnPred?.risk_level,
+               recommendedRent: pricePred?.target_rent,
+               marketIndex: pricePred?.market_demand_index ?? 1.05
+             }
+           }
+        });
+
+        this.logger.log(`Generated RENEWAL_PRICING_GENERATED intent for lease ${lease.id}`);
+      }
+
+    } catch (error) {
+       this.logger.error('Failed to run evaluateUpcomingRenewals CRON: ', error);
+    }
+  }
+
+  /**
+
+   * Phase 5: Autonomous Financial Assessment (Property OS)
+   * Evaluates all portfolios evaluating internal margin loss.
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_4AM, { // Runs every day at 4 AM
+    name: 'evaluatePortfolioPerformance',
+  })
+  async evaluatePortfolioPerformance() {
+    this.logger.log('Executing automated internal CapEx audit...');
+    try {
+      await this.analyticsService.generateCapitalAllocationIntents();
+    } catch (e) {
+      this.logger.error('Failed to execute automated CapEx audit:', e);
+    }
+  }
 
   /**
    * Process due payments daily at 2 AM
@@ -247,7 +338,7 @@ export class ScheduledJobsService {
         },
         include: {
           payments: {
-            where: { status: 'COMPLETED' }
+            where: { status: { in: ['COMPLETED', 'PROCESSING'] } }
           },
         },
       });
@@ -257,9 +348,12 @@ export class ScheduledJobsService {
       for (const invoice of overdueInvoices) {
         try {
           // Check if invoice is still unpaid
-          const totalPaid = invoice.payments.reduce((sum, payment) => sum + payment.amount, 0);
+          const completedPaid = invoice.payments
+            .filter(p => p.status === 'COMPLETED')
+            .reduce((sum, payment) => sum + payment.amount, 0);
           
-          if (totalPaid < invoice.amount) {
+          const isProcessing = invoice.payments.some(p => p.status === 'PROCESSING');
+          if (completedPaid < invoice.amount && !isProcessing) {
             // Apply late fee
             const lateFeeAmount = Math.max(50, invoice.amount * 0.05);
             

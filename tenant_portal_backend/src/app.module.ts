@@ -5,6 +5,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { WinstonModule } from 'nest-winston';
 import { APP_GUARD } from '@nestjs/core';
+import { TenantThrottlerGuard } from './middleware/tenant-throttler.guard';
 import { winstonConfig } from './config/winston.config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -77,7 +78,7 @@ const rateLimitProviders = rateLimitEnabled
   ? [
       {
         provide: APP_GUARD,
-        useClass: ThrottlerGuard,
+        useClass: TenantThrottlerGuard,
       },
     ]
   : [];

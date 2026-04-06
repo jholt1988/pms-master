@@ -6,6 +6,7 @@ import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { LeaseStatus } from '@prisma/client';
 import { ReportingService } from './reporting.service';
+import { AnalyticsService } from './analytics.service';
 import { Request } from 'express';
 
 interface AuthenticatedRequest extends Request {
@@ -20,7 +21,10 @@ interface AuthenticatedRequest extends Request {
 @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 @Roles('PROPERTY_MANAGER', 'OWNER')
 export class ReportingController {
-  constructor(private readonly reportingService: ReportingService) {}
+  constructor(
+    private readonly reportingService: ReportingService,
+    private readonly analyticsService: AnalyticsService,
+  ) {}
 
   @Get('rent-roll')
   async getRentRoll(
@@ -32,6 +36,24 @@ export class ReportingController {
       propertyId: propertyId && propertyId.trim() ? propertyId.trim() : undefined,
       status,
       orgId,
+    });
+  }
+
+  @Get('analytics/capex')
+  async simulateCapex(
+    @Query('propertyId') propertyId: string,
+    @Query('upgradeCost') upgradeCost: string,
+    @Query('rentBump') rentBump: string,
+    @OrgId() orgId?: string,
+  ) {
+    if (!propertyId || !upgradeCost || !rentBump) {
+       throw new Error('Missing required query parameters: propertyId, upgradeCost, rentBump');
+    }
+    return this.analyticsService.simulateCapitalExpenditure({
+        propertyId,
+        orgId,
+        upgradeCost: parseFloat(upgradeCost),
+        expectedRentIncreaseAmount: parseFloat(rentBump)
     });
   }
 
