@@ -134,6 +134,8 @@ model User {
   ownerStatementsReceived         OwnerStatement[]            @relation("OwnerStatementOwner")
   ownerStatementsApproved         OwnerStatement[]            @relation("OwnerStatementApprover")
 
+  tenantProfile                   TenantProfile?
+
   @@index([email])
   @@index([role])
 }
@@ -3409,4 +3411,109 @@ model LeaseAbstraction {
 
   @@index([leaseId])
   @@index([status])
+}
+
+// =============================================
+// TENANT MANAGEMENT
+// =============================================
+
+enum TenantRelationshipStatus {
+  APPLICANT
+  APPROVED
+  ONBOARDING
+  ACTIVE
+  DELINQUENT
+  AT_RISK
+  RENEWAL_DUE
+  NOTICE_SENT
+  MOVING_OUT
+  TRANSFERRED
+  FORMER
+  BLOCKED
+}
+
+enum TenantHealthClassification {
+  STABLE
+  WATCH
+  AT_RISK
+  HIGH_TOUCH
+}
+
+model TenantProfile {
+  id                 String                   @id @default(uuid()) @db.Uuid
+  userId             String                   @unique @db.Uuid
+  user               User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  preferredName      String?
+  relationshipStatus TenantRelationshipStatus @default(ACTIVE)
+  healthClass        TenantHealthClassification @default(STABLE)
+  tags               String[]                 @default([])
+  pets               Json?
+  vehicles           Json?
+  idVerified         Boolean                  @default(false)
+  idVerifiedAt       DateTime?
+  moveInDate         DateTime?
+  moveOutDate        DateTime?
+  notes              String?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  householdMembers   HouseholdMember[]
+  statusHistory      TenantStatusHistory[]
+  violations         Violation[]
+
+  @@index([relationshipStatus])
+  @@index([healthClass])
+}
+
+model HouseholdMember {
+  id              String        @id @default(uuid()) @db.Uuid
+  tenantProfileId String        @db.Uuid
+  tenantProfile   TenantProfile @relation(fields: [tenantProfileId], references: [id], onDelete: Cascade)
+  name            String
+  relationship    String
+  phone           String?
+  email           String?
+  isEmergency     Boolean       @default(false)
+  isOnLease       Boolean       @default(false)
+  dateOfBirth     DateTime?
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([tenantProfileId])
+}
+
+model TenantStatusHistory {
+  id              String                   @id @default(uuid()) @db.Uuid
+  tenantProfileId String                   @db.Uuid
+  tenantProfile   TenantProfile            @relation(fields: [tenantProfileId], references: [id], onDelete: Cascade)
+  fromStatus      TenantRelationshipStatus?
+  toStatus        TenantRelationshipStatus
+  reason          String?
+  changedById     String?                  @db.Uuid
+  metadata        Json?
+  createdAt       DateTime                 @default(now())
+
+  @@index([tenantProfileId, createdAt])
+}
+
+model Violation {
+  id              String        @id @default(uuid()) @db.Uuid
+  tenantProfileId String        @db.Uuid
+  tenantProfile   TenantProfile @relation(fields: [tenantProfileId], references: [id], onDelete: Cascade)
+  type            String
+  description     String
+  severity        String        @default("WARNING")
+  isResolved      Boolean       @default(false)
+  resolvedAt      DateTime?
+  resolvedById    String?       @db.Uuid
+  resolvedNotes   String?
+  issuedAt        DateTime      @default(now())
+  issuedById      String?       @db.Uuid
+  metadata        Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([tenantProfileId, isResolved])
+  @@index([type])
 }

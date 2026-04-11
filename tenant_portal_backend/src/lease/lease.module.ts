@@ -10,7 +10,6 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { ConfigModule } from '@nestjs/config';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
-import { AuditLogService } from '../shared/audit-log.service';
 
 const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
 
@@ -28,7 +27,6 @@ const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
     AILeaseRenewalMetricsService,
     LeaseTasksService,
     OrgContextGuard,
-    AuditLogService,
   ],
   exports: [LeaseService, AILeaseRenewalService, AILeaseRenewalMetricsService],
 })

@@ -1,6 +1,7 @@
 
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { WinstonModule } from 'nest-winston';
@@ -62,6 +63,8 @@ import { MoveOrchestrationModule } from './move-orchestration/move-orchestration
 import { ContractorBiddingModule } from './contractor-bidding/contractor-bidding.module';
 import { CapexForecastingModule } from './capex-forecasting/capex-forecasting.module';
 import { LeaseAbstractionModule } from './lease-abstraction/lease-abstraction.module';
+import { TenantModule } from './tenant/tenant.module';
+import { AuditLogModule } from './shared/audit-log.module';
 
 
 const rateLimitEnabled =
@@ -109,6 +112,7 @@ const rateLimitProviders = rateLimitEnabled
       envFilePath: ['.env.local', '.env'],
       validate: validateEnv,
     }),
+    EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
     // Winston logging
     WinstonModule.forRoot(winstonConfig),
@@ -117,6 +121,7 @@ const rateLimitProviders = rateLimitEnabled
     EventsModule, // ADDED
     PolicyModule,
     PrismaModule,
+    AuditLogModule,
     AuthModule,
     MaintenanceModule,
     PaymentsModule,
@@ -163,6 +168,7 @@ const rateLimitProviders = rateLimitEnabled
     ContractorBiddingModule,
     CapexForecastingModule,
     LeaseAbstractionModule,
+    TenantModule,
   ],
   controllers: [AppController],
   providers: [
