@@ -44,6 +44,7 @@ import { MilModule } from './mil/mil.module';
 import { LegacyPathMiddleware } from './middleware/legacy-path.middleware';
 import { PerformanceMiddleware } from './monitoring/performance.middleware';
 import { CorrelationMiddleware } from './middleware/request-context/correlation.middleware';
+import { DevMockAuthMiddleware } from './middleware/dev-mock-auth.middleware';
 import { EventsModule } from './events/events.module'; // ADDED
 import { Web3Module } from './web3/web3.module';
 import { PrivacyModule } from './privacy/privacy.module';
@@ -179,6 +180,11 @@ const rateLimitProviders = rateLimitEnabled
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
+    // DevMockAuthMiddleware must run first so the JWT guard sees the injected token
+    consumer
+      .apply(DevMockAuthMiddleware)
+      .forRoutes('*');
+
     consumer
       .apply(CorrelationMiddleware)
       .forRoutes('*');
@@ -186,7 +192,7 @@ export class AppModule implements NestModule {
     consumer
       .apply(LegacyPathMiddleware)
       .forRoutes('*');
-    
+
     consumer
       .apply(PerformanceMiddleware)
       .forRoutes('*');

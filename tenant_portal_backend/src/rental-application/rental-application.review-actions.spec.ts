@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ApplicationDecisionReasonCode, ApplicationStatus, Role } from '@prisma/client';
+import { getQueueToken } from '@nestjs/bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { SecurityEventsService } from '../security-events/security-events.service';
 import { AuditLogService } from '../shared/audit-log.service';
@@ -48,6 +49,7 @@ describe('RentalApplicationService review actions', () => {
         { provide: AuditLogService, useValue: { record: jest.fn() } },
         { provide: ScheduleService, useValue: scheduleService },
         { provide: NotificationsService, useValue: { create: jest.fn() } },
+        { provide: getQueueToken('ai-screening'), useValue: { add: jest.fn() } },
       ],
     }).compile();
 

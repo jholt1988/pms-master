@@ -7,6 +7,7 @@ import { SecurityEventsService } from '../security-events/security-events.servic
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
+import { TokenBlacklistService } from './revocation/token-blacklist.service';
 import { UnauthorizedException, BadRequestException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { authenticator } from 'otplib';
@@ -92,6 +93,11 @@ describe('AuthService', () => {
     milValidateSessionV1AuthSessionValidatePost: jest.fn(),
   };
 
+  const mockTokenBlacklist = {
+    blacklist: jest.fn(),
+    isBlacklisted: jest.fn().mockResolvedValue(false),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -104,6 +110,7 @@ describe('AuthService', () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: EmailService, useValue: mockEmailService },
         { provide: MilApiClient, useValue: mockMilApiClient },
+        { provide: TokenBlacklistService, useValue: mockTokenBlacklist },
       ],
     }).compile();
 
@@ -153,11 +160,13 @@ describe('AuthService', () => {
       expect(result).toEqual({ access_token: 'jwt-token', accessToken: 'jwt-token' });
       expect(mockUsersService.findOne).toHaveBeenCalledWith(loginDto.username);
       expect(bcryptMock.compare).toHaveBeenCalledWith(loginDto.password, mockUser.password);
-      expect(mockJwtService.sign).toHaveBeenCalledWith({
-        username: mockUser.username,
-        sub: mockUser.id,
-        role: mockUser.role,
-      });
+      expect(mockJwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({
+          username: mockUser.username,
+          sub: mockUser.id,
+          role: mockUser.role,
+        }),
+      );
       expect(mockUsersService.update).toHaveBeenCalledWith(
         mockUser.id,
         expect.objectContaining({
