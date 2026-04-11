@@ -45,6 +45,9 @@ const LeasingWorkspace = lazy(() => import('./copilot/screens/LeasingWorkspace')
 const RepairsWorkspace = lazy(() => import('./copilot/screens/RepairsWorkspace'));
 const RenewalsWorkspace = lazy(() => import('./copilot/screens/RenewalsWorkspace'));
 const FinancialsWorkspace = lazy(() => import('./copilot/screens/FinancialsWorkspace'));
+const PortfolioWorkspace = lazy(() => import('./copilot/screens/PortfolioWorkspace'));
+const PropertyWorkspace = lazy(() => import('./copilot/screens/PropertyWorkspace'));
+const UnitWorkspace = lazy(() => import('./copilot/screens/UnitWorkspace'));
 
 // Shared domain imports - lazy loaded
 const LoginPage = lazy(() => import('./domains/shared/auth/features/login').then(m => ({ default: m.LoginPage })));
@@ -265,6 +268,10 @@ export default function App({className}: {className: string}): React.ReactElemen
                 <Route path="repairs" element={<RepairsWorkspace />} />
                 <Route path="renewals" element={<RenewalsWorkspace />} />
                 <Route path="financials" element={<FinancialsWorkspace />} />
+                
+                <Route path="portfolio" element={<PortfolioWorkspace />} />
+                <Route path="properties/:id/workspace" element={<PropertyWorkspace />} />
+                <Route path="properties/:id/units/:unitId/workspace" element={<UnitWorkspace />} />
 
                 <Route path="properties" element={<PropertyManagementPage />} />
                 <Route path="properties/search" element={<PropertySearchPage />} />

@@ -98,7 +98,7 @@
     "@nestjs/terminus": "^11.0.0",
     "@nestjs/throttler": "^6.4.0",
     "@prisma/client": "^6.19.2",
-    "@propertyos/mil-client": "file:..\\packages\\mil-client",
+    "@propertyos/mil-client": "workspace:*",
     "@sentry/nestjs": "^10.25.0",
     "@sentry/node": "^10.25.0",
     "@sentry/opentelemetry": "^10.32.1",
