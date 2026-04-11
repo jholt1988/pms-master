@@ -94,6 +94,7 @@ export class PropertyRollupService {
     }
 
     return {
+      leaseId: unit.lease?.id,
       revenueYtd,
       expenses,
       net: revenueYtd - expenses,
