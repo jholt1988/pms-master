@@ -1,8 +1,9 @@
 import { ApplicationDecisionReasonCode } from '@prisma/client';
-import { IsDateString, IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsBoolean, IsDateString, IsEnum, IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 export enum RentalApplicationReviewAction {
   APPROVE = 'APPROVE',
+  CONDITIONAL_APPROVE = 'CONDITIONAL_APPROVE',
   DENY = 'DENY',
   REQUEST_INFO = 'REQUEST_INFO',
   SCHEDULE_INTERVIEW = 'SCHEDULE_INTERVIEW',
@@ -33,4 +34,14 @@ export class RentalApplicationReviewActionDto {
   @IsOptional()
   @IsDateString()
   responseDeadline?: string;
+
+  // Conditional approval fields
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  conditionalDeposit?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  requiresCosigner?: boolean;
 }

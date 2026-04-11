@@ -127,6 +127,67 @@ export class AuditLogService {
     }
   }
 
+  async query(params: {
+    entityId?: string;
+    module?: string;
+    actorId?: string;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+    skip?: number;
+  }): Promise<{ data: Array<Record<string, unknown>>; total: number }> {
+    const where: Record<string, unknown> = {};
+    if (params.actorId) where.userId = params.actorId;
+    if (params.module) where.event = { startsWith: params.module.toUpperCase() + '.' };
+    if (params.startDate || params.endDate) {
+      where.createdAt = {
+        ...(params.startDate ? { gte: new Date(params.startDate) } : {}),
+        ...(params.endDate ? { lte: new Date(params.endDate) } : {}),
+      };
+    }
+
+    const [total, logs] = await Promise.all([
+      this.prisma.auditLog.count({ where }),
+      this.prisma.auditLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: params.limit ?? 50,
+        skip: params.skip ?? 0,
+        include: { user: { select: { id: true, username: true, firstName: true, lastName: true } } },
+      }),
+    ]);
+
+    const data = logs.map((log) => {
+      let decrypted: Record<string, unknown> = {};
+      try {
+        const scope = AuditLogService.SYSTEM_AUDIT_SCOPE;
+        const activeKey = this.keyringService.getActiveKey(scope);
+        const plain = this.cryptoService.decrypt(
+          { encVersion: 'v1', algorithm: 'aes-256-gcm', encryptedData: log.payload, iv: log.iv, authTag: log.authTag, keyId: activeKey.keyId, payloadDigest: '' },
+          activeKey.key,
+        );
+        decrypted = JSON.parse(plain) as Record<string, unknown>;
+      } catch {
+        decrypted = { raw: log.event };
+      }
+
+      // Filter by entityId post-decrypt if requested
+      if (params.entityId && decrypted.entityId !== params.entityId) return null;
+
+      return {
+        id: log.id,
+        event: log.event,
+        createdAt: log.createdAt,
+        actor: log.user
+          ? { id: log.user.id, name: [log.user.firstName, log.user.lastName].filter(Boolean).join(' ') || log.user.username }
+          : null,
+        ...decrypted,
+      };
+    }).filter(Boolean);
+
+    return { data: data as Array<Record<string, unknown>>, total };
+  }
+
   private resolveAuditScope(orgId?: string): string {
     const normalizedOrgId = orgId?.trim();
     return normalizedOrgId?.length ? normalizedOrgId : AuditLogService.SYSTEM_AUDIT_SCOPE;
