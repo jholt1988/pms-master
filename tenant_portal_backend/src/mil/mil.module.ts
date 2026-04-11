@@ -1,9 +1,7 @@
 import { Module } from '@nestjs/common';
-import { MilService } from './mil.service';
-import { CryptoService } from './crypto.service';
-import { KeyringService } from './keyring.service';
 import { PrismaModule } from '../prisma/prisma.module';
-import { AuditLogService } from '../shared/audit-log.service';
+import { AuditLogModule } from '../shared/audit-log.module';
+import { MilService } from './mil.service';
 import { SecurityEventsModule } from '../security-events/security-events.module';
 import { MilAccessPolicyService } from './mil-access-policy.service';
 import { MilSecurityAuditWrapperService } from './mil-security-audit-wrapper.service';
@@ -13,12 +11,9 @@ import { MilFeatureFlagsService } from './mil-feature-flags.service';
 import { RabbitMQService } from './rabbitmq.service';
 
 @Module({
-  imports: [PrismaModule, SecurityEventsModule],
+  imports: [PrismaModule, SecurityEventsModule, AuditLogModule],
   providers: [
     MilService,
-    CryptoService,
-    KeyringService,
-    AuditLogService,
     MilAccessPolicyService,
     MilSecurityAuditWrapperService,
     ModelAccessTraceService,

@@ -4,6 +4,7 @@ import { WorkflowSchedulerService } from './workflow-scheduler.service';
 import { WorkflowMetricsService } from './workflow-metrics.service';
 import { WorkflowCacheService } from './workflow-cache.service';
 import { WorkflowRateLimiterService } from './workflow-rate-limiter.service';
+import { WorkflowsController } from './workflows.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { MaintenanceModule } from '../maintenance/maintenance.module';
 import { PaymentsModule } from '../payments/payments.module';
@@ -18,6 +19,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     LeaseModule,
     NotificationsModule,
   ],
+  controllers: [WorkflowsController],
   providers: [
     WorkflowEngineService,
     WorkflowSchedulerService,

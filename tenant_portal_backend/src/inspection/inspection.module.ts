@@ -7,12 +7,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { PropertyOsModule } from '../property-os/property-os.module';
-import { AuditLogService } from '../shared/audit-log.service';
 
 @Module({
   imports: [PropertyOsModule],
   controllers: [InspectionController, EstimateController],
-  providers: [InspectionService, EstimateService, PrismaService, EmailService, OrgContextGuard, AuditLogService],
+  providers: [InspectionService, EstimateService, PrismaService, EmailService, OrgContextGuard],
   exports: [InspectionService, EstimateService],
 })
 export class InspectionsModule {}

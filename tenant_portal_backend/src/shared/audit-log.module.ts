@@ -1,11 +1,17 @@
 // src/audit/audit-log.module.ts
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
+import { CryptoService } from '../mil/crypto.service';
+import { KeyringService } from '../mil/keyring.service';
+import { PrismaModule } from '../prisma/prisma.module';
 import { AuditLogListener } from './audit-log.listener';
 import { AuditLogProcessor } from './audit-log.processor';
+import { AuditLogService } from './audit-log.service';
 
+@Global()
 @Module({
   imports: [
+    PrismaModule,
     BullModule.forRoot({
       connection: {
         host: process.env.REDIS_HOST || 'localhost',
@@ -26,6 +32,13 @@ import { AuditLogProcessor } from './audit-log.processor';
       },
     }),
   ],
-  providers: [AuditLogListener, AuditLogProcessor],
+  providers: [
+    AuditLogService,
+    CryptoService,
+    KeyringService,
+    AuditLogListener,
+    AuditLogProcessor,
+  ],
+  exports: [AuditLogService, CryptoService, KeyringService],
 })
 export class AuditLogModule {}

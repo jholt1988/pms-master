@@ -10,7 +10,6 @@ import { PaymentMethodsService } from './payment-methods.service';
 import { StripeService } from './stripe.service';
 import { EmailModule } from '../email/email.module';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
-import { AuditLogService } from '../shared/audit-log.service';
 import { PaymentStrategyRegistry } from './ai/payment-strategy.registry';
 import { MilModule } from '../mil/mil.module';
 import { PolicyModule } from '../policy/policy.module';
@@ -25,7 +24,6 @@ import { PolicyModule } from '../policy/policy.module';
     AIPaymentMetricsService,
     StripeService,
     OrgContextGuard,
-    AuditLogService,
     PaymentStrategyRegistry,
   ],
   exports: [
