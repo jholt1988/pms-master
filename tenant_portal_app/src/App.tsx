@@ -37,6 +37,15 @@ const PropertySearchPage = lazy(() => import('./pages/properties/PropertySearchP
 const TermsPage = lazy(() => import('./pages/legal/TermsPage'));
 const PrivacyPage = lazy(() => import('./pages/legal/PrivacyPage'));
 
+// Co-Pilot screens - lazy loaded
+const BriefingScreen = lazy(() => import('./copilot/screens/BriefingScreen'));
+const CopilotPaymentsWorkspace = lazy(() => import('./copilot/screens/PaymentsWorkspace'));
+const ScreeningWorkspace = lazy(() => import('./copilot/screens/ScreeningWorkspace'));
+const LeasingWorkspace = lazy(() => import('./copilot/screens/LeasingWorkspace'));
+const RepairsWorkspace = lazy(() => import('./copilot/screens/RepairsWorkspace'));
+const RenewalsWorkspace = lazy(() => import('./copilot/screens/RenewalsWorkspace'));
+const FinancialsWorkspace = lazy(() => import('./copilot/screens/FinancialsWorkspace'));
+
 // Shared domain imports - lazy loaded
 const LoginPage = lazy(() => import('./domains/shared/auth/features/login').then(m => ({ default: m.LoginPage })));
 const SignupPage = lazy(() => import('./domains/shared/auth/features/signup').then(m => ({ default: m.SignupPage })));
@@ -216,10 +225,13 @@ export default function App({className}: {className: string}): React.ReactElemen
 
           <Route element={<RequireAuth />}>
             <Route element={<RoleBasedShell />}>
-              {/* Index route - redirects to role-appropriate dashboard */}
-              <Route index element={<Navigate to="/dashboard" replace />} />
+              {/* Index route - PM/Admin/Operator go to briefing, tenants to dashboard */}
+              <Route index element={<Navigate to="/briefing" replace />} />
               
-              {/* Dashboard route - role-based rendering */}
+              {/* Co-Pilot: Daily Operating Brief (primary interface for PM/Admin/Operator) */}
+              <Route path="briefing" element={<BriefingScreen />} />
+              
+              {/* Legacy dashboard route - still accessible */}
               <Route path="dashboard" element={<DashboardRouter />} />
               
               <Route path="maintenance" element={
@@ -247,6 +259,13 @@ export default function App({className}: {className: string}): React.ReactElemen
               } />
 
               <Route element={<RequireRole allowedRoles={[ROLES.PM, ROLES.ADMIN, ROLES.OPERATOR]} />}>
+                {/* Co-Pilot Workspaces */}
+                <Route path="screening" element={<ScreeningWorkspace />} />
+                <Route path="leasing" element={<LeasingWorkspace />} />
+                <Route path="repairs" element={<RepairsWorkspace />} />
+                <Route path="renewals" element={<RenewalsWorkspace />} />
+                <Route path="financials" element={<FinancialsWorkspace />} />
+
                 <Route path="properties" element={<PropertyManagementPage />} />
                 <Route path="properties/search" element={<PropertySearchPage />} />
                 <Route path="schedule" element={<SchedulePage />} />

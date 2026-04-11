@@ -149,6 +149,13 @@ export class InspectionsController {
     return this.inspectionsService.approveInspection(id, req.user.sub, orgId);
   }
 
+  private static readonly allowedMimeTypes = new Set([
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'application/pdf',
+  ]);
+
   @Post(':id/photos')
   @Roles('PROPERTY_MANAGER', 'ADMIN', 'OWNER', 'TENANT')
   @UseInterceptors(
@@ -156,6 +163,13 @@ export class InspectionsController {
       storage: memoryStorage(),
       limits: {
         fileSize: 10 * 1024 * 1024, // 10MB
+      },
+      fileFilter: (_req, file, cb) => {
+        if (InspectionsController.allowedMimeTypes.has(file.mimetype)) {
+          cb(null, true);
+          return;
+        }
+        cb(new BadRequestException(`Unsupported file type: ${file.mimetype}`), false);
       },
     }),
   )
@@ -167,16 +181,14 @@ export class InspectionsController {
     @OrgId() orgId?: string,
   ) {
     if (!file) {
-      throw new Error('No file provided');
+      throw new BadRequestException('No file provided');
     }
 
-    // Save file
     const fileExt = path.extname(file.originalname);
     const fileName = `${randomBytes(16).toString('hex')}${fileExt}`;
     const filePath = path.join(this.uploadDir, fileName);
     await fs.writeFile(filePath, file.buffer);
 
-    // Get base URL for serving files (in production, use CDN or proper file serving)
     const url = `/uploads/inspections/${fileName}`;
 
     return this.inspectionsService.addPhoto(id, url, caption, req.user.sub, orgId);

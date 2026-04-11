@@ -19,7 +19,8 @@ import {
   Shield,
   ScanLine,
   BarChart3,
-  ClipboardList
+  ClipboardList,
+  BookOpen
 } from 'lucide-react';
 import { useAuth } from '../../AuthContext';
 
@@ -163,15 +164,16 @@ export const DockNavigation: React.FC = () => {
       ];
     }
 
-    // Property Manager / Admin navigation items
+    // Property Manager / Admin navigation items - Co-Pilot primary
     return [
-      { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-      { label: 'Maintenance', path: '/maintenance-management', icon: Wrench },
-      { label: 'Inspection Manager', path: '/inspection-management', icon: ClipboardList },
+      { label: 'Briefing', path: '/briefing', icon: LayoutDashboard },
       { label: 'Payments', path: '/payments', icon: Wallet },
+      { label: 'Screening', path: '/screening', icon: Users },
+      { label: 'Leasing', path: '/leasing', icon: Home },
+      { label: 'Repairs', path: '/repairs', icon: Wrench },
+      { label: 'Renewals', path: '/renewals', icon: FileSignature },
+      { label: 'Financials', path: '/financials', icon: BookOpen },
       { label: 'Messages', path: '/messaging', icon: MessageSquare },
-      { label: 'Leases', path: '/lease-management', icon: FileSignature },
-      { label: 'Properties', path: '/properties', icon: Building2 },
     ];
   };
   
@@ -200,14 +202,20 @@ export const DockNavigation: React.FC = () => {
     }
 
     return [
-      { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, category: 'Core' },
-      { label: 'Properties', path: '/properties', icon: Building2, category: 'Core' },
-      { label: 'Leases', path: '/lease-management', icon: FileSignature, category: 'Core' },
-      { label: 'Maintenance', path: '/maintenance-management', icon: Wrench, category: 'Core' },
-      { label: 'Inspection Manager', path: '/inspection-management', icon: ClipboardList, category: 'Core' },
-      { label: 'Payments', path: '/payments', icon: Wallet, category: 'Core' },
-      { label: 'Messages', path: '/messaging', icon: MessageSquare, category: 'Core' },
+      { label: 'Briefing', path: '/briefing', icon: LayoutDashboard, category: 'Co-Pilot' },
+      { label: 'Payments', path: '/payments', icon: Wallet, category: 'Co-Pilot' },
+      { label: 'Screening', path: '/screening', icon: Users, category: 'Co-Pilot' },
+      { label: 'Leasing', path: '/leasing', icon: Home, category: 'Co-Pilot' },
+      { label: 'Repairs', path: '/repairs', icon: Wrench, category: 'Co-Pilot' },
+      { label: 'Renewals', path: '/renewals', icon: FileSignature, category: 'Co-Pilot' },
+      { label: 'Financials', path: '/financials', icon: BookOpen, category: 'Co-Pilot' },
+      { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, category: 'Management' },
+      { label: 'Properties', path: '/properties', icon: Building2, category: 'Management' },
+      { label: 'Lease Manager', path: '/lease-management', icon: FileSignature, category: 'Management' },
+      { label: 'Maintenance Mgr', path: '/maintenance-management', icon: Wrench, category: 'Management' },
+      { label: 'Inspection Mgr', path: '/inspection-management', icon: ClipboardList, category: 'Management' },
       { label: 'Applications', path: '/rental-applications-management', icon: ClipboardList, category: 'Management' },
+      { label: 'Messages', path: '/messaging', icon: MessageSquare, category: 'Management' },
       { label: 'Schedule', path: '/schedule', icon: Calendar, category: 'Management' },
       { label: 'Documents', path: '/documents', icon: Files, category: 'Management' },
       { label: 'Expenses', path: '/expense-tracker', icon: DollarSign, category: 'Financial' },

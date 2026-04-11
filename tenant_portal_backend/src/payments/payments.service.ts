@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Invoice, Payment, Role, Prisma, ManualPayment, ManualCharge, ManualPaymentAppliedTo, ManualPaymentMethod, ManualChargeType, LeaseNoticeType, LeaseStatus, LeaseTerminationParty } from '@prisma/client';
+import { Invoice, Payment, Role, Prisma, ManualPayment, ManualCharge, ManualPaymentAppliedTo, ManualPaymentMethod, ManualChargeType, LeaseNoticeType, LeaseStatus, LeaseTerminationParty, PaymentStatus, ManualPaymentStatus } from '@prisma/client';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { CreateStripeCheckoutSessionDto } from './dto/create-stripe-checkout-session.dto';
@@ -15,6 +15,8 @@ import { ReferDelinquencyAttorneyDto } from './dto/refer-delinquency-attorney.dt
 import { RecordCourtDateDto } from './dto/record-court-date.dto';
 import { WorkflowEventService } from '../policy/workflow-event.service';
 import { WorkflowEventProcessor } from '../policy/workflow-event-processor.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+
 
 type CreateManualPaymentInput = {
   leaseId: string;
@@ -64,6 +66,7 @@ export class PaymentsService {
     private readonly emailService: EmailService,
     private readonly stripeService: StripeService,
     private readonly auditLogService: AuditLogService,
+    private readonly eventEmitter: EventEmitter2,
     @Optional() private readonly workflowEventService?: WorkflowEventService,
     @Optional() private readonly workflowEventProcessor?: WorkflowEventProcessor,
   ) { }
@@ -249,7 +252,11 @@ export class PaymentsService {
     }
 
     let externalId = dto['externalId'] as string | undefined;
-    let resolvedStatus = dto.status ?? 'COMPLETED';
+    const requestedStatus = dto.status?.toUpperCase() as PaymentStatus | undefined;
+    if (requestedStatus && !Object.values(PaymentStatus).includes(requestedStatus)) {
+      throw new BadRequestException(`Unsupported payment status: ${dto.status}`);
+    }
+    let resolvedStatus: PaymentStatus = requestedStatus ?? PaymentStatus.COMPLETED;
 
     if (dto.paymentMethodId) {
       const method = await this.prisma.paymentMethod.findUnique({ where: { id: dto.paymentMethodId } });
@@ -321,7 +328,7 @@ export class PaymentsService {
         });
 
         externalId = intent.id;
-        resolvedStatus = intent.status === 'succeeded' ? 'COMPLETED' : 'PENDING';
+        resolvedStatus = intent.status === 'succeeded' ? PaymentStatus.COMPLETED : PaymentStatus.PENDING;
       }
     }
 
@@ -343,8 +350,13 @@ export class PaymentsService {
       },
     });
 
-    if (payment.invoiceId) {
+    if (payment.invoiceId && payment.status === PaymentStatus.COMPLETED) {
       await this.markInvoicePaid(payment.invoiceId);
+    }
+
+    // if payment failed, mark invoice as unpaid
+    if (payment.status === PaymentStatus.FAILED) {
+      await this.markInvoiceUnpaid(payment.invoiceId);
     }
 
     const ledgerAccount = await this.ensureLedgerAccountForLease(lease.id, lease.unit?.property?.organizationId);
@@ -363,7 +375,7 @@ export class PaymentsService {
     });
 
     // Send confirmation email for successful payments, but do not block on failures
-    if ((payment.status ?? 'COMPLETED') !== 'FAILED') {
+    if ((payment.status ?? PaymentStatus.COMPLETED) !== PaymentStatus.FAILED) {
       try {
         const tenant = payment.lease?.tenant ?? lease.tenant;
         const tenantEmail = tenant?.username ?? tenant?.email ?? '';
@@ -377,6 +389,12 @@ export class PaymentsService {
           `Failed to send payment confirmation for payment ${payment.id}: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
+    }
+    // if payment failed, mark payment failed
+    if (payment.status === PaymentStatus.FAILED) {
+      const tenant = payment.lease?.tenant ?? lease.tenant;
+      const tenantId = tenant?.id ?? lease.tenantId;
+      await this.markPaymentFailed(payment.id, tenantId, Number(payment.amount));
     }
 
     return payment;
@@ -420,7 +438,7 @@ export class PaymentsService {
           receivedAt: input.receivedAt ?? new Date(),
           appliedTo: input.appliedTo ?? 'RENT',
           memo: input.memo,
-          status: 'POSTED',
+          status: ManualPaymentStatus.POSTED,
           createdById: input.createdById,
         },
       });
@@ -975,6 +993,13 @@ export class PaymentsService {
     await this.prisma.invoice.update({
       where: { id: invoiceId },
       data: { status: 'PAID' },
+    });
+  }
+
+  private async markInvoiceUnpaid(invoiceId: number): Promise<void> {
+    await this.prisma.invoice.update({
+      where: { id: invoiceId },
+      data: { status: 'UNPAID' },
     });
   }
 
@@ -1717,7 +1742,7 @@ export class PaymentsService {
     const failedPayments = await this.prisma.payment.findMany({
       where: {
         ...(orgId ? { lease: { unit: { property: { organizationId: orgId } } } } : {}),
-        OR: [{ status: 'FAILED' }, { status: 'ERROR' }, { status: 'DECLINED' }],
+        status: PaymentStatus.FAILED,
       },
       include: {
         lease: {
@@ -2768,6 +2793,34 @@ export class PaymentsService {
     } catch (error) {
       this.logger.warn(`Failed to write payments audit event ${event.action}: ${String(error)}`);
     }
+  }
+
+  async markPaymentFailed(paymentId: number, tenantId: string, amount: number) {
+    //Update payment status to failed
+    await this.prisma.payment.update({
+      where: { id: paymentId },
+      data: { status: PaymentStatus.FAILED },
+    });
+    // Fire and Forget. DO NOT await this call
+    this.eventEmitter.emit('payment.delinquent', {
+      paymentId,
+      tenantId,
+      amount,
+      daysOverdue: 1, // Day 1 of failure
+      confidence: 0.95, // Payment failure data is highly reliable
+    });
+  }
+   async processPaymentSuccess(paymentId: number, tenantId: string, amount: number) {
+    //Update payment status to success
+    await this.prisma.payment.update({
+      where: { id: paymentId },
+      data: { status: PaymentStatus.COMPLETED },
+    });
+    // Fire and Forget. DO NOT await this call
+    this.eventEmitter.emit('payment.resolved', {
+      paymentId,
+     resolvedAt: new Date(), // Payment success data is highly reliable
+    });
   }
 }
 

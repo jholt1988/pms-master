@@ -47,6 +47,18 @@ export class AuthController {
   }
 
   @UseGuards(AuthGuard('jwt'))
+  @Post('logout')
+  @HttpCode(200)
+  async logout(@Req() req: Request) {
+    const user = req.user as any;
+    if (user?.jti) {
+      const ttl = 3600; // Match JWT expiry (default 60m)
+      await this.authService.logout(user.jti, ttl);
+    }
+    return { message: 'Logged out successfully' };
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Post('mfa/prepare')
   @HttpCode(201)
   async prepareMfa(@Req() req: Request) {

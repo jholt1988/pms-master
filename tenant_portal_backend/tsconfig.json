@@ -11,7 +11,8 @@
     "esModuleInterop": true,
     "baseUrl": ".",
     "paths": {
-      "axios": ["./node_modules/axios"]
+      "axios": ["./node_modules/axios"],
+      "@propertyos/mil-client": ["../packages/mil-client"]
     },
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,

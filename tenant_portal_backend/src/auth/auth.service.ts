@@ -12,8 +12,9 @@ import { authenticator } from 'otplib';
 import { addHours, addMinutes } from 'date-fns';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
-import { randomBytes } from 'crypto';
+import { randomBytes, randomUUID } from 'crypto';
 import { DefaultApi as MilApiClient } from '@propertyos/mil-client';
+import { TokenBlacklistService } from './revocation/token-blacklist.service';
 
 @Injectable()
 export class AuthService {
@@ -26,6 +27,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
     private readonly milApiClient: MilApiClient,
+    private readonly tokenBlacklist: TokenBlacklistService,
   ) { }
 
   private readonly logger = new Logger(AuthService.name);
@@ -141,7 +143,8 @@ export class AuthService {
       userAgent: context.userAgent,
     });
 
-    const payload = { username: user.username, sub: user.id, role: user.role };
+    const jti = randomUUID();
+    const payload = { username: user.username, sub: user.id, role: user.role, jti };
     const token = this.jwtService.sign(payload);
     return { access_token: token, accessToken: token };
   }
@@ -452,6 +455,17 @@ lastName: dto.lastName,
       userAgent: context.userAgent,
       metadata: { source: 'PASSWORD_RESET' },
     });
+  }
+
+  async logout(jti: string, tokenExpiresInSeconds: number): Promise<void> {
+    if (jti) {
+      await this.tokenBlacklist.blacklist(jti, tokenExpiresInSeconds);
+    }
+  }
+
+  async isTokenRevoked(jti: string): Promise<boolean> {
+    if (!jti) return false;
+    return this.tokenBlacklist.isBlacklisted(jti);
   }
 
 }

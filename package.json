@@ -16,9 +16,15 @@
     "env:logs:backend": "docker compose logs --tail=150 backend",
     "env:logs:frontend": "docker compose logs --tail=150 frontend",
     "env:health": "docker compose exec frontend sh -lc \"wget -S -O- http://backend:3001/api/health | head -n 40\"",
-    "contracts:core-routes": "node scripts/check-core-route-contracts.js"
+    "contracts:core-routes": "node scripts/check-core-route-contracts.js",
+    "prepare": "husky",
+    "lint:backend": "pnpm --filter tenant_portal_backend lint",
+    "lint:backend:fix": "pnpm --filter tenant_portal_backend lint:fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
+    "@nestjs/event-emitter": "^3.0.1",
     "@nestjs/microservices": "^11.1.18",
     "@types/node": "^24.11.0",
     "amqp-connection-manager": "^4.1.15",
@@ -27,8 +33,28 @@
     "ethers": "^6.16.0",
     "husky": "^9.1.7"
   },
+  "prettier": {
+    "singleQuote": true,
+    "trailingComma": "all",
+    "printWidth": 100,
+    "tabWidth": 2,
+    "semi": true,
+    "bracketSpacing": true,
+    "arrowParens": "always",
+    "endOfLine": "auto"
+  },
+  "lint-staged": {
+    "tenant_portal_backend/src/**/*.ts": [
+      "eslint --fix --max-warnings 0",
+      "prettier --write"
+    ],
+    "tenant_portal_app/src/**/*.{ts,tsx}": [
+      "prettier --write"
+    ]
+  },
   "devDependencies": {
     "eslint": "^8.57.0",
+    "lint-staged": "^15.2.0",
     "pnpm": "^8.0.0",
     "prettier": "^3.2.5",
     "typescript": "^5.0.4"
@@ -38,5 +64,6 @@
       "react": "19.2.0",
       "react-dom": "19.2.0"
     }
-  }
+  },
+  "packageManager": "pnpm@8.15.8+sha512.d1a029e1a447ad90bc96cd58b0fad486d2993d531856396f7babf2d83eb1823bb83c5a3d0fc18f675b2d10321d49eb161fece36fe8134aa5823ecd215feed392"
 }

@@ -1,6 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { HealthCheck, HealthCheckService, HttpHealthIndicator, MemoryHealthIndicator } from '@nestjs/terminus';
-import { PrismaHealthIndicator } from './prisma-health.indicator';
+import { PrismaHealthIndicator, RedisHealthIndicator, RabbitMQHealthIndicator } from './prisma-health.indicator';
 
 @Controller('health')
 export class HealthController {
@@ -8,6 +8,8 @@ export class HealthController {
     private health: HealthCheckService,
     private http: HttpHealthIndicator,
     private prismaHealth: PrismaHealthIndicator,
+    private redisHealth: RedisHealthIndicator,
+    private rabbitHealth: RabbitMQHealthIndicator,
     private memory: MemoryHealthIndicator,
   ) {}
 
@@ -15,14 +17,11 @@ export class HealthController {
   @HealthCheck()
   check() {
     return this.health.check([
-      // Database connectivity
       () => this.prismaHealth.isHealthy('database'),
-      
-      // Memory usage (alert if using > 300MB)
+      () => this.redisHealth.isHealthy('redis'),
+      () => this.rabbitHealth.isHealthy('rabbitmq'),
       () => this.memory.checkHeap('memory_heap', 300 * 1024 * 1024),
       () => this.memory.checkRSS('memory_rss', 300 * 1024 * 1024),
-      
-      // ML Service connectivity (if URL is configured)
       () => {
         const mlServiceUrl = process.env.ML_SERVICE_URL || 'http://localhost:8000';
         return this.http.pingCheck('ml_service', `${mlServiceUrl}/health`);
@@ -34,8 +33,8 @@ export class HealthController {
   @HealthCheck()
   readiness() {
     return this.health.check([
-      // Only essential services for readiness
       () => this.prismaHealth.isHealthy('database'),
+      () => this.redisHealth.isHealthy('redis'),
     ]);
   }
 
@@ -43,8 +42,7 @@ export class HealthController {
   @HealthCheck()
   liveness() {
     return this.health.check([
-      // Basic liveness check
-      () => this.memory.checkHeap('memory_heap', 500 * 1024 * 1024), // 500MB limit
+      () => this.memory.checkHeap('memory_heap', 500 * 1024 * 1024),
     ]);
   }
 }

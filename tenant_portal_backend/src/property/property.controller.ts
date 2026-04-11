@@ -71,13 +71,17 @@ export class PropertyController {
   @Get()
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles('PROPERTY_MANAGER', 'OWNER')
-  getAllProperties(@OrgId() orgId: string) {
-    return this.propertyService.getAllProperties(orgId);
+  getAllProperties(
+    @OrgId() orgId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.propertyService.getAllProperties(orgId, Number(page) || 1, Math.min(Number(limit) || 50, 100));
   }
 
   @Get('public')
-  getPublicProperties() {
-    return this.propertyService.getAllProperties();
+  getPublicProperties(@Query('page') page?: string, @Query('limit') limit?: string) {
+    return this.propertyService.getAllProperties(undefined, Number(page) || 1, Math.min(Number(limit) || 50, 100));
   }
 
   @Get('search')

@@ -1,4 +1,5 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   ApplicationStatus,
@@ -54,6 +55,8 @@ export interface StatusTransition {
 
 @Injectable()
 export class ApplicationLifecycleService {
+  private readonly logger = new Logger(ApplicationLifecycleService.name);
+
   // Define valid status transitions
   private readonly statusTransitions: Map<ApplicationStatus, StatusTransition[]> = new Map([
     [ApplicationStatus.PENDING, [
@@ -670,6 +673,31 @@ export class ApplicationLifecycleService {
       performedBy,
       metadata,
     );
+  }
+  @OnEvent('orchestrator.halt')
+  async handleHaltStateTransition(payload: any) {
+    if (payload.source !== 'application.scored') return;
+
+    this.logger.warn(`Transitioning Application ${payload.referenceId} to PENDING_AI_REVIEW`);
+
+    // 1. Update the status machine in the DB
+    await this.prisma.rentalApplication.update({
+      where: { id: Number(payload.referenceId) },
+      data: {
+        status: ApplicationStatus.PENDING_AI_REVIEW,
+        decisionNotes: payload.reason, // Utilizing the decision metadata column
+      },
+    });
+
+    // 2. Log the Lifecycle Event transition
+    await this.prisma.applicationLifecycleEvent.create({
+      data: {
+        applicationId: Number(payload.referenceId),
+        eventType: 'SWARM_HALT_TRIGGERED',
+        toStatus: ApplicationStatus.PENDING_AI_REVIEW,
+        metadata: payload,
+      }
+    });
   }
 }
 

@@ -158,23 +158,25 @@ export class BillingService {
 
     for (const schedule of schedules) {
       try {
-        const invoice = await this.prisma.invoice.create({
-          data: {
-            description: schedule.description,
-            amount: schedule.amount,
-            dueDate: schedule.nextRun,
-            lease: { connect: { id: schedule.leaseId } },
-            schedule: { connect: { id: schedule.id } },
-          },
-        });
+        await this.prisma.$transaction(async (tx) => {
+          const invoice = await tx.invoice.create({
+            data: {
+              description: schedule.description,
+              amount: schedule.amount,
+              dueDate: schedule.nextRun,
+              lease: { connect: { id: schedule.leaseId } },
+              schedule: { connect: { id: schedule.id } },
+            },
+          });
 
-        const nextRun = this.calculateNextRun(schedule.frequency, schedule);
-        await this.prisma.recurringInvoiceSchedule.update({
-          where: { id: schedule.id },
-          data: { nextRun },
-        });
+          const nextRun = this.calculateNextRun(schedule.frequency, schedule);
+          await tx.recurringInvoiceSchedule.update({
+            where: { id: schedule.id },
+            data: { nextRun },
+          });
 
-        this.logger.log(`Generated invoice ${invoice.id} for lease ${schedule.leaseId}`);
+          this.logger.log(`Generated invoice ${invoice.id} for lease ${schedule.leaseId}`);
+        });
       } catch (error) {
         this.logger.error(`Failed to generate invoice for schedule ${schedule.id}`, error as Error);
       }
@@ -203,19 +205,25 @@ export class BillingService {
       const hasLateFee = invoice.lateFees.some((fee) => !fee.waived);
 
       if (assessDate <= now && !hasLateFee) {
-        await this.prisma.lateFee.create({
-          data: {
-            invoice: { connect: { id: invoice.id } },
-            amount: invoice.schedule.lateFeeAmount,
-          },
-        });
+        try {
+          await this.prisma.$transaction(async (tx) => {
+            await tx.lateFee.create({
+              data: {
+                invoice: { connect: { id: invoice.id } },
+                amount: invoice.schedule!.lateFeeAmount!,
+              },
+            });
 
-        await this.prisma.invoice.update({
-          where: { id: invoice.id },
-          data: { amount: invoice.amount + invoice.schedule.lateFeeAmount },
-        });
+            await tx.invoice.update({
+              where: { id: invoice.id },
+              data: { amount: invoice.amount + invoice.schedule!.lateFeeAmount! },
+            });
+          });
 
-        this.logger.log(`Applied late fee to invoice ${invoice.id}`);
+          this.logger.log(`Applied late fee to invoice ${invoice.id}`);
+        } catch (error) {
+          this.logger.error(`Failed to apply late fee to invoice ${invoice.id}`, error as Error);
+        }
       }
     }
   }

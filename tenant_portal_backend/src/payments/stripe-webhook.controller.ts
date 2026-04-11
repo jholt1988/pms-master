@@ -27,7 +27,16 @@ export class StripeWebhookController {
       return res.status(200).json({ ok: true, ...result });
     } catch (error) {
       this.logger.error('Webhook processing failed:', error);
-      return res.status(400).send('Webhook processing failed');
+
+      const isBadPayload =
+        error instanceof Error &&
+        /signature|invalid|malformed|parse/i.test(error.message);
+
+      if (isBadPayload) {
+        return res.status(400).send('Invalid webhook payload');
+      }
+
+      return res.status(500).send('Webhook processing failed — will retry');
     }
   }
 }

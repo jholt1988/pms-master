@@ -3,6 +3,7 @@ import axios from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
 import { LeadApplicationStatus, MaintenancePriority, Status } from '@prisma/client';
 import { AuditLogService } from '../shared/audit-log.service';
+import { AppCacheService } from '../cache/cache.service';
 
 @Injectable()
 export class DashboardService {
@@ -11,6 +12,7 @@ export class DashboardService {
   constructor(
     private prisma: PrismaService,
     private readonly auditLogService: AuditLogService,
+    private readonly cacheService: AppCacheService,
   ) {}
 
   async getActionIntents(orgId?: string) {
@@ -373,6 +375,13 @@ export class DashboardService {
   }
 
   async getPropertyManagerDashboardMetrics(orgId?: string) {
+    const cacheKey = `dashboard:pm:${orgId || 'global'}`;
+    return this.cacheService.getOrSet(cacheKey, 30, () =>
+      this._computeDashboardMetrics(orgId),
+    );
+  }
+
+  private async _computeDashboardMetrics(orgId?: string) {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -728,10 +737,14 @@ const [
         include: {
           unit: {
             include: {
-              property: true,
+              property: { select: { id: true, name: true, address: true, city: true, state: true } },
             },
           },
-          payments: true,
+          payments: {
+            orderBy: { paymentDate: 'desc' },
+            take: 10,
+            select: { id: true, amount: true, paymentDate: true, status: true },
+          },
         },
       }),
       this.prisma.maintenanceRequest.findMany({

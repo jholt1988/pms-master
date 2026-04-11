@@ -10,9 +10,15 @@ import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import { GlobalExceptionFilter } from './global-exception.filter';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { Logger } from '@nestjs/common';
+import * as compression from 'compression';
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
+  
+  // HTTP compression
+  app.use(compression());
   
   // Security Headers
   app.use(helmet());
@@ -22,7 +28,8 @@ async function bootstrap() {
     origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+    exposedHeaders: ['X-Request-ID'],
   });
   
   // Request size limits + raw body capture (for Stripe signature verification)
@@ -70,8 +77,9 @@ async function bootstrap() {
   // Note: PerformanceMiddleware is registered in MonitoringModule
   // and can be accessed via dependency injection in controllers
   
-  // Swagger API Documentation
-  if (process.env.NODE_ENV !== 'production') {
+  // Swagger API Documentation — only enable in explicitly set development mode
+  const enableSwagger = process.env.NODE_ENV === 'development' || process.env.ENABLE_SWAGGER === 'true';
+  if (enableSwagger) {
     const config = new DocumentBuilder()
       .setTitle('Property Management API')
       .setDescription('Complete API for property management operations including AI-powered features')
@@ -110,21 +118,23 @@ async function bootstrap() {
       },
     });
 
-    console.log(`📚 API Documentation: Available at http://localhost:3001/api/docs`);
+    logger.log('API Documentation available at http://localhost:3001/api/docs');
   }
   
+  app.enableShutdownHooks();
+
   const port = Number(process.env.PORT) || 3001;
   await app.listen(port);
-  console.log(`🔒 Security: Helmet headers enabled`);
-  console.log(`🌐 CORS: Configured for origins: ${process.env.ALLOWED_ORIGINS || 'http://localhost:3000'}`);
-  console.log(`📊 Monitoring: Sentry error tracking initialized`);
-  console.log(`⚡ Performance: Performance monitoring middleware active`);
+  logger.log('Security: Helmet headers enabled');
+  logger.log(`CORS: Configured for origins: ${process.env.ALLOWED_ORIGINS || 'http://localhost:3000'}`);
+  logger.log('Monitoring: Sentry error tracking initialized');
+  logger.log('Performance: Performance monitoring middleware active');
   const schedulerDisabled = process.env.DISABLE_WORKFLOW_SCHEDULER === 'true';
-  console.log(
+  logger.log(
     schedulerDisabled
-      ? `⏰ Jobs: Workflow scheduler disabled (DISABLE_WORKFLOW_SCHEDULER=true)`
-      : `⏰ Jobs: Scheduled background jobs active`,
+      ? 'Jobs: Workflow scheduler disabled (DISABLE_WORKFLOW_SCHEDULER=true)'
+      : 'Jobs: Scheduled background jobs active',
   );
-  console.log(`🚀 Application is running on: http://localhost:3001`);
+  logger.log(`Application is running on: http://localhost:${port}`);
 }
 bootstrap();

@@ -534,11 +534,11 @@ export class StripeService {
         await this.prisma.payment.update({
           where: { id: payment.id },
           data: {
-            status: 'PROCESSING',
+            status: 'PENDING',
           },
         });
 
-        this.logger.log(`Updated payment ${payment.id} to PROCESSING to suppress late fees`);
+        this.logger.log(`Payment ${payment.id} remains PENDING while Stripe finishes processing`);
         
         // Broadcast PaymentInitiatedIntent
         await this.rabbitMQService.publishIntent('payment.initiated', {

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { 
@@ -28,6 +28,8 @@ import { AuditLogService } from '../shared/audit-log.service';
 
 @Injectable()
 export class InspectionService {
+  private readonly logger = new Logger(InspectionService.name);
+
   constructor(
     private prisma: PrismaService,
     private emailService: EmailService,
@@ -1189,12 +1191,11 @@ Respond in JSON format:
 
     // Trigger Property OS analysis
     try {
-      console.log(`Sending inspection ${updatedInspection.id} to Property OS for analysis...`);
+      this.logger.log(`Sending inspection ${updatedInspection.id} to Property OS for analysis...`);
       const analysisResult = await this.propertyOsService.runV16Analysis(updatedInspection);
-      console.log(`Property OS analysis for inspection ${updatedInspection.id} complete.`, analysisResult);
-      // TODO: Wire analysisResult into analytics pipeline
+      this.logger.log(`Property OS analysis for inspection ${updatedInspection.id} complete.`);
     } catch (error) {
-      console.error(`Failed to run Property OS analysis for inspection ${updatedInspection.id}:`, error);
+      this.logger.error(`Failed to run Property OS analysis for inspection ${updatedInspection.id}:`, error);
     }
 
     await this.recordAudit({

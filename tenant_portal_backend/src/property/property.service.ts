@@ -240,20 +240,34 @@ export class PropertyService {
     }
   }
 
-  async getAllProperties(orgId?: string) {
-    return this.prisma.property.findMany({
-      where: orgId ? { organizationId: orgId } : undefined,
-      include: {
-        units: true,
-        marketingProfile: true,
-        photos: {
-          orderBy: { displayOrder: 'asc' },
+  async getAllProperties(orgId?: string, page = 1, limit = 50) {
+    const skip = (page - 1) * limit;
+    const where = orgId ? { organizationId: orgId } : undefined;
+
+    const [data, totalItems] = await Promise.all([
+      this.prisma.property.findMany({
+        where,
+        include: {
+          units: true,
+          marketingProfile: true,
+          photos: {
+            orderBy: { displayOrder: 'asc' },
+          },
+          amenities: {
+            include: { amenity: true },
+          },
         },
-        amenities: {
-          include: { amenity: true },
-        },
-      },
-    });
+        skip,
+        take: limit,
+        orderBy: { name: 'asc' },
+      }),
+      this.prisma.property.count({ where }),
+    ]);
+
+    return {
+      data,
+      meta: { page, limit, totalItems, totalPages: Math.ceil(totalItems / limit) },
+    };
   }
 
   async getPropertyById(id: string, orgId: string) {

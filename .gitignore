@@ -50,3 +50,4 @@ ops/.env.prod
 
 # Backend runtime logs
 tenant_portal_backend/logs/
+repomix-output*.xml

@@ -1,12 +1,16 @@
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
+import { TokenBlacklistService } from './revocation/token-blacklist.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly tokenBlacklist: TokenBlacklistService,
+  ) {
     const env = (configService.get<string>('NODE_ENV') || process.env.NODE_ENV || 'development').toLowerCase();
     let secret = configService.get<string>('JWT_SECRET');
 
@@ -27,6 +31,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
+    if (payload.jti) {
+      const revoked = await this.tokenBlacklist.isBlacklisted(payload.jti);
+      if (revoked) {
+        throw new UnauthorizedException('Token has been revoked');
+      }
+    }
     return { sub: payload.sub, userId: payload.sub, username: payload.username, role: payload.role };
   }
 }

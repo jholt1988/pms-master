@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { Logger } from '@nestjs/common';
 import {
   UserLocation,
   InventoryItem,
@@ -11,6 +12,7 @@ import {
 } from './estimate-tools';
 
 export class EnhancedEstimateAgent {
+  private readonly logger = new Logger(EnhancedEstimateAgent.name);
   private openai: OpenAI;
   private toolHandler: EstimateToolHandler;
 
@@ -167,7 +169,7 @@ Process each item through all 6 steps and return the complete JSON estimate.`;
 
       return estimateResult;
     } catch (error) {
-      console.error('Error generating estimate:', error);
+      this.logger.error('Error generating estimate:', error);
       
       // Return a fallback estimate if AI fails
       return this.generateFallbackEstimate(inventoryItems);
@@ -198,15 +200,13 @@ Process each item through all 6 steps and return the complete JSON estimate.`;
             result = await this.toolHandler.handleLifetimeAnalysis(parsedArgs);
             break;
           default:
-            console.warn(`Unknown tool call: ${name}`);
+            this.logger.warn(`Unknown tool call: ${name}`);
             continue;
         }
 
-        // Tool results would normally be sent back to OpenAI in a multi-turn conversation
-        // For now, we'll log them for debugging
-        console.log(`Tool ${name} result:`, result);
+        this.logger.debug(`Tool ${name} completed`);
       } catch (error) {
-        console.error(`Error executing tool ${name}:`, error);
+        this.logger.error(`Error executing tool ${name}:`, error);
       }
     }
   }
