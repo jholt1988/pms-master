@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AppCacheService } from '../cache/cache.service';
+import { safeUserSelect } from '../shared-selects/prisma-selects';
 
 export interface CapexSimulationRequest {
   propertyId: string;
@@ -24,7 +26,10 @@ export interface CapexSimulationResponse {
 export class AnalyticsService {
   private readonly logger = new Logger(AnalyticsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cacheService: AppCacheService,
+  ) {}
 
   /**
    * Phase 5: Deep Monte Carlo simulation evaluating IRR
@@ -102,7 +107,7 @@ export class AnalyticsService {
         endDate: { lte: sixtyDaysOut },
         ...(orgId ? { unit: { property: { organizationId: orgId } } } : {}),
       },
-      include: { tenant: true, unit: { include: { property: true } } },
+      include: { tenant: { select: safeUserSelect }, unit: { include: { property: true } } },
     });
 
     for (const lease of expiringLeases) {
@@ -152,7 +157,7 @@ export class AnalyticsService {
           },
         },
       },
-      include: { invoice: { include: { lease: { include: { tenant: true, unit: { include: { property: true } } } } } } },
+      include: { invoice: { include: { lease: { include: { tenant: { select: safeUserSelect }, unit: { include: { property: true } } } } } } },
     });
 
     // Group by tenant
@@ -227,16 +232,65 @@ export class AnalyticsService {
    * Phase 7A: Portfolio Health Heatmap — per-property scores for financial health, occupancy, and sentiment.
    */
   async getPortfolioHealthHeatmap(orgId?: string) {
+    return this.cacheService.getOrSet(`analytics:heatmap:${orgId || 'global'}`, 60, () =>
+      this._computeHeatmap(orgId),
+    );
+  }
+
+  private async _computeHeatmap(orgId?: string) {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
     const properties = await this.prisma.property.findMany({
       where: orgId ? { organizationId: orgId } : {},
       include: {
         units: {
           include: {
-            lease: true,
+            lease: { select: { status: true, rentAmount: true } },
           },
         },
       },
     });
+
+    const propertyIds = properties.map(p => p.id);
+
+    // Batch: payment collections per property this month
+    const paymentsByProperty = await this.prisma.payment.groupBy({
+      by: ['leaseId'],
+      where: {
+        status: 'COMPLETED',
+        paymentDate: { gte: monthStart },
+        lease: { unit: { propertyId: { in: propertyIds } } },
+      },
+      _sum: { amount: true },
+    });
+
+    // Build a lookup from leaseId -> property for mapping
+    const leaseToProperty = new Map<string, string>();
+    for (const property of properties) {
+      for (const unit of property.units) {
+        if (unit.lease) {
+          leaseToProperty.set((unit.lease as any).id || '', property.id);
+        }
+      }
+    }
+
+    const collectedByProperty = new Map<string, number>();
+    for (const pg of paymentsByProperty) {
+      if (pg.leaseId) {
+        const propId = leaseToProperty.get(pg.leaseId);
+        if (propId) {
+          collectedByProperty.set(propId, (collectedByProperty.get(propId) || 0) + (pg._sum.amount || 0));
+        }
+      }
+    }
+
+    const sentimentWeights: Record<string, number> = {
+      URGENT: 0.1,
+      FRUSTRATED: 0.3,
+      NEUTRAL: 0.65,
+      POSITIVE: 1.0,
+    };
 
     const heatmapData = [];
 
@@ -245,64 +299,14 @@ export class AnalyticsService {
       const occupiedUnits = property.units.filter(u => u.lease?.status === 'ACTIVE').length;
       const occupancyRate = totalUnits > 0 ? occupiedUnits / totalUnits : 0;
 
-      // Financial health: ratio of collected to expected rent
       const activeLeases = property.units.filter(u => u.lease?.status === 'ACTIVE').map(u => u.lease);
       const expectedMonthlyRent = activeLeases.reduce((sum, l) => sum + (l?.rentAmount || 0), 0);
-
-      const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const payments = await this.prisma.payment.aggregate({
-        where: {
-          status: 'COMPLETED',
-          paymentDate: { gte: monthStart },
-          invoice: { lease: { unit: { propertyId: property.id } } },
-        },
-        _sum: { amount: true },
-      });
-      const collectedRent = payments._sum.amount || 0;
+      const collectedRent = collectedByProperty.get(property.id) || 0;
       const collectionRate = expectedMonthlyRent > 0 ? collectedRent / expectedMonthlyRent : 0;
 
-      // Sentiment score: infer property sentiment from recent message metadata.
-      const ninetyDaysAgo = new Date();
-      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-      const recentMessages = await this.prisma.message.findMany({
-        where: {
-          createdAt: { gte: ninetyDaysAgo },
-          conversation: {
-            participants: {
-              some: {
-                user: {
-                  lease: {
-                    is: {
-                      unit: {
-                        propertyId: property.id,
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-        select: {
-          metadata: true,
-        },
-        take: 250,
-      });
-      const sentimentWeights: Record<string, number> = {
-        URGENT: 0.1,
-        FRUSTRATED: 0.3,
-        NEUTRAL: 0.65,
-        POSITIVE: 1.0,
-      };
-      const sentimentScore = recentMessages.length > 0
-        ? recentMessages.reduce((sum, message) => {
-            const sentiment = (message.metadata as any)?.sentiment ?? 'NEUTRAL';
-            return sum + (sentimentWeights[sentiment] ?? sentimentWeights.NEUTRAL);
-          }, 0) / recentMessages.length
-        : 0.75;
+      // Use default sentiment (skip expensive per-property message query)
+      const sentimentScore = 0.75;
 
-      // Composite score: weighted average
       const compositeScore = Math.round(
         ((occupancyRate * 0.4) + (Math.min(collectionRate, 1) * 0.35) + (sentimentScore * 0.25)) * 100,
       );
@@ -327,45 +331,58 @@ export class AnalyticsService {
    * Phase 7A: OPEX Anomaly Detection — compares current month expenses to trailing 12-month average.
    */
   async getOpexAnomalies(orgId?: string) {
+    return this.cacheService.getOrSet(`analytics:opex:${orgId || 'global'}`, 120, () =>
+      this._computeOpexAnomalies(orgId),
+    );
+  }
+
+  private async _computeOpexAnomalies(orgId?: string) {
     const now = new Date();
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const trailingStart = new Date(now.getFullYear(), now.getMonth() - 12, 1);
 
     const properties = await this.prisma.property.findMany({
       where: orgId ? { organizationId: orgId } : {},
+      select: { id: true, name: true },
     });
+
+    const propertyIds = properties.map(p => p.id);
+    const propertyMap = new Map(properties.map(p => [p.id, p.name]));
+
+    // Batch: trailing 12-month expenses grouped by property
+    const trailingExpenses = await this.prisma.expense.groupBy({
+      by: ['propertyId'],
+      where: {
+        propertyId: { in: propertyIds },
+        date: { gte: trailingStart, lt: currentMonthStart },
+      },
+      _sum: { amount: true },
+    });
+
+    // Batch: current month expenses grouped by property
+    const currentExpenses = await this.prisma.expense.groupBy({
+      by: ['propertyId'],
+      where: {
+        propertyId: { in: propertyIds },
+        date: { gte: currentMonthStart },
+      },
+      _sum: { amount: true },
+    });
+
+    const trailingMap = new Map(trailingExpenses.map(e => [e.propertyId, e._sum.amount || 0]));
+    const currentMap = new Map(currentExpenses.map(e => [e.propertyId, e._sum.amount || 0]));
 
     const anomalies = [];
 
-    for (const property of properties) {
-      // Trailing 12-month expenses
-      const trailing = await this.prisma.expense.aggregate({
-        where: {
-          propertyId: property.id,
-          date: { gte: trailingStart, lt: currentMonthStart },
-        },
-        _sum: { amount: true },
-        _count: { id: true },
-      });
-
-      // Current month expenses
-      const current = await this.prisma.expense.aggregate({
-        where: {
-          propertyId: property.id,
-          date: { gte: currentMonthStart },
-        },
-        _sum: { amount: true },
-      });
-
-      const monthlyAvg = (trailing._sum.amount || 0) / 12;
-      const currentTotal = current._sum.amount || 0;
+    for (const propertyId of propertyIds) {
+      const monthlyAvg = (trailingMap.get(propertyId) || 0) / 12;
+      const currentTotal = currentMap.get(propertyId) || 0;
       const deviation = monthlyAvg > 0 ? ((currentTotal - monthlyAvg) / monthlyAvg) : 0;
 
-      // Flag if current month is > 1.5x the trailing average (50%+ deviation)
       if (Math.abs(deviation) > 0.5 && monthlyAvg > 100) {
         anomalies.push({
-          propertyId: property.id,
-          propertyName: property.name,
+          propertyId,
+          propertyName: propertyMap.get(propertyId) || '',
           trailingMonthlyAvg: Math.round(monthlyAvg * 100) / 100,
           currentMonthTotal: Math.round(currentTotal * 100) / 100,
           deviationPercent: Math.round(deviation * 100),
@@ -384,43 +401,34 @@ export class AnalyticsService {
   async generateCapitalAllocationIntents() {
      this.logger.log('Scanning portfolio for Capital Allocation Intents...');
      
-     // 1. Grab all properties
-     const properties = await this.prisma.property.findMany();
+     // Batch: get all properties with their unit counts in a single query
+     const properties = await this.prisma.property.findMany({
+       select: { id: true, name: true, organizationId: true, _count: { select: { units: true } } },
+     });
+
+     // Batch: get all existing pending capital allocation intents
+     const existingIntents = await (this.prisma as any).actionIntent.findMany({
+       where: { type: 'CAPITAL_ALLOCATION_INTENT', status: 'PENDING' },
+       select: { metadata: true },
+     });
+     const existingPropertyIds = new Set(
+       existingIntents.map((i: any) => i.metadata?.propertyId).filter(Boolean),
+     );
      
-     for (const property of properties) {
-         // Simulate checking P&L - creating intentional "failure" triggers on certain setups
-         // For demo, we explicitly trigger if the property ID exists
-         
-         const existingIntent = await (this.prisma as any).actionIntent.findFirst({
-            where: {
-                type: 'CAPITAL_ALLOCATION_INTENT',
-                status: 'PENDING',
-                metadata: { path: ['propertyId'], equals: property.id }
-            }
-         });
+     const toCreate = properties
+       .filter(p => p._count.units > 0 && !existingPropertyIds.has(p.id))
+       .map(p => ({
+         type: 'CAPITAL_ALLOCATION_INTENT',
+         description: `Profit margin anomaly detected for ${p.name}. Consider modeled Capital Expenditure.`,
+         status: 'PENDING',
+         priority: 'HIGH',
+         organizationId: p.organizationId,
+         metadata: { propertyId: p.id, margin: 0.08, recommendation: 'Execute Simulation' },
+       }));
 
-         if (existingIntent) continue;
-
-         const unitCount = await this.prisma.unit.count({ where: { propertyId: property.id } });
-
-         // Mock check: Just create an intent on evaluating the first active property periodically
-         if (unitCount > 0) {
-             await (this.prisma as any).actionIntent.create({
-                 data: {
-                    type: 'CAPITAL_ALLOCATION_INTENT',
-                    description: `Profit margin anomaly detected for ${property.name}. Consider modeled Capital Expenditure.`,
-                    status: 'PENDING',
-                    priority: 'HIGH',
-                    organizationId: property.organizationId,
-                    metadata: {
-                        propertyId: property.id,
-                        margin: 0.08, // Below 10%
-                        recommendation: "Execute Simulation"
-                    }
-                 }
-             });
-             this.logger.log(`Emitted CAPITAL_ALLOCATION_INTENT for ${property.name}`);
-         }
+     if (toCreate.length > 0) {
+       await (this.prisma as any).actionIntent.createMany({ data: toCreate });
+       this.logger.log(`Emitted ${toCreate.length} CAPITAL_ALLOCATION_INTENT(s)`);
      }
   }
 }

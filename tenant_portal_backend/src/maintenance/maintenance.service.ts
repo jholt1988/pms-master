@@ -28,6 +28,7 @@ import { ConfirmMaintenanceCompleteDto } from './dto/confirm-maintenance-complet
 import { AIMaintenanceService } from './ai-maintenance.service';
 import { SystemUserService } from '../shared/system-user.service';
 import { AIMaintenanceMetricsService } from './ai-maintenance-metrics.service';
+import { safeUserSelect } from '../shared-selects/prisma-selects';
 import { ApiException } from '../common/errors';
 import { ErrorCode } from '../common/errors/error-codes.enum';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -986,7 +987,7 @@ export class MaintenanceService {
         author: { connect: { id: authorId as any } },
         body: dto.body,
       },
-      include: { author: true },
+      include: { author: { select: safeUserSelect } },
     });
 
     return note;
@@ -1247,23 +1248,23 @@ export class MaintenanceService {
 
   private get defaultRequestInclude(): Prisma.MaintenanceRequestInclude {
     const include: Prisma.MaintenanceRequestInclude = {
-      author: true,
+      author: { select: safeUserSelect },
       property: true,
       unit: true,
       asset: true,
       assignee: true,
       slaPolicy: true,
       notes: {
-        include: { author: true },
+        include: { author: { select: safeUserSelect } },
         orderBy: { createdAt: 'desc' },
       },
       photos: {
-        include: { uploadedBy: true },
+        include: { uploadedBy: { select: safeUserSelect } },
         orderBy: { createdAt: 'desc' },
       },
       history: {
         include: {
-          changedBy: true,
+          changedBy: { select: safeUserSelect },
           fromAssignee: true,
           toAssignee: true,
         },

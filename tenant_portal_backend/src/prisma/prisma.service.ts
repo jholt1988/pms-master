@@ -1,10 +1,54 @@
 import { Injectable, OnModuleDestroy, OnModuleInit, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
+const ORG_SCOPED_MODELS = new Set([
+  'Property',
+  'Lead',
+  'PropertyMarketingProfile',
+  'SyndicationCredential',
+  'SyndicationQueue',
+  'FeeScheduleVersion',
+  'OrgPlanCycle',
+  'PricingSnapshot',
+  'FeedItem',
+]);
+
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
-  PasswordResetToken: any;
   private readonly logger = new Logger(PrismaService.name);
+
+  forOrg(orgId: string) {
+    return this.$extends({
+      query: {
+        $allModels: {
+          async findMany({ model, args, query }) {
+            if (ORG_SCOPED_MODELS.has(model)) {
+              args.where = { ...args.where, organizationId: orgId };
+            }
+            return query(args);
+          },
+          async findFirst({ model, args, query }) {
+            if (ORG_SCOPED_MODELS.has(model)) {
+              args.where = { ...args.where, organizationId: orgId };
+            }
+            return query(args);
+          },
+          async updateMany({ model, args, query }) {
+            if (ORG_SCOPED_MODELS.has(model)) {
+              args.where = { ...args.where, organizationId: orgId };
+            }
+            return query(args);
+          },
+          async deleteMany({ model, args, query }) {
+            if (ORG_SCOPED_MODELS.has(model)) {
+              args.where = { ...args.where, organizationId: orgId };
+            }
+            return query(args);
+          },
+        },
+      },
+    });
+  }
 
   constructor() {
     super({

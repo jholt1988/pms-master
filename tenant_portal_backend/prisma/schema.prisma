@@ -94,6 +94,7 @@ model User {
   scheduleEvents            ScheduleEvent[]             @relation("ScheduleEventTenant")
   toursConducted            Tour[]                      @relation("TourConductedBy")
   leadApplicationReviews    LeadApplication[]           @relation("LeadApplicationReviewers")
+  auditLogs                 AuditLog[]
 
   // Stripe integration
   stripeCustomerId String? @unique
@@ -124,6 +125,17 @@ model User {
   organizations              UserOrganization[]
   feeScheduleVersionsCreated FeeScheduleVersion[] @relation("FeeScheduleVersionCreatedBy")
   actionIntents              ActionIntent[]
+
+  journalEntriesPosted            JournalEntry[]              @relation("JournalEntryPostedBy")
+  journalEntriesCreated           JournalEntry[]              @relation("JournalEntryCreatedBy")
+  bookkeepingTransactionsReviewed BookkeepingTransaction[]    @relation("BookkeepingTxReviewer")
+  reconciliationSessionsStarted   ReconciliationSession[]     @relation("ReconciliationStartedBy")
+  reconciliationItemsResolved     ReconciliationSessionItem[] @relation("ReconciliationItemResolver")
+  ownerStatementsReceived         OwnerStatement[]            @relation("OwnerStatementOwner")
+  ownerStatementsApproved         OwnerStatement[]            @relation("OwnerStatementApprover")
+
+  @@index([email])
+  @@index([role])
 }
 
 model Organization {
@@ -142,20 +154,26 @@ model Organization {
   createdAt                   DateTime               @default(now())
   updatedAt                   DateTime               @updatedAt
 
-  users                  UserOrganization[]
-  properties             Property[]
-  technicians            Technician[]
-  quickBooksConnections  QuickBooksConnection[]
-  syndicationCredentials SyndicationCredential[]
-  planCycles             OrgPlanCycle[]
-  feeScheduleVersions    FeeScheduleVersion[]
-  pricingSnapshots       PricingSnapshot[]
-  stripeWebhookEvents    StripeWebhookEvent[]
-  paymentLedgerEntries   PaymentLedgerEntry[]
-  manualPayments         ManualPayment[]
-  manualCharges          ManualCharge[]
-  ledgerAccounts         LedgerAccount[]
-  actionIntents          ActionIntent[]
+  users                   UserOrganization[]
+  properties              Property[]
+  technicians             Technician[]
+  quickBooksConnections   QuickBooksConnection[]
+  syndicationCredentials  SyndicationCredential[]
+  planCycles              OrgPlanCycle[]
+  feeScheduleVersions     FeeScheduleVersion[]
+  pricingSnapshots        PricingSnapshot[]
+  stripeWebhookEvents     StripeWebhookEvent[]
+  paymentLedgerEntries    PaymentLedgerEntry[]
+  manualPayments          ManualPayment[]
+  manualCharges           ManualCharge[]
+  ledgerAccounts          LedgerAccount[]
+  actionIntents           ActionIntent[]
+  chartOfAccounts         ChartOfAccount[]
+  journalEntries          JournalEntry[]
+  reconciliationSessions  ReconciliationSession[]
+  ownerStatements         OwnerStatement[]
+  bookkeepingTransactions BookkeepingTransaction[]
+  vendors                 Vendor[]
 }
 
 model UserOrganization {
@@ -228,58 +246,63 @@ model Property {
   id String @id @default(uuid()) @db.Uuid
 
   // Multi-tenant scope
-  organizationId       String                    @db.Uuid
-  organization         Organization              @relation(fields: [organizationId], references: [id])
-  name                 String
-  address              String
-  city                 String?
-  state                String?
-  zipCode              String?
-  country              String?                   @default("USA")
-  latitude             Float?
-  longitude            Float?
-  propertyType         String?
-  description          String?
-  bedrooms             Float?
-  bathrooms            Float?
-  minRent              Float?
-  maxRent              Float?
-  tags                 String[]                  @default([])
-  yearBuilt            Int?
-  createdAt            DateTime                  @default(now())
-  updatedAt            DateTime                  @updatedAt
-  units                Unit[]
-  rentalApplications   RentalApplication[]
-  expenses             Expense[]
-  MaintenanceRequest   MaintenanceRequest[]
-  MaintenanceAsset     MaintenanceAsset[]
-  MaintenanceSlaPolicy MaintenanceSlaPolicy[]
-  Document             Document[]
-  UnitInspection       UnitInspection[]
-  repairEstimates      RepairEstimate[]
-  scheduleEvents       ScheduleEvent[]
-  propertyInquiries    PropertyInquiry[]
-  tours                Tour[]
-  leadApplications     LeadApplication[]
-  marketingProfile     PropertyMarketingProfile?
-  photos               PropertyPhoto[]
-  amenities            PropertyAmenity[]
-  syndicationQueue     SyndicationQueue[]
-  syndicationErrors    SyndicationErrorLog[]
-  agentRuns            AgentRun[]                @relation("AgentRunProperty")
-  communicationLogs    CommunicationLog[]        @relation("CommunicationLogProperty")
-  bankTransactions     BankTransaction[]         @relation("BankTransactionProperty")
-  approvalTasks        ApprovalTask[]
-  inspectionRequests   InspectionRequest[]
-  manualPayments       ManualPayment[]
-  manualCharges        ManualCharge[]
-  policyBundles        PolicyBundle[]
-  policyWorkflowEvents PolicyWorkflowEvent[]
-  policyRuleEvaluations PolicyRuleEvaluation[]
-  policyServiceProofs  PolicyServiceProof[]
+  organizationId          String                    @db.Uuid
+  organization            Organization              @relation(fields: [organizationId], references: [id])
+  name                    String
+  address                 String
+  city                    String?
+  state                   String?
+  zipCode                 String?
+  country                 String?                   @default("USA")
+  latitude                Float?
+  longitude               Float?
+  propertyType            String?
+  description             String?
+  bedrooms                Float?
+  bathrooms               Float?
+  minRent                 Float?
+  maxRent                 Float?
+  tags                    String[]                  @default([])
+  yearBuilt               Int?
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
+  units                   Unit[]
+  rentalApplications      RentalApplication[]
+  expenses                Expense[]
+  MaintenanceRequest      MaintenanceRequest[]
+  MaintenanceAsset        MaintenanceAsset[]
+  MaintenanceSlaPolicy    MaintenanceSlaPolicy[]
+  Document                Document[]
+  UnitInspection          UnitInspection[]
+  repairEstimates         RepairEstimate[]
+  scheduleEvents          ScheduleEvent[]
+  propertyInquiries       PropertyInquiry[]
+  tours                   Tour[]
+  leadApplications        LeadApplication[]
+  marketingProfile        PropertyMarketingProfile?
+  photos                  PropertyPhoto[]
+  amenities               PropertyAmenity[]
+  syndicationQueue        SyndicationQueue[]
+  syndicationErrors       SyndicationErrorLog[]
+  agentRuns               AgentRun[]                @relation("AgentRunProperty")
+  communicationLogs       CommunicationLog[]        @relation("CommunicationLogProperty")
+  bankTransactions        BankTransaction[]         @relation("BankTransactionProperty")
+  approvalTasks           ApprovalTask[]
+  inspectionRequests      InspectionRequest[]
+  manualPayments          ManualPayment[]
+  manualCharges           ManualCharge[]
+  policyBundles           PolicyBundle[]
+  policyWorkflowEvents    PolicyWorkflowEvent[]
+  policyRuleEvaluations   PolicyRuleEvaluation[]
+  policyServiceProofs     PolicyServiceProof[]
   policyAttorneyReferrals PolicyAttorneyReferral[]
-  policyMonthlyCloses  PolicyMonthlyClose[]
-  policyRuleActionLogs PolicyRuleActionLog[]
+  policyMonthlyCloses     PolicyMonthlyClose[]
+  policyRuleActionLogs    PolicyRuleActionLog[]
+  masterUtilityBills      MasterUtilityBill[]
+  smartDevices            SmartDevice[]
+  accessCodes             AccessCode[]
+  contractorBids          ContractorBid[]
+  capExForecasts          CapExForecast[]
 
   @@index([organizationId])
   @@index([city, state])
@@ -394,6 +417,11 @@ model Unit {
   inspectionRequests InspectionRequest[]
   manualPayments     ManualPayment[]
   manualCharges      ManualCharge[]
+  smartDevices       SmartDevice[]
+  accessCodes        AccessCode[]
+
+  @@index([propertyId])
+  @@index([status])
 }
 
 enum UnitStatus {
@@ -506,6 +534,7 @@ model SyndicationErrorLog {
 
 model Lease {
   id                        String                    @id @default(uuid()) @db.Uuid
+  version                   Int                       @default(0)
   startDate                 DateTime
   endDate                   DateTime
   rentAmount                Float
@@ -555,6 +584,9 @@ model Lease {
   approvalTasks             ApprovalTask[]
   inspectionRequests        InspectionRequest[]
   originatingApplications   RentalApplication[]
+  insurancePolicies         TenantInsurancePolicy[]
+  utilityAllocations        UtilityAllocation[]
+  leaseAbstractions         LeaseAbstraction[]
 
   @@index([status])
   @@index([endDate])
@@ -562,6 +594,7 @@ model Lease {
 
 model MaintenanceRequest {
   id                String                       @id @default(uuid()) @db.Uuid
+  version           Int                          @default(0)
   title             String
   description       String
   status            Status                       @default(PENDING)
@@ -895,13 +928,18 @@ model Invoice {
   paymentAttempts PaymentAttempt[]
   schedule        RecurringInvoiceSchedule? @relation(fields: [scheduleId], references: [id])
   scheduleId      Int?
+
+  @@index([leaseId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([status, dueDate])
 }
 
 model Payment {
   id                  Int                  @id @default(autoincrement())
   amount              Float
   paymentDate         DateTime             @default(now())
-  status              String // e.g., "COMPLETED", "FAILED"
+  status              PaymentStatus        @default(PENDING)
   invoice             Invoice?             @relation(fields: [invoiceId], references: [id])
   invoiceId           Int?
   user                User                 @relation(fields: [userId], references: [id])
@@ -917,6 +955,11 @@ model Payment {
   ledgerTransactions  LedgerTransaction[]
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
+
+  @@index([leaseId])
+  @@index([userId])
+  @@index([status])
+  @@index([paymentDate])
 }
 
 enum LedgerEntryType {
@@ -931,6 +974,12 @@ enum LedgerEntryType {
 enum LedgerDirection {
   DEBIT
   CREDIT
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
 }
 
 model LedgerAccount {
@@ -1098,6 +1147,9 @@ model Message {
   metadata       Json?
   bulkRecipient  BulkMessageRecipient?
   createdAt      DateTime              @default(now())
+
+  @@index([conversationId])
+  @@index([senderId])
 }
 
 model MessageTemplate {
@@ -1180,6 +1232,7 @@ enum BulkSendStrategy {
 
 model RentalApplication {
   id                              Int                            @id @default(autoincrement())
+  version                         Int                            @default(0)
   applicant                       User?                          @relation(fields: [applicantId], references: [id])
   applicantId                     String?                        @db.Uuid
   property                        Property                       @relation(fields: [propertyId], references: [id])
@@ -1231,6 +1284,10 @@ model RentalApplication {
   ai_reviewed_at    DateTime?
 
   @@index([convertedLeaseId])
+  @@index([propertyId])
+  @@index([unitId])
+  @@index([applicantId])
+  @@index([status])
 }
 
 enum LeadStatus {
@@ -1399,6 +1456,10 @@ model Expense {
   recordedById String          @db.Uuid
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
+
+  @@index([propertyId])
+  @@index([propertyId, date])
+  @@index([category])
 }
 
 enum LeaseStatus {
@@ -1492,8 +1553,10 @@ enum Role {
 
 enum ApplicationStatus {
   PENDING
+  PENDING_AI_REVIEW
   UNDER_REVIEW
   SCREENING
+  SCORED
   BACKGROUND_CHECK
   DOCUMENTS_REVIEW
   INTERVIEW
@@ -1649,6 +1712,8 @@ model LateFee {
   amount     Float
   assessedAt DateTime @default(now())
   waived     Boolean  @default(false)
+
+  @@index([invoiceId])
 }
 
 model PaymentPlan {
@@ -2366,6 +2431,7 @@ model ModelAccessTrace {
 
 model MilAuditEvent {
   id         String   @id @default(uuid()) @db.Uuid
+  event      String
   traceId    String?
   orgId      String?  @db.Uuid
   actorId    String?  @db.Uuid
@@ -2419,12 +2485,12 @@ enum PolicyRuleApprovalStatus {
 }
 
 model PolicyBundle {
-  id          String   @id @default(uuid()) @db.Uuid
-  propertyId  String   @db.Uuid
+  id          String    @id @default(uuid()) @db.Uuid
+  propertyId  String    @db.Uuid
   version     String
-  isActive    Boolean  @default(true)
+  isActive    Boolean   @default(true)
   bundleJson  Json
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
   activatedAt DateTime?
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
@@ -2465,8 +2531,8 @@ model PolicyRuleEvaluation {
   policyVersion      String
   createdAt          DateTime           @default(now())
 
-  workflowEvent PolicyWorkflowEvent @relation(fields: [workflowEventId], references: [id], onDelete: Cascade)
-  property      Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  workflowEvent PolicyWorkflowEvent   @relation(fields: [workflowEventId], references: [id], onDelete: Cascade)
+  property      Property              @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   approvals     PolicyRuleApproval[]
   actionLogs    PolicyRuleActionLog[]
 
@@ -2515,7 +2581,7 @@ model PolicyAttorneyReferral {
   payloadJson   Json
   createdAt     DateTime @default(now())
 
-  property  Property                       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  property  Property                         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   artifacts PolicyAttorneyReferralArtifact[]
 
   @@index([propertyId, tenantId, caseStatus])
@@ -2534,14 +2600,14 @@ model PolicyAttorneyReferralArtifact {
 }
 
 model PolicyMonthlyClose {
-  id             String   @id @default(uuid()) @db.Uuid
-  propertyId     String   @db.Uuid
+  id             String    @id @default(uuid()) @db.Uuid
+  propertyId     String    @db.Uuid
   month          String
   closedAt       DateTime?
-  closedByUserId String?  @db.Uuid
-  isLocked       Boolean  @default(false)
+  closedByUserId String?   @db.Uuid
+  isLocked       Boolean   @default(false)
   reopenReason   String?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime  @default(now())
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
@@ -2596,7 +2662,8 @@ model CommunicationLog {
   propertyId String? @db.Uuid
   unitId     String? @db.Uuid
   leaseId    String? @db.Uuid
-  requestId  String? // MaintenanceRequest.id
+  requestId  String? @db.Uuid // MaintenanceRequest.id
+  threadId   String? @db.Uuid
 
   createdById String? @db.Uuid
 
@@ -2606,6 +2673,7 @@ model CommunicationLog {
   unit      Unit?               @relation("CommunicationLogUnit", fields: [unitId], references: [id], onDelete: SetNull)
   lease     Lease?              @relation("CommunicationLogLease", fields: [leaseId], references: [id], onDelete: SetNull)
   request   MaintenanceRequest? @relation("CommunicationLogRequest", fields: [requestId], references: [id], onDelete: SetNull)
+  thread    OmnichannelThread?  @relation(fields: [threadId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 
@@ -2688,9 +2756,247 @@ model BankTransaction {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  bookkeepingTransaction BookkeepingTransaction? @relation("BankTxBookkeeping")
+
   @@index([date])
   @@index([propertyId, date])
   @@index([batchId])
+}
+
+// --- Financials / Bookkeeping Models ---
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+  CONTRA_ASSET
+  CONTRA_REVENUE
+}
+
+enum BookkeepingTransactionStatus {
+  PENDING_REVIEW
+  CATEGORIZED
+  ALLOCATED
+  RECONCILED
+  EXCEPTION
+  POSTED
+}
+
+enum ReconciliationItemStatus {
+  UNMATCHED
+  MATCHED
+  CONFIRMED
+  EXCEPTION
+}
+
+enum MonthlyCloseStatus {
+  OPEN
+  RECONCILING
+  REVIEW
+  LOCKED
+  REPORTED
+}
+
+enum OwnerStatementStatus {
+  DRAFT
+  APPROVED
+  SENT
+}
+
+model ChartOfAccount {
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String           @db.Uuid
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+  code           String
+  name           String
+  type           AccountType
+  parentId       String?          @db.Uuid
+  parent         ChartOfAccount?  @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children       ChartOfAccount[] @relation("AccountHierarchy")
+  description    String?
+  isSystem       Boolean          @default(false)
+  isActive       Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  journalLineItems       JournalLineItem[]
+  bookkeepingAllocations BookkeepingAllocation[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, type])
+  @@index([organizationId, isActive])
+}
+
+model JournalEntry {
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @db.Uuid
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  entryNumber    Int
+  date           DateTime
+  type           String         @default("standard")
+  memo           String?
+  sourceType     String?
+  sourceId       String?
+  isAdjusting    Boolean        @default(false)
+  isClosing      Boolean        @default(false)
+  isReversing    Boolean        @default(false)
+  reversesId     String?        @db.Uuid
+  reverses       JournalEntry?  @relation("JournalReversal", fields: [reversesId], references: [id])
+  reversedBy     JournalEntry[] @relation("JournalReversal")
+  status         String         @default("DRAFT")
+  postedAt       DateTime?
+  postedById     String?        @db.Uuid
+  postedBy       User?          @relation("JournalEntryPostedBy", fields: [postedById], references: [id])
+  createdById    String?        @db.Uuid
+  createdBy      User?          @relation("JournalEntryCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  lineItems JournalLineItem[]
+
+  @@unique([organizationId, entryNumber])
+  @@index([organizationId, date])
+  @@index([organizationId, status])
+  @@index([sourceType, sourceId])
+}
+
+model JournalLineItem {
+  id             String         @id @default(uuid()) @db.Uuid
+  journalEntryId String         @db.Uuid
+  journalEntry   JournalEntry   @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  accountId      String         @db.Uuid
+  account        ChartOfAccount @relation(fields: [accountId], references: [id])
+  debitCents     Int            @default(0)
+  creditCents    Int            @default(0)
+  propertyId     String?        @db.Uuid
+  unitId         String?        @db.Uuid
+  leaseId        String?        @db.Uuid
+  vendorId       String?        @db.Uuid
+  description    String?
+  createdAt      DateTime       @default(now())
+
+  @@index([journalEntryId])
+  @@index([accountId])
+  @@index([propertyId])
+}
+
+model BookkeepingTransaction {
+  id                 String                       @id @default(uuid()) @db.Uuid
+  organizationId     String                       @db.Uuid
+  organization       Organization                 @relation(fields: [organizationId], references: [id])
+  date               DateTime
+  description        String
+  amountCents        Int
+  status             BookkeepingTransactionStatus @default(PENDING_REVIEW)
+  category           String?
+  categoryConfidence Float?
+  sourceType         String
+  sourceId           String?
+  bankTransactionId  String?                      @unique
+  bankTransaction    BankTransaction?             @relation("BankTxBookkeeping", fields: [bankTransactionId], references: [id])
+  reconciledAt       DateTime?
+  exceptionReason    String?
+  reviewedById       String?                      @db.Uuid
+  reviewedBy         User?                        @relation("BookkeepingTxReviewer", fields: [reviewedById], references: [id])
+  createdAt          DateTime                     @default(now())
+  updatedAt          DateTime                     @updatedAt
+
+  allocations BookkeepingAllocation[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, date])
+  @@index([sourceType, sourceId])
+}
+
+model BookkeepingAllocation {
+  id            String                 @id @default(uuid()) @db.Uuid
+  transactionId String                 @db.Uuid
+  transaction   BookkeepingTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  accountId     String                 @db.Uuid
+  account       ChartOfAccount         @relation(fields: [accountId], references: [id])
+  propertyId    String?                @db.Uuid
+  unitId        String?                @db.Uuid
+  leaseId       String?                @db.Uuid
+  vendorId      String?                @db.Uuid
+  ownerId       String?                @db.Uuid
+  amountCents   Int
+  createdAt     DateTime               @default(now())
+
+  @@index([transactionId])
+  @@index([accountId])
+  @@index([propertyId])
+}
+
+model ReconciliationSession {
+  id                  String       @id @default(uuid()) @db.Uuid
+  organizationId      String       @db.Uuid
+  organization        Organization @relation(fields: [organizationId], references: [id])
+  month               String
+  bankAccountRef      String?
+  status              String       @default("IN_PROGRESS")
+  bankEndingBalance   Int?
+  ledgerEndingBalance Int?
+  differenceAmount    Int?
+  startedById         String?      @db.Uuid
+  startedBy           User?        @relation("ReconciliationStartedBy", fields: [startedById], references: [id])
+  completedAt         DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  items ReconciliationSessionItem[]
+
+  @@unique([organizationId, month, bankAccountRef])
+  @@index([organizationId, status])
+}
+
+model ReconciliationSessionItem {
+  id                String                   @id @default(uuid()) @db.Uuid
+  sessionId         String                   @db.Uuid
+  session           ReconciliationSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  bankTransactionId String?
+  ledgerEntryId     String?
+  bankAmountCents   Int
+  ledgerAmountCents Int?
+  status            ReconciliationItemStatus @default(UNMATCHED)
+  matchConfidence   Float?
+  suggestedMatchId  String?
+  resolvedAt        DateTime?
+  resolvedById      String?                  @db.Uuid
+  resolvedBy        User?                    @relation("ReconciliationItemResolver", fields: [resolvedById], references: [id])
+  createdAt         DateTime                 @default(now())
+
+  @@index([sessionId, status])
+  @@index([bankTransactionId])
+  @@index([ledgerEntryId])
+}
+
+model OwnerStatement {
+  id                   String               @id @default(uuid()) @db.Uuid
+  organizationId       String               @db.Uuid
+  organization         Organization         @relation(fields: [organizationId], references: [id])
+  ownerId              String               @db.Uuid
+  owner                User                 @relation("OwnerStatementOwner", fields: [ownerId], references: [id])
+  month                String
+  grossIncomeCents     Int                  @default(0)
+  totalExpensesCents   Int                  @default(0)
+  managementFeeCents   Int                  @default(0)
+  netDistributionCents Int                  @default(0)
+  status               OwnerStatementStatus @default(DRAFT)
+  approvedById         String?              @db.Uuid
+  approvedBy           User?                @relation("OwnerStatementApprover", fields: [approvedById], references: [id])
+  approvedAt           DateTime?
+  sentAt               DateTime?
+  propertyBreakdown    Json?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  ownerDraws           OwnerDraw[]
+
+  @@unique([organizationId, ownerId, month])
+  @@index([organizationId, month])
+  @@index([ownerId, month])
+  @@index([status])
 }
 
 model MaintenanceRequestDocument {
@@ -2790,4 +3096,310 @@ model ActionIntent {
   user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, status])
+}
+
+// This is your Materialized View for the keyring-os Co-Pilot
+model FeedItem {
+  id     String @id @default(uuid())
+  domain String // 'leasing', 'maintenance', 'payments', 'screening'
+  type   String // e.g., 'rent_delinquent', 'lease_expiring'
+
+  // The heavily calculated metric
+  priorityScore Float
+
+  // Display Context for Next.js
+  title    String
+  summary  String
+  evidence Json // e.g., { "daysOverdue": 15, "amount": 1200 }
+  actions  Json // e.g., [{ "label": "Start Eviction", "intent": "evict" }]
+
+  // Access Control
+  roleAccess String[] // e.g., ['property_manager', 'admin']
+  tenantId   String? // Optional relation if signal is tenant-specific
+  propertyId String? // Optional relation if signal is property-specific
+
+  // State
+  isDismissed Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([roleAccess])
+  @@index([priorityScore(sort: Desc)]) // Crucial for sub-50ms reads
+  @@index([propertyId])
+}
+
+// Append this to the bottom of schema.prisma
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  event     String
+  userId    String?  @db.Uuid
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  payload   String // Encrypted Hex string
+  iv        String // Initialization Vector
+  authTag   String // GCM Auth Tag for integrity
+  createdAt DateTime @default(now())
+
+  @@index([event])
+}
+
+// --- Phase 1: Core Financials, Compliance & Owner Experience ---
+
+model Vendor {
+  id             String             @id @default(uuid()) @db.Uuid
+  organizationId String             @db.Uuid
+  organization   Organization       @relation(fields: [organizationId], references: [id])
+  name           String
+  taxId          String? // Encrypted or masked
+  type           String             @default("CONTRACTOR") // e.g., CONTRACTOR, UTILITY, SUPPLIER
+  email          String?
+  phone          String?
+  address        String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  compliances    VendorCompliance[]
+
+  @@index([organizationId])
+}
+
+model VendorCompliance {
+  id             String    @id @default(uuid()) @db.Uuid
+  vendorId       String    @db.Uuid
+  vendor         Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  documentType   String // W9, INSURANCE_LIABILITY, INSURANCE_WORKERS_COMP
+  documentUrl    String?
+  status         String    @default("PENDING") // PENDING, VERIFIED, EXPIRED
+  expirationDate DateTime?
+  verifiedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([vendorId, status])
+}
+
+model TenantInsurancePolicy {
+  id             String   @id @default(uuid()) @db.Uuid
+  leaseId        String   @db.Uuid
+  lease          Lease    @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  provider       String?
+  policyNumber   String?
+  coverageAmount Float?
+  startDate      DateTime
+  endDate        DateTime
+  status         String   @default("ACTIVE") // ACTIVE, EXPIRED, CANCELLED, FORCE_PLACED
+  documentUrl    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([leaseId, status])
+  @@index([endDate])
+}
+
+model OwnerDraw {
+  id                  String         @id @default(uuid()) @db.Uuid
+  ownerStatementId    String         @db.Uuid
+  ownerStatement      OwnerStatement @relation(fields: [ownerStatementId], references: [id])
+  ledgerTransactionId String?        @db.Uuid
+  amountCents         Int
+  status              String         @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  drawDate            DateTime?
+  bankAccountId       String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@index([ownerStatementId])
+  @@index([status])
+}
+
+model MasterUtilityBill {
+  id               String              @id @default(uuid()) @db.Uuid
+  propertyId       String              @db.Uuid
+  property         Property            @relation(fields: [propertyId], references: [id])
+  utilityType      String // WATER, ELECTRICITY, GAS, TRASH
+  billingPeriod    String // e.g. "2023-10"
+  totalAmountCents Int
+  dueDate          DateTime
+  status           String              @default("RECEIVED") // RECEIVED, ALLOCATED, PAID
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  allocations      UtilityAllocation[]
+
+  @@unique([propertyId, utilityType, billingPeriod])
+}
+
+model UtilityAllocation {
+  id                   String            @id @default(uuid()) @db.Uuid
+  masterBillId         String            @db.Uuid
+  masterBill           MasterUtilityBill @relation(fields: [masterBillId], references: [id], onDelete: Cascade)
+  leaseId              String            @db.Uuid
+  lease                Lease             @relation(fields: [leaseId], references: [id])
+  allocatedAmountCents Int
+  allocationMethod     String // SQFT, OCCUPANCY, EVEN_SPLIT
+  chargeId             String?           @db.Uuid // Optional link to ManualCharge or Invoice
+  createdAt            DateTime          @default(now())
+
+  @@index([masterBillId])
+  @@index([leaseId])
+}
+
+// --- Phase 2: Operations & Orchestration ---
+
+model SmartDevice {
+  id           String    @id @default(uuid()) @db.Uuid
+  propertyId   String    @db.Uuid
+  property     Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId       String?   @db.Uuid
+  unit         Unit?     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  provider     String // e.g., SMARTRENT, BRIVO
+  deviceType   String // LOCK, THERMOSTAT, SENSOR
+  providerId   String    @unique
+  name         String
+  batteryLevel Int?
+  isOnline     Boolean   @default(true)
+  lastSeenAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  accessCodes AccessCode[]
+
+  @@index([propertyId, deviceType])
+  @@index([unitId])
+}
+
+model AccessCode {
+  id         String      @id @default(uuid()) @db.Uuid
+  deviceId   String      @db.Uuid
+  device     SmartDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  propertyId String      @db.Uuid
+  property   Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId     String?     @db.Uuid
+  unit       Unit?       @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  code       String
+  name       String // e.g., "Maintenance - Plumber" or "Self-Guided Tour"
+  status     String      @default("ACTIVE") // ACTIVE, EXPIRED, REVOKED
+  startsAt   DateTime?
+  endsAt     DateTime?
+  usageCount Int         @default(0)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@index([deviceId, status])
+  @@index([propertyId])
+}
+
+model OmnichannelThread {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String?  @db.Uuid
+  status    String   @default("OPEN") // OPEN, SNOOZED, RESOLVED
+  title     String? // auto-generated or manual summary
+  priority  String   @default("NORMAL")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages CommunicationLog[]
+
+  @@index([tenantId, status])
+}
+
+// 👉 NOTE: Don't forget to add `auditLogs AuditLog[]` to your `User` model block!
+
+// --- Phase 3: AI Co-Pilot Expansion ---
+
+enum BidStatus {
+  OPEN
+  BID_RECEIVED
+  AWARDED
+  REJECTED
+  COMPLETED
+}
+
+enum ForecastUrgency {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ForecastStatus {
+  PROJECTED
+  APPROVED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum AbstractionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  REVIEW_NEEDED
+  FAILED
+}
+
+model ContractorBid {
+  id                   String    @id @default(uuid()) @db.Uuid
+  propertyId           String    @db.Uuid
+  property             Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  maintenanceRequestId String?   @db.Uuid
+  vendorId             String?   @db.Uuid
+  scope                String
+  bidAmountCents       Int?
+  aiScore              Float?
+  aiRationale          String?
+  status               BidStatus @default(OPEN)
+  dueDate              DateTime?
+  awardedAt            DateTime?
+  vendorName           String?
+  vendorEmail          String?
+  responseNotes        String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([propertyId, status])
+  @@index([vendorId])
+  @@index([maintenanceRequestId])
+}
+
+model CapExForecast {
+  id                 String          @id @default(uuid()) @db.Uuid
+  propertyId         String          @db.Uuid
+  property           Property        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  organizationId     String          @db.Uuid
+  category           String
+  description        String
+  estimatedCostCents Int
+  confidenceScore    Float?
+  projectedYear      Int
+  urgency            ForecastUrgency @default(MEDIUM)
+  aiRationale        String?
+  status             ForecastStatus  @default(PROJECTED)
+  approvedBudget     Int?
+  actualCostCents    Int?
+  completedAt        DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  @@index([propertyId, projectedYear])
+  @@index([organizationId, status])
+  @@index([urgency])
+}
+
+model LeaseAbstraction {
+  id              String            @id @default(uuid()) @db.Uuid
+  leaseId         String            @db.Uuid
+  lease           Lease             @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  documentId      String?           @db.Uuid
+  extractedData   Json?
+  keyDates        Json?
+  financialTerms  Json?
+  clauses         Json?
+  aiConfidence    Float?
+  status          AbstractionStatus @default(PENDING)
+  reviewedById    String?           @db.Uuid
+  reviewedAt      DateTime?
+  processingError String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([leaseId])
+  @@index([status])
 }

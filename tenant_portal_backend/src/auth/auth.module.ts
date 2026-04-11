@@ -8,6 +8,7 @@ import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from './jwt.strategy';
 import { PasswordPolicyService } from './password-policy.service';
+import { TokenBlacklistService } from './revocation/token-blacklist.service';
 import { SecurityEventsModule } from '../security-events/security-events.module';
 import { EmailModule } from '../email/email.module';
 import { PrismaModule } from '../prisma/prisma.module';
@@ -51,6 +52,7 @@ import { HttpModule } from '@nestjs/axios';
     AuthService, 
     JwtStrategy, 
     PasswordPolicyService,
+    TokenBlacklistService,
     {
       provide: MilApiClient,
       useFactory: (configService: ConfigService) => {

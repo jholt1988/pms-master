@@ -170,6 +170,7 @@ export class PaymentsController {
     });
     return result;
   }
+  
 
   @Post('delinquency/issue-notice')
   @Roles('PROPERTY_MANAGER', 'ADMIN')

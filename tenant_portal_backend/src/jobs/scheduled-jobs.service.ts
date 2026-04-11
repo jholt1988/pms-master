@@ -313,7 +313,7 @@ export class ScheduledJobsService {
         },
         include: {
           payments: {
-            where: { status: { in: ['COMPLETED', 'PROCESSING'] } }
+            where: { status: { in: ['COMPLETED', 'PENDING'] } }
           },
         },
       });
@@ -327,8 +327,8 @@ export class ScheduledJobsService {
             .filter(p => p.status === 'COMPLETED')
             .reduce((sum, payment) => sum + payment.amount, 0);
           
-          const isProcessing = invoice.payments.some(p => p.status === 'PROCESSING');
-          if (completedPaid < invoice.amount && !isProcessing) {
+          const hasPendingPayment = invoice.payments.some(p => p.status === 'PENDING');
+          if (completedPaid < invoice.amount && !hasPendingPayment) {
             const lease = await this.prisma.lease.findUnique({
               where: { id: invoice.leaseId },
               include: {

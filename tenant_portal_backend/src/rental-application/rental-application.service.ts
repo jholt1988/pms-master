@@ -1,5 +1,7 @@
 
 import { Injectable, BadRequestException, Optional } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   ApplicationDecisionReasonCode,
@@ -34,6 +36,7 @@ export class RentalApplicationService {
     private readonly auditLogService: AuditLogService,
     private readonly scheduleService: ScheduleService,
     private readonly notificationsService: NotificationsService,
+    @InjectQueue('ai-screening') private readonly aiQueue: Queue,
     @Optional() private readonly workflowEventService?: WorkflowEventService,
     @Optional() private readonly workflowEventProcessor?: WorkflowEventProcessor,
   ) {}
@@ -83,9 +86,20 @@ export class RentalApplicationService {
         termsVersion: data.termsVersion,
         privacyAcceptedAt: acceptanceTimestamp,
         privacyVersion: data.privacyVersion,
-        status: ApplicationStatus.PENDING,
+        status: ApplicationStatus.PENDING_AI_REVIEW,
       },
     });
+   await this.aiQueue.add('score-application', {
+      applicationId: application.id,
+      tenantData: application,
+    }, {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 1000 },
+      removeOnComplete: true,
+    });
+
+    // 3. Return 202 immediately
+    
 
     // Record lifecycle event for submission
     if (applicantId) {
@@ -98,7 +112,7 @@ export class RentalApplicationService {
           application.id,
           ApplicationLifecycleEventType.SUBMITTED,
           null,
-          ApplicationStatus.PENDING,
+          ApplicationStatus.PENDING_AI_REVIEW,
           {
           userId: applicantId,
             username: applicant.username,
@@ -141,7 +155,7 @@ export class RentalApplicationService {
       },
     });
 
-    return application;
+    return { id: application.id, status: 'ACCEPTED' };
   }
 
   async getAllApplications(orgId?: string) {

@@ -7,6 +7,7 @@ on:
       - develop
     paths:
       - 'tenant_portal_backend/**'
+      - 'packages/mil-client/**'
       - '.github/workflows/backend-ci.yml'
   pull_request:
     branches:
@@ -14,18 +15,52 @@ on:
       - develop
     paths:
       - 'tenant_portal_backend/**'
+      - 'packages/mil-client/**'
       - '.github/workflows/backend-ci.yml'
 
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint backend
+        working-directory: ./tenant_portal_backend
+        run: pnpm exec eslint 'src/**/*.ts' --max-warnings 0
+
+      - name: Type check
+        working-directory: ./tenant_portal_backend
+        run: pnpm exec tsc --noEmit
+
   test:
     runs-on: ubuntu-latest
-    
+    needs: lint
+
     services:
       postgres:
-        image: postgres:18
+        image: postgres:16-alpine
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: u
+          POSTGRES_PASSWORD: p
           POSTGRES_DB: property_management_test
         options: >-
           --health-cmd pg_isready
@@ -34,7 +69,7 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-      
+
       redis:
         image: redis:7-alpine
         options: >-
@@ -49,91 +84,93 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.19.0'
-          cache: 'npm'
-          cache-dependency-path: tenant_portal_backend/package-lock.json
+          node-version: '22'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        working-directory: ./tenant_portal_backend
-        run: npm ci
-
-      - name: Install local mil-client dependencies
-        working-directory: ./tenant_portal_backend
-        run: npm install --prefix ../packages/mil-client --no-audit --no-fund
+        run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma Client
         working-directory: ./tenant_portal_backend
         env:
-          DATABASE_URL: postgresql://postgres.pyxdfddydshmktftxxhw:Bentley2844Alexander@aws-1-us-east-2.pooler.supabase.com:5432/postgres
-          DIRECT_URL: postgresql://postgres:postgres@localhost:5432/property_management_test
-
-        run: npx prisma generate
+          DATABASE_URL: postgresql://u:p@localhost:5432/property_management_test
+        run: pnpm exec prisma generate
 
       - name: Run Prisma migrations
         working-directory: ./tenant_portal_backend
         env:
-          DATABASE_URL: postgresql://postgres.pyxdfddydshmktftxxhw:Bentley2844Alexander@aws-1-us-east-2.pooler.supabase.com:5432/postgres
-          DIRECT_URL: postgresql://postgres:postgres@localhost:5432/property_management_test
-        run: npx prisma migrate deploy
-
-      - name: Type check
-        working-directory: ./tenant_portal_backend
-        run: npx tsc --noEmit
+          DATABASE_URL: postgresql://u:p@localhost:5432/property_management_test
+        run: pnpm exec prisma migrate deploy
 
       - name: Run unit tests
         working-directory: ./tenant_portal_backend
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/property_management_test
+          DATABASE_URL: postgresql://u:p@localhost:5432/property_management_test
           REDIS_HOST: localhost
           REDIS_PORT: 6379
           JWT_SECRET: test-secret-key-for-ci
           NODE_ENV: test
-        run: npm test -- --coverage --coverageReporters=text --coverageReporters=lcov
+        run: pnpm test -- --coverage --coverageReporters=text --coverageReporters=lcov
 
       - name: Run E2E tests
         working-directory: ./tenant_portal_backend
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/property_management_test
+          DATABASE_URL: postgresql://u:p@localhost:5432/property_management_test
           REDIS_HOST: localhost
           REDIS_PORT: 6379
           JWT_SECRET: test-secret-key-for-ci
           NODE_ENV: test
-        run: npm run test:e2e
-
-      - name: Run E2E test coverage
-        working-directory: ./tenant_portal_backend
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/property_management_test
-          REDIS_HOST: localhost
-          REDIS_PORT: 6379
-          JWT_SECRET: test-secret-key-for-ci
-          NODE_ENV: test
-        run: npm run test:e2e:coverage
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Run Property OS Simulation Harness (Quick Run)
-        id: sim_harness
-        run: |
-          # Assuming the harness has a requirements.txt, install it
-          if [ -f "tools/simulation/property-os-v1.6/requirements.txt" ]; then
-            pip install -r "tools/simulation/property-os-v1.6/requirements.txt"
-          fi
-          ./scripts/pms/run-property-os-sim.sh --n 200 --seed 42
-        working-directory: .
+        run: pnpm run test:e2e
 
       - name: Upload coverage to Codecov
+        if: always()
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./tenant_portal_backend/coverage/lcov.info,./tenant_portal_backend/coverage/e2e/lcov.info
-          flags: backend,backend-e2e
+          files: ./tenant_portal_backend/coverage/lcov.info
+          flags: backend
           name: backend-coverage
           fail_ci_if_error: false
 
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        working-directory: ./tenant_portal_backend
+        env:
+          DATABASE_URL: postgresql://u:p@localhost:5432/stub
+        run: pnpm exec prisma generate
+
+      - name: Build backend
+        working-directory: ./tenant_portal_backend
+        run: pnpm build
+
+      - name: Verify build output
+        working-directory: ./tenant_portal_backend
+        run: test -d dist && echo "Build output verified"

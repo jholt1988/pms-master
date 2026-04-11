@@ -9,22 +9,31 @@ on:
       - 'tenant_portal_backend/src/property-os/**'
       - 'tools/simulation/property-os-v1.6/**'
 
+concurrency:
+  group: sim-quick-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   simulation-quick-run:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
 
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Build backend
         run: pnpm --filter tenant_portal_backend build
@@ -32,10 +41,10 @@ jobs:
       - name: Start backend service (in background)
         run: |
           pnpm --filter tenant_portal_backend start &
-          sleep 10 # Give server time to start
+          sleep 10
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -45,7 +54,7 @@ jobs:
 
       - name: Upload Simulation Report
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: sim-report-quick-run
           path: reports/sim/property-os-v1.6/

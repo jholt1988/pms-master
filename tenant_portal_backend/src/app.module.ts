@@ -42,10 +42,27 @@ import { PropertyOsModule } from './property-os/property-os.module'; // Added fo
 import { MilModule } from './mil/mil.module';
 import { LegacyPathMiddleware } from './middleware/legacy-path.middleware';
 import { PerformanceMiddleware } from './monitoring/performance.middleware';
+import { CorrelationMiddleware } from './middleware/request-context/correlation.middleware';
 import { EventsModule } from './events/events.module'; // ADDED
 import { Web3Module } from './web3/web3.module';
 import { PrivacyModule } from './privacy/privacy.module';
 import { PolicyModule } from './policy/policy.module';
+import { MetricsModule } from './metrics/metrics.module';
+import { AppCacheModule } from './cache/cache.module';
+import { BriefingModule } from './briefing/briefing.module';
+import { BookkeepingModule } from './bookkeeping/bookkeeping.module';
+import { validateEnv } from './config/env/env.validation';
+import { VendorsModule } from './vendors/vendors.module';
+import { TenantInsuranceModule } from './tenant-insurance/tenant-insurance.module';
+import { OwnerPortalModule } from './owner-portal/owner-portal.module';
+import { UtilityBillingModule } from './utility-billing/utility-billing.module';
+import { OmnichannelModule } from './omnichannel/omnichannel.module';
+import { SmartDevicesModule } from './smart-devices/smart-devices.module';
+import { MoveOrchestrationModule } from './move-orchestration/move-orchestration.module';
+import { ContractorBiddingModule } from './contractor-bidding/contractor-bidding.module';
+import { CapexForecastingModule } from './capex-forecasting/capex-forecasting.module';
+import { LeaseAbstractionModule } from './lease-abstraction/lease-abstraction.module';
+
 
 const rateLimitEnabled =
   process.env.NODE_ENV !== 'test' && process.env.RATE_LIMIT_ENABLED !== 'false';
@@ -89,7 +106,8 @@ const rateLimitProviders = rateLimitEnabled
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ['.env.local', '.env'], // Support .env.local for local overrides
+      envFilePath: ['.env.local', '.env'],
+      validate: validateEnv,
     }),
     ScheduleModule.forRoot(),
     // Winston logging
@@ -116,7 +134,7 @@ const rateLimitProviders = rateLimitEnabled
     ReportingModule,
     InspectionsModule,
     EventScheduleModule,
-    // HealthModule, // Temporarily disabled due to TypeORM dependency conflict
+    HealthModule,
     JobsModule,
     QuickBooksModule,
     ListingSyndicationModule,
@@ -131,6 +149,20 @@ const rateLimitProviders = rateLimitEnabled
     MilModule,
     Web3Module,
     PrivacyModule,
+    MetricsModule,
+    AppCacheModule,
+    BriefingModule,
+    BookkeepingModule,
+    VendorsModule,
+    TenantInsuranceModule,
+    OwnerPortalModule,
+    UtilityBillingModule,
+    OmnichannelModule,
+    SmartDevicesModule,
+    MoveOrchestrationModule,
+    ContractorBiddingModule,
+    CapexForecastingModule,
+    LeaseAbstractionModule,
   ],
   controllers: [AppController],
   providers: [
@@ -142,14 +174,15 @@ const rateLimitProviders = rateLimitEnabled
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
+      .apply(CorrelationMiddleware)
+      .forRoutes('*');
+
+    consumer
       .apply(LegacyPathMiddleware)
       .forRoutes('*');
     
-    // Performance monitoring middleware (P0-005)
-    // Note: PerformanceMiddleware must be instantiated here for middleware
-    const performanceMiddleware = new PerformanceMiddleware();
     consumer
-      .apply(performanceMiddleware.use.bind(performanceMiddleware))
+      .apply(PerformanceMiddleware)
       .forRoutes('*');
   }
 }

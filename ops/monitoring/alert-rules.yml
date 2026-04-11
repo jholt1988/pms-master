@@ -1,0 +1,92 @@
+groups:
+  - name: pms-backend-alerts
+    rules:
+      - alert: HighErrorRate
+        expr: rate(http_errors_total[5m]) / rate(http_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High HTTP error rate (>5%)"
+          description: "Error rate is {{ $value | humanizePercentage }} over the last 5 minutes."
+
+      - alert: SlowResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow HTTP responses (p95 > 2s)"
+          description: "95th percentile response time is {{ $value }}s."
+
+      - alert: HighActiveConnections
+        expr: http_active_connections > 500
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High number of active connections (>500)"
+          description: "{{ $value }} active connections."
+
+      - alert: DatabaseQuerySlow
+        expr: histogram_quantile(0.95, rate(db_query_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow database queries (p95 > 1s)"
+          description: "95th percentile DB query duration is {{ $value }}s."
+
+      - alert: AIServiceErrors
+        expr: rate(ai_service_errors_total[10m]) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AI service error rate elevated"
+          description: "AI service errors at {{ $value }}/s over 10 minutes."
+
+      - alert: AIServiceSlow
+        expr: histogram_quantile(0.95, rate(ai_service_duration_seconds_bucket[5m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AI service responses slow (p95 > 10s)"
+          description: "95th percentile AI call duration is {{ $value }}s."
+
+      - alert: BackgroundJobFailures
+        expr: rate(background_job_errors_total[15m]) > 0.05
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Background job failure rate elevated"
+          description: "Job errors at {{ $value }}/s over 15 minutes."
+
+      - alert: HealthCheckDown
+        expr: service_health_status == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service health check failing: {{ $labels.service }}"
+          description: "{{ $labels.service }} has been unhealthy for over 1 minute."
+
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes / 1024 / 1024 > 512
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage (>512MB)"
+          description: "Process using {{ $value }}MB of memory."
+
+      - alert: HighCacheMissRate
+        expr: rate(cache_misses_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High cache miss rate (>80%)"
+          description: "Cache miss rate is {{ $value | humanizePercentage }}."

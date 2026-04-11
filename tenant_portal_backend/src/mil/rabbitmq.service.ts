@@ -38,24 +38,28 @@ export class RabbitMQService implements OnModuleInit, OnModuleDestroy {
     await this.connection?.close();
   }
 
-  /**
-   * Publishes an intent or event to the property_os_events exchange
-   * @param routingKey E.g., 'ledger.updated', 'payment.initiated'
-   * @param payload The JSON serializable event data
-   */
   async publishIntent(routingKey: string, payload: any): Promise<void> {
-    try {
-      if (!this.channelWrapper) {
-        this.logger.warn(`RabbitMQ not initialized, skipping publish for ${routingKey}`);
+    if (!this.channelWrapper) {
+      this.logger.error(`RabbitMQ not initialized, cannot publish ${routingKey}`);
+      throw new Error(`RabbitMQ not initialized — message lost: ${routingKey}`);
+    }
+
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        this.logger.log(`Publishing intent: ${routingKey} (attempt ${attempt})`);
+        await this.channelWrapper.publish(this.EXCHANGE_NAME, routingKey, payload);
         return;
+      } catch (error) {
+        this.logger.error(
+          `Failed to publish intent ${routingKey} (attempt ${attempt}/${maxRetries})`,
+          error,
+        );
+        if (attempt === maxRetries) {
+          throw error;
+        }
+        await new Promise((r) => setTimeout(r, 1000 * attempt));
       }
-      
-      this.logger.log(`Publishing intent: ${routingKey}`);
-      await this.channelWrapper.publish(this.EXCHANGE_NAME, routingKey, payload, {
-             
-      });
-    } catch (error) {
-      this.logger.error(`Failed to publish intent ${routingKey}`, error);
     }
   }
 }

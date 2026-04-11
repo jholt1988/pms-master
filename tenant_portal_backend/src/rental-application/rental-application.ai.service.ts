@@ -151,7 +151,7 @@ export class RentalApplicationAiService {
     };
   }
 
-  private async runInternalReview(applicationId: string) {
+  async runInternalReview(applicationId: string) {
     const application = await this.prisma.rentalApplication.findUnique({
       where: { id: Number(applicationId) },
       include: {

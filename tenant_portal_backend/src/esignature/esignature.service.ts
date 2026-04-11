@@ -1147,11 +1147,7 @@ export class EsignatureService {
       // We use the full URL to ensure we are hitting the correct endpoint, ignoring any pre-configured baseURL issues
       const fullUrl = `${basePath}/accounts/${accountId}/envelopes`;
 
-      console.log('--- Debugging DocuSign Config ---');
-      console.log(`Base Path: "${basePath}"`);
-      console.log(`Account ID: "${accountId}"`);
-      console.log(`Full URL: "${fullUrl}"`);
-      console.log('-------------------------------');
+      this.logger.debug(`DocuSign config — basePath: "${basePath}", accountId: "${accountId}", fullUrl: "${fullUrl}"`);
 
       this.logger.log(`Creating envelope at: ${fullUrl}`);
 

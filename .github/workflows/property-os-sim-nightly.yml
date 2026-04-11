@@ -2,9 +2,8 @@ name: 'Property OS - Simulation (Nightly)'
 
 on:
   schedule:
-    # Runs at 2 AM UTC every day
     - cron: '0 2 * * *'
-  workflow_dispatch: # Allows manual triggering
+  workflow_dispatch:
 
 jobs:
   simulation-nightly-run:
@@ -12,16 +11,21 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
 
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Build backend
         run: pnpm --filter tenant_portal_backend build
@@ -29,10 +33,10 @@ jobs:
       - name: Start backend service (in background)
         run: |
           pnpm --filter tenant_portal_backend start &
-          sleep 10 # Give server time to start
+          sleep 10
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -42,7 +46,7 @@ jobs:
 
       - name: Upload Simulation Report
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: sim-report-nightly-run-${{ github.run_id }}
           path: reports/sim/property-os-v1.6/

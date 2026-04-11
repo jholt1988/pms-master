@@ -18,6 +18,7 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { RespondRenewalOfferDto, RenewalDecision } from './dto/respond-renewal-offer.dto';
 import { TenantSubmitNoticeDto } from './dto/tenant-submit-notice.dto';
 import { AILeaseRenewalService } from './ai-lease-renewal.service';
+import { safeUserSelect } from '../shared-selects/prisma-selects';
 import { AuditLogService } from '../shared/audit-log.service';
 
 @Injectable()
@@ -734,7 +735,7 @@ export class LeaseService {
         renewalOfferedAt: null, // Only get leases without existing offers
       },
       include: {
-        tenant: true,
+        tenant: { select: safeUserSelect },
         unit: {
           include: { property: true },
         },
@@ -760,7 +761,7 @@ export class LeaseService {
             property: true,
           },
         },
-        tenant: true,
+        tenant: { select: safeUserSelect },
       },
     });
 
