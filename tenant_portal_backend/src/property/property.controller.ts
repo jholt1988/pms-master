@@ -20,6 +20,8 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { Role } from '@prisma/client';
 import { PropertyService } from './property.service';
+import { UnitLifecycleService } from './unit-lifecycle.service';
+import { PropertyRollupService } from './property-rollup.service';
 import { Roles } from '../auth/roles.decorator';
 
 import { RolesGuard } from '../auth/roles.guard';
@@ -46,7 +48,11 @@ interface AuthenticatedRequest extends ExpressRequest {
 @Controller(['properties', 'property'])
 @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
 export class PropertyController {
-  constructor(private readonly propertyService: PropertyService) {}
+  constructor(
+    private readonly propertyService: PropertyService,
+    private readonly unitLifecycleService: UnitLifecycleService,
+    private readonly propertyRollupService: PropertyRollupService,
+  ) {}
 
   @Post()
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
@@ -123,6 +129,31 @@ export class PropertyController {
   @Roles('PROPERTY_MANAGER', 'OWNER')
   getPropertyById(@Param('id', ParseUUIDPipe) id: string, @OrgId() orgId: string) {
     return this.propertyService.getPropertyById(id, orgId);
+  }
+
+  @Get(':id/rollup')
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles('PROPERTY_MANAGER', 'OWNER')
+  getPropertyRollup(@Param('id', ParseUUIDPipe) id: string, @OrgId() orgId: string) {
+    return this.propertyRollupService.getPropertyRollup(id, orgId);
+  }
+
+  @Get('units/:unitId/rollup')
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles('PROPERTY_MANAGER', 'OWNER')
+  getUnitRollup(@Param('unitId', ParseUUIDPipe) unitId: string, @OrgId() orgId: string) {
+    return this.propertyRollupService.getUnitRollup(unitId, orgId);
+  }
+
+  @Post('units/:unitId/transition')
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles('PROPERTY_MANAGER')
+  transitionUnitState(
+    @Param('unitId', ParseUUIDPipe) unitId: string,
+    @Body('status') status: any,
+    @OrgId() orgId: string,
+  ) {
+    return this.unitLifecycleService.transitionState(unitId, status, orgId);
   }
 
   @Get(':id/marketing')

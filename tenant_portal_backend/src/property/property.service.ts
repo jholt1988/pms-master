@@ -97,7 +97,7 @@ export class PropertyService {
     }
   }
 
-  async createUnit(propertyId: string, dto: { name: string; unitNumber?: string; status?: 'ACTIVE' | 'MANAGED' | 'ARCHIVED'; bedrooms?: number; bathrooms?: number; squareFeet?: number; hasParking?: boolean; hasLaundry?: boolean; hasBalcony?: boolean; hasAC?: boolean; isFurnished?: boolean; petsAllowed?: boolean; }, orgId: string) {
+  async createUnit(propertyId: string, dto: { name: string; unitNumber?: string; status?: 'VACANT' | 'OCCUPIED' | 'TURNING' | 'LISTED' | 'APPLIED' | 'APPROVED' | 'LEASED' | 'DELINQUENT' | 'UNDER_REPAIR' | 'RENEWAL_DUE'; bedrooms?: number; bathrooms?: number; squareFeet?: number; hasParking?: boolean; hasLaundry?: boolean; hasBalcony?: boolean; hasAC?: boolean; isFurnished?: boolean; petsAllowed?: boolean; }, orgId: string) {
     // Verify property exists
     const property = await this.prisma.property.findFirst({
       where: { id: propertyId, organizationId: orgId },
@@ -113,7 +113,7 @@ export class PropertyService {
           propertyId,
           name: dto.name,
           unitNumber: dto.unitNumber,
-          status: dto.status ?? 'MANAGED',
+          status: dto.status ?? 'VACANT',
           bedrooms: dto.bedrooms,
           bathrooms: dto.bathrooms,
           squareFeet: dto.squareFeet,

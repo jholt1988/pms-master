@@ -167,13 +167,11 @@ export const DockNavigation: React.FC = () => {
     // Property Manager / Admin navigation items - Co-Pilot primary
     return [
       { label: 'Briefing', path: '/briefing', icon: LayoutDashboard },
-      { label: 'Payments', path: '/payments', icon: Wallet },
-      { label: 'Screening', path: '/screening', icon: Users },
-      { label: 'Leasing', path: '/leasing', icon: Home },
-      { label: 'Repairs', path: '/repairs', icon: Wrench },
-      { label: 'Renewals', path: '/renewals', icon: FileSignature },
-      { label: 'Financials', path: '/financials', icon: BookOpen },
-      { label: 'Messages', path: '/messaging', icon: MessageSquare },
+      { label: 'Portfolio', path: '/portfolio', icon: Building2 },
+      { label: 'Operations', path: '/operations', icon: Wrench },
+      { label: 'Financials', path: '/financials', icon: Wallet },
+      { label: 'Calendar', path: '/schedule', icon: Calendar },
+      { label: 'Documents', path: '/documents', icon: FileText },
     ];
   };
   

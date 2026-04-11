@@ -401,8 +401,8 @@ importers:
         specifier: ^6.19.2
         version: 6.19.3(prisma@6.19.2)(typescript@5.9.3)
       '@propertyos/mil-client':
-        specifier: file:..\packages\mil-client
-        version: file:packages/mil-client
+        specifier: workspace:*
+        version: link:../packages/mil-client
       '@sentry/nestjs':
         specifier: ^10.25.0
         version: 10.47.0(@nestjs/common@11.1.18)(@nestjs/core@11.1.18)
@@ -22615,12 +22615,3 @@ packages:
 
   /zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
-
-  file:packages/mil-client:
-    resolution: {directory: packages/mil-client, type: directory}
-    name: '@propertyos/mil-client'
-    dependencies:
-      axios: 1.14.0
-    transitivePeerDependencies:
-      - debug
-    dev: false
