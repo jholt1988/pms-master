@@ -4,6 +4,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { CryptoService } from '../mil/crypto.service';
 import { KeyringService } from '../mil/keyring.service';
 import { PrismaModule } from '../prisma/prisma.module';
+import { AuditLogController } from './audit-log.controller';
 import { AuditLogListener } from './audit-log.listener';
 import { AuditLogProcessor } from './audit-log.processor';
 import { AuditLogService } from './audit-log.service';
@@ -32,6 +33,7 @@ import { AuditLogService } from './audit-log.service';
       },
     }),
   ],
+  controllers: [AuditLogController],
   providers: [
     AuditLogService,
     CryptoService,
