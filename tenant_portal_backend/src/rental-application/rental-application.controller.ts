@@ -156,6 +156,13 @@ export class RentalApplicationController {
     return this.rentalApplicationService.convertApprovedApplicationToLease(Number(id), req.user, body, orgId);
   }
 
+  @Get(':id/policy-evaluation')
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async getPolicyEvaluation(@Param('id') id: string, @OrgId() orgId?: string) {
+    return this.rentalApplicationService.getPolicyEvaluation(Number(id), orgId);
+  }
+
   @Post(':id/ai-review')
   @HttpCode(200)
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
