@@ -676,6 +676,31 @@ export class RentalApplicationService {
       }
     }
 
+    if (dto.action === RentalApplicationReviewAction.CONDITIONAL_APPROVE) {
+      const condTerms = [
+        dto.requiresCosigner ? 'Cosigner required' : null,
+        dto.conditionalDeposit != null ? `Required deposit: $${dto.conditionalDeposit}` : null,
+        dto.note?.trim() ?? null,
+      ].filter(Boolean).join('; ');
+
+      await this.prisma.rentalApplication.update({
+        where: { id: applicationId },
+        data: {
+          status: ApplicationStatus.CONDITIONALLY_APPROVED,
+          decisionReasonCode: null,
+          decisionNotes: condTerms || null,
+          decisionedAt: new Date(),
+        },
+      });
+
+      await this.addNote(
+        applicationId,
+        { body: `Conditionally approved. Terms: ${condTerms || 'See conditions.'}` },
+        actor,
+        orgId,
+      );
+    }
+
     if (dto.action === RentalApplicationReviewAction.DENY) {
       if (!dto.reasonCode) {
         throw new BadRequestException('reasonCode is required for denial actions');
