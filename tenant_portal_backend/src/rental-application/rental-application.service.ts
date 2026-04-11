@@ -1072,6 +1072,85 @@ export class RentalApplicationService {
     return createdLease;
   }
 
+  /**
+   * Returns a structured policy evaluation for the keyring-os screening workspace.
+   * Maps the existing calculateScreening logic to the PolicyEvaluation contract.
+   */
+  async getPolicyEvaluation(id: number, orgId?: string) {
+    const application = await this.prisma.rentalApplication.findFirst({
+      where: { id, ...(orgId ? { property: { organizationId: orgId } } : {}) },
+      include: { unit: { include: { lease: true } } },
+    });
+
+    if (!application) {
+      throw new Error('Rental application not found');
+    }
+
+    const rentAmount = Number(application.unit?.lease?.rentAmount ?? 0);
+    const income = Number(application.income ?? 0);
+    const creditScore = application.creditScore ?? null;
+    const incomeRatio = rentAmount > 0 ? income / rentAmount : 0;
+
+    const creditPassed = creditScore !== null ? creditScore >= 620 : false;
+    const incomePassed = incomeRatio >= 4;
+    // Eviction history: use screeningReasons as a proxy (no dedicated field).
+    // screeningReasons is a Prisma JsonValue so we cast to string[] safely.
+    const reasons = Array.isArray(application.screeningReasons)
+      ? (application.screeningReasons as string[])
+      : [];
+    const evictionPassed = !reasons.some((r) =>
+      typeof r === 'string' && r.toLowerCase().includes('eviction'),
+    );
+
+    const failCount = [creditPassed, incomePassed, evictionPassed].filter((p) => !p).length;
+    const verdict: 'approve' | 'conditional' | 'deny' =
+      failCount === 0 ? 'approve' : failCount === 1 ? 'conditional' : 'deny';
+
+    const requiredDeposit = verdict === 'conditional' ? Math.round(rentAmount * 1.5) : rentAmount;
+    const requiresCosigner = verdict === 'conditional' && !incomePassed;
+
+    return {
+      applicationId: String(id),
+      verdict,
+      criteria: [
+        {
+          rule: 'credit_score',
+          passed: creditPassed,
+          actual: creditScore !== null ? String(creditScore) : 'Not provided',
+          threshold: '620',
+          explanation: creditScore !== null
+            ? creditScore >= 620
+              ? `Credit score ${creditScore} meets minimum threshold of 620.`
+              : `Credit score ${creditScore} is below the minimum threshold of 620.`
+            : 'No credit score on file. Manual review required.',
+        },
+        {
+          rule: 'eviction_history',
+          passed: evictionPassed,
+          actual: evictionPassed ? 'None found' : 'Eviction on record',
+          threshold: 'No recent evictions',
+          explanation: evictionPassed
+            ? 'No eviction history detected in screening data.'
+            : 'Eviction history detected. Policy requires no evictions within 7 years.',
+        },
+        {
+          rule: 'income_ratio',
+          passed: incomePassed,
+          actual: `${incomeRatio.toFixed(2)}x`,
+          threshold: '4x',
+          explanation: incomePassed
+            ? `Monthly income $${income.toLocaleString()} is ${incomeRatio.toFixed(2)}x the rent of $${rentAmount.toLocaleString()}.`
+            : `Monthly income $${income.toLocaleString()} is only ${incomeRatio.toFixed(2)}x the rent of $${rentAmount.toLocaleString()}. Minimum is 4x.`,
+        },
+      ],
+      conditionalTerms: verdict === 'conditional'
+        ? { requiredDeposit, requiresCosigner }
+        : undefined,
+      overrideAllowed: true,
+      confidence: creditScore !== null ? 0.9 : 0.7,
+    };
+  }
+
   async getAiReview(applicationId: number, orgId?: string) {
     const application = await this.getApplicationById(applicationId, orgId);
     if (!application) {

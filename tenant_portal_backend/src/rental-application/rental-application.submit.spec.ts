@@ -1,10 +1,12 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { Role } from '@prisma/client';
+import { getQueueToken } from '@nestjs/bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { SecurityEventsService } from '../security-events/security-events.service';
 import { AuditLogService } from '../shared/audit-log.service';
 import { ScheduleService } from '../schedule/schedule.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { ApplicationLifecycleService } from './application-lifecycle.service';
 import { RentalApplicationAiService } from './rental-application.ai.service';
 import { RentalApplicationService } from './rental-application.service';
@@ -35,6 +37,8 @@ describe('RentalApplicationService submitApplication hardening', () => {
         { provide: RentalApplicationAiService, useValue: {} },
         { provide: AuditLogService, useValue: { record: jest.fn() } },
         { provide: ScheduleService, useValue: {} },
+        { provide: NotificationsService, useValue: { sendNotification: jest.fn() } },
+        { provide: getQueueToken('ai-screening'), useValue: { add: jest.fn() } },
       ],
     }).compile();
 
