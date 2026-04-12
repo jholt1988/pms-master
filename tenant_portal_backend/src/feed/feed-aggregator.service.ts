@@ -164,17 +164,25 @@ export class FeedAggregatorService {
   }
 
   private mapActions(rawActions: unknown): CanonicalFeedAction[] {
-    if (!Array.isArray(rawActions)) {
+    const actionList = Array.isArray(rawActions)
+      ? rawActions
+      : rawActions && typeof rawActions === 'object'
+        ? [rawActions]
+        : [];
+
+    if (actionList.length === 0) {
       return [];
     }
 
-    return rawActions.flatMap((action: any, index: number) => {
+    return actionList.flatMap((action: any, index: number) => {
       if (!action || typeof action !== 'object') {
         return [];
       }
 
-      const type = action.type === 'mutation' ? 'mutation' : 'navigation';
       const href = action.href ?? action.viewUrl ?? action.resolveUrl;
+      const type = action.type === 'mutation' || (!href && action.intent)
+        ? 'mutation'
+        : 'navigation';
 
       return [{
         id: action.id ?? `${type}-${index}`,
@@ -349,8 +357,19 @@ export class FeedAggregatorService {
         summary: `Remaining balance of $${payload.newBalance}. Previous notice voided.`,
         evidence: payload,
         actions: [
-          { label: 'Issue New 3-Day Notice', intent: 'send_late_notice', variant: 'destructive' },
-          { label: 'Set Promise to Pay', intent: 'promise_to_pay', variant: 'secondary' }
+          {
+            type: 'mutation',
+            label: 'Issue New 3-Day Notice',
+            intent: 'send_3_day_notice',
+            variant: 'destructive',
+            requiresConfirm: true,
+          },
+          {
+            type: 'mutation',
+            label: 'Set Promise to Pay',
+            intent: 'promise_to_pay',
+            variant: 'secondary',
+          },
         ],
         roleAccess: ['property_manager', 'admin'],
         tenantId: payload.tenantId
