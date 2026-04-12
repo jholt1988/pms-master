@@ -14,6 +14,7 @@ describe('PaymentsController', () => {
   const mockPaymentsService = {
     createInvoice: jest.fn(),
     getInvoicesForUser: jest.fn(),
+    createStripeCheckoutSession: jest.fn(),
     createPayment: jest.fn(),
     getPaymentsForUser: jest.fn(),
     getOperationalLedgerAccount: jest.fn(),
@@ -179,6 +180,38 @@ describe('PaymentsController', () => {
 
       await expect(controller.getInvoices(mockRequest, 'invalid')).rejects.toThrow(BadRequestException);
       expect(service.getInvoicesForUser).toHaveBeenCalledWith('1', Role.TENANT, 'invalid', undefined);
+    });
+  });
+
+  describe('createStripeCheckoutSession', () => {
+    it('should return the canonical checkout session response shape', async () => {
+      const dto = {
+        invoiceId: 42,
+        successUrl: 'https://app.example.com/payments?success=1',
+        cancelUrl: 'https://app.example.com/payments?cancel=1',
+      };
+
+      const mockRequest = {
+        user: {
+          userId: 'tenant-1',
+          role: Role.TENANT,
+        },
+      } as any;
+
+      mockPaymentsService.createStripeCheckoutSession.mockResolvedValue({
+        checkoutUrl: 'https://checkout.stripe.test/session_123',
+        sessionId: 'cs_test_123',
+        invoiceId: 42,
+      });
+
+      const result = await controller.createStripeCheckoutSession(dto as any, mockRequest);
+
+      expect(result).toEqual({
+        checkoutUrl: 'https://checkout.stripe.test/session_123',
+        sessionId: 'cs_test_123',
+        invoiceId: 42,
+      });
+      expect(service.createStripeCheckoutSession).toHaveBeenCalledWith(dto, mockRequest.user, undefined);
     });
   });
 

@@ -6,6 +6,13 @@ import { PaymentsService } from '../payments/payments.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MockAuthGuard } from '../auth/mock-auth.guard';
 
+/**
+ * Compatibility-only legacy feed action controller.
+ *
+ * Active admin feed mutations now go through direct domain routes.
+ * Keep this surface only as a temporary shim for older callers until
+ * compatibility usage is verified to be gone, then remove it.
+ */
 @Controller('api/v2/feed')
 @UseGuards(MockAuthGuard)
 export class FeedActionController {
