@@ -9,11 +9,15 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { LeaseAbstractionService } from './lease-abstraction.service';
 
 @Controller('lease-abstraction')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@Roles('PROPERTY_MANAGER', 'ADMIN')
 export class LeaseAbstractionController {
   constructor(private readonly abstractionService: LeaseAbstractionService) {}
 

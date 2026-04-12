@@ -9,11 +9,15 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { ContractorBiddingService } from './contractor-bidding.service';
 
 @Controller('contractor-bidding')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@Roles('PROPERTY_MANAGER', 'ADMIN')
 export class ContractorBiddingController {
   constructor(private readonly biddingService: ContractorBiddingService) {}
 

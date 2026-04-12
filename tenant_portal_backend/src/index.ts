@@ -11,27 +11,27 @@ import helmet from 'helmet';
 import { GlobalExceptionFilter } from './global-exception.filter';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from '@nestjs/common';
-import * as compression from 'compression';
+import compression from 'compression';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
-  
+
   // HTTP compression
   app.use(compression());
-  
+
   // Security Headers
   app.use(helmet());
-  
+
   // CORS Configuration - restrict to specific origins in production
   app.enableCors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+    origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3003'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
     exposedHeaders: ['X-Request-ID'],
   });
-  
+
   // Request size limits + raw body capture (for Stripe signature verification)
   app.use(require('express').json({
     limit: '1mb',
@@ -42,7 +42,7 @@ async function bootstrap() {
     },
   }));
   app.use(require('express').urlencoded({ limit: '1mb', extended: true }));
-  
+
   const globalPrefix = 'api';
   app.setGlobalPrefix(globalPrefix, {
     exclude: [
@@ -59,24 +59,24 @@ async function bootstrap() {
       'webhooks/stripe',
     ],
   });
-  
+
   // Enhanced validation with sanitization
-  app.useGlobalPipes(new ValidationPipe({ 
-    whitelist: true, 
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true,
     transform: true,
     forbidNonWhitelisted: true,
     transformOptions: {
       enableImplicitConversion: true,
     },
   }));
-  
+
   // Global exception filter with Sentry integration
   app.useGlobalFilters(new GlobalExceptionFilter());
-  
+
   // Performance monitoring middleware (P0-005)
   // Note: PerformanceMiddleware is registered in MonitoringModule
   // and can be accessed via dependency injection in controllers
-  
+
   // Swagger API Documentation — only enable in explicitly set development mode
   const enableSwagger = process.env.NODE_ENV === 'development' || process.env.ENABLE_SWAGGER === 'true';
   if (enableSwagger) {
@@ -120,7 +120,7 @@ async function bootstrap() {
 
     logger.log('API Documentation available at http://localhost:3001/api/docs');
   }
-  
+
   app.enableShutdownHooks();
 
   const port = Number(process.env.PORT) || 3001;

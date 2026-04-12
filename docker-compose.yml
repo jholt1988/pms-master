@@ -82,6 +82,8 @@ services:
     command: >
       sh -c "npx prisma migrate deploy --schema=./prisma/schema.prisma &&
       node dist/tenant_portal_backend/src/index.js"
+    volumes:
+      - backend_data:/app/tenant_portal_backend  
 
   workflow-engine:
     build:
@@ -189,4 +191,5 @@ volumes:
   rabbitmq_data:
   prometheus_data:
   grafana_data:
+  backend_data:
 

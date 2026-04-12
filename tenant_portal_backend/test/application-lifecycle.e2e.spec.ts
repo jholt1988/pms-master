@@ -4,7 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { TestDataFactory } from './factories';
-import { ApplicationStatus, Role } from '@prisma/client';
+import { ApplicationStatus, OrgRole, Role } from '@prisma/client';
 import { resetDatabase } from './utils/reset-database';
 
 describe('Application Lifecycle API (e2e)', () => {
@@ -14,6 +14,7 @@ describe('Application Lifecycle API (e2e)', () => {
   let propertyManagerToken: string;
   let tenantUser: any;
   let propertyManager: any;
+  let organization: any;
   let property: any;
   let unit: any;
 
@@ -46,6 +47,20 @@ describe('Application Lifecycle API (e2e)', () => {
       }),
     });
 
+    organization = await prisma.organization.create({
+      data: {
+        name: 'Test Org',
+      },
+    });
+
+    await prisma.userOrganization.create({
+      data: {
+        userId: propertyManager.id,
+        organizationId: organization.id,
+        role: OrgRole.ADMIN,
+      },
+    });
+
     // Login to get tokens
     const tenantLogin = await request(app.getHttpServer())
       .post('/auth/login')
@@ -65,7 +80,9 @@ describe('Application Lifecycle API (e2e)', () => {
 
     // Create property and unit
     property = await prisma.property.create({
-      data: TestDataFactory.createProperty(),
+      data: TestDataFactory.createProperty({
+        organizationId: organization.id,
+      }),
     });
 
     unit = await prisma.unit.create({
@@ -277,6 +294,17 @@ describe('Application Lifecycle API (e2e)', () => {
 
       expect(screeningStarted).toBeDefined();
       expect(screeningCompleted).toBeDefined();
+    });
+
+    it('should return policy evaluation for screening workspace', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/rental-applications/${applicationId}/policy-evaluation`)
+        .set('Authorization', `Bearer ${propertyManagerToken}`)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('applicationId', String(applicationId));
+      expect(response.body).toHaveProperty('verdict');
+      expect(Array.isArray(response.body.criteria)).toBe(true);
     });
   });
 
