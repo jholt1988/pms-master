@@ -112,7 +112,7 @@ async function buildFallbackBriefing(token: string): Promise<BriefingData> {
 
 export async function fetchPolicyEvaluation(token: string, applicationId: string): Promise<PolicyEvaluation> {
   try {
-    return await apiFetch(`/screening/${applicationId}/policy-evaluation`, opts(token));
+    return await apiFetch(`/rental-applications/${applicationId}/policy-evaluation`, opts(token));
   } catch {
     const app = await apiFetch(`/rental-applications/${applicationId}`, opts(token));
     return buildPolicyEvaluationFromApp(app);
