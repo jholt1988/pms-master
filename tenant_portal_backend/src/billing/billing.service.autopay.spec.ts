@@ -5,6 +5,8 @@ describe('BillingService autopay state machine', () => {
   const prisma: any = {
     $queryRaw: jest.fn(),
     autopayEnrollment: { findMany: jest.fn() },
+    lease: { findUnique: jest.fn(), findFirst: jest.fn() },
+    paymentMethod: { findUnique: jest.fn() },
     paymentAttempt: {
       create: jest.fn(),
       findUniqueOrThrow: jest.fn(),
@@ -99,5 +101,30 @@ describe('BillingService autopay state machine', () => {
         data: expect.objectContaining({ status: 'NEEDS_AUTH' }),
       }),
     );
+  });
+
+  it('returns the tenant autopay contract as { leaseId, enrollment }', async () => {
+    const service = new BillingService(prisma, paymentsService, securityEvents, stripeService);
+
+    prisma.lease.findUnique.mockResolvedValueOnce({
+      id: 'lease-1',
+      autopayEnrollment: {
+        id: 11,
+        leaseId: 'lease-1',
+        paymentMethodId: 77,
+        active: true,
+        paymentMethod: { id: 77, last4: '4242' },
+      },
+    });
+
+    await expect(service.getAutopayForTenant('tenant-1')).resolves.toEqual({
+      leaseId: 'lease-1',
+      enrollment: expect.objectContaining({
+        id: 11,
+        leaseId: 'lease-1',
+        paymentMethodId: 77,
+        active: true,
+      }),
+    });
   });
 });
