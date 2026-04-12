@@ -66,6 +66,7 @@ import { CapexForecastingModule } from './capex-forecasting/capex-forecasting.mo
 import { LeaseAbstractionModule } from './lease-abstraction/lease-abstraction.module';
 import { TenantModule } from './tenant/tenant.module';
 import { AuditLogModule } from './shared/audit-log.module';
+import { FeedModule } from './feed/feed.module';
 
 
 const rateLimitEnabled =
@@ -170,6 +171,7 @@ const rateLimitProviders = rateLimitEnabled
     CapexForecastingModule,
     LeaseAbstractionModule,
     TenantModule,
+    FeedModule,
   ],
   controllers: [AppController],
   providers: [

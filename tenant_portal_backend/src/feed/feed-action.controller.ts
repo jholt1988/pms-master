@@ -19,7 +19,7 @@ export class FeedActionController {
   @Post(':id/action')
   async executeAction(@Param('id') id: string, @Body('intent') intent: string, @Req() req) {
     // 1. Extract context from the deterministic ID (e.g., payments_rent_delinquent_1234)
-    const userId = req.user.userId;
+    const userId = req.user?.userId ?? req.user?.id;
     const [domain, type, entityId] = id.split('_');
     let actionResult;
 
@@ -59,6 +59,6 @@ export class FeedActionController {
     message: actionResult.message,
   });
 
-return {success: true, message: `Action ${intent} executed ${actionResult.success ? 'successfully' : 'failed'}   for ${entityId}`};
+return actionResult;
   }
 }
