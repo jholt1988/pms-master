@@ -1,9 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { normalizeAppRole, roleAliasesForQuery } from '../auth/app-role';
 import { generateSignalId } from './utils/feed-id-generator';
 
-type CanonicalUserRole = 'admin' | 'owner' | 'property_manager' | 'leasing' | 'maintenance';
+type CanonicalUserRole = Role;
 
 interface CanonicalFeedAction {
   id: string;
@@ -42,7 +44,7 @@ export class FeedAggregatorService {
 
   async getFeedForRole(role: string, limit = 20): Promise<CanonicalFeedResponse> {
     const canonicalRole = this.normalizeRole(role);
-    const roleAliases = this.getRoleAliases(canonicalRole);
+    const roleAliases = roleAliasesForQuery(canonicalRole);
 
     const items = await this.prisma.feedItem.findMany({
       where: {
@@ -61,54 +63,7 @@ export class FeedAggregatorService {
   }
 
   private normalizeRole(role: string | undefined): CanonicalUserRole {
-    switch ((role ?? '').toString().trim().toLowerCase()) {
-      case 'admin':
-      case 'administrator':
-        return 'admin';
-      case 'owner':
-        return 'owner';
-      case 'leasing':
-        return 'leasing';
-      case 'maintenance':
-        return 'maintenance';
-      case 'property_manager':
-      case 'property-manager':
-      case 'property manager':
-      case 'pm':
-      case 'propertymanager':
-      case 'property_managers':
-      default:
-        return 'property_manager';
-    }
-  }
-
-  private getRoleAliases(role: CanonicalUserRole): string[] {
-    const aliases = new Set<string>();
-    aliases.add(role);
-    aliases.add(role.toUpperCase());
-
-    if (role === 'property_manager') {
-      aliases.add('pm');
-      aliases.add('PROPERTY_MANAGER');
-    }
-
-    if (role === 'admin') {
-      aliases.add('ADMIN');
-    }
-
-    if (role === 'owner') {
-      aliases.add('OWNER');
-    }
-
-    if (role === 'leasing') {
-      aliases.add('LEASING');
-    }
-
-    if (role === 'maintenance') {
-      aliases.add('MAINTENANCE');
-    }
-
-    return [...aliases];
+    return normalizeAppRole(role);
   }
 
   private toCanonicalFeedItem(item: any): CanonicalFeedItem {
