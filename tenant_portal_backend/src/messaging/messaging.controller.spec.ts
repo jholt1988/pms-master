@@ -55,6 +55,49 @@ describe('MessagingController', () => {
     expect(result).toEqual({ totalRecipients: 2 });
   });
 
+  it('returns bare-array conversations for v1 callers', async () => {
+    const conversations = [{ id: 1, subject: 'Hi', updatedAt: '2026-04-13T00:00:00.000Z' }];
+    mockMessagingService.getConversations.mockResolvedValue({
+      conversations,
+      pagination: { page: 1, limit: 20, total: 1, pages: 1 },
+    });
+    const res = { setHeader: jest.fn() } as any;
+
+    const result = await controller.getConversations(
+      { user: { userId: 'tenant-1' } } as any,
+      {} as any,
+      { headers: {} } as any,
+      res,
+    );
+
+    expect(result).toEqual(conversations);
+    expect(res.setHeader).toHaveBeenCalledWith('X-API-Version', '1');
+  });
+
+  it('returns envelope conversations for v2 callers', async () => {
+    const conversations = [{ id: 1, subject: 'Hi', updatedAt: '2026-04-13T00:00:00.000Z' }];
+    mockMessagingService.getConversations.mockResolvedValue({
+      conversations,
+      pagination: { page: 2, limit: 10, total: 11, pages: 2 },
+    });
+    const res = { setHeader: jest.fn() } as any;
+
+    const result = await controller.getConversations(
+      { user: { userId: 'tenant-1' } } as any,
+      { page: 2, limit: 10 } as any,
+      { headers: { 'x-api-version': '2' } } as any,
+      res,
+    );
+
+    expect(result).toEqual({
+      data: conversations,
+      pagination: { page: 2, limit: 10, totalItems: 11, totalPages: 2 },
+      meta: { serverTime: expect.any(String) },
+    });
+    expect(res.setHeader).toHaveBeenCalledWith('X-API-Version', '2');
+    expect(res.setHeader).toHaveBeenCalledWith('Vary', 'X-API-Version');
+  });
+
   it('queues bulk messages via the bulk service', async () => {
     mockBulkMessagingService.queueBulkMessage.mockResolvedValue({ id: 9 });
     const dto = { title: 'Test', body: 'Hi' } as any;
