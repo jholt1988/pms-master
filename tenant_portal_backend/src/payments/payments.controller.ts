@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, UseGuards, Request, Query, Param, Optional
 import { AuthGuard } from '@nestjs/passport';
 import { PaymentsService } from './payments.service';
 import { AIPaymentMetricsService } from './ai-payment-metrics.service';
-import { Invoice, Payment, Role } from '@prisma/client';
+import { Invoice, LeaseNoticeDeliveryMethod, Payment, Role } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
@@ -17,7 +17,7 @@ import { CreateManualChargeDto } from './dto/create-manual-charge.dto';
 import { VoidManualChargeDto } from './dto/void-manual-charge.dto';
 import { UpdateDelinquencyPriorityConfigDto } from './dto/update-delinquency-priority-config.dto';
 import { IssueDelinquencyNoticeDto } from './dto/issue-delinquency-notice.dto';
-import { ResolveDelinquencyLegalHoldDto } from './dto/resolve-delinquency-legal-hold.dto';
+import { DelinquencyResolutionMode, ResolveDelinquencyLegalHoldDto } from './dto/resolve-delinquency-legal-hold.dto';
 import { ReferDelinquencyAttorneyDto } from './dto/refer-delinquency-attorney.dto';
 import { RecordCourtDateDto } from './dto/record-court-date.dto';
 import { Request as ExpressRequest } from 'express';
@@ -182,6 +182,32 @@ export class PaymentsController {
     return this.paymentsService.issueDelinquencyNotice(dto, req.user.userId, orgId);
   }
 
+  @Post('delinquency/by-payment/:paymentId/issue-notice')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async issueDelinquencyNoticeByPaymentId(
+    @Param('paymentId') paymentId: string,
+    @Body() body: { intent?: string; deliveryMethod?: LeaseNoticeDeliveryMethod; message?: string },
+    @Request() req: AuthenticatedRequest,
+    @OrgId() orgId: string,
+  ) {
+    const intent = body?.intent ?? 'send_late_notice';
+    const defaultMessage =
+      intent === 'send_3_day_notice'
+        ? 'Three-day delinquency notice issued from admin feed action.'
+        : 'Late notice issued from admin feed action.';
+
+    return this.paymentsService.issueDelinquencyNoticeByPaymentId(
+      Number(paymentId),
+      {
+        deliveryMethod: body?.deliveryMethod ?? LeaseNoticeDeliveryMethod.PRINT,
+        approvalConfirmed: true,
+        message: body?.message ?? defaultMessage,
+      },
+      req.user.userId,
+      orgId,
+    );
+  }
+
   @Post('delinquency/resolve-legal-hold')
   @Roles('PROPERTY_MANAGER', 'ADMIN')
   async resolveDelinquencyLegalHold(
@@ -190,6 +216,25 @@ export class PaymentsController {
     @OrgId() orgId: string,
   ) {
     return this.paymentsService.resolveDelinquencyLegalHold(dto, req.user.userId, orgId);
+  }
+
+  @Post('delinquency/by-payment/:paymentId/promise-to-pay')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async setPromiseToPayByPaymentId(
+    @Param('paymentId') paymentId: string,
+    @Body() body: { reason?: string },
+    @Request() req: AuthenticatedRequest,
+    @OrgId() orgId: string,
+  ) {
+    return this.paymentsService.resolveDelinquencyLegalHoldByPaymentId(
+      Number(paymentId),
+      {
+        resolutionMode: DelinquencyResolutionMode.PAYMENT_PLAN,
+        reason: body?.reason ?? 'Promise to pay initiated from admin feed action.',
+      },
+      req.user.userId,
+      orgId,
+    );
   }
 
   @Post('delinquency/refer-attorney')
