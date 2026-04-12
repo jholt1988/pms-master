@@ -108,14 +108,51 @@ describe('Dashboard API (e2e)', () => {
         .expect(200);
 
       expect(response.body).toHaveProperty('leases');
+      expect(Array.isArray(response.body.leases)).toBe(true);
+      expect(response.body).toHaveProperty('summary');
+      expect(response.body.summary).toEqual(
+        expect.objectContaining({
+          activeLeaseId: expect.anything(),
+          currentBalance: expect.any(Number),
+          openMaintenanceCount: expect.any(Number),
+          upcomingEventCount: expect.any(Number),
+        }),
+      );
       expect(response.body).toHaveProperty('maintenanceRequests');
+      expect(Array.isArray(response.body.maintenanceRequests)).toBe(true);
       expect(response.body).toHaveProperty('recentInspections');
+      expect(Array.isArray(response.body.recentInspections)).toBe(true);
+      expect(response.body).toHaveProperty('recentNotifications');
+      expect(Array.isArray(response.body.recentNotifications)).toBe(true);
+      expect(response.body).toHaveProperty('upcomingEvents');
+      expect(Array.isArray(response.body.upcomingEvents)).toBe(true);
     });
 
     it('should require authentication', async () => {
       await request(app.getHttpServer())
         .get('/dashboard/tenant')
         .expect(401);
+    });
+
+    it('should expose the same tenant contract from /tenant/dashboard', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/tenant/dashboard')
+        .set('Authorization', `Bearer ${tenantToken}`)
+        .expect(200);
+
+      expect(Array.isArray(response.body.leases)).toBe(true);
+      expect(response.body.summary).toEqual(
+        expect.objectContaining({
+          activeLeaseId: lease.id,
+          currentBalance: expect.any(Number),
+          openMaintenanceCount: expect.any(Number),
+          upcomingEventCount: expect.any(Number),
+        }),
+      );
+      expect(Array.isArray(response.body.maintenanceRequests)).toBe(true);
+      expect(Array.isArray(response.body.recentInspections)).toBe(true);
+      expect(Array.isArray(response.body.recentNotifications)).toBe(true);
+      expect(Array.isArray(response.body.upcomingEvents)).toBe(true);
     });
   });
 
@@ -134,4 +171,3 @@ describe('Dashboard API (e2e)', () => {
     });
   });
 });
-
