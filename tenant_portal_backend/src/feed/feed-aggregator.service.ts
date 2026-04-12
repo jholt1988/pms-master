@@ -2,9 +2,192 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import { generateSignalId } from './utils/feed-id-generator';
+
+type CanonicalUserRole = 'admin' | 'owner' | 'property_manager' | 'leasing' | 'maintenance';
+
+interface CanonicalFeedAction {
+  id: string;
+  type: 'mutation' | 'navigation';
+  label: string;
+  variant: 'default' | 'primary' | 'secondary' | 'destructive';
+  intent?: string;
+  href?: string;
+  requiresConfirm?: boolean;
+  openInNewTab?: boolean;
+}
+
+interface CanonicalFeedItem {
+  id: string;
+  kind: 'critical_signal' | 'decision' | 'scheduled_event' | 'update';
+  domain: 'payments' | 'leasing' | 'screening' | 'maintenance' | 'calendar';
+  title: string;
+  summary: string;
+  priority: number;
+  timestamp: string;
+  actions: CanonicalFeedAction[];
+  allowedRoles: CanonicalUserRole[];
+  propertyId?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CanonicalFeedResponse {
+  items: CanonicalFeedItem[];
+  role: CanonicalUserRole;
+  generatedAt: string;
+}
+
 @Injectable()
 export class FeedAggregatorService {
   constructor(private prisma: PrismaService) { }
+
+  async getFeedForRole(role: string, limit = 20): Promise<CanonicalFeedResponse> {
+    const canonicalRole = this.normalizeRole(role);
+    const roleAliases = this.getRoleAliases(canonicalRole);
+
+    const items = await this.prisma.feedItem.findMany({
+      where: {
+        isDismissed: false,
+        OR: roleAliases.map((alias) => ({ roleAccess: { has: alias } })),
+      },
+      orderBy: [{ priorityScore: 'desc' }, { createdAt: 'desc' }],
+      take: Number(limit),
+    });
+
+    return {
+      items: items.map((item) => this.toCanonicalFeedItem(item)),
+      role: canonicalRole,
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  private normalizeRole(role: string | undefined): CanonicalUserRole {
+    switch ((role ?? '').toString().trim().toLowerCase()) {
+      case 'admin':
+      case 'administrator':
+        return 'admin';
+      case 'owner':
+        return 'owner';
+      case 'leasing':
+        return 'leasing';
+      case 'maintenance':
+        return 'maintenance';
+      case 'property_manager':
+      case 'property-manager':
+      case 'property manager':
+      case 'pm':
+      case 'propertymanager':
+      case 'property_managers':
+      default:
+        return 'property_manager';
+    }
+  }
+
+  private getRoleAliases(role: CanonicalUserRole): string[] {
+    const aliases = new Set<string>();
+    aliases.add(role);
+    aliases.add(role.toUpperCase());
+
+    if (role === 'property_manager') {
+      aliases.add('pm');
+      aliases.add('PROPERTY_MANAGER');
+    }
+
+    if (role === 'admin') {
+      aliases.add('ADMIN');
+    }
+
+    if (role === 'owner') {
+      aliases.add('OWNER');
+    }
+
+    if (role === 'leasing') {
+      aliases.add('LEASING');
+    }
+
+    if (role === 'maintenance') {
+      aliases.add('MAINTENANCE');
+    }
+
+    return [...aliases];
+  }
+
+  private toCanonicalFeedItem(item: any): CanonicalFeedItem {
+    const evidence = item?.evidence && typeof item.evidence === 'object' && !Array.isArray(item.evidence)
+      ? item.evidence as Record<string, unknown>
+      : undefined;
+
+    return {
+      id: item.id,
+      kind: this.mapKind(item.type),
+      domain: this.mapDomain(item.domain),
+      title: item.title,
+      summary: item.summary,
+      priority: Math.round(Number(item.priorityScore ?? 0)),
+      timestamp: item.updatedAt?.toISOString?.() ?? item.createdAt?.toISOString?.() ?? new Date().toISOString(),
+      actions: this.mapActions(item.actions),
+      allowedRoles: Array.isArray(item.roleAccess)
+        ? item.roleAccess.map((role: string) => this.normalizeRole(role))
+        : [],
+      propertyId: item.propertyId ?? undefined,
+      metadata: evidence,
+    };
+  }
+
+  private mapKind(type: string | undefined): CanonicalFeedItem['kind'] {
+    const normalized = (type ?? '').toLowerCase();
+    if (normalized.includes('event')) return 'scheduled_event';
+    if (normalized.includes('decision')) return 'decision';
+    if (normalized.includes('critical') || normalized.includes('halt') || normalized.includes('delinquent')) {
+      return 'critical_signal';
+    }
+    return 'update';
+  }
+
+  private mapDomain(domain: string | undefined): CanonicalFeedItem['domain'] {
+    switch ((domain ?? '').toLowerCase()) {
+      case 'payments':
+        return 'payments';
+      case 'screening':
+      case 'rental_application':
+      case 'rental-applications':
+        return 'screening';
+      case 'maintenance':
+      case 'inspection':
+        return 'maintenance';
+      case 'calendar':
+      case 'schedule':
+        return 'calendar';
+      case 'leasing':
+      default:
+        return 'leasing';
+    }
+  }
+
+  private mapActions(rawActions: unknown): CanonicalFeedAction[] {
+    if (!Array.isArray(rawActions)) {
+      return [];
+    }
+
+    return rawActions.flatMap((action: any, index: number) => {
+      if (!action || typeof action !== 'object') {
+        return [];
+      }
+
+      const type = action.type === 'mutation' ? 'mutation' : 'navigation';
+      const href = action.href ?? action.viewUrl ?? action.resolveUrl;
+
+      return [{
+        id: action.id ?? `${type}-${index}`,
+        type,
+        label: action.label ?? (type === 'mutation' ? 'Run action' : 'View details'),
+        variant: action.variant ?? 'default',
+        intent: action.intent,
+        href,
+        requiresConfirm: Boolean(action.requiresConfirm),
+        openInNewTab: Boolean(action.openInNewTab),
+      } satisfies CanonicalFeedAction];
+    });
+  }
 
   async addNoteToItem(
     id: string,
@@ -263,4 +446,3 @@ export class FeedAggregatorService {
   }
 
 }
-
