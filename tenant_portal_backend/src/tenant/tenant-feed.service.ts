@@ -76,8 +76,7 @@ export class TenantFeedService {
   ): Promise<{ items: TenantFeedItem[]; generatedAt: string }> {
     const items: TenantFeedItem[] = [];
 
-    try {
-      const now = new Date();
+    const now = new Date();
 
       // ── Active lease ──────────────────────────────────────────────────────
       const lease = await this.prisma.lease.findFirst({
@@ -345,9 +344,7 @@ export class TenantFeedService {
           navigateTo: `/messages/${msg.conversationId}`,
         });
       }
-    } catch (err) {
-      this.logger.error('Error building tenant feed', err);
-    }
+
 
     const sorted = items.sort((a, b) => b.priority - a.priority).slice(0, 30);
     return { items: sorted, generatedAt: new Date().toISOString() };
