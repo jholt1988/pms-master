@@ -22,6 +22,7 @@
     "build": "tsc",
     "db:seed": "ts-node prisma/seed.ts",
     "db:seed:demo": "ts-node prisma/seed-demo.ts",
+    "db:seed:mock": "ts-node prisma/seed-mock.ts",
     "db:seed:admin": "node prisma/seedAdmin.js",
     "db:seed:real-data": "node prisma/seed-real-data.js",
     "ledger:backfill": "ts-node scripts/backfill-operational-ledger.ts",
@@ -118,7 +119,7 @@
     "class-sanitizer": "^1.0.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
-    "compression": "^1.8.0",
+    "compression": "^1.8.1",
     "cors": "^2.8.5",
     "csurf": "^1.11.0",
     "date-fns": "^4.1.0",
@@ -155,6 +156,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@faker-js/faker": "^10.4.0",
     "@nestjs/testing": "^11.1.9",
     "@types/bcrypt": "^6.0.0",
     "@types/cors": "^2.8.19",
