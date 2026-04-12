@@ -38,6 +38,11 @@ export class FeedController {
 
         return updatedItem;
     }
+
+    @Patch(':id/dismiss')
+    async dismissItem(@Param('id') id: string) {
+        return this.feedService.dismissItem(id);
+    }
     
 
 }

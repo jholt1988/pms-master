@@ -2140,6 +2140,41 @@ export class PaymentsService {
     };
   }
 
+  async issueDelinquencyNoticeByPaymentId(
+    paymentId: number,
+    dto: Omit<IssueDelinquencyNoticeDto, 'leaseId'>,
+    actorId: string,
+    orgId: string,
+  ) {
+    const payment = await this.prisma.payment.findUnique({
+      where: { id: paymentId },
+      include: {
+        invoice: { select: { leaseId: true } },
+        lease: { select: { id: true } },
+      },
+    });
+
+    if (!payment) {
+      throw new NotFoundException(`Payment with ID ${paymentId} not found`);
+    }
+
+    const leaseId = payment.leaseId ?? payment.invoice?.leaseId;
+    if (!leaseId) {
+      throw new BadRequestException(`Payment ${paymentId} is not associated with a lease`);
+    }
+
+    return this.issueDelinquencyNotice(
+      {
+        leaseId,
+        deliveryMethod: dto.deliveryMethod,
+        approvalConfirmed: dto.approvalConfirmed,
+        message: dto.message,
+      },
+      actorId,
+      orgId,
+    );
+  }
+
   async resolveDelinquencyLegalHold(
     dto: ResolveDelinquencyLegalHoldDto,
     actorId: string,
@@ -2250,6 +2285,40 @@ export class PaymentsService {
       outstandingDueCents,
       activePlanExists,
     };
+  }
+
+  async resolveDelinquencyLegalHoldByPaymentId(
+    paymentId: number,
+    dto: Omit<ResolveDelinquencyLegalHoldDto, 'leaseId'>,
+    actorId: string,
+    orgId: string,
+  ) {
+    const payment = await this.prisma.payment.findUnique({
+      where: { id: paymentId },
+      include: {
+        invoice: { select: { leaseId: true } },
+        lease: { select: { id: true } },
+      },
+    });
+
+    if (!payment) {
+      throw new NotFoundException(`Payment with ID ${paymentId} not found`);
+    }
+
+    const leaseId = payment.leaseId ?? payment.invoice?.leaseId;
+    if (!leaseId) {
+      throw new BadRequestException(`Payment ${paymentId} is not associated with a lease`);
+    }
+
+    return this.resolveDelinquencyLegalHold(
+      {
+        leaseId,
+        resolutionMode: dto.resolutionMode,
+        reason: dto.reason,
+      },
+      actorId,
+      orgId,
+    );
   }
 
   async referDelinquencyToAttorney(
@@ -2823,5 +2892,4 @@ export class PaymentsService {
     });
   }
 }
-
 

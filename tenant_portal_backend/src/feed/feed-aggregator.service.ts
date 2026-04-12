@@ -218,6 +218,21 @@ export class FeedAggregatorService {
     });
   }
 
+  async dismissItem(id: string) {
+    const existingItem = await this.prisma.feedItem.findUnique({ where: { id } });
+    if (!existingItem) {
+      throw new NotFoundException('Feed item not found');
+    }
+
+    return this.prisma.feedItem.update({
+      where: { id },
+      data: {
+        isDismissed: true,
+        updatedAt: new Date(),
+      },
+    });
+  }
+
   @OnEvent('payment.delinquent')
   async handleDelinquentPayment(payload: any) {
     // 1. Math: Calculate Priority Score (from our previous model)
