@@ -11,16 +11,7 @@ import { Injectable, NestMiddleware, Logger } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { createHmac } from 'crypto';
-
-// Role mapping: keyring-os sends lowercase 'admin', backend expects 'ADMIN'
-const ROLE_MAP: Record<string, string> = {
-  admin: 'ADMIN',
-  property_manager: 'PROPERTY_MANAGER',
-  pm: 'PROPERTY_MANAGER',
-  owner: 'OWNER',
-  tenant: 'TENANT',
-  operator: 'OPERATOR',
-};
+import { normalizeAppRole } from '../auth/app-role';
 
 function base64url(input: string | Buffer): string {
   const buf = typeof input === 'string' ? Buffer.from(input) : input;
@@ -61,7 +52,7 @@ export class DevMockAuthMiddleware implements NestMiddleware {
 
     // Only inject if mock headers are present AND no real Authorization header exists
     if (mockUserId && mockRole && !req.headers['authorization']) {
-      const normalizedRole = ROLE_MAP[mockRole.toLowerCase()] ?? mockRole.toUpperCase();
+      const normalizedRole = normalizeAppRole(mockRole);
       const secret = this.configService.get<string>('JWT_SECRET') ?? 'dev-jwt-secret-change-me';
       const now = Math.floor(Date.now() / 1000);
 

@@ -2,6 +2,7 @@
 import { Injectable, CanActivate, ExecutionContext, Logger } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AppRole, ROLES_KEY } from './roles.decorator';
+import { normalizeAppRole } from './app-role';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -18,10 +19,10 @@ export class RolesGuard implements CanActivate {
       return true;
     }
     const { user } = context.switchToHttp().getRequest();
-    if (user?.role === 'ADMIN') {
+    const normalizedRole = user?.role ? normalizeAppRole(String(user.role)) : undefined;
+    if (normalizedRole === 'ADMIN') {
       return true;
-    }
-   else if (!user?.role) {
+    } else if (!normalizedRole) {
       this.debug('deny:no-role', requiredRoles, user);
       return false;
     }
@@ -29,9 +30,9 @@ export class RolesGuard implements CanActivate {
     // Admins are allowed to bypass role checks
     
 
-    const allowed = requiredRoles.includes(user.role);
+    const allowed = requiredRoles.includes(normalizedRole);
     if (!allowed) {
-      this.debug('deny:wrong-role', requiredRoles, user);
+      this.debug('deny:wrong-role', requiredRoles, { ...user, role: normalizedRole });
     }
     return allowed;
   }

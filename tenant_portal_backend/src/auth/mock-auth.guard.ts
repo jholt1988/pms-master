@@ -1,14 +1,6 @@
 // src/auth/mock-auth.guard.ts
 import { Injectable, CanActivate, ExecutionContext, Logger } from '@nestjs/common';
-
-const ROLE_MAP: Record<string, string> = {
-  admin: 'ADMIN',
-  property_manager: 'PROPERTY_MANAGER',
-  pm: 'PROPERTY_MANAGER',
-  owner: 'OWNER',
-  tenant: 'TENANT',
-  operator: 'OPERATOR',
-};
+import { normalizeAppRole } from './app-role';
 
 @Injectable()
 export class MockAuthGuard implements CanActivate {
@@ -26,7 +18,7 @@ export class MockAuthGuard implements CanActivate {
     // Read mock headers sent by Next.js, or use defaults
     const mockUserId = request.headers['x-mock-user-id'] || 'dev-admin-uuid-001';
     const rawRole = request.headers['x-mock-role'] || 'ADMIN';
-    const mockRole = ROLE_MAP[String(rawRole).toLowerCase()] ?? String(rawRole).toUpperCase();
+    const mockRole = normalizeAppRole(String(rawRole));
 
     // Inject the fake user object
     request.user = {

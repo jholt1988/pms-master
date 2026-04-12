@@ -48,6 +48,19 @@ describe('MockAuthGuard', () => {
     expect(context.request.user.role).toBe('ADMIN');
   });
 
+  it('maps legacy workspace personas onto canonical auth roles', () => {
+    process.env.NODE_ENV = 'development';
+    const guard = new MockAuthGuard();
+    const context = makeContext({
+      'x-mock-user-id': 'dev-user-3',
+      'x-mock-role': 'leasing',
+    });
+
+    guard.canActivate(context);
+
+    expect(context.request.user.role).toBe('PROPERTY_MANAGER');
+  });
+
   it('denies execution in production', () => {
     process.env.NODE_ENV = 'production';
     const guard = new MockAuthGuard();

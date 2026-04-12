@@ -55,16 +55,19 @@ describe('FeedAggregatorService', () => {
 
     expect(result).toEqual(
       expect.objectContaining({
-        role: 'property_manager',
+        role: 'PROPERTY_MANAGER',
         generatedAt: expect.any(String),
         items: [
           expect.objectContaining({
             id: 'payments_rent_delinquent_42',
             kind: 'critical_signal',
             domain: 'payments',
+            title: 'Rent Payment Delinquent',
+            summary: 'Payment is overdue.',
             priority: 88,
+            propertyId: 'prop-1',
             timestamp: '2026-04-12T01:00:00.000Z',
-            allowedRoles: ['property_manager', 'admin'],
+            allowedRoles: ['PROPERTY_MANAGER', 'ADMIN'],
             metadata: { paymentId: 42 },
             actions: [
               expect.objectContaining({
