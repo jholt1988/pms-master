@@ -5,6 +5,7 @@ import { EmailService } from '../email/email.service';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { TestDataFactory } from '../../test/factories';
 import { AuditLogService } from '../shared/audit-log.service';
+import { createEnhancedEstimateAgent } from './agents/enhanced-estimate-agent';
 import { 
   EstimateStatus, 
   InspectionCondition, 
@@ -668,7 +669,6 @@ describe('EstimateService', () => {
 
     it('should handle AI service errors gracefully', async () => {
       // Mock the enhanced estimate agent to throw an error
-      const { createEnhancedEstimateAgent } = require('./agents/enhanced-estimate-agent');
       createEnhancedEstimateAgent.mockReturnValue({
         generateEstimate: jest.fn().mockRejectedValueOnce(new Error('AI service unavailable'))
       });

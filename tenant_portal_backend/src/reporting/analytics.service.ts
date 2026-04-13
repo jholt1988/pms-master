@@ -54,7 +54,7 @@ export class AnalyticsService {
     const nominalYearlyBump = input.expectedRentIncreaseAmount * 12 * Math.max(1, property.units.length);
 
     const runSim = (years: number) => {
-        let results = [];
+        const results = [];
         for (let i = 0; i < trials; i++) {
            // Vacancy randomized between 2% and 10%
            const vacancyDrag = 1 - (Math.random() * (0.10 - 0.02) + 0.02);

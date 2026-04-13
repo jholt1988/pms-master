@@ -12,6 +12,7 @@ import { GlobalExceptionFilter } from './global-exception.filter';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from '@nestjs/common';
 import compression from 'compression';
+import express from 'express';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -33,7 +34,7 @@ async function bootstrap() {
   });
 
   // Request size limits + raw body capture (for Stripe signature verification)
-  app.use(require('express').json({
+  app.use(express.json({
     limit: '1mb',
     verify: (req: any, _res: any, buf: Buffer) => {
       if (req.originalUrl?.includes('/webhooks/stripe')) {
@@ -41,7 +42,7 @@ async function bootstrap() {
       }
     },
   }));
-  app.use(require('express').urlencoded({ limit: '1mb', extended: true }));
+  app.use(express.urlencoded({ limit: '1mb', extended: true }));
 
   const globalPrefix = 'api';
   app.setGlobalPrefix(globalPrefix, {

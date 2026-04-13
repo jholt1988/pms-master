@@ -966,7 +966,7 @@ export class InspectionService {
       const openaiApiKey = process.env.OPENAI_API_KEY;
       
       if (openaiApiKey) {
-        const OpenAI = require('openai');
+        const { default: OpenAI } = await import('openai');
         const openai = new OpenAI({ apiKey: openaiApiKey });
 
         // Build a prompt with photo URLs and item context
@@ -1053,7 +1053,7 @@ Respond in JSON format:
     let suggestedSeverity = 'MED';
     let suggestedIssueType = 'REPAIR';
     let analysis = 'Based on the uploaded photos, this item shows signs of wear that may require attention.';
-    let recommendedAction = 'Further inspection recommended to determine exact repair scope.';
+    const recommendedAction = 'Further inspection recommended to determine exact repair scope.';
 
     // Category-based heuristics
     if (categoryLower.includes('appliance') || categoryLower.includes('kitchen')) {

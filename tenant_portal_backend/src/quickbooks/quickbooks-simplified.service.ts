@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
-const OAuthClient = require('intuit-oauth');
+import OAuthClient = require('intuit-oauth');
 
 export interface QuickBooksConnection {
   id?: number;

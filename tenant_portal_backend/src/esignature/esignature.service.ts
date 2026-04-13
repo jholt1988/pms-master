@@ -892,8 +892,8 @@ export class EsignatureService {
 
         // Log to file for AI agent retrieval
         try {
-          const fs = require('fs');
-          fs.appendFileSync('debug-auth.log', JSON.stringify(debugInfo, null, 2) + '\n---\n');
+          const { appendFileSync } = await import('fs');
+          appendFileSync('debug-auth.log', JSON.stringify(debugInfo, null, 2) + '\n---\n');
         } catch (e) { console.error('Failed to write debug log', e); }
 
         this.logger.warn(`Authorization failed for envelope ${envelopeId}. User: ${JSON.stringify(user)}, LeaseTenant: ${envelope.lease.tenantId}, UserEmail: ${userEmail}`);
@@ -2379,4 +2379,3 @@ export class EsignatureService {
     return { code: null, message: defaultMessage };
   }
 }
-// @ts-nocheck

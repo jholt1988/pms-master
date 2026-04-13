@@ -139,7 +139,7 @@ export class ChatbotService {
       });
 
       // Get or create session
-      let session = sessionId ? this.getSession(sessionId) : this.createSession(userId);
+      const session = sessionId ? this.getSession(sessionId) : this.createSession(userId);
 
       // Add user message to session
       session.messages.push({
@@ -156,7 +156,15 @@ export class ChatbotService {
       let aiResponse: string;
       let intent: string | undefined;
       let confidence: number | undefined;
-      let orchestrator: PropertyOpsOrchestratorResult | undefined;
+      const orchestrator: PropertyOpsOrchestratorResult = routePropertyOpsOrchestrator({
+        userMessage: message,
+        propertyId: user?.lease?.unit?.propertyId
+          ? String(user.lease.unit.propertyId)
+          : undefined,
+        tenantId: user?.lease?.tenantId ? String(user.lease.tenantId) : undefined,
+        workOrderId: undefined,
+        channel: 'ui',
+      });
       let orchestratorRun: OrchestratorTerminal | undefined;
       const traceId = this.generateTraceId();
 
@@ -179,16 +187,6 @@ export class ChatbotService {
       if (!intent && ragPayload?.intent) {
         intent = ragPayload.intent;
       }
-
-      orchestrator = routePropertyOpsOrchestrator({
-        userMessage: message,
-        propertyId: user?.lease?.unit?.propertyId
-          ? String(user.lease.unit.propertyId)
-          : undefined,
-        tenantId: user?.lease?.tenantId ? String(user.lease.tenantId) : undefined,
-        workOrderId: undefined,
-        channel: 'ui',
-      });
 
       const canRunFullOrchestrator =
         this.propertyOpsOrchestratorEnabled &&

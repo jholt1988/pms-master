@@ -114,7 +114,7 @@ export class AILeaseRenewalService {
   async predictRenewalLikelihood(leaseId: string | number): Promise<RenewalPrediction> {
     const startTime = Date.now();
     let success = false;
-    let renewalProbability = 0;
+    const renewalProbability = 0;
     let error: string | undefined;
 
     const leaseIdStr = this.normalizeLeaseId(leaseId);

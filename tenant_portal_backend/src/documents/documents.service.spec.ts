@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as fsPromises from 'fs/promises';
 import { NotFoundException } from '@nestjs/common';
 import { DocumentCategory } from '@prisma/client';
 import { DocumentsService } from './documents.service';
@@ -52,9 +54,9 @@ describe('DocumentsService tenant lease visibility', () => {
       mimeType: 'application/pdf',
     });
 
-    const fsAccessSpy = jest.spyOn(require('fs/promises'), 'access').mockResolvedValue(undefined as any);
+    const fsAccessSpy = jest.spyOn(fsPromises, 'access').mockResolvedValue(undefined as any);
     const createReadStreamSpy = jest
-      .spyOn(require('fs'), 'createReadStream')
+      .spyOn(fs, 'createReadStream')
       .mockReturnValue({ pipe: jest.fn() } as any);
 
     const result = await service.getFileStream(44, 'tenant-user-id');

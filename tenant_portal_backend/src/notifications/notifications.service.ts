@@ -32,7 +32,7 @@ export class NotificationsService {
     urgency?: 'LOW' | 'MEDIUM' | 'HIGH';
   }) {
     const userIdStr = String(data.userId);
-    let title = data.title;
+    const title = data.title;
     let message = data.message;
     let sendAt = new Date();
     let channel: 'EMAIL' | 'SMS' | 'PUSH' = 'EMAIL';

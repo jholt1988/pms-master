@@ -8,8 +8,9 @@ import {
   DisconnectResult,
   BasicSyncResult,
 } from './quickbooks.types';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const QuickBooks = require('node-quickbooks');
-const OAuthClient = require('intuit-oauth');
+import OAuthClient = require('intuit-oauth');
 
 @Injectable()
 export class QuickBooksMinimalService extends AbstractQuickBooksService {
