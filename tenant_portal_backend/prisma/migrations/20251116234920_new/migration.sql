@@ -4,7 +4,12 @@
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'RentRecommendation') THEN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.tables
+    WHERE table_schema = current_schema()
+      AND table_name = 'RentRecommendation'
+  ) THEN
     -- DropForeignKey
     ALTER TABLE "RentRecommendation" DROP CONSTRAINT IF EXISTS "RentRecommendation_unitId_fkey";
 

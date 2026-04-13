@@ -62,9 +62,10 @@ describe('Inspections list contract (e2e)', () => {
   it('returns inspections/data/items/meta and stays tenant-scoped', async () => {
     const mine = await prisma.unitInspection.create({
       data: {
-        propertyId: property.id,
-        unitId: unit.id,
-        tenantId: tenantUser.id,
+        property: { connect: { id: property.id } },
+        unit: { connect: { id: unit.id } },
+        tenant: { connect: { id: tenantUser.id } },
+        createdBy: { connect: { id: tenantUser.id } },
         type: InspectionType.MOVE_IN,
         status: InspectionStatus.SCHEDULED,
         scheduledDate: new Date(),
@@ -73,9 +74,10 @@ describe('Inspections list contract (e2e)', () => {
 
     await prisma.unitInspection.create({
       data: {
-        propertyId: property.id,
-        unitId: otherUnit.id,
-        tenantId: otherTenant.id,
+        property: { connect: { id: property.id } },
+        unit: { connect: { id: otherUnit.id } },
+        tenant: { connect: { id: otherTenant.id } },
+        createdBy: { connect: { id: otherTenant.id } },
         type: InspectionType.MOVE_OUT,
         status: InspectionStatus.SCHEDULED,
         scheduledDate: new Date(),

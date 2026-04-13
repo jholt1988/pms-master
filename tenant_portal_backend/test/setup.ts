@@ -44,10 +44,13 @@ process.env.DISABLE_WORKFLOW_SCHEDULER = 'true';
 process.env.DISABLE_STRIPE = 'true';
 process.env.STRIPE_SECRET_KEY = 'sk_test_disabled';
 process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test';
+process.env.REDIS_HOST = process.env.REDIS_HOST || 'redis';
+process.env.REDIS_PORT = process.env.REDIS_PORT || '6379';
+process.env.REDIS_URL = process.env.REDIS_URL || `redis://${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`;
 
 // Detect e2e tests by checking if jest-e2e.json config is being used
-const isE2ETest = process.argv.some(arg => arg.includes('jest-e2e.json')) ||
-  process.env.JEST_CONFIG_PATH?.includes('jest-e2e.json') ||
+const isE2ETest = process.argv.some(arg => /jest-e2e.*\.json$/.test(arg)) ||
+  /jest-e2e.*\.json$/.test(process.env.JEST_CONFIG_PATH || '') ||
   // Check if testRegex in current config matches e2e pattern
   (global as any).__JEST_CONFIG__?.testRegex?.toString().includes('e2e');
 

@@ -10,7 +10,7 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1
     FROM information_schema.tables
-    WHERE table_schema = 'public'
+    WHERE table_schema = current_schema()
       AND table_name = 'AssetRiskScore'
   ) THEN
     RETURN;
@@ -20,7 +20,7 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1
     FROM information_schema.columns
-    WHERE table_schema = 'public'
+    WHERE table_schema = current_schema()
       AND table_name = 'AssetRiskScore'
       AND column_name = 'scoredOn'
   ) THEN
@@ -67,7 +67,7 @@ BEGIN
   -- 6) Helpful indexes
   IF NOT EXISTS (
     SELECT 1 FROM pg_indexes
-    WHERE schemaname = 'public'
+    WHERE schemaname = current_schema()
       AND indexname = 'AssetRiskScore_maintenanceAssetId_scoredOn_idx'
   ) THEN
     CREATE INDEX "AssetRiskScore_maintenanceAssetId_scoredOn_idx"
@@ -76,7 +76,7 @@ BEGIN
 
   IF NOT EXISTS (
     SELECT 1 FROM pg_indexes
-    WHERE schemaname = 'public'
+    WHERE schemaname = current_schema()
       AND indexname = 'AssetRiskScore_modelName_modelVersion_scoredOn_idx'
   ) THEN
     CREATE INDEX "AssetRiskScore_modelName_modelVersion_scoredOn_idx"

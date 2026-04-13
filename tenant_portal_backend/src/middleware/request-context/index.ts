@@ -22,8 +22,8 @@ export function getRequestId(): string {
 
 export function createRequestContext(overrides?: Partial<RequestContext>): RequestContext {
   return {
-    requestId: randomUUID(),
-    startTime: Date.now(),
     ...overrides,
+    requestId: overrides?.requestId ?? randomUUID(),
+    startTime: overrides?.startTime ?? Date.now(),
   };
 }
