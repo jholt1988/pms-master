@@ -355,17 +355,66 @@ export class BookkeepingService {
     });
 
     for (const tx of pendingTransactions) {
+      const amount = Math.abs(tx.amountCents) / 100;
+      const confidence = Math.round((tx.categoryConfidence || 0) * 100);
+      const suggestedCategory = tx.category || 'No category suggestion';
       decisions.push({
         id: `fin-cat-${tx.id}`,
         domain: 'financials',
+        type: 'transaction_categorization',
         entityType: 'bookkeeping_transaction',
         entityId: tx.id,
         title: `Categorize: ${tx.description}`,
-        context: `$${(Math.abs(tx.amountCents) / 100).toLocaleString()} on ${new Date(tx.date).toLocaleDateString()}. ${tx.category ? `AI suggests: ${tx.category} (${Math.round((tx.categoryConfidence || 0) * 100)}% confidence)` : 'No category suggestion.'}`,
+        summary: `A bookkeeping transaction needs categorization review before reconciliation can continue.`,
+        context: `$${amount.toLocaleString()} on ${new Date(tx.date).toLocaleDateString()}. ${tx.category ? `AI suggests: ${tx.category} (${confidence}% confidence)` : 'No category suggestion.'}`,
+        reasoning: [
+          `Transaction status is ${tx.status}.`,
+          `Amount is $${amount.toLocaleString()}.`,
+          tx.category ? `AI suggestion is ${tx.category} at ${confidence}% confidence.` : 'There is no AI category suggestion.',
+        ],
+        priority: Math.abs(tx.amountCents) > 50000 ? 90 : 72,
         aiRecommendation: tx.category || undefined,
         actions: [
-          { label: 'Accept Category', endpoint: `/bookkeeping/transactions/${tx.id}/categorize`, method: 'PATCH', body: { category: tx.category }, variant: 'primary' },
-          { label: 'Mark Exception', endpoint: `/bookkeeping/transactions/${tx.id}/exception`, method: 'PATCH', body: { reason: 'Needs manual review' }, variant: 'danger' },
+          {
+            label: 'Accept Category',
+            endpoint: `/bookkeeping/transactions/${tx.id}/categorize`,
+            method: 'PATCH',
+            body: { category: tx.category },
+            variant: 'primary',
+            description: `Accept ${suggestedCategory} and move the transaction forward.`,
+            confirmation: {
+              title: 'Accept suggested category?',
+              message: `Apply ${suggestedCategory} to ${tx.description}?`,
+              confirmLabel: 'Accept category',
+              cancelLabel: 'Cancel',
+            },
+            metadata: {
+              entityType: 'bookkeeping_transaction',
+              entityId: tx.id,
+              category: tx.category,
+              confidence,
+            },
+          },
+          {
+            label: 'Mark Exception',
+            endpoint: `/bookkeeping/transactions/${tx.id}/exception`,
+            method: 'PATCH',
+            body: { reason: 'Needs manual review' },
+            variant: 'danger',
+            confirmRequired: true,
+            description: 'Move the transaction into exception handling for manual review.',
+            confirmation: {
+              title: 'Mark transaction as exception?',
+              message: `This will flag ${tx.description} for manual review.`,
+              confirmLabel: 'Mark exception',
+              cancelLabel: 'Keep reviewing',
+            },
+            metadata: {
+              entityType: 'bookkeeping_transaction',
+              entityId: tx.id,
+              status: 'EXCEPTION',
+            },
+          },
         ],
         urgency: Math.abs(tx.amountCents) > 50000 ? 'immediate' : 'today',
       });
@@ -379,17 +428,45 @@ export class BookkeepingService {
 
     for (const stmt of draftStatements) {
       const ownerName = stmt.owner.firstName
-        ? `${stmt.owner.firstName} ${stmt.owner.lastName || ''}`
+        ? `${stmt.owner.firstName} ${stmt.owner.lastName || ''}`.trim()
         : stmt.owner.username;
+      const netDistribution = stmt.netDistributionCents / 100;
       decisions.push({
         id: `fin-stmt-${stmt.id}`,
         domain: 'financials',
+        type: 'owner_statement_approval',
         entityType: 'owner_statement',
         entityId: stmt.id,
         title: `Approve statement: ${ownerName}`,
-        context: `${stmt.month} - Net distribution: $${(stmt.netDistributionCents / 100).toLocaleString()}`,
+        summary: `Owner statement is drafted and ready for approval before distribution.`,
+        context: `${stmt.month} - Net distribution: $${netDistribution.toLocaleString()}`,
+        reasoning: [
+          `Statement month is ${stmt.month}.`,
+          `Owner is ${ownerName}.`,
+          `Net distribution is $${netDistribution.toLocaleString()}.`,
+        ],
+        priority: 70,
         actions: [
-          { label: 'Approve', endpoint: `/bookkeeping/owner-statements/${stmt.id}/approve`, method: 'PATCH', body: {}, variant: 'primary' },
+          {
+            label: 'Approve',
+            endpoint: `/bookkeeping/owner-statements/${stmt.id}/approve`,
+            method: 'PATCH',
+            body: {},
+            variant: 'primary',
+            description: 'Approve the owner statement so it can move to delivery.',
+            confirmation: {
+              title: 'Approve owner statement?',
+              message: `Approve ${ownerName}'s ${stmt.month} statement for $${netDistribution.toLocaleString()}?`,
+              confirmLabel: 'Approve statement',
+              cancelLabel: 'Cancel',
+            },
+            metadata: {
+              entityType: 'owner_statement',
+              entityId: stmt.id,
+              status: 'APPROVED',
+              month: stmt.month,
+            },
+          },
         ],
         urgency: 'today',
       });

@@ -170,17 +170,65 @@ export class BriefingService {
     });
 
     for (const app of pendingApps) {
+      const applicantName = app.fullName || 'Applicant';
+      const propertyName = app.property?.name || 'property';
+      const screeningScore = app.screeningScore || 'pending';
       decisions.push({
         id: `app-${app.id}`,
         domain: 'screening',
+        type: 'application_review',
         entityType: 'rental_application',
         entityId: app.id,
-        title: `Review: ${app.fullName || 'Applicant'}`,
-        context: `Application for ${app.property?.name || 'property'}. Score: ${app.screeningScore || 'pending'}.`,
+        title: `Review: ${applicantName}`,
+        summary: `${applicantName} is ready for screening disposition at ${propertyName}.`,
+        context: `Application for ${propertyName}. Score: ${screeningScore}.`,
+        reasoning: [
+          `Application status is ${app.status}.`,
+          `Screening score is ${screeningScore}.`,
+          `Property context: ${propertyName}.`,
+        ],
+        priority: 74,
         aiRecommendation: app.ai_recommendation || undefined,
         actions: [
-          { label: 'Approve', endpoint: `/rental-applications/${app.id}/status`, method: 'PATCH', body: { status: 'APPROVED' }, variant: 'primary' },
-          { label: 'Deny', endpoint: `/rental-applications/${app.id}/status`, method: 'PATCH', body: { status: 'REJECTED' }, variant: 'danger' },
+          {
+            label: 'Approve',
+            endpoint: `/rental-applications/${app.id}/status`,
+            method: 'PATCH',
+            body: { status: 'APPROVED' },
+            variant: 'primary',
+            description: 'Approve the application and move the applicant forward.',
+            confirmation: {
+              title: 'Approve application?',
+              message: `This will mark ${applicantName} as approved for ${propertyName}.`,
+              confirmLabel: 'Approve application',
+              cancelLabel: 'Cancel',
+            },
+            metadata: {
+              entityType: 'rental_application',
+              entityId: app.id,
+              status: 'APPROVED',
+            },
+          },
+          {
+            label: 'Deny',
+            endpoint: `/rental-applications/${app.id}/status`,
+            method: 'PATCH',
+            body: { status: 'REJECTED' },
+            variant: 'danger',
+            confirmRequired: true,
+            description: 'Reject the application and stop the current screening path.',
+            confirmation: {
+              title: 'Deny application?',
+              message: `This will mark ${applicantName} as rejected for ${propertyName}.`,
+              confirmLabel: 'Deny application',
+              cancelLabel: 'Keep reviewing',
+            },
+            metadata: {
+              entityType: 'rental_application',
+              entityId: app.id,
+              status: 'REJECTED',
+            },
+          },
         ],
         urgency: 'today',
       });
@@ -198,16 +246,67 @@ export class BriefingService {
     });
 
     for (const est of pendingEstimates) {
+      const propertyName = est.property?.name || 'Property';
+      const totalProjectCost = Number(est.totalProjectCost);
+      const totalLaborCost = Number(est.totalLaborCost);
+      const totalMaterialCost = Number(est.totalMaterialCost);
       decisions.push({
         id: `est-${est.id}`,
         domain: 'repairs',
+        type: 'estimate_approval',
         entityType: 'repair_estimate',
         entityId: est.id,
-        title: `Approve estimate: $${Number(est.totalProjectCost).toLocaleString()}`,
-        context: `${est.property?.name || 'Property'} - Labor: $${Number(est.totalLaborCost).toLocaleString()}, Materials: $${Number(est.totalMaterialCost).toLocaleString()}`,
+        title: `Approve estimate: $${totalProjectCost.toLocaleString()}`,
+        summary: `${propertyName} has a repair estimate waiting for disposition.`,
+        context: `${propertyName} - Labor: $${totalLaborCost.toLocaleString()}, Materials: $${totalMaterialCost.toLocaleString()}`,
+        reasoning: [
+          `Estimate status is ${est.status}.`,
+          `Total project cost is $${totalProjectCost.toLocaleString()}.`,
+          `Labor is $${totalLaborCost.toLocaleString()} and materials are $${totalMaterialCost.toLocaleString()}.`,
+        ],
+        priority: totalProjectCost >= 5000 ? 82 : 68,
         actions: [
-          { label: 'Approve', endpoint: `/estimates/${est.id}/approve`, method: 'PATCH', body: {}, variant: 'primary' },
-          { label: 'Reject', endpoint: `/estimates/${est.id}/reject`, method: 'PATCH', body: {}, variant: 'danger' },
+          {
+            label: 'Approve',
+            endpoint: `/estimates/${est.id}/approve`,
+            method: 'PATCH',
+            body: {},
+            variant: 'primary',
+            description: 'Approve the estimate and allow the work to proceed.',
+            confirmation: {
+              title: 'Approve estimate?',
+              message: `Approve the $${totalProjectCost.toLocaleString()} estimate for ${propertyName}?`,
+              confirmLabel: 'Approve estimate',
+              cancelLabel: 'Cancel',
+            },
+            metadata: {
+              entityType: 'repair_estimate',
+              entityId: est.id,
+              status: 'APPROVED',
+              amount: totalProjectCost,
+            },
+          },
+          {
+            label: 'Reject',
+            endpoint: `/estimates/${est.id}/reject`,
+            method: 'PATCH',
+            body: {},
+            variant: 'danger',
+            confirmRequired: true,
+            description: 'Reject the estimate and keep the repair in review.',
+            confirmation: {
+              title: 'Reject estimate?',
+              message: `Reject the $${totalProjectCost.toLocaleString()} estimate for ${propertyName}?`,
+              confirmLabel: 'Reject estimate',
+              cancelLabel: 'Keep pending',
+            },
+            metadata: {
+              entityType: 'repair_estimate',
+              entityId: est.id,
+              status: 'REJECTED',
+              amount: totalProjectCost,
+            },
+          },
         ],
         urgency: 'today',
       });
