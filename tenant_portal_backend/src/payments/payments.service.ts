@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, InternalServerErrorException, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Invoice, Payment, Role, Prisma, ManualPayment, ManualCharge, ManualPaymentAppliedTo, ManualPaymentMethod, ManualChargeType, LeaseNoticeType, LeaseStatus, LeaseTerminationParty, PaymentStatus, ManualPaymentStatus } from '@prisma/client';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
@@ -423,6 +423,11 @@ export class PaymentsService {
     }
 
     const amount = input.amountCents / 100;
+    const organizationId = orgId ?? lease.unit?.property?.organizationId;
+
+    if (!organizationId) {
+      throw new InternalServerErrorException('Lease organization context is missing');
+    }
 
     return this.prisma.$transaction(async (tx) => {
       const payment = await tx.manualPayment.create({
@@ -446,12 +451,12 @@ export class PaymentsService {
       const account = await tx.ledgerAccount.upsert({
         where: {
           organizationId_leaseId: {
-            organizationId: orgId ?? lease.unit?.property?.organizationId!,
+            organizationId,
             leaseId: lease.id,
           },
         },
         create: {
-          organizationId: orgId ?? lease.unit?.property?.organizationId!,
+          organizationId,
           leaseId: lease.id,
           propertyId: input.propertyId,
           unitId: input.unitId,
@@ -574,6 +579,11 @@ export class PaymentsService {
     }
 
     const amount = input.amountCents / 100;
+    const organizationId = orgId ?? lease.unit?.property?.organizationId;
+
+    if (!organizationId) {
+      throw new InternalServerErrorException('Lease organization context is missing');
+    }
 
     return this.prisma.$transaction(async (tx) => {
       const charge = await tx.manualCharge.create({
@@ -596,12 +606,12 @@ export class PaymentsService {
       const account = await tx.ledgerAccount.upsert({
         where: {
           organizationId_leaseId: {
-            organizationId: orgId ?? lease.unit?.property?.organizationId!,
+            organizationId,
             leaseId: lease.id,
           },
         },
         create: {
-          organizationId: orgId ?? lease.unit?.property?.organizationId!,
+          organizationId,
           leaseId: lease.id,
           propertyId: input.propertyId,
           unitId: input.unitId,
@@ -2892,4 +2902,3 @@ export class PaymentsService {
     });
   }
 }
-

@@ -110,7 +110,7 @@ export class InspectionsService {
     take?: number;
     orgId?: string;
   }) {
-    let where: Prisma.UnitInspectionWhereInput = {};
+    const where: Prisma.UnitInspectionWhereInput = {};
 
     if (filters.orgId) {
       where.property = { organizationId: filters.orgId };

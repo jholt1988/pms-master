@@ -1,6 +1,6 @@
-const docusign = require('docusign-esign');
-const fs = require('fs');
-const path = require('path');
+import docusign = require('docusign-esign');
+import fs = require('fs');
+import path = require('path');
 
 
 // --- CONFIGURATION ---
