@@ -1,5 +1,5 @@
 -- DropForeignKey
-ALTER TABLE "public"."RentalApplication" DROP CONSTRAINT "RentalApplication_applicantId_fkey";
+ALTER TABLE "RentalApplication" DROP CONSTRAINT IF EXISTS "RentalApplication_applicantId_fkey";
 
 -- AlterTable
 ALTER TABLE "RentalApplication" ALTER COLUMN "applicantId" DROP NOT NULL;

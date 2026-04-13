@@ -4,7 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { TestDataFactory } from './factories';
-import { Role, LeaseStatus } from '@prisma/client';
+import { Role, LeaseStatus, OrgRole } from '@prisma/client';
 import { resetDatabase } from './utils/reset-database';
 
 describe('Dashboard API (e2e)', () => {
@@ -14,6 +14,7 @@ describe('Dashboard API (e2e)', () => {
   let propertyManagerToken: string;
   let tenantUser: any;
   let propertyManager: any;
+  let organization: any;
   let property: any;
   let unit: any;
   let lease: any;
@@ -47,6 +48,18 @@ describe('Dashboard API (e2e)', () => {
       }),
     });
 
+    organization = await prisma.organization.create({
+      data: { name: 'Dashboard Test Org' },
+    });
+
+    await prisma.userOrganization.create({
+      data: {
+        userId: propertyManager.id,
+        organizationId: organization.id,
+        role: OrgRole.ADMIN,
+      },
+    });
+
     // Login
     const tenantLogin = await request(app.getHttpServer())
       .post('/auth/login')
@@ -60,7 +73,7 @@ describe('Dashboard API (e2e)', () => {
 
     // Create property, unit, and lease
     property = await prisma.property.create({
-      data: TestDataFactory.createProperty(),
+      data: TestDataFactory.createProperty({ organizationId: organization.id }),
     });
 
     unit = await prisma.unit.create({

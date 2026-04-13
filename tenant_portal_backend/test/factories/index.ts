@@ -75,7 +75,7 @@ export class TestDataFactory {
    * Create a test property
    */
   static createProperty(overrides: any = {}) {
-    return {
+    const base = {
       name: testData.word() + ' Apartments',
       address: testData.street(),
       city: testData.city(),
@@ -87,6 +87,22 @@ export class TestDataFactory {
       bedrooms: 1 + (testData.getUniqueId() % 3),
       bathrooms: 1 + (testData.getUniqueId() % 2) * 0.5,
       tags: ['pet-friendly', 'downtown', 'gym'].slice(0, (testData.getUniqueId() % 3) + 1),
+    };
+
+    if (overrides.organizationId || overrides.organization) {
+      return {
+        ...base,
+        ...overrides,
+      };
+    }
+
+    return {
+      ...base,
+      organization: {
+        create: {
+          name: `${base.name} Org`,
+        },
+      },
       ...overrides,
     };
   }

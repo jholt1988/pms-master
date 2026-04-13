@@ -1,6 +1,12 @@
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'PaymentAttemptStatus') THEN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE t.typname = 'PaymentAttemptStatus'
+      AND n.nspname = current_schema()
+  ) THEN
     CREATE TYPE "PaymentAttemptStatus" AS ENUM ('SCHEDULED', 'ATTEMPTING', 'SUCCEEDED', 'FAILED', 'NEEDS_AUTH');
   END IF;
 END$$;

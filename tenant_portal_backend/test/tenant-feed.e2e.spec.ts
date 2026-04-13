@@ -42,7 +42,7 @@ describe('Tenant feed API (e2e)', () => {
     lease = await prisma.lease.create({
       data: TestDataFactory.createLease(tenantUser.id, unit.id, {
         status: LeaseStatus.ACTIVE,
-        endDate: new Date(Date.now() + 10 * 86_400_000),
+        endDate: new Date(Date.now() + 90 * 86_400_000),
       }),
     });
 

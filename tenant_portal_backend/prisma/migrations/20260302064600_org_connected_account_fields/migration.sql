@@ -1,6 +1,12 @@
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'StripeOnboardingStatus') THEN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE t.typname = 'StripeOnboardingStatus'
+      AND n.nspname = current_schema()
+  ) THEN
     CREATE TYPE "StripeOnboardingStatus" AS ENUM ('NOT_STARTED', 'PENDING', 'IN_REVIEW', 'COMPLETED', 'RESTRICTED');
   END IF;
 END$$;

@@ -1,6 +1,12 @@
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'OrgPlanCycleStatus') THEN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE t.typname = 'OrgPlanCycleStatus'
+      AND n.nspname = current_schema()
+  ) THEN
     CREATE TYPE "OrgPlanCycleStatus" AS ENUM ('DRAFT', 'ACTIVE', 'CLOSED');
   END IF;
 END$$;

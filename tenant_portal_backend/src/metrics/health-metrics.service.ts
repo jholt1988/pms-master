@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrometheusService } from './prometheus.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -6,7 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 
 @Injectable()
-export class HealthMetricsService {
+export class HealthMetricsService implements OnModuleDestroy {
   private readonly logger = new Logger(HealthMetricsService.name);
   private redis: Redis | null = null;
 
@@ -55,6 +55,19 @@ export class HealthMetricsService {
     } catch {
       this.prometheus.serviceHealth.set({ service: 'redis' }, 0);
       this.logger.error('Redis health check failed');
+    }
+  }
+
+  async onModuleDestroy() {
+    if (!this.redis) {
+      return;
+    }
+    try {
+      await this.redis.quit();
+    } catch {
+      this.redis.disconnect();
+    } finally {
+      this.redis = null;
     }
   }
 }
