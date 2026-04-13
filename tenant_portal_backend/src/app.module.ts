@@ -67,6 +67,7 @@ import { LeaseAbstractionModule } from './lease-abstraction/lease-abstraction.mo
 import { TenantModule } from './tenant/tenant.module';
 import { AuditLogModule } from './shared/audit-log.module';
 import { FeedModule } from './feed/feed.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 
 const rateLimitEnabled =
@@ -172,6 +173,7 @@ const rateLimitProviders = rateLimitEnabled
     LeaseAbstractionModule,
     TenantModule,
     FeedModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [

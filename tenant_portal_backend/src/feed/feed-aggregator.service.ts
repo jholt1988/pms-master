@@ -3,40 +3,14 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { normalizeAppRole, roleAliasesForQuery } from '../auth/app-role';
+import type {
+  CanonicalFeedAction,
+  CanonicalFeedItem,
+  CanonicalFeedMetadata,
+  CanonicalFeedResponse,
+  CanonicalUserRole,
+} from './feed.types';
 import { generateSignalId } from './utils/feed-id-generator';
-
-type CanonicalUserRole = Role;
-
-interface CanonicalFeedAction {
-  id: string;
-  type: 'mutation' | 'navigation';
-  label: string;
-  variant: 'default' | 'primary' | 'secondary' | 'destructive';
-  intent?: string;
-  href?: string;
-  requiresConfirm?: boolean;
-  openInNewTab?: boolean;
-}
-
-interface CanonicalFeedItem {
-  id: string;
-  kind: 'critical_signal' | 'decision' | 'scheduled_event' | 'update';
-  domain: 'payments' | 'leasing' | 'screening' | 'maintenance' | 'calendar';
-  title: string;
-  summary: string;
-  priority: number;
-  timestamp: string;
-  actions: CanonicalFeedAction[];
-  allowedRoles: CanonicalUserRole[];
-  propertyId?: string;
-  metadata?: Record<string, unknown>;
-}
-
-export interface CanonicalFeedResponse {
-  items: CanonicalFeedItem[];
-  role: CanonicalUserRole;
-  generatedAt: string;
-}
 
 @Injectable()
 export class FeedAggregatorService {
@@ -71,6 +45,20 @@ export class FeedAggregatorService {
       ? item.evidence as Record<string, unknown>
       : undefined;
 
+    const metadata: CanonicalFeedMetadata | undefined = evidence
+      ? {
+          ...evidence,
+          reasoning: Array.isArray(evidence.reasoning) ? evidence.reasoning as string[] : undefined,
+          type: typeof evidence.type === 'string' ? evidence.type as CanonicalFeedMetadata['type'] : undefined,
+          confidenceScore: typeof evidence.confidenceScore === 'number' ? evidence.confidenceScore : undefined,
+          impact: evidence.impact as CanonicalFeedMetadata['impact'] | undefined,
+          relatedDecisionIds: Array.isArray(evidence.relatedDecisionIds)
+            ? evidence.relatedDecisionIds as string[]
+            : undefined,
+          workflow: evidence.workflow as CanonicalFeedMetadata['workflow'] | undefined,
+        }
+      : undefined;
+
     return {
       id: item.id,
       kind: this.mapKind(item.type),
@@ -84,7 +72,7 @@ export class FeedAggregatorService {
         ? item.roleAccess.map((role: string) => this.normalizeRole(role))
         : [],
       propertyId: item.propertyId ?? undefined,
-      metadata: evidence,
+      metadata,
     };
   }
 
@@ -148,6 +136,19 @@ export class FeedAggregatorService {
         href,
         requiresConfirm: Boolean(action.requiresConfirm),
         openInNewTab: Boolean(action.openInNewTab),
+        description: typeof action.description === 'string' ? action.description : undefined,
+        tooltip: typeof action.tooltip === 'string' ? action.tooltip : undefined,
+        confirmation: action.confirmation && typeof action.confirmation === 'object'
+          ? {
+              title: action.confirmation.title,
+              message: action.confirmation.message,
+              confirmLabel: action.confirmation.confirmLabel,
+              cancelLabel: action.confirmation.cancelLabel,
+            }
+          : undefined,
+        metadata: action.metadata && typeof action.metadata === 'object'
+          ? action.metadata as Record<string, unknown>
+          : undefined,
       } satisfies CanonicalFeedAction];
     });
   }
@@ -335,18 +336,25 @@ export class FeedAggregatorService {
   @OnEvent('application.scored')
   async handleApplicationScored(payload: { applicationId: string; score: number; urgency: string }) {
     const { applicationId, score, urgency } = payload;
-    
-    // Deterministic compound key: context_type_id
-    const feedIdentifier = `app_scored_${applicationId}`;
 
-    // Calculate priority based on AI score (The Brain's output)
+    const feedIdentifier = `app_scored_${applicationId}`;
     const priorityScore = this.calculatePriority(score, urgency);
+    const evidence = {
+      applicationId,
+      score,
+      status: 'SCORED',
+      type: 'review' as const,
+      confidenceScore: score,
+      reasoning: ['Application scoring completed and ready for manager review'],
+      workflow: { stage: 'screening_review', totalStages: 3, currentStageIndex: 1 },
+    };
 
     await this.prisma.feedItem.upsert({
       where: { id: feedIdentifier },
       update: {
-        evidence: { score, status: 'SCORED' },
-        priorityScore: priorityScore,
+        summary: `Rental application scored: ${score}/100`,
+        evidence,
+        priorityScore,
         updatedAt: new Date(),
       },
       create: {
@@ -354,9 +362,9 @@ export class FeedAggregatorService {
         domain: 'LEASING',
         type: 'RENTAL_APPLICATION',
         title: 'Application Scored',
-        summary: `New application scored: ${score}/100`,
-        priorityScore: priorityScore,
-        evidence: { applicationId, score, status: 'SCORED' },
+        summary: `Rental application scored: ${score}/100`,
+        priorityScore,
+        evidence,
         actions: [
           {
             type: 'navigation',

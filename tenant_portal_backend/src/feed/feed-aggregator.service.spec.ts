@@ -6,6 +6,7 @@ describe('FeedAggregatorService', () => {
       findMany: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
+      upsert: jest.fn(),
     },
   } as any;
 
@@ -78,6 +79,78 @@ describe('FeedAggregatorService', () => {
             ],
           }),
         ],
+      }),
+    );
+  });
+
+  it('normalizes enhanced evidence metadata into canonical feed metadata', async () => {
+    prisma.feedItem.findMany.mockResolvedValue([
+      {
+        id: 'decision_1',
+        domain: 'payments',
+        type: 'decision',
+        title: 'Approve hardship plan',
+        summary: 'Resident requested help',
+        priorityScore: 82,
+        createdAt: new Date('2026-04-13T10:00:00.000Z'),
+        updatedAt: new Date('2026-04-13T10:05:00.000Z'),
+        actions: [{ label: 'Approve', intent: 'approve', variant: 'primary' }],
+        roleAccess: ['admin'],
+        evidence: {
+          reasoning: ['Resident has 11 month streak'],
+          type: 'approval',
+          confidenceScore: 88,
+          impact: { financial: 1400, risk: 'low', timeline: 'today' },
+          relatedDecisionIds: ['prev-1'],
+          workflow: { stage: 'manager_review', totalStages: 3, currentStageIndex: 2 },
+        },
+      },
+    ]);
+
+    const result = await service.getFeedForRole('admin', 10);
+
+    expect(result.items[0].metadata).toEqual(
+      expect.objectContaining({
+        confidenceScore: 88,
+        type: 'approval',
+        reasoning: ['Resident has 11 month streak'],
+        impact: { financial: 1400, risk: 'low', timeline: 'today' },
+        relatedDecisionIds: ['prev-1'],
+        workflow: { stage: 'manager_review', totalStages: 3, currentStageIndex: 2 },
+      }),
+    );
+  });
+
+  it('emits application review decision with enriched workflow metadata', async () => {
+    await service.handleApplicationScored({ applicationId: 'app_1', score: 92, urgency: 'HIGH' });
+
+    expect(prisma.feedItem.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'app_scored_app_1' },
+        update: expect.objectContaining({
+          summary: 'Rental application scored: 92/100',
+          evidence: {
+            applicationId: 'app_1',
+            score: 92,
+            status: 'SCORED',
+            type: 'review',
+            confidenceScore: 92,
+            reasoning: ['Application scoring completed and ready for manager review'],
+            workflow: { stage: 'screening_review', totalStages: 3, currentStageIndex: 1 },
+          },
+        }),
+        create: expect.objectContaining({
+          summary: 'Rental application scored: 92/100',
+          evidence: {
+            applicationId: 'app_1',
+            score: 92,
+            status: 'SCORED',
+            type: 'review',
+            confidenceScore: 92,
+            reasoning: ['Application scoring completed and ready for manager review'],
+            workflow: { stage: 'screening_review', totalStages: 3, currentStageIndex: 1 },
+          },
+        }),
       }),
     );
   });
