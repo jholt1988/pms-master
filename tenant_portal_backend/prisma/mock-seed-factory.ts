@@ -89,6 +89,7 @@ export class MockSeedFactory {
   private readonly assetBaseUrl: string;
   private readonly passwordHash: string;
   private readonly runLabel: string;
+  private readonly amenityMap = new Map<string, number>();
   private readonly counts: MockSeedSummary = {
     organizations: 0,
     users: 0,
@@ -131,18 +132,26 @@ export class MockSeedFactory {
     const applicantsPerVacantUnit = options.applicantsPerVacantUnit ?? 2;
 
     await this.seedAmenityCatalog();
+    const allAmenities = await this.prisma.amenity.findMany({
+      select: { id: true, key: true },
+    });
+    for (const a of allAmenities) {
+      this.amenityMap.set(a.key, a.id);
+    }
 
     for (let orgIndex = 1; orgIndex <= orgCount; orgIndex += 1) {
       const org = await this.createOrganizationBundle(orgIndex);
       const technician = await this.createTechnician(org.organizationId, org.technicianUser.id);
 
-      for (let propertyIndex = 1; propertyIndex <= propertiesPerOrg; propertyIndex += 1) {
+      await Promise.all(Array.from({ length: propertiesPerOrg }).map(async (_, propertyIndexBase) => {
+        const propertyIndex = propertyIndexBase + 1;
         const property = await this.createProperty(org.organizationId, propertyIndex);
         const slaByPriority = await this.createSlaPolicies(property.id);
 
         const occupiedUnits = Math.max(1, Math.round(unitsPerProperty * (1 - vacancyRatio)));
 
-        for (let unitIndex = 1; unitIndex <= unitsPerProperty; unitIndex += 1) {
+        await Promise.all(Array.from({ length: unitsPerProperty }).map(async (_, unitIndexBase) => {
+          const unitIndex = unitIndexBase + 1;
           const occupied = unitIndex <= occupiedUnits;
           const unit = await this.createUnit(property.id, propertyIndex, unitIndex, occupied);
 
@@ -150,46 +159,50 @@ export class MockSeedFactory {
             const tenant = await this.createUser(Role.TENANT, `tenant-${orgIndex}-${propertyIndex}-${unitIndex}`);
             const lease = await this.createLease(unit.id, tenant.id, unitIndex);
 
-            await this.createNotificationPreference(tenant.id);
-            await this.createRentRecommendation(unit.id, lease.rentAmount);
-            const billing = await this.createBillingArtifacts({
-              organizationId: org.organizationId,
-              propertyId: property.id,
-              unitId: unit.id,
-              leaseId: lease.id,
-              tenantId: tenant.id,
-              createdById: org.manager.id,
-            });
+            await Promise.all([
+              this.createNotificationPreference(tenant.id),
+              this.createRentRecommendation(unit.id, lease.rentAmount),
+              (async () => {
+                const billing = await this.createBillingArtifacts({
+                  organizationId: org.organizationId,
+                  propertyId: property.id,
+                  unitId: unit.id,
+                  leaseId: lease.id,
+                  tenantId: tenant.id,
+                  createdById: org.manager.id,
+                });
+                await this.createNotifications(tenant.id, billing.nextInvoiceDueDate, lease.rentAmount);
+              })(),
+              (async () => {
+                const maintenanceRequest = await this.createMaintenanceRequest({
+                  authorId: tenant.id,
+                  propertyId: property.id,
+                  unitId: unit.id,
+                  leaseId: lease.id,
+                  assigneeId: technician.id,
+                  slaPolicyId: this.pickSlaPolicyId(slaByPriority),
+                });
+                
+                const inspection = await this.createInspection({
+                  propertyId: property.id,
+                  unitId: unit.id,
+                  leaseId: lease.id,
+                  tenantId: tenant.id,
+                  inspectorId: org.manager.id,
+                  createdById: org.manager.id,
+                });
 
-            const maintenanceRequest = await this.createMaintenanceRequest({
-              authorId: tenant.id,
-              propertyId: property.id,
-              unitId: unit.id,
-              leaseId: lease.id,
-              assigneeId: technician.id,
-              slaPolicyId: this.pickSlaPolicyId(slaByPriority),
-            });
-
-            const inspection = await this.createInspection({
-              propertyId: property.id,
-              unitId: unit.id,
-              leaseId: lease.id,
-              tenantId: tenant.id,
-              inspectorId: org.manager.id,
-              createdById: org.manager.id,
-            });
-
-            await this.createRepairEstimate({
-              propertyId: property.id,
-              unitId: unit.id,
-              inspectionId: inspection.id,
-              maintenanceRequestId: maintenanceRequest.id,
-              generatedById: org.manager.id,
-              approvedById: org.admin.id,
-            });
-
-            await this.createLeaseDocumentsAndHistory(lease.id, org.manager.id, property.id);
-            await this.createNotifications(tenant.id, billing.nextInvoiceDueDate, lease.rentAmount);
+                await this.createRepairEstimate({
+                  propertyId: property.id,
+                  unitId: unit.id,
+                  inspectionId: inspection.id,
+                  maintenanceRequestId: maintenanceRequest.id,
+                  generatedById: org.manager.id,
+                  approvedById: org.admin.id,
+                });
+              })(),
+              this.createLeaseDocumentsAndHistory(lease.id, org.manager.id, property.id),
+            ]);
           } else {
             await this.createApplicationsForVacantUnit({
               propertyId: property.id,
@@ -201,10 +214,10 @@ export class MockSeedFactory {
               unitIndex,
             });
           }
-        }
+        }));
 
         await this.createPropertyExpenses(property.id, org.manager.id);
-      }
+      }));
 
       await this.createOwnerStatement(org.organizationId, org.owner.id, org.admin.id);
       await this.createQuickBooksConnection(org.organizationId, org.admin.id);
@@ -215,21 +228,18 @@ export class MockSeedFactory {
 
   private async seedAmenityCatalog(): Promise<void> {
     const amenities = [
-      ['central-air', 'Central Air', 'Cooling'],
-      ['dishwasher', 'Dishwasher', 'Kitchen'],
-      ['laundry', 'Laundry', 'Convenience'],
-      ['parking', 'Parking', 'Convenience'],
-      ['pet-friendly', 'Pet Friendly', 'Policy'],
-      ['security-cameras', 'Security Cameras', 'Safety'],
-    ] as const;
+      { key: 'central-air', label: 'Central Air', category: 'Cooling' },
+      { key: 'dishwasher', label: 'Dishwasher', category: 'Kitchen' },
+      { key: 'laundry', label: 'Laundry', category: 'Convenience' },
+      { key: 'parking', label: 'Parking', category: 'Convenience' },
+      { key: 'pet-friendly', label: 'Pet Friendly', category: 'Policy' },
+      { key: 'security-cameras', label: 'Security Cameras', category: 'Safety' },
+    ];
 
-    for (const [key, label, category] of amenities) {
-      await this.prisma.amenity.upsert({
-        where: { key },
-        update: { label, category },
-        create: { key, label, category },
-      });
-    }
+    await this.prisma.amenity.createMany({
+      data: amenities,
+      skipDuplicates: true,
+    });
   }
 
   private async createOrganizationBundle(orgIndex: number): Promise<OrgBundle> {
@@ -253,10 +263,12 @@ export class MockSeedFactory {
     });
     this.counts.organizations += 1;
 
-    const admin = await this.createUser(Role.ADMIN, `admin-${orgIndex}`);
-    const manager = await this.createUser(Role.PROPERTY_MANAGER, `manager-${orgIndex}`);
-    const owner = await this.createUser(Role.OWNER, `owner-${orgIndex}`);
-    const technicianUser = await this.createUser(Role.PROPERTY_MANAGER, `tech-user-${orgIndex}`);
+    const [admin, manager, owner, technicianUser] = await Promise.all([
+      this.createUser(Role.ADMIN, `admin-${orgIndex}`),
+      this.createUser(Role.PROPERTY_MANAGER, `manager-${orgIndex}`),
+      this.createUser(Role.OWNER, `owner-${orgIndex}`),
+      this.createUser(Role.PROPERTY_MANAGER, `tech-user-${orgIndex}`),
+    ]);
 
     await this.prisma.userOrganization.createMany({
       data: [
@@ -345,17 +357,16 @@ export class MockSeedFactory {
     });
 
     const amenityKeys = ['central-air', 'dishwasher', 'laundry', 'parking', 'pet-friendly'];
-    for (const key of faker.helpers.arrayElements(amenityKeys, 4)) {
-      const amenity = await this.prisma.amenity.findUniqueOrThrow({ where: { key } });
-      await this.prisma.propertyAmenity.create({
-        data: {
-          propertyId: property.id,
-          amenityId: amenity.id,
-          isFeatured: faker.datatype.boolean(),
-          value: faker.datatype.boolean() ? 'true' : undefined,
-        },
-      });
-    }
+    const chosenKeys = faker.helpers.arrayElements(amenityKeys, 4);
+    
+    await this.prisma.propertyAmenity.createMany({
+      data: chosenKeys.map(key => ({
+        propertyId: property.id,
+        amenityId: this.amenityMap.get(key)!,
+        isFeatured: faker.datatype.boolean(),
+        value: faker.datatype.boolean() ? 'true' : undefined,
+      }))
+    });
 
     return property;
   }
@@ -792,7 +803,7 @@ export class MockSeedFactory {
       { name: 'Living Room', roomType: RoomType.LIVING_ROOM },
     ];
 
-    for (const roomDef of roomDefinitions) {
+    await Promise.all(roomDefinitions.map(async (roomDef) => {
       const room = await this.prisma.inspectionRoom.create({
         data: {
           inspectionId: inspection.id,
@@ -801,7 +812,7 @@ export class MockSeedFactory {
         },
       });
 
-      for (const itemName of ['Walls', 'Flooring', 'Fixtures']) {
+      await Promise.all(['Walls', 'Flooring', 'Fixtures'].map(async (itemName) => {
         const item = await this.prisma.inspectionChecklistItem.create({
           data: {
             roomId: room.id,
@@ -818,26 +829,27 @@ export class MockSeedFactory {
           },
         });
 
-        await this.prisma.inspectionChecklistSubItem.create({
-          data: {
-            parentItemId: item.id,
-            name: `${itemName} detail`,
-            condition: InspectionCondition.GOOD,
-            estimatedAge: faker.number.int({ min: 1, max: 8 }),
-          },
-        });
-
-        await this.prisma.inspectionChecklistPhoto.create({
-          data: {
-            checklistItemId: item.id,
-            uploadedById: input.inspectorId,
-            url: `${this.assetBaseUrl}/inspections/${inspection.id}/${room.id}-${item.id}.jpg`,
-            caption: `${roomDef.name} ${itemName}`,
-            aiAnalysis: faker.lorem.sentence(),
-          },
-        });
-      }
-    }
+        await Promise.all([
+          this.prisma.inspectionChecklistSubItem.create({
+            data: {
+              parentItemId: item.id,
+              name: `${itemName} detail`,
+              condition: InspectionCondition.GOOD,
+              estimatedAge: faker.number.int({ min: 1, max: 8 }),
+            },
+          }),
+          this.prisma.inspectionChecklistPhoto.create({
+            data: {
+              checklistItemId: item.id,
+              uploadedById: input.inspectorId,
+              url: `${this.assetBaseUrl}/inspections/${inspection.id}/${room.id}-${item.id}.jpg`,
+              caption: `${roomDef.name} ${itemName}`,
+              aiAnalysis: faker.lorem.sentence(),
+            },
+          }),
+        ]);
+      }));
+    }));
 
     await this.prisma.inspectionSignature.createMany({
       data: [
@@ -1036,91 +1048,98 @@ export class MockSeedFactory {
     propertyIndex: number;
     unitIndex: number;
   }) {
-    for (let i = 1; i <= input.applicantsPerVacantUnit; i += 1) {
-      const applicant = await this.createUser(
-        Role.TENANT,
-        `applicant-${input.orgIndex}-${input.propertyIndex}-${input.unitIndex}-${i}`,
-      );
+    const applicants = await Promise.all(
+      Array.from({ length: input.applicantsPerVacantUnit }).map((_, i) =>
+        this.createUser(
+          Role.TENANT,
+          `applicant-${input.orgIndex}-${input.propertyIndex}-${input.unitIndex}-${i + 1}`,
+        ),
+      ),
+    );
 
-      const approved = i === 1;
-      const application = await this.prisma.rentalApplication.create({
-        data: {
-          applicantId: applicant.id,
-          propertyId: input.propertyId,
-          unitId: input.unitId,
-          status: approved ? ApplicationStatus.APPROVED : ApplicationStatus.REJECTED,
-          applicationDate: this.daysAgo(6 - i),
-          fullName: `${applicant.firstName} ${applicant.lastName}`,
-          email: applicant.email,
-          phoneNumber: faker.phone.number({ style: "human" }),
-          income: faker.number.int({ min: 3600, max: 8200 }),
-          employmentStatus: faker.helpers.arrayElement(['Full Time', 'Self-Employed', 'Part Time']),
-          previousAddress: faker.location.streetAddress(true),
-          creditScore: faker.number.int({ min: 580, max: 760 }),
-          monthlyDebt: faker.number.int({ min: 200, max: 1600 }),
-          bankruptcyFiledYear: faker.helpers.arrayElement([undefined, undefined, 2020]),
-          rentalHistoryComments: faker.lorem.sentences(2),
-          authorizeCreditCheck: true,
-          authorizeBackgroundCheck: true,
-          authorizeEmploymentVerification: true,
-          ssCardUploaded: true,
-          proofOfIncomeUploaded: true,
-          dlIdUploaded: true,
-          qualificationStatus: approved ? QualificationStatus.QUALIFIED : QualificationStatus.NOT_QUALIFIED,
-          recommendation: approved ? Recommendation.RECOMMEND_RENT : Recommendation.DO_NOT_RECOMMEND_RENT,
-          screeningDetails: faker.lorem.sentences(2),
-          screeningScore: approved ? 82 : 47,
-          screeningReasons: approved
-            ? ['income_verified', 'stable_history']
-            : ['credit_risk', 'policy_mismatch'],
-          screenedAt: this.daysAgo(3),
-          screenedById: input.screenerId,
-          decisionReasonCode: approved
-            ? ApplicationDecisionReasonCode.OTHER
-            : ApplicationDecisionReasonCode.CREDIT_RISK,
-          decisionNotes: approved
-            ? 'Approved in seeded screening flow.'
-            : 'Denied in seeded screening flow.',
-          decisionedAt: this.daysAgo(2),
-          termsAcceptedAt: this.daysAgo(5),
-          termsVersion: 'v1.0.0',
-          privacyAcceptedAt: this.daysAgo(5),
-          privacyVersion: 'v1.0.0',
-          ai_recommendation: approved ? 'APPROVE' : 'DENY',
-          ai_summary: faker.lorem.sentences(2),
-          ai_reviewed_at: this.daysAgo(3),
-        },
-      });
-      this.counts.applications += 1;
-
-      await this.prisma.rentalApplicationNote.create({
-        data: {
-          applicationId: application.id,
-          authorId: input.screenerId,
-          body: faker.lorem.sentences(2),
-        },
-      });
-
-      await this.prisma.applicationLifecycleEvent.createMany({
-        data: [
-          {
-            applicationId: application.id,
-            eventType: 'APPLICATION_SUBMITTED',
-            toStatus: ApplicationStatus.PENDING,
-            performedById: applicant.id,
-            metadata: { source: 'portal' },
+    await Promise.all(
+      applicants.map(async (applicant, index) => {
+        const approved = index === 0;
+        const application = await this.prisma.rentalApplication.create({
+          data: {
+            applicantId: applicant.id,
+            propertyId: input.propertyId,
+            unitId: input.unitId,
+            status: approved ? ApplicationStatus.APPROVED : ApplicationStatus.REJECTED,
+            applicationDate: this.daysAgo(5 - index),
+            fullName: `${applicant.firstName} ${applicant.lastName}`,
+            email: applicant.email,
+            phoneNumber: faker.phone.number({ style: "human" }),
+            income: faker.number.int({ min: 3600, max: 8200 }),
+            employmentStatus: faker.helpers.arrayElement(['Full Time', 'Self-Employed', 'Part Time']),
+            previousAddress: faker.location.streetAddress(true),
+            creditScore: faker.number.int({ min: 580, max: 760 }),
+            monthlyDebt: faker.number.int({ min: 200, max: 1600 }),
+            bankruptcyFiledYear: faker.helpers.arrayElement([undefined, undefined, 2020]),
+            rentalHistoryComments: faker.lorem.sentences(2),
+            authorizeCreditCheck: true,
+            authorizeBackgroundCheck: true,
+            authorizeEmploymentVerification: true,
+            ssCardUploaded: true,
+            proofOfIncomeUploaded: true,
+            dlIdUploaded: true,
+            qualificationStatus: approved ? QualificationStatus.QUALIFIED : QualificationStatus.NOT_QUALIFIED,
+            recommendation: approved ? Recommendation.RECOMMEND_RENT : Recommendation.DO_NOT_RECOMMEND_RENT,
+            screeningDetails: faker.lorem.sentences(2),
+            screeningScore: approved ? 82 : 47,
+            screeningReasons: approved
+              ? ['income_verified', 'stable_history']
+              : ['credit_risk', 'policy_mismatch'],
+            screenedAt: this.daysAgo(3),
+            screenedById: input.screenerId,
+            decisionReasonCode: approved
+              ? ApplicationDecisionReasonCode.OTHER
+              : ApplicationDecisionReasonCode.CREDIT_RISK,
+            decisionNotes: approved
+              ? 'Approved in seeded screening flow.'
+              : 'Denied in seeded screening flow.',
+            decisionedAt: this.daysAgo(2),
+            termsAcceptedAt: this.daysAgo(5),
+            termsVersion: 'v1.0.0',
+            privacyAcceptedAt: this.daysAgo(5),
+            privacyVersion: 'v1.0.0',
+            ai_recommendation: approved ? 'APPROVE' : 'DENY',
+            ai_summary: faker.lorem.sentences(2),
+            ai_reviewed_at: this.daysAgo(3),
           },
-          {
-            applicationId: application.id,
-            eventType: 'SCREENING_COMPLETED',
-            fromStatus: ApplicationStatus.PENDING,
-            toStatus: approved ? ApplicationStatus.APPROVED : ApplicationStatus.REJECTED,
-            performedById: input.screenerId,
-            metadata: { source: 'mock-seed', screeningScore: approved ? 82 : 47 },
-          },
-        ],
-      });
-    }
+        });
+        this.counts.applications += 1;
+
+        await Promise.all([
+          this.prisma.rentalApplicationNote.create({
+            data: {
+              applicationId: application.id,
+              authorId: input.screenerId,
+              body: faker.lorem.sentences(2),
+            },
+          }),
+          this.prisma.applicationLifecycleEvent.createMany({
+            data: [
+              {
+                applicationId: application.id,
+                eventType: 'APPLICATION_SUBMITTED',
+                toStatus: ApplicationStatus.PENDING,
+                performedById: applicant.id,
+                metadata: { source: 'portal' },
+              },
+              {
+                applicationId: application.id,
+                eventType: 'SCREENING_COMPLETED',
+                fromStatus: ApplicationStatus.PENDING,
+                toStatus: approved ? ApplicationStatus.APPROVED : ApplicationStatus.REJECTED,
+                performedById: input.screenerId,
+                metadata: { source: 'mock-seed', screeningScore: approved ? 82 : 47 },
+              },
+            ],
+          }),
+        ]);
+      }),
+    );
   }
 
   private async createPropertyExpenses(propertyId: string, recordedById: string) {
@@ -1130,18 +1149,16 @@ export class MockSeedFactory {
       { description: 'Water utility bill', amount: 290, category: ExpenseCategory.UTILITIES },
     ];
 
-    for (const expense of expenses) {
-      await this.prisma.expense.create({
-        data: {
-          propertyId,
-          description: expense.description,
-          amount: expense.amount,
-          date: this.daysAgo(faker.number.int({ min: 1, max: 26 })),
-          category: expense.category,
-          recordedById,
-        },
-      });
-    }
+    await this.prisma.expense.createMany({
+      data: expenses.map(expense => ({
+        propertyId,
+        description: expense.description,
+        amount: expense.amount,
+        date: this.daysAgo(faker.number.int({ min: 1, max: 26 })),
+        category: expense.category,
+        recordedById,
+      }))
+    });
   }
 
   private async createOwnerStatement(organizationId: string, ownerId: string, approvedById: string) {
@@ -1204,20 +1221,18 @@ export class MockSeedFactory {
       },
     ];
 
-    for (const notification of notifications) {
-      await this.prisma.notification.create({
-        data: {
-          userId,
-          type: notification.type,
-          title: notification.title,
-          message: notification.message,
-          read: false,
-          scheduledFor: notification.scheduledFor,
-          metadata: { source: 'mock-seed' },
-        },
-      });
-      this.counts.notifications += 1;
-    }
+    await this.prisma.notification.createMany({
+      data: notifications.map(notification => ({
+        userId,
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        read: false,
+        scheduledFor: notification.scheduledFor,
+        metadata: { source: 'mock-seed' },
+      }))
+    });
+    this.counts.notifications += notifications.length;
   }
 
   private async createSlaPolicies(propertyId: string) {
@@ -1235,18 +1250,24 @@ export class MockSeedFactory {
       [MaintenancePriority.LOW]: 0,
     };
 
-    for (const policy of policies) {
-      const createdPolicy = await this.prisma.maintenanceSlaPolicy.create({
-        data: {
-          propertyId,
-          name: `${policy.priority} SLA`,
-          priority: policy.priority,
-          responseTimeMinutes: policy.responseTimeMinutes,
-          resolutionTimeMinutes: policy.resolutionTimeMinutes,
-          active: true,
-        },
-      });
-      created[policy.priority] = createdPolicy.id;
+    await this.prisma.maintenanceSlaPolicy.createMany({
+      data: policies.map(policy => ({
+        propertyId,
+        name: `${policy.priority} SLA`,
+        priority: policy.priority,
+        responseTimeMinutes: policy.responseTimeMinutes,
+        resolutionTimeMinutes: policy.resolutionTimeMinutes,
+        active: true,
+      }))
+    });
+
+    const createdPolicies = await this.prisma.maintenanceSlaPolicy.findMany({
+      where: { propertyId },
+      select: { id: true, priority: true }
+    });
+
+    for (const p of createdPolicies) {
+      created[p.priority] = p.id;
     }
 
     return created;

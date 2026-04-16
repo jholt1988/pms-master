@@ -1,30 +1,66 @@
+# Production override for pms-master
 services:
+  postgres:
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    logging: &default-logging
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    logging: *default-logging
+
+  rabbitmq:
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging: *default-logging
+
+  mil:
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging: *default-logging
+
   backend:
-    build:
-      context: .
-      dockerfile: tenant_portal_backend/Dockerfile
-      target: runner
-    restart: unless-stopped
-    env_file:
-      - ops/.env.prod
-    environment:
-      NODE_ENV: production
-      PORT: 3001
-      MIL_SERVICE_URL: ${MIL_SERVICE_URL:-http://mil:3010}
-      MIL_WRAPPER_ENABLED: ${MIL_WRAPPER_ENABLED:-true}
-      MIL_ENCRYPT_AT_REST_ENABLED: ${MIL_ENCRYPT_AT_REST_ENABLED:-false}
-      MIL_AUDIT_PERSIST_ENABLED: ${MIL_AUDIT_PERSIST_ENABLED:-false}
     command: >
-      sh -c "npx prisma migrate deploy && npx prisma generate && node dist/tenant_portal_backend/src/index.js"
+      sh -c "npx prisma migrate deploy --schema=./prisma/schema.prisma &&
+      node dist/tenant_portal_backend/src/index.js"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    logging: *default-logging
 
   frontend:
-    build:
-      context: .
-      dockerfile: tenant_portal_app/Dockerfile
-      args:
-        VITE_API_URL: ${VITE_API_URL:-/api}
-    restart: unless-stopped
-    depends_on:
-      - backend
-    ports:
-      - "3000:80"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    logging: *default-logging
+
+  workflow-engine:
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging: *default-logging
+
+  ml-service:
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    logging: *default-logging

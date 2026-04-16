@@ -4,18 +4,21 @@ services:
     container_name: pms-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: pms
-      POSTGRES_USER: pms
-      POSTGRES_PASSWORD: pms
+      POSTGRES_DB: ${POSTGRES_DB:-pms}
+      POSTGRES_USER: ${POSTGRES_USER:-pms}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pms}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pms -d pms"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pms} -d ${POSTGRES_DB:-pms}"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
+    networks:
+      - pms-internal
 
   redis:
     image: redis:7-alpine
@@ -25,19 +28,34 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - pms-internal
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: pms-rabbitmq
     restart: unless-stopped
     environment:
-      RABBITMQ_DEFAULT_USER: pms
-      RABBITMQ_DEFAULT_PASS: pms
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-pms}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-pms}
     ports:
-      - "5672:5672"   # AMQP protocol port
-      - "15672:15672" # Management UI port
+      - "5672:5672"
+      - "15672:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - pms-internal
 
   mil:
     build:
@@ -50,8 +68,16 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3010
+      DATABASE_URL: ${DATABASE_URL}
     ports:
       - "3010:3010"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3010/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - pms-internal
 
   backend:
     build:
@@ -61,8 +87,10 @@ services:
     container_name: pms-backend
     restart: unless-stopped
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     env_file:
       - ops/.env.prod
     environment:
@@ -75,15 +103,19 @@ services:
       MIL_WRAPPER_ENABLED: ${MIL_WRAPPER_ENABLED:-true}
       MIL_ENCRYPT_AT_REST_ENABLED: ${MIL_ENCRYPT_AT_REST_ENABLED:-false}
       MIL_AUDIT_PERSIST_ENABLED: ${MIL_AUDIT_PERSIST_ENABLED:-false}
-      WORKFLOW_ENGINE_URL: ${WORKFLOW_ENGINE_URL:-http://workflow-engine:3003}
-      ML_SERVICE_URL: ${ML_SERVICE_URL:-http://ml-service:8000}
     ports:
       - "3001:3001"
     command: >
       sh -c "npx prisma migrate deploy --schema=./prisma/schema.prisma &&
       node dist/tenant_portal_backend/src/index.js"
-    volumes:
-      - backend_data:/app/tenant_portal_backend  
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health/liveness"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - pms-internal
 
   workflow-engine:
     build:
@@ -97,9 +129,12 @@ services:
       PORT: 3003
       DATABASE_URL: ${DATABASE_URL}
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     ports:
       - "3003:3003"
+    networks:
+      - pms-internal
 
   ml-service:
     build:
@@ -112,7 +147,6 @@ services:
       API_PORT: 8000
       API_HOST: 0.0.0.0
       ENVIRONMENT: production
-      DEBUG: "false"
       DATABASE_URL: ${DATABASE_URL}
     ports:
       - "8000:8000"
@@ -120,7 +154,10 @@ services:
       - ./rent_optimization_ml/models:/app/models
       - ./rent_optimization_ml/logs:/app/logs
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+    networks:
+      - pms-internal
 
   frontend:
     build:
@@ -131,9 +168,12 @@ services:
     container_name: pms-frontend
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - "3000:80"
+    networks:
+      - pms-internal
 
   property-pulse:
     build:
@@ -142,12 +182,15 @@ services:
     container_name: pms-property-pulse
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     environment:
       - BACKEND_API_ORIGIN=http://backend:3001
       - NEXT_PUBLIC_API_BASE_URL=http://backend:3001/api
     ports:
       - "3002:3000"
+    networks:
+      - pms-internal
 
   prometheus:
     image: prom/prometheus:v2.53.0
@@ -165,7 +208,10 @@ services:
     ports:
       - "9090:9090"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    networks:
+      - pms-internal
 
   grafana:
     image: grafana/grafana:11.1.0
@@ -184,6 +230,12 @@ services:
       - "3100:3000"
     depends_on:
       - prometheus
+    networks:
+      - pms-internal
+
+networks:
+  pms-internal:
+    driver: bridge
 
 volumes:
   postgres_data:
@@ -191,5 +243,3 @@ volumes:
   rabbitmq_data:
   prometheus_data:
   grafana_data:
-  backend_data:
-
