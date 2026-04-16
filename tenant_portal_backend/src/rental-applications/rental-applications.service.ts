@@ -106,7 +106,7 @@ export class RentalApplicationsService {
     }
 
     if (
-      [ApplicationStatus.REJECTED, ApplicationStatus.CONDITIONALLY_APPROVED].includes(dto.status) &&
+      ([ApplicationStatus.REJECTED, ApplicationStatus.CONDITIONALLY_APPROVED] as ApplicationStatus[]).includes(dto.status) &&
       !dto.notes?.trim()
     ) {
       throw new BadRequestException('Review notes are required for this decision');
@@ -145,12 +145,12 @@ export class RentalApplicationsService {
   }
 
   private isReviewableStatus(status: ApplicationStatus) {
-    return [
+    return ([
       ApplicationStatus.UNDER_REVIEW,
       ApplicationStatus.APPROVED,
       ApplicationStatus.CONDITIONALLY_APPROVED,
       ApplicationStatus.REJECTED,
-    ].includes(status);
+    ] as ApplicationStatus[]).includes(status);
   }
 
   private defaultInclude() {

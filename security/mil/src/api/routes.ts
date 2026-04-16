@@ -9,6 +9,11 @@ import { ensureActiveTenantKek, loadTenantKek, createNewTenantKekVersion, crypto
 import { unwrapDek, wrapDek } from "../core/wrap.js";
 
 export async function registerRoutes(app: FastifyInstance) {
+  // Health check
+  app.get("/health", async () => {
+    return { status: "ok" };
+  });
+
   // Evaluate (sync stub) + async enqueue
   app.post("/mil/evaluate", async (req, reply) => {
     const body = req.body as any;
