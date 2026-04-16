@@ -1,9 +1,9 @@
 import { Controller, Get, Query, UseGuards, Req } from '@nestjs/common';
-import { MockAuthGuard } from '../auth/mock-auth.guard';
+import { AuthGuard } from '@nestjs/passport';
 import { FeedAggregatorService } from './feed-aggregator.service';
 
 @Controller('api/v2/feed')
-@UseGuards(MockAuthGuard)
+@UseGuards(AuthGuard('jwt'))
 export class FeedController {
   constructor(private readonly feedService: FeedAggregatorService) {}
 

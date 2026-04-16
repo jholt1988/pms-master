@@ -7,6 +7,9 @@ import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { TestDataFactory } from '../../test/factories';
 import { StripeService } from './stripe.service';
 import { AuditLogService } from '../shared/audit-log.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { WorkflowEventService } from '../policy/workflow-event.service';
+import { WorkflowEventProcessor } from '../policy/workflow-event-processor.service';
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
@@ -20,11 +23,13 @@ describe('PaymentsService', () => {
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
+      create: jest.fn(),
     },
     leaseNotice: {
       create: jest.fn(),
       findFirst: jest.fn(),
       findMany: jest.fn(),
+      update: jest.fn(),
     },
     leaseHistory: {
       create: jest.fn(),
@@ -39,6 +44,8 @@ describe('PaymentsService', () => {
     payment: {
       create: jest.fn(),
       findMany: jest.fn(),
+      update: jest.fn(),
+      findUnique: jest.fn(),
     },
     paymentPlan: {
       create: jest.fn(),
@@ -72,6 +79,37 @@ describe('PaymentsService', () => {
       findMany: jest.fn(),
     },
     $transaction: jest.fn(),
+    orgPlanCycle: {
+      findFirst: jest.fn(),
+    },
+    manualPayment: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+    },
+    manualCharge: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+    },
+    paymentMethod: {
+      findUnique: jest.fn(),
+    },
+    courtCalendar: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+    },
+    leaseNoticeDocument: {
+      findMany: jest.fn(),
+    },
+    lawFirm: {
+      findUnique: jest.fn(),
+    },
+    communication: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+    },
   };
 
   // Mock EmailService
@@ -91,10 +129,25 @@ describe('PaymentsService', () => {
     createCheckoutSession: jest.fn(),
     createSetupIntent: jest.fn(),
     processPayment: jest.fn(),
+    getCustomerByUserId: jest.fn(),
+    createCustomer: jest.fn(),
+    processPayment: jest.fn(),
   };
 
   const mockAuditLogService = {
     record: jest.fn().mockResolvedValue(undefined),
+  };
+
+  const mockEventEmitter = {
+    emit: jest.fn(),
+  };
+
+  const mockWorkflowEventService = {
+    emitIfNotExists: jest.fn().mockResolvedValue({ id: 'workflow-event-1' }),
+  };
+
+  const mockWorkflowEventProcessor = {
+    processEventById: jest.fn().mockResolvedValue({ results: [] }),
   };
 
   beforeEach(async () => {
@@ -106,6 +159,9 @@ describe('PaymentsService', () => {
         { provide: AIPaymentService, useValue: mockAIPaymentService },
         { provide: StripeService, useValue: mockStripeService },
         { provide: AuditLogService, useValue: mockAuditLogService },
+        { provide: EventEmitter2, useValue: mockEventEmitter },
+        { provide: WorkflowEventService, useValue: mockWorkflowEventService },
+        { provide: WorkflowEventProcessor, useValue: mockWorkflowEventProcessor },
       ],
     }).compile();
 
@@ -248,7 +304,7 @@ describe('PaymentsService', () => {
 
       expect(result).toEqual(mockPayment);
       expect(mockEmailService.sendRentPaymentConfirmation).toHaveBeenCalledTimes(1);
-      
+
       // sendRentPaymentConfirmation(email, amount, paymentDate)
       const emailCall = mockEmailService.sendRentPaymentConfirmation.mock.calls[0];
       expect(emailCall[0]).toBe('tenant@test.com');
@@ -558,7 +614,7 @@ describe('PaymentsService', () => {
       await service.sendLateRentNotifications();
 
       expect(mockEmailService.sendLateRentNotification).toHaveBeenCalledTimes(1);
-      
+
       // Check the call arguments match the actual implementation
       const call = mockEmailService.sendLateRentNotification.mock.calls[0];
       expect(call[0]).toMatchObject({
@@ -668,7 +724,7 @@ describe('PaymentsService', () => {
       const result = await service.testLateRentNotification(1);
 
       expect(result).toHaveProperty('message');
-      
+
       const call = mockEmailService.sendLateRentNotification.mock.calls[0];
       expect(call[2]).toMatchObject({
         lateFee: 75,
@@ -1254,7 +1310,7 @@ describe('PaymentsService', () => {
           dueDate: new Date('2026-03-01T00:00:00.000Z'),
         },
       ]);
-      mockPrismaService.leaseNotice.findFirst.mockResolvedValue({ id: 88, createdAt: new Date('2026-03-20T00:00:00.000Z') });
+      mockPrismaService.leaseNotice.findFirst.mockResolvedValue({ id: 88, createdAt: new Date('2026-03-20T00:00:00.000Z'), sentAt: new Date('2026-03-01T00:00:00.000Z') });
       mockPrismaService.communicationLog.create.mockResolvedValue({ id: 77 });
       mockPrismaService.leaseHistory.create.mockResolvedValue({ id: 'history-3' });
       mockPrismaService.notification.create.mockResolvedValue({ id: 'notification-3' });
@@ -1273,25 +1329,14 @@ describe('PaymentsService', () => {
 
       expect(result).toEqual(expect.objectContaining({
         leaseId: 'lease-1',
-        communicationId: 77,
         attorneyEmail: 'counsel@example.com',
         latestNoticeId: 88,
         overdueInvoiceIds: [401],
         amountDueCents: 90000,
+        workflowEventId: 'workflow-event-1',
+        status: 'PROCESSED',
       }));
-      expect(mockPrismaService.communicationLog.create).toHaveBeenCalledWith(expect.objectContaining({
-        data: expect.objectContaining({
-          channel: 'EMAIL',
-          direction: 'OUTBOUND',
-          to: 'counsel@example.com',
-        }),
-      }));
-      expect(mockAuditLogService.record).toHaveBeenCalledWith(expect.objectContaining({
-        module: 'PAYMENTS',
-        action: 'DELINQUENCY_ATTORNEY_REFERRED',
-        entityType: 'CommunicationLog',
-        entityId: 77,
-      }));
+      expect(mockWorkflowEventService.emitIfNotExists).toHaveBeenCalled();
     });
 
     it('records court date and returns legal tracker entries', async () => {
@@ -1345,7 +1390,7 @@ describe('PaymentsService', () => {
         },
       ]);
       mockPrismaService.leaseNotice.findMany.mockResolvedValue([
-        { id: 88, createdAt: new Date('2026-03-20T00:00:00.000Z') },
+        { id: 88, createdAt: new Date('2026-03-20T00:00:00.000Z'), sentAt: new Date('2026-03-20T00:00:00.000Z') },
       ]);
       mockPrismaService.leaseHistory.findMany.mockResolvedValue([
         {
@@ -1472,7 +1517,7 @@ describe('PaymentsService', () => {
       });
 
       const result = await service.getAttorneyPacketChecklist(
-        'lease-1',
+        '11111111-1111-4111-8111-111111111111',
         { userId: 'manager-1', role: 'PROPERTY_MANAGER' as any },
         'org-1',
       );
@@ -1492,7 +1537,7 @@ describe('PaymentsService', () => {
         module: 'PAYMENTS',
         action: 'ATTORNEY_PACKET_CHECKLIST_VIEWED',
         entityType: 'Lease',
-        entityId: 'lease-1',
+        entityId: '11111111-1111-4111-8111-111111111111',
       }));
     });
   });
