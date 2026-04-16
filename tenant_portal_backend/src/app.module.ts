@@ -68,6 +68,8 @@ import { TenantModule } from './tenant/tenant.module';
 import { AuditLogModule } from './shared/audit-log.module';
 import { FeedModule } from './feed/feed.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
+import { CircuitBreakerModule } from './common/circuit-breaker/circuit-breaker.module';
 
 
 const rateLimitEnabled =
@@ -174,6 +176,8 @@ const rateLimitProviders = rateLimitEnabled
     TenantModule,
     FeedModule,
     AnalyticsModule,
+    FeatureFlagsModule,
+    CircuitBreakerModule,
   ],
   controllers: [AppController],
   providers: [

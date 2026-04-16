@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { LeasingService } from './leasing.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
+import { EsignatureService } from '../esignature/esignature.service';
+import { RentalApplicationService } from '../rental-application/rental-application.service';
 import { LeadStatus, MessageRole, InterestLevel } from '@prisma/client';
 import { TestDataFactory } from '../../test/factories';
 
@@ -32,11 +34,20 @@ describe('LeasingService', () => {
     user: {
       findMany: jest.fn(),
     },
+    $transaction: jest.fn(),
   };
 
   const mockEmailService = {
     sendLeadWelcomeEmail: jest.fn(),
     sendNewLeadNotificationToPM: jest.fn(),
+  };
+
+  const mockEsignatureService = {
+    // Add mock methods as needed
+  };
+
+  const mockRentalApplicationService = {
+    // Add mock methods as needed
   };
 
   beforeEach(async () => {
@@ -45,6 +56,8 @@ describe('LeasingService', () => {
         LeasingService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: EmailService, useValue: mockEmailService },
+        { provide: EsignatureService, useValue: mockEsignatureService },
+        { provide: RentalApplicationService, useValue: mockRentalApplicationService },
       ],
     }).compile();
 

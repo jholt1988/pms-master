@@ -2,6 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PolicyBundle, PolicyBundleSchema } from './policy.types';
 
+// Section keys that can be updated independently
+export type PolicySection = 
+  | 'underwriting'
+  | 'paymentPlan'
+  | 'maintenanceTaxonomy'
+  | 'afterHoursDispatch'
+  | 'denialCompliance';
+
 @Injectable()
 export class PolicyService {
   constructor(private readonly prisma: PrismaService) {}
@@ -36,6 +44,20 @@ export class PolicyService {
         activatedAt: new Date(),
       },
     });
+  }
+
+  async updateSection(propertyId: string, section: PolicySection, data: unknown) {
+    // Get existing bundle
+    const existingBundle = await this.getActiveBundle(propertyId);
+
+    // Merge the section data
+    const updatedBundle: PolicyBundle = {
+      ...existingBundle,
+      [section]: data,
+    };
+
+    // Upsert the updated bundle
+    return this.upsertBundle(propertyId, updatedBundle);
   }
 }
 
