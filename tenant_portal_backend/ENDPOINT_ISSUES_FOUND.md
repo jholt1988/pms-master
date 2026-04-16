@@ -15,29 +15,23 @@ This ensures webhooks are accessible at `/webhooks/*` instead of `/api/webhooks/
 
 ## ⚠️ Issues Requiring Attention
 
-### 1. Duplicate Inspection Modules
+### 1. Duplicate Inspection Modules ✅ RESOLVED
 **Location**: 
 - `src/inspections/inspections.module.ts` (registered in app.module.ts)
-- `src/inspection/inspection.module.ts` (not registered)
+- `src/inspection/inspection.module.ts` (not registered - REMOVED)
 
-**Issue**: Both modules register the same controllers:
-- `InspectionController` → `@Controller('api/inspections')`
-- `EstimateController` → `@Controller('api/estimates')`
+**Resolution**: 
+- Removed the unused `src/inspection/` directory
+- No conflicts remaining
 
-**Current State**: Only `InspectionsModule` is registered, so no conflict currently.
-
-**Recommendation**: 
-- Remove the unused `src/inspection/` directory OR
-- Consolidate into a single module location
-
-### 2. Duplicate QuickBooks Controllers
+### 2. Duplicate QuickBooks Controllers ✅ RESOLVED
 **Location**:
-- `src/quickbooks/quickbooks.controller.ts` (not used)
+- `src/quickbooks/quickbooks.controller.ts` (not used - REMOVED)
 - `src/quickbooks/quickbooks-minimal.controller.ts` (used in module)
 
-**Current State**: Module uses `quickbooks-minimal.controller.ts`, so no conflict.
-
-**Recommendation**: Remove unused `quickbooks.controller.ts` to avoid confusion.
+**Resolution**: 
+- Removed unused `quickbooks.controller.ts` 
+- Updated `quickbooks.module.ts` to remove references
 
 ### 3. Route Path Analysis
 
