@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Request, Param, Put, ForbiddenException, Logger } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Request, Param, Put, ForbiddenException, Logger, HttpCode } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { LeaseService } from './lease.service';
 import { AILeaseRenewalMetricsService } from './ai-lease-renewal-metrics.service';
@@ -171,4 +171,39 @@ export class LeaseController {
   getAIMetrics() {
     return this.aiMetrics.getMetrics();
   }
+
+  // ========== GAP REMEDIATION - Issue 3: Lease Signing Flow ==========
+
+  /**
+   * Generate lease document
+   * Gap: Issue 3 - Lease Creation Signing Flow (P0)
+   */
+  @Post(':id/generate-document')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  @HttpCode(201)
+  async generateLeaseDocument(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+    @OrgId() orgId: string,
+  ) {
+    return this.leaseService.generateLeaseDocument(id, req.user.userId, orgId);
+  }
+
+  /**
+   * Send lease for tenant signature
+   * Gap: Issue 3 - Lease Creation Signing Flow (P0)
+   */
+  @Post(':id/send-for-signature')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  @HttpCode(200)
+  async sendForSignature(
+    @Param('id') id: string,
+    @Body() body: { signerEmail?: string; signerName?: string },
+    @Request() req: AuthenticatedRequest,
+    @OrgId() orgId: string,
+  ) {
+    return this.leaseService.sendForSignature(id, body.signerEmail, body.signerName, req.user.userId, orgId);
+  }
+
+  // ========== END GAP REMEDIATION ==========
 }
