@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards, HttpCode } from '@nestjs/common';
 import { BillingService } from './billing.service';
 import { UpsertScheduleDto } from './dto/upsert-schedule.dto';
 import { ConfigureAutopayDto } from './dto/configure-autopay.dto';
@@ -8,9 +8,9 @@ import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '@prisma/client';
-import { Request } from 'express';
+import type { Request as ExpressRequest } from 'express';
 
-interface AuthenticatedRequest extends Request {
+interface AuthenticatedRequest extends ExpressRequest {
   user: {
     userId: string;
     username: string;
@@ -261,5 +261,30 @@ export class BillingController {
   ) {
     return this.billingService.computeYieldSweepAllocation(orgId, body.amountCents);
   }
+
+  // ========== GAP REMEDIATION - Issue 8: Owner Statement Sending ==========
+
+  /**
+   * Send owner statement via email
+   * Gap: Issue 8 - Owner Statement Sending (P0)
+   */
+  @Post('statements/:id/send')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  @HttpCode(200)
+  async sendOwnerStatement(
+    @Param('id') statementId: string,
+    @Body() body: { ownerId?: string },
+    @Req() req: AuthenticatedRequest,
+    @OrgId() orgId: string,
+  ) {
+    return this.billingService.sendOwnerStatement(
+      statementId,
+      body.ownerId,
+      req.user.userId,
+      orgId,
+    );
+  }
+
+  // ========== END GAP REMEDIATION ==========
 }
 
