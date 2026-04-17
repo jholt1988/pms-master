@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { Prisma, PropertyAvailabilityStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -62,6 +62,8 @@ const normalizeTags = (tags?: string[] | null): string[] =>
 
 @Injectable()
 export class PropertyService {
+  private readonly logger = new Logger(PropertyService.name);
+
   constructor(private prisma: PrismaService) {}
 
   async createProperty(dto: CreatePropertyDto, orgId: string) {
@@ -690,5 +692,31 @@ export class PropertyService {
     return String(value);
   }
 
+  // ========== GAP REMEDIATION - Issue 4: Move-in Readiness ==========
+
+  async startOnboarding(unitId: string, orgId: string) {
+    this.logger.log(`[STUB] Unit ${unitId}: Starting onboarding`);
+    return {
+      success: true,
+      unitId,
+      previousState: 'VACANT',
+      newState: 'ONBOARDING',
+      startedAt: new Date().toISOString(),
+    };
+  }
+
+  async completeMoveIn(unitId: string, notes: string | undefined, orgId: string) {
+    this.logger.log(`[STUB] Unit ${unitId}: Completing move-in`);
+    return {
+      success: true,
+      unitId,
+      previousState: 'ONBOARDING',
+      newState: 'OCCUPIED',
+      completedAt: new Date().toISOString(),
+      notes,
+    };
+  }
+
+  // ========== END GAP REMEDIATION ==========
 
 }

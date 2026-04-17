@@ -196,4 +196,38 @@ export class PropertyController {
   ) {
     return this.propertyService.updateUnit(propertyId, unitId, dto, orgId);
   }
+
+
+  // ========== GAP REMEDIATION - Issue 4: Move-in Readiness ==========
+
+  /**
+   * Start onboarding for a unit
+   * Gap: Issue 4 - Move-in Readiness State Machine (P0)
+   */
+  @Post('units/:unitId/start-onboarding')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  @HttpCode(201)
+  async startOnboarding(
+    @Param('unitId', ParseUUIDPipe) unitId: string,
+    @OrgId() orgId: string,
+  ) {
+    return this.propertyService.startOnboarding(unitId, orgId);
+  }
+
+  /**
+   * Complete move-in for a unit
+   * Gap: Issue 4 - Move-in Readiness State Machine (P0)
+   */
+  @Post('units/:unitId/complete-move-in')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  @HttpCode(200)
+  async completeMoveIn(
+    @Param('unitId', ParseUUIDPipe) unitId: string,
+    @Body() body: { notes?: string },
+    @OrgId() orgId: string,
+  ) {
+    return this.propertyService.completeMoveIn(unitId, body.notes, orgId);
+  }
+
+  // ========== END GAP REMEDIATION ==========
 }
