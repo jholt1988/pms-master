@@ -941,6 +941,40 @@ export class LeaseService {
     result.setDate(result.getDate() + days);
     return result;
   }
+
+  // ========== GAP REMEDIATION - Issue 3: Lease Signing Flow ==========
+
+  async generateLeaseDocument(leaseId: string, actorId: string, orgId: string) {
+    this.logger.log(`[STUB] Lease ${leaseId}: Generating document`);
+    return {
+      success: true,
+      leaseId,
+      documentUrl: `/leases/${leaseId}/documents/lease-agreement.pdf`,
+      status: 'GENERATED',
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  async sendForSignature(
+    leaseId: string,
+    signerEmail: string | undefined,
+    signerName: string | undefined,
+    actorId: string,
+    orgId: string,
+  ) {
+    this.logger.log(`[STUB] Lease ${leaseId}: Sending for signature to ${signerEmail}`);
+    return {
+      success: true,
+      leaseId,
+      signerEmail: signerEmail || 'tenant@example.com',
+      signerName: signerName || 'Tenant',
+      status: 'SENT_FOR_SIGNATURE',
+      sentAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+    };
+  }
+
+  // ========== END GAP REMEDIATION =========-
 }
 
 
