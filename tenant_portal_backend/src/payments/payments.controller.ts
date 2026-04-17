@@ -567,4 +567,58 @@ export class PaymentsController {
     const orgId = (req as any).org?.orgId as string | undefined;
     return this.paymentsService.getPaymentById(Number(id), req.user.userId, req.user.role, orgId);
   }
+
+  // ========== GAP REMEDIATION - Issue 7: Rent Reminder Automation ==========
+
+  /**
+   * Process rent reminders for upcoming due dates
+   * Gap: Issue 7 - Rent Reminder Automation (P1)
+   */
+  @Post('reminders/process')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  @HttpCode(200)
+  async processRentReminders(
+    @Body() body: { daysBeforeDue?: number },
+    @OrgId() orgId: string,
+  ) {
+    const { RentReminderService } = await import('./rent-reminder.service');
+    const reminderService = new RentReminderService(this.prisma);
+    return reminderService.processRentReminders(body.daysBeforeDue || 7);
+  }
+
+  /**
+   * Send reminder for specific payment
+   * Gap: Issue 7 - Rent Reminder Automation (P1)
+   */
+  @Post(':id/send-reminder')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  @HttpCode(200)
+  async sendRentReminder(
+    @Param('id') paymentId: string,
+    @Body() body: { message?: string },
+    @OrgId() orgId: string,
+  ) {
+    const { RentReminderService } = await import('./rent-reminder.service');
+    const reminderService = new RentReminderService(this.prisma);
+    return reminderService.sendReminder(parseInt(paymentId), body.message);
+  }
+
+  /**
+   * Suppress/snooze reminder for payment
+   * Gap: Issue 7 - Rent Reminder Automation (P1)
+   */
+  @Post(':id/suppress-reminder')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  @HttpCode(200)
+  async suppressReminder(
+    @Param('id') paymentId: string,
+    @Body() body: { days?: number },
+    @OrgId() orgId: string,
+  ) {
+    const { RentReminderService } = await import('./rent-reminder.service');
+    const reminderService = new RentReminderService(this.prisma);
+    return reminderService.suppressReminder(parseInt(paymentId), body.days || 7);
+  }
+
+  // ========== END REMINDER ENDPOINTS ==========
 }
