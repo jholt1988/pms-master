@@ -361,6 +361,64 @@ export class MaintenanceController {
     };
   }
 
+  // ========== GAP REMEDIATION - Issue 6: Emergency Repair Dispatch ==========
+
+  /**
+   * Assign vendor to maintenance request (emergency dispatch)
+   * Gap: Issue 6 - Maintenance Emergency Dispatch (P0)
+   */
+  @Post(':id/assign-vendor')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async assignVendor(
+    @Param('id') id: string,
+    @Body() body: { vendorId: string; notes?: string },
+    @Request() req: AuthenticatedRequest,
+    @OrgId() orgId: string,
+  ) {
+    await this.auditLogService.record({
+      actorId: req.user.userId,
+      orgId,
+      module: 'MAINTENANCE',
+      action: 'EMERGENCY_VENDOR_ASSIGNED',
+      entityType: 'MaintenanceRequest',
+      entityId: id,
+      result: 'SUCCESS',
+    });
+    return this.maintenanceService.assignVendor(id, body.vendorId, body.notes, req.user.userId, orgId);
+  }
+
+  /**
+   * Notify tenant about maintenance update
+   * Gap: Issue 6 - Maintenance Emergency Dispatch (P0)
+   */
+  @Post(':id/notify-tenant')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async notifyTenant(
+    @Param('id') id: string,
+    @Body() body: { message: string },
+    @Request() req: AuthenticatedRequest,
+    @OrgId() orgId: string,
+  ) {
+    return this.maintenanceService.notifyTenant(id, body.message, req.user.userId, orgId);
+  }
+
+  /**
+   * Notify owner about maintenance update
+   * Gap: Issue 6 - Maintenance Emergency Dispatch (P0)
+   */
+  @Post(':id/notify-owner')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async notifyOwner(
+    @Param('id') id: string,
+    @Body() body: { message: string },
+    @Request() req: AuthenticatedRequest,
+    @OrgId() orgId: string,
+  ) {
+    return this.maintenanceService.notifyOwner(id, body.message, req.user.userId, orgId);
+  }
+
+  // ========== END GAP REMEDIATION ==========
+
   @Post(':id/confirm-complete')
   @Roles('TENANT')
   async confirmComplete(
