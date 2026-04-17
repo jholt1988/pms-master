@@ -24,6 +24,7 @@ import { memoryStorage } from 'multer';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { randomBytes } from 'crypto';
+import { PrismaService } from '../prisma/prisma.service';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -44,6 +45,7 @@ export class MaintenanceController {
     private readonly auditLogService: AuditLogService,
     private readonly featureExtractionService: MaintenanceFeatureExtractionService,
     private readonly dataQualityService: MaintenanceDataQualityService,
+    private readonly prisma: PrismaService,
   ) {
     this.ensureUploadDir();
   }
@@ -384,7 +386,19 @@ export class MaintenanceController {
       entityId: id,
       result: 'SUCCESS',
     });
-    return this.maintenanceService.assignVendor(id, body.vendorId, body.notes, req.user.userId, orgId);
+    const result = await this.maintenanceService.assignVendor(id, body.vendorId, body.notes, req.user.userId, orgId);
+    await this.prisma.telemetryEvent.create({
+      data: {
+        eventName: 'vendor_dispatched',
+        userId: req.user.userId,
+        orgId,
+        entityId: id,
+        domain: 'maintenance',
+        outcome: 'success',
+        metadata: { vendorId: body.vendorId }
+      }
+    });
+    return result;
   }
 
   /**
@@ -399,7 +413,19 @@ export class MaintenanceController {
     @Request() req: AuthenticatedRequest,
     @OrgId() orgId: string,
   ) {
-    return this.maintenanceService.notifyTenant(id, body.message, req.user.userId, orgId);
+    const result = await this.maintenanceService.notifyTenant(id, body.message, req.user.userId, orgId);
+    await this.prisma.telemetryEvent.create({
+      data: {
+        eventName: 'tenant_notified_maintenance',
+        userId: req.user.userId,
+        orgId,
+        entityId: id,
+        domain: 'maintenance',
+        outcome: 'success',
+        metadata: {}
+      }
+    });
+    return result;
   }
 
   /**

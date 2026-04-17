@@ -6,7 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 @Injectable()
 export class RentalApplicationAiService {
   private readonly logger = new Logger(RentalApplicationAiService.name);
-  private readonly aiServiceUrl = process.env.AI_PRESCREENING_SERVICE_URL || 'http://localhost:8001';
+  private readonly aiServiceUrl = process.env.AI_PRESCREENING_SERVICE_URL || 'http://ml-service:8000';
   private readonly protectedClassPatterns: Array<{ field: string; pattern: RegExp }> = [
     { field: 'race', pattern: /\b(asian|black|white|latino|latina|hispanic|indigenous)\b/i },
     { field: 'religion', pattern: /\b(christian|muslim|jewish|hindu|buddhist|atheist)\b/i },

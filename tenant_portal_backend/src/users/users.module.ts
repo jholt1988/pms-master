@@ -16,7 +16,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     {
       provide: MilApiClient,
       useFactory: (configService: ConfigService) => {
-        const milServiceUrl = configService.get<string>('MIL_SERVICE_URL', 'http://localhost:8080');
+        const milServiceUrl = configService.get<string>('MIL_SERVICE_URL', 'http://mil:3010');
         return new MilApiClient(undefined, milServiceUrl);
       },
       inject: [ConfigService],

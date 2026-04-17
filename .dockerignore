@@ -9,6 +9,5 @@ node_modules
 **/.cache
 reports
 *.log
-.env
-**/.env
-ops/.env.prod
+
+

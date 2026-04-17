@@ -1,4 +1,4 @@
-version: '3.8'
+
 
 services:
   ml-service:
@@ -11,7 +11,7 @@ services:
       - API_HOST=0.0.0.0
       - ENVIRONMENT=production
       - DEBUG=false
-      - DATABASE_URL=postgresql://postgres:password@postgres:5432/tenant_portal_back_DB
+      - DATABASE_URL=postgresql://pms:pms@postgres:5432/pms
     volumes:
       - ./models:/app/models
       - ./logs:/app/logs
@@ -19,24 +19,24 @@ services:
     depends_on:
       - postgres
     networks:
-      - property-management
+      - pms-internal
 
   postgres:
     image: postgres:15-alpine
     container_name: property-db
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=tenant_portal_back_DB
+      - POSTGRES_USER=pms
+      - POSTGRES_PASSWORD=pms
+      - POSTGRES_DB=pms
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
-      - property-management
+      - pms-internal
 
 networks:
-  property-management:
+  pms-internal:
     driver: bridge
 
 volumes:

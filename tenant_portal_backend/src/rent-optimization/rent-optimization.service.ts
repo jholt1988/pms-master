@@ -7,6 +7,7 @@ import { ApiException } from '../common/errors';
 import { ErrorCode } from '../common/errors/error-codes.enum';
 import { assertConfidenceV16Invariants, validateConfidenceV16 } from '../property-os/v16-contract';
 import { MilSecurityAuditWrapperService } from '../mil/mil-security-audit-wrapper.service';
+import { ConfigService } from '@nestjs/config';
 
 interface MLPredictionRequest {
   unit_id: string;
@@ -61,12 +62,13 @@ interface MLPredictionResponse {
 @Injectable()
 export class RentOptimizationService {
   private readonly logger = new Logger(RentOptimizationService.name);
-  private readonly ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
+  private readonly ML_SERVICE_URL = this.configService.get<string>('ML_SERVICE_URL', 'http://ml-service:3010');
   private readonly USE_ML_SERVICE = process.env.USE_ML_SERVICE === 'true';
 
   constructor(
     private prisma: PrismaService,
     private readonly milWrapper: MilSecurityAuditWrapperService,
+    private readonly configService: ConfigService,
   ) {
     this.logger.log(`RentOptimizationService initialized. ML Service URL: ${this.ML_SERVICE_URL}, USE_ML_SERVICE: ${this.USE_ML_SERVICE}`);
   }

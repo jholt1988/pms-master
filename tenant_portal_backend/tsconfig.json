@@ -26,6 +26,19 @@
     "allowJs": true,
     "noEmit": false,
     "useDefineForClassFields": false,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "allowSyntheticDefaultImports": true,
+    "declaration": false,
+    "removeComments": true,
+    "incremental": true,
+    "strictNullChecks": false,
+    "strictPropertyInitialization": false,
+    "noImplicitAny": false,
+    "resolveJsonModule": true,
+    "allowJs": true,
+    "noEmit": false,
+    "useDefineForClassFields": false,
     "isolatedModules": false
   },
   "include": [
@@ -35,6 +48,7 @@
   "exclude": [
     "node_modules",
     "src/**/*.spec.ts",
-    "test/**"
+    "test/**",
+    "src/quickbooks/**"
   ]
 }

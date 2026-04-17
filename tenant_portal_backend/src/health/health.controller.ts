@@ -23,7 +23,7 @@ export class HealthController {
       () => this.memory.checkHeap('memory_heap', 300 * 1024 * 1024),
       () => this.memory.checkRSS('memory_rss', 300 * 1024 * 1024),
       () => {
-        const mlServiceUrl = process.env.ML_SERVICE_URL || 'http://localhost:8000';
+        const mlServiceUrl = process.env.ML_SERVICE_URL || 'http://ml-service:8000';
         return this.http.pingCheck('ml_service', `${mlServiceUrl}/health`);
       },
     ]);

@@ -4,9 +4,9 @@ services:
     container_name: pms-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-pms}
-      POSTGRES_USER: ${POSTGRES_USER:-pms}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pms}
+      POSTGRES_DB: pms
+      POSTGRES_USER: pms
+      POSTGRES_PASSWORD: pms
     ports:
       - "5432:5432"
     volumes:
@@ -41,8 +41,8 @@ services:
     container_name: pms-rabbitmq
     restart: unless-stopped
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-pms}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-pms}
+      RABBITMQ_DEFAULT_USER: pms
+      RABBITMQ_DEFAULT_PASS: pms
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -68,7 +68,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3010
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: postgresql://pms:pms@postgres:5432/pms
     ports:
       - "3010:3010"
     healthcheck:
@@ -96,13 +96,14 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
-      DATABASE_URL: ${DATABASE_URL}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:8080,http://localhost:3003,http://localhost:8000,http://localhost:3002}
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
-      MIL_SERVICE_URL: ${MIL_SERVICE_URL:-http://mil:3010}
-      MIL_WRAPPER_ENABLED: ${MIL_WRAPPER_ENABLED:-true}
-      MIL_ENCRYPT_AT_REST_ENABLED: ${MIL_ENCRYPT_AT_REST_ENABLED:-false}
-      MIL_AUDIT_PERSIST_ENABLED: ${MIL_AUDIT_PERSIST_ENABLED:-false}
+      DATABASE_URL: postgresql://pms:pms@postgres:5432/pms
+      ALLOWED_ORIGINS: http://localhost:3000,http://admin.localhost:3000,http://localhost:8080,http://localhost:3003,http://localhost:8000,http://localhost:3002
+      JWT_SECRET: 12345678901234567890123456789012
+      MIL_SERVICE_URL: http://mil:3010
+      MIL_WRAPPER_ENABLED: true
+      MIL_ENCRYPT_AT_REST_ENABLED: false
+      MIL_AUDIT_PERSIST_ENABLED: false
+      REDIS_URL: redis://redis:6379
     ports:
       - "3001:3001"
     command: >
@@ -127,7 +128,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3003
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: postgresql://pms:pms@postgres:5432/pms
     depends_on:
       postgres:
         condition: service_healthy
@@ -147,7 +148,7 @@ services:
       API_PORT: 8000
       API_HOST: 0.0.0.0
       ENVIRONMENT: production
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: postgresql://pms:pms@postgres:5432/pms
     ports:
       - "8000:8000"
     volumes:
@@ -164,7 +165,7 @@ services:
       context: .
       dockerfile: tenant_portal_app/Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL:-/api}
+        VITE_API_URL: /api
     container_name: pms-frontend
     restart: unless-stopped
     depends_on:
@@ -219,8 +220,8 @@ services:
     restart: unless-stopped
     profiles: ["monitoring"]
     environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - grafana_data:/var/lib/grafana

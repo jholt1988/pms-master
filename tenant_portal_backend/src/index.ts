@@ -26,10 +26,20 @@ async function bootstrap() {
 
   // CORS Configuration - restrict to specific origins in production
   app.enableCors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3003'],
+    origin: process.env.ALLOWED_ORIGINS?.split(',') || [
+      'http://localhost:3000',
+      'http://admin.localhost:3000',
+      'http://localhost:3003',
+    ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Request-ID',
+      'X-Mock-User-Id',
+      'X-Mock-Role',
+    ],
     exposedHeaders: ['X-Request-ID'],
   });
 

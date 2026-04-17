@@ -38,7 +38,7 @@ export class HealthMonitorService {
   ) {
     this.monitoringEnabled =
       this.configService.get<string>('MONITORING_ENABLED', 'true') === 'true';
-    this.mlServiceUrl = this.configService.get<string>('ML_SERVICE_URL', 'http://localhost:8000');
+    this.mlServiceUrl = this.configService.get<string>('ML_SERVICE_URL', 'http://ml-service:8000');
   }
 
   /**

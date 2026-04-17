@@ -10,7 +10,7 @@ import { AppCacheService } from './cache.service';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService): any => {
-        const redisUrl = config.get<string>('REDIS_URL');
+        const redisUrl = config.get<string>('REDIS_URL') || 'redis://redis:6379';
         if (redisUrl) {
           return {
             store: 'ioredis',
