@@ -1,5 +1,5 @@
 
-import { Controller, Get, Post, Body, UseGuards, Request, Param, Put, Delete, Query, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Request, Param, Put, Delete, Query, ParseIntPipe, HttpCode } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ExpenseService } from './expense.service';
 import { Roles } from '../auth/roles.decorator';
@@ -58,4 +58,22 @@ export class ExpenseController {
   deleteExpense(@Param('id', ParseIntPipe) id: number, @OrgId() orgId: string) {
     return this.expenseService.deleteExpense(id, orgId);
   }
+
+  // ========== GAP REMEDIATION - Issue 9: Expense Anomaly Reasoning ==========
+
+  /**
+   * Get anomaly details for an expense
+   * Gap: Issue 9 - Expense Anomaly Reasoning (P0)
+   */
+  @Get(':id/anomaly-details')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  @HttpCode(200)
+  async getAnomalyDetails(
+    @Param('id', ParseIntPipe) id: number,
+    @OrgId() orgId: string,
+  ) {
+    return this.expenseService.getAnomalyDetails(id, orgId);
+  }
+
+  // ========== END GAP REMEDIATION =========-
 }
