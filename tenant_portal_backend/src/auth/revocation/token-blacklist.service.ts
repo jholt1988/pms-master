@@ -11,7 +11,7 @@ export class TokenBlacklistService implements OnModuleInit, OnModuleDestroy {
   constructor(private readonly configService: ConfigService) {}
 
   async onModuleInit() {
-    const redisUrl = this.configService.get<string>('REDIS_URL', 'redis://localhost:6379');
+    const redisUrl = this.configService.get<string>('REDIS_URL', 'redis://redis:6379');
     this.redis = new Redis(redisUrl, { connectTimeout: 3000 });
     this.redis.on('error', (err) => this.logger.warn(`Redis error: ${err.message}`));
   }

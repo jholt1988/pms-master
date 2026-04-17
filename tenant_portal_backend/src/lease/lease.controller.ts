@@ -15,6 +15,7 @@ import { RecordLeaseNoticeDto } from './dto/record-lease-notice.dto';
 import { RespondRenewalOfferDto } from './dto/respond-renewal-offer.dto';
 import { TenantSubmitNoticeDto } from './dto/tenant-submit-notice.dto';
 import { AuditLogService } from '../shared/audit-log.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -32,6 +33,7 @@ export class LeaseController {
     private readonly leaseService: LeaseService,
     private readonly aiMetrics: AILeaseRenewalMetricsService,
     private readonly auditLogService: AuditLogService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Post()
@@ -186,7 +188,19 @@ export class LeaseController {
     @Request() req: AuthenticatedRequest,
     @OrgId() orgId: string,
   ) {
-    return this.leaseService.generateLeaseDocument(id, req.user.userId, orgId);
+    const result = await this.leaseService.generateLeaseDocument(id, req.user.userId, orgId);
+    await this.prisma.telemetryEvent.create({
+      data: {
+        eventName: 'lease_document_generated',
+        userId: String(req.user.userId),
+        orgId,
+        entityId: id,
+        domain: 'lease',
+        outcome: 'success',
+        metadata: {}
+      }
+    });
+    return result;
   }
 
   /**
@@ -202,7 +216,19 @@ export class LeaseController {
     @Request() req: AuthenticatedRequest,
     @OrgId() orgId: string,
   ) {
-    return this.leaseService.sendForSignature(id, body.signerEmail, body.signerName, req.user.userId, orgId);
+    const result = await this.leaseService.sendForSignature(id, body.signerEmail, body.signerName, req.user.userId, orgId);
+    await this.prisma.telemetryEvent.create({
+      data: {
+        eventName: 'lease_sent_for_signature',
+        userId: String(req.user.userId),
+        orgId,
+        entityId: id,
+        domain: 'lease',
+        outcome: 'success',
+        metadata: {}
+      }
+    });
+    return result;
   }
 
   // ========== END GAP REMEDIATION ==========

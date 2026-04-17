@@ -24,7 +24,7 @@ export class InspectionEstimateProcessor extends WorkerHost {
     try {
       // 1. Call the Brain (Python Actuarial Service)
       const { data } = await firstValueFrom(
-        this.httpService.post(`http://localhost:8001/actuarial/estimate`, {
+        this.httpService.post(`http://ml-service:8000/actuarial/estimate`, {
           inspectionId,
           data: rawData,
         })

@@ -3518,3 +3518,17 @@ model Violation {
   @@index([tenantProfileId, isResolved])
   @@index([type])
 }
+
+model TelemetryEvent {
+  id        Int      @id @default(autoincrement())
+  eventName String   @map("event_name") @db.VarChar(100)
+  userId    String?  @map("user_id") @db.VarChar(100)
+  orgId     String?  @map("org_id") @db.VarChar(100)
+  entityId  String?  @map("entity_id") @db.VarChar(100)
+  domain    String?  @db.VarChar(50)
+  outcome   String?  @db.VarChar(20)
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("telemetry_events")
+}

@@ -17,7 +17,7 @@ export class HealthMetricsService implements OnModuleDestroy {
   ) {
     try {
       this.redis = new Redis({
-        host: this.config.get('REDIS_HOST', 'localhost'),
+        host: this.config.get('REDIS_HOST', 'redis'),
         port: this.config.get('REDIS_PORT', 6379),
         lazyConnect: true,
         maxRetriesPerRequest: 1,

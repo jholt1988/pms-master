@@ -35,7 +35,7 @@ export class RedisHealthIndicator extends HealthIndicator {
   async isHealthy(key: string): Promise<HealthIndicatorResult> {
     let client: Redis | undefined;
     try {
-      const redisUrl = this.configService.get<string>('REDIS_URL', 'redis://localhost:6379');
+      const redisUrl = this.configService.get<string>('REDIS_URL', 'redis://redis:6379');
       client = new Redis(redisUrl, { connectTimeout: 3000, lazyConnect: true });
       await client.connect();
       const pong = await client.ping();

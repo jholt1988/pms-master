@@ -75,7 +75,7 @@ export class AILeaseRenewalService {
 
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
     const aiEnabled = this.configService.get<string>('AI_ENABLED', 'false') === 'true';
-    this.mlServiceUrl = this.configService.get<string>('ML_SERVICE_URL', 'http://localhost:8000');
+    this.mlServiceUrl = this.configService.get<string>('ML_SERVICE_URL', 'http://ml-service:8000');
     this.mlServiceTimeout = parseInt(this.configService.get<string>('ML_SERVICE_TIMEOUT', '5000'), 10);
     this.mlServiceMaxRetries = parseInt(this.configService.get<string>('ML_SERVICE_MAX_RETRIES', '3'), 10);
     this.mlServiceRetryDelay = parseInt(this.configService.get<string>('ML_SERVICE_RETRY_DELAY', '1000'), 10);

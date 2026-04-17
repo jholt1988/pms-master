@@ -22,6 +22,7 @@ import { ReferDelinquencyAttorneyDto } from './dto/refer-delinquency-attorney.dt
 import { RecordCourtDateDto } from './dto/record-court-date.dto';
 import { Request as ExpressRequest } from 'express';
 import { AuditLogService } from '../shared/audit-log.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 type AuthenticatedRequest = ExpressRequest & {
   user: {
@@ -36,6 +37,7 @@ export class PaymentsController {
   constructor(
     private readonly paymentsService: PaymentsService,
     private readonly auditLogService: AuditLogService,
+    private readonly prisma: PrismaService,
     @Optional() private readonly aiMetrics?: AIPaymentMetricsService,
   ) {}
 
@@ -115,7 +117,19 @@ export class PaymentsController {
     @Request() req: AuthenticatedRequest,
   ) {
     const orgId = (req as any).org?.orgId as string | undefined;
-    return this.paymentsService.getOperationalLedgerAccount(leaseId, req.user, orgId);
+    const result = await this.paymentsService.getOperationalLedgerAccount(leaseId, req.user, orgId);
+    await this.prisma.telemetryEvent.create({
+      data: {
+        eventName: 'ledger_context_opened',
+        userId: req.user.userId,
+        orgId,
+        entityId: leaseId,
+        domain: 'payments',
+        outcome: 'success',
+        metadata: {}
+      }
+    });
+    return result;
   }
 
   @Get('delinquency/queue')
@@ -179,7 +193,19 @@ export class PaymentsController {
     @Request() req: AuthenticatedRequest,
     @OrgId() orgId: string,
   ) {
-    return this.paymentsService.issueDelinquencyNotice(dto, req.user.userId, orgId);
+    const result = await this.paymentsService.issueDelinquencyNotice(dto, req.user.userId, orgId);
+    await this.prisma.telemetryEvent.create({
+      data: {
+        eventName: 'payment_notice_sent',
+        userId: req.user.userId,
+        orgId,
+        entityId: dto.leaseId,
+        domain: 'payments',
+        outcome: 'success',
+        metadata: { deliveryMethod: dto.deliveryMethod },
+      }
+    });
+    return result;
   }
 
   @Post('delinquency/by-payment/:paymentId/issue-notice')
@@ -320,7 +346,19 @@ export class PaymentsController {
     @Request() req: AuthenticatedRequest,
     @OrgId() orgId: string,
   ) {
-    return this.paymentsService.getDelinquencyLegalTracker(leaseId, orgId);
+    const result = await this.paymentsService.getDelinquencyLegalTracker(leaseId, orgId);
+    await this.prisma.telemetryEvent.create({
+      data: {
+        eventName: 'notice_trail_opened',
+        userId: req.user.userId,
+        orgId,
+        entityId: leaseId,
+        domain: 'payments',
+        outcome: 'success',
+        metadata: {}
+      }
+    });
+    return result;
   }
 
   @Get('delinquency/attorney-packet/:leaseId')
