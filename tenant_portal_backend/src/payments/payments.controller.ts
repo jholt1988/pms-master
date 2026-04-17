@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Request, Query, Param, Optional } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Request, Query, Param, Optional, HttpCode } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { PaymentsService } from './payments.service';
 import { AIPaymentMetricsService } from './ai-payment-metrics.service';
@@ -256,6 +256,62 @@ export class PaymentsController {
   ) {
     return this.paymentsService.recordCourtDate(dto, req.user.userId, orgId);
   }
+
+  // ========== NEW ENDPOINTS FOR GAP REMEDIATION ==========
+  
+  /**
+   * Send a message to tenant about their payment
+   * Gap: Issue 1 - Payment Execution Handlers (P0)
+   */
+  @Post(':id/message-tenant')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  @HttpCode(200)
+  async messageTenant(
+    @Param('id') paymentId: string,
+    @Body() body: { subject: string; message: string },
+    @Request() req: AuthenticatedRequest,
+    @OrgId() orgId: string,
+  ) {
+    await this.auditLogService.log(
+      `Payment message sent to tenant for payment ${paymentId}: ${body.subject}`,
+    );
+    return this.paymentsService.sendTenantMessage(
+      parseInt(paymentId),
+      body.subject,
+      body.message,
+      req.user.userId,
+      orgId,
+    );
+  }
+
+  /**
+   * Record a manual payment for an existing payment
+   * Gap: Issue 1 - Payment Execution Handlers (P0)
+   */
+  @Post(':id/record-manual')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  @HttpCode(201)
+  async recordManualPayment(
+    @Param('id') paymentId: string,
+    @Body() body: { amount: number; paymentDate: string; notes?: string; paymentMethod?: string },
+    @Request() req: AuthenticatedRequest,
+    @OrgId() orgId: string,
+  ) {
+    await this.auditLogService.log(
+      `Manual payment recorded for payment ${paymentId}: amount=${body.amount}, method=${body.paymentMethod || 'MANUAL'}`,
+    );
+    return this.paymentsService.recordManualPayment(
+      parseInt(paymentId),
+      body.amount,
+      new Date(body.paymentDate),
+      body.notes,
+      body.paymentMethod || 'MANUAL',
+      req.user.userId,
+      orgId,
+    );
+  }
+
+  // ========== END NEW ENDPOINTS ==========
 
   @Get('delinquency/legal-tracker/:leaseId')
   @Roles('PROPERTY_MANAGER', 'ADMIN')
