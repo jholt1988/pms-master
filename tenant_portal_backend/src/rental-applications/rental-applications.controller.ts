@@ -8,6 +8,7 @@ import {
   Put,
   Req,
   UseGuards,
+  HttpCode,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
@@ -75,4 +76,22 @@ export class RentalApplicationsController {
   ) {
     return this.rentalApplicationsService.review(Number(id), dto, req.user?.userId, orgId);
   }
+
+  // ========== GAP REMEDIATION - Issue 5: Screening Risk Reasoning ==========
+
+  /**
+   * Get detailed risk breakdown for a rental application
+   * Gap: Issue 5 - High-Risk Applicant Reasoning (P0)
+   */
+  @Get(':id/screening-reasoning')
+  @Roles('PROPERTY_MANAGER', 'ADMIN', 'OWNER')
+  @HttpCode(200)
+  async getScreeningReasoning(
+    @Param('id') id: string,
+    @OrgId() orgId: string,
+  ) {
+    return this.rentalApplicationsService.getScreeningReasoning(id, orgId);
+  }
+
+  // ========== END GAP REMEDIATION ==========
 }
