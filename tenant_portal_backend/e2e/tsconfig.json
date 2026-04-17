@@ -1,0 +1,1 @@
+{"compilerOptions": {"module": "commonjs", "target": "es2021", "moduleResolution": "node", "esModuleInterop": true, "strict": true, "outDir": "../dist"}, "include": ["./**/*"], "exclude": ["node_modules"]}
