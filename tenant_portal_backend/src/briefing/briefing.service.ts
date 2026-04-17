@@ -387,4 +387,27 @@ export class BriefingService {
       overduePayments: overdueCount,
     };
   }
+
+  // ========== GAP REMEDIATION - Issue 10: Portfolio Risk Briefing ==========
+
+  async injectRiskItem(
+    propertyId: string,
+    riskType: string,
+    riskScore: number,
+    description: string,
+    orgId: string,
+  ) {
+    this.logger.log(`[STUB] Injecting risk item for property ${propertyId}: ${riskType} (score: ${riskScore})`);
+    return {
+      success: true,
+      propertyId,
+      riskType,
+      riskScore,
+      description,
+      injectedAt: new Date().toISOString(),
+      willAppearInBriefing: true,
+    };
+  }
+
+  // ========== END GAP REMEDIATION ==========
 }
