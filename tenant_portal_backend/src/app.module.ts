@@ -70,6 +70,7 @@ import { FeedModule } from './feed/feed.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 import { CircuitBreakerModule } from './common/circuit-breaker/circuit-breaker.module';
+import { TelemetryModule } from './telemetry/telemetry.module';
 
 
 const rateLimitEnabled =
@@ -178,6 +179,7 @@ const rateLimitProviders = rateLimitEnabled
     AnalyticsModule,
     FeatureFlagsModule,
     CircuitBreakerModule,
+    TelemetryModule,
   ],
   controllers: [AppController],
   providers: [
