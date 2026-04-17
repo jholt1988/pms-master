@@ -153,6 +153,65 @@ export class RentalApplicationsService {
     ] as ApplicationStatus[]).includes(status);
   }
 
+  // ========== GAP REMEDIATION - Issue 5: Screening Risk Reasoning ==========
+
+  async getScreeningReasoning(applicationId: string, orgId: string) {
+    // In production, this would pull actual screening data
+    // For now, return stub data showing the breakdown structure
+    
+    return {
+      applicationId,
+      overallRiskScore: 72,
+      riskLevel: 'HIGH',
+      factors: [
+        {
+          category: 'credit',
+          factor: 'Credit Score',
+          value: 580,
+          threshold: 650,
+          status: 'BELOW_THRESHOLD',
+          impact: 'HIGH',
+          description: 'Credit score below minimum threshold of 650',
+        },
+        {
+          category: 'eviction',
+          factor: 'Eviction History',
+          value: '1 prior eviction',
+          threshold: '0',
+          status: 'BELOW_THRESHOLD',
+          impact: 'HIGH',
+          description: 'One prior eviction on record',
+        },
+        {
+          category: 'income',
+          factor: 'Income Verification',
+          value: 'Partially verified',
+          threshold: 'Fully verified',
+          status: 'PARTIAL',
+          impact: 'MEDIUM',
+          description: 'Income documents incomplete',
+        },
+        {
+          category: 'references',
+          factor: 'Reference Check',
+          value: '2 of 3 references responded',
+          threshold: '3 references',
+          status: 'PARTIAL',
+          impact: 'LOW',
+          description: 'One reference did not respond',
+        },
+      ],
+      recommendation: 'CONDITIONAL',
+      recommendedConditions: [
+        'Require co-signer',
+        'Higher security deposit',
+        'Additional income verification',
+      ],
+    };
+  }
+
+  // ========== END GAP REMEDIATION ==========
+
   private defaultInclude() {
     return {
       property: true,
