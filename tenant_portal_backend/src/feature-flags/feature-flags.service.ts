@@ -54,9 +54,10 @@ export class FeatureFlagsService {
       };
     }
 
-    // Check environment
+    // Check environment (skip if not configured)
     const nodeEnv = process.env.NODE_ENV || 'development';
-    if (!flag.environments.includes(nodeEnv as any)) {
+    const allowedEnvs = flag.environments ?? [];
+    if (allowedEnvs.length > 0 && !allowedEnvs.includes(nodeEnv as any)) {
       return {
         key,
         enabled: false,

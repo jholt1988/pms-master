@@ -5,6 +5,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AIPaymentService } from './ai-payment.service';
 import { EmailService } from '../email/email.service';
 import { StripeService } from './stripe.service';
+import { AuditLogService } from '../shared/audit-log.service';
+import { WorkflowEventService } from '../policy/workflow-event.service';
+import { WorkflowEventProcessor } from '../policy/workflow-event-processor.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 describe('PaymentsService direct charge fee derivation', () => {
   const prisma: any = {
@@ -16,9 +20,24 @@ describe('PaymentsService direct charge fee derivation', () => {
     payment: { create: jest.fn() },
   };
 
+
   const stripe: any = {
     processPayment: jest.fn(),
   };
+
+  const auditLog: any = {
+    create: jest.fn().mockResolvedValue({}),
+  };
+
+
+  const workflowEventService: any = {
+    raise: jest.fn().mockResolvedValue({}),
+  };
+
+  const eventEmitter: any = {
+    emit: jest.fn(),
+  };
+
 
   let service: PaymentsService;
 
@@ -32,6 +51,10 @@ describe('PaymentsService direct charge fee derivation', () => {
         { provide: AIPaymentService, useValue: {} },
         { provide: EmailService, useValue: { sendRentPaymentConfirmation: jest.fn().mockResolvedValue(undefined) } },
         { provide: StripeService, useValue: stripe },
+        { provide: AuditLogService, useValue: auditLog },
+        { provide: WorkflowEventService, useValue: workflowEventService },
+        { provide: WorkflowEventProcessor, useValue: { process: jest.fn().mockResolvedValue({}) } },
+        { provide: EventEmitter2, useValue: eventEmitter },
       ],
     }).compile();
 
