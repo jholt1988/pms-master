@@ -62,7 +62,7 @@ interface MLPredictionResponse {
 @Injectable()
 export class RentOptimizationService {
   private readonly logger = new Logger(RentOptimizationService.name);
-  private readonly ML_SERVICE_URL = this.configService.get<string>('ML_SERVICE_URL', 'http://ml-service:3010');
+  private readonly ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://ml-service:3010';
   private readonly USE_ML_SERVICE = process.env.USE_ML_SERVICE === 'true';
 
   constructor(
