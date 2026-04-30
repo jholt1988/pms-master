@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
-import { LeaseStatus } from '@prisma/client';
+import { LeaseNoticeDeliveryMethod, LeaseNoticeType, LeaseRenewalStatus, LeaseStatus } from '@prisma/client';
 import { LeaseService } from './lease.service';
 
 const LEASE_ID = '11111111-1111-4111-8111-111111111111';
@@ -46,6 +46,9 @@ describe('LeaseService core lease workflows', () => {
       leaseRenewalOffer: {
         create: jest.fn(),
         findUnique: jest.fn(),
+      },
+      leaseNotice: {
+        create: jest.fn(),
       },
       scheduleEvent: {
         findFirst: jest.fn(),
@@ -178,6 +181,147 @@ describe('LeaseService core lease workflows', () => {
           note: 'Lease status updated',
         }),
       });
+    });
+  });
+
+  describe('createRenewalOffer', () => {
+    it('uses AI rent recommendations, moves the lease to renewal pending, schedules follow-up, and audits', async () => {
+      const existing = lease({ status: LeaseStatus.ACTIVE, rentAmount: 1800 });
+      const updated = lease({ status: LeaseStatus.RENEWAL_PENDING, renewalDueAt: new Date('2026-11-30T00:00:00.000Z') });
+      prisma.lease.findFirst.mockResolvedValue(existing);
+      aiLeaseRenewalService.getRentAdjustmentRecommendation.mockResolvedValue({
+        recommendedRent: 1875,
+        adjustmentPercentage: 4.2,
+        reasoning: 'Market rent supports a modest increase.',
+        factors: [{ name: 'market', impact: 0.7, description: 'Comparable rents increased' }],
+      });
+      prisma.leaseRenewalOffer.create.mockResolvedValue({ id: 'offer_1', expiresAt: new Date('2026-11-30T00:00:00.000Z') });
+      prisma.lease.update.mockResolvedValue(updated);
+      prisma.leaseHistory.create.mockResolvedValue({ id: 'history_renewal' });
+      prisma.scheduleEvent.findFirst.mockResolvedValue(null);
+      prisma.scheduleEvent.create.mockResolvedValue({ id: 'event_renewal' });
+      auditLogService.record.mockResolvedValue(undefined);
+
+      const result = await service.createRenewalOffer(
+        LEASE_ID,
+        {
+          proposedStart: '2027-01-01',
+          proposedEnd: '2027-12-31',
+          expiresAt: '2026-11-30',
+        } as any,
+        ACTOR_ID,
+        ORG_ID,
+      );
+
+      expect(result).toBe(updated);
+      expect(aiLeaseRenewalService.getRentAdjustmentRecommendation).toHaveBeenCalledWith(Number(LEASE_ID));
+      expect(prisma.leaseRenewalOffer.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          leaseId: LEASE_ID,
+          proposedRent: 1875,
+          proposedStart: new Date('2027-01-01T00:00:00.000Z'),
+          proposedEnd: new Date('2027-12-31T00:00:00.000Z'),
+          message: 'Market rent supports a modest increase.',
+          status: LeaseRenewalStatus.OFFERED,
+          respondedById: ACTOR_ID,
+        }),
+      });
+      expect(prisma.lease.update).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: LEASE_ID },
+        data: expect.objectContaining({ status: LeaseStatus.RENEWAL_PENDING }),
+      }));
+      expect(prisma.scheduleEvent.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          type: 'LEASE_RENEWAL',
+          priority: 'HIGH',
+          tenantId: TENANT_ID,
+          unitId: UNIT_ID,
+        }),
+      });
+      expect(auditLogService.record).toHaveBeenCalledWith(expect.objectContaining({
+        orgId: ORG_ID,
+        actorId: ACTOR_ID,
+        module: 'LEASE',
+        action: 'LEASE_RENEWAL_OFFER_CREATED',
+        result: 'SUCCESS',
+        metadata: expect.objectContaining({ aiRentUsed: true, proposedRent: 1875 }),
+      }));
+    });
+
+    it('rejects renewal offers with invalid proposed date order before writing', async () => {
+      prisma.lease.findFirst.mockResolvedValue(lease());
+
+      await expect(
+        service.createRenewalOffer(
+          LEASE_ID,
+          { proposedStart: '2027-12-31', proposedEnd: '2027-01-01', proposedRent: 1900 } as any,
+          ACTOR_ID,
+          ORG_ID,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(prisma.leaseRenewalOffer.create).not.toHaveBeenCalled();
+      expect(prisma.lease.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('recordLeaseNotice', () => {
+    it('records move-out notices, updates status, schedules operations follow-up, and audits', async () => {
+      const existing = lease({ status: LeaseStatus.ACTIVE, moveOutAt: new Date('2026-10-31T00:00:00.000Z') });
+      const returned = lease({ status: LeaseStatus.NOTICE_GIVEN });
+      prisma.lease.findFirst.mockResolvedValueOnce(existing).mockResolvedValueOnce(returned);
+      prisma.leaseNotice.create.mockResolvedValue({
+        id: 'notice_1',
+        lease: existing,
+      });
+      prisma.lease.update.mockResolvedValue({ ...existing, status: LeaseStatus.NOTICE_GIVEN });
+      prisma.leaseHistory.create.mockResolvedValue({ id: 'history_notice' });
+      prisma.scheduleEvent.findFirst.mockResolvedValue(null);
+      prisma.scheduleEvent.create.mockResolvedValue({ id: 'event_moveout' });
+      auditLogService.record.mockResolvedValue(undefined);
+
+      const result = await service.recordLeaseNotice(
+        LEASE_ID,
+        {
+          type: LeaseNoticeType.MOVE_OUT,
+          deliveryMethod: LeaseNoticeDeliveryMethod.EMAIL,
+          message: 'Tenant submitted move-out notice.',
+        } as any,
+        ACTOR_ID,
+        ORG_ID,
+      );
+
+      expect(result).toBe(returned);
+      expect(prisma.leaseNotice.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          lease: { connect: { id: LEASE_ID } },
+          type: LeaseNoticeType.MOVE_OUT,
+          deliveryMethod: LeaseNoticeDeliveryMethod.EMAIL,
+          createdBy: { connect: { id: ACTOR_ID } },
+        }),
+        include: { lease: true },
+      });
+      expect(prisma.lease.update).toHaveBeenCalledWith({
+        where: { id: LEASE_ID },
+        data: { status: LeaseStatus.NOTICE_GIVEN },
+      });
+      expect(prisma.scheduleEvent.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          type: 'MOVE_OUT',
+          priority: 'HIGH',
+          tenantId: TENANT_ID,
+          unitId: UNIT_ID,
+        }),
+      });
+      expect(auditLogService.record).toHaveBeenCalledWith(expect.objectContaining({
+        action: 'LEASE_NOTICE_RECORDED',
+        entityId: 'notice_1',
+        metadata: expect.objectContaining({
+          leaseId: LEASE_ID,
+          noticeType: LeaseNoticeType.MOVE_OUT,
+          statusUpdatedTo: LeaseStatus.NOTICE_GIVEN,
+        }),
+      }));
     });
   });
 
