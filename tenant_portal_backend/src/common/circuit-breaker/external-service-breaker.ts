@@ -28,8 +28,7 @@ export class ExternalServiceBreaker {
     Object.values(ExternalService).forEach((service) => {
       this.circuitBreaker.register(service, {
         failureThreshold: 5,
-        recoveryTimeout: 30000, // 30 seconds
-        timeout: 10000, // 10 second timeout
+        timeout: 30000, // 30 seconds before attempting recovery
       });
     });
   }

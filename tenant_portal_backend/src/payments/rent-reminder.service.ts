@@ -25,16 +25,13 @@ export class RentReminderService {
     // Find payments due in target range
     const payments = await this.prisma.payment.findMany({
       where: {
-        status: { not: 'PAID' },
+        status: { not: 'COMPLETED' },
         paymentDate: {
           gte: new Date(targetDateStr + 'T00:00:00Z'),
           lte: new Date(targetDateStr + 'T23:59:59Z'),
         },
       },
-      include: {
-        tenant: true,
-        lease: { include: { property: true } },
-      },
+      include: { lease: { include: { tenant: true, unit: { include: { property: true } } } } } as any,
     });
 
     const ReminderCount = payments.length;
@@ -47,7 +44,7 @@ export class RentReminderService {
       targetDate: targetDateStr,
       payments: payments.map(p => ({
         paymentId: p.id,
-        tenantEmail: p.tenant?.email || p.lease?.tenant?.email,
+        tenantEmail: (p as any).tenant?.email || (p as any).lease?.tenant?.email,
         amount: p.amount,
         dueDate: p.paymentDate,
       })),
@@ -60,14 +57,14 @@ export class RentReminderService {
   async sendReminder(paymentId: number, message?: string) {
     const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
-      include: { tenant: true, lease: true },
+      include: { lease: { include: { tenant: true } } } as any,
     });
 
     if (!payment) {
       throw new Error(`Payment ${paymentId} not found`);
     }
 
-    const tenantEmail = payment.tenant?.email || payment.lease?.tenant?.email;
+    const tenantEmail = (payment as any).tenant?.email || (payment as any).lease?.tenant?.email;
     
     this.logger.log(`[STUB] Sending rent reminder for payment ${paymentId} to ${tenantEmail}`);
     
