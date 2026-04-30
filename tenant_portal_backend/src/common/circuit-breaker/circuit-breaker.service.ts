@@ -51,6 +51,14 @@ export class CircuitBreakerService {
   }
 
   /**
+   * Register a named circuit using the compatibility shape expected by
+   * ExternalServiceBreaker.
+   */
+  register(name: string, options: Omit<CircuitBreakerOptions, 'name'>): CircuitBreaker {
+    return this.getOrCreate({ name, ...options });
+  }
+
+  /**
    * Get all circuit statuses
    */
   getAllStatuses(): CircuitBreakerStatus[] {
@@ -62,6 +70,27 @@ export class CircuitBreakerService {
    */
   get(name: string): CircuitBreaker | undefined {
     return this.circuits.get(name);
+  }
+
+  /**
+   * Get current state for a named circuit, creating a default circuit when needed.
+   */
+  getState(name: string): CircuitBreakerState {
+    return this.getOrCreate({ name, failureThreshold: 5, timeout: 30000 }).state;
+  }
+
+  /**
+   * Record a success for a named circuit.
+   */
+  recordSuccess(name: string): void {
+    this.getOrCreate({ name, failureThreshold: 5, timeout: 30000 }).recordSuccess();
+  }
+
+  /**
+   * Record a failure for a named circuit.
+   */
+  recordFailure(name: string): void {
+    this.getOrCreate({ name, failureThreshold: 5, timeout: 30000 }).recordFailure();
   }
 
   /**
