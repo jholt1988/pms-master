@@ -56,6 +56,13 @@ describe('LeaseService core lease workflows', () => {
         findFirst: jest.fn(),
         create: jest.fn(),
       },
+      propertyMarketingProfile: {
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+      },
+      user: { findFirst: jest.fn() },
+      unitInspection: { create: jest.fn() },
       $transaction: jest.fn(async (operations: unknown[]) => Promise.all(operations)),
     };
     aiLeaseRenewalService = { getRentAdjustmentRecommendation: jest.fn() };
@@ -483,6 +490,149 @@ describe('LeaseService core lease workflows', () => {
           statusUpdatedTo: LeaseStatus.NOTICE_GIVEN,
         }),
       }));
+    });
+  });
+
+  describe('prepareForVacancy', () => {
+    it('marks existing marketing as available, schedules move-out inspection, history, schedule follow-up, and audit', async () => {
+      const endingLease = lease({
+        id: LEASE_ID,
+        status: LeaseStatus.ACTIVE,
+        endDate: new Date('2026-12-31T00:00:00.000Z'),
+        unit: { id: UNIT_ID, name: 'Unit 1A', propertyId: 'property_1', property: { id: 'property_1', name: 'Cedar Court', organizationId: ORG_ID } },
+      });
+      prisma.lease.findUnique.mockResolvedValue(endingLease);
+      prisma.propertyMarketingProfile.findUnique.mockResolvedValue({ id: 'marketing_1', propertyId: 'property_1' });
+      prisma.propertyMarketingProfile.update.mockResolvedValue({ id: 'marketing_1' });
+      prisma.user.findFirst.mockResolvedValue({ id: ACTOR_ID });
+      prisma.unitInspection.create.mockResolvedValue({ id: 'inspection_1' });
+      prisma.leaseHistory.create.mockResolvedValue({ id: 'history_vacancy' });
+      prisma.scheduleEvent.findFirst.mockResolvedValue(null);
+      prisma.scheduleEvent.create.mockResolvedValue({ id: 'event_vacancy' });
+      auditLogService.record.mockResolvedValue(undefined);
+
+      await service.prepareForVacancy(LEASE_ID);
+
+      expect(prisma.lease.findUnique).toHaveBeenCalledWith({
+        where: { id: LEASE_ID },
+        include: {
+          unit: { include: { property: true } },
+          tenant: { select: expect.any(Object) },
+        },
+      });
+      expect(prisma.propertyMarketingProfile.update).toHaveBeenCalledWith({
+        where: { propertyId: 'property_1' },
+        data: {
+          availableOn: new Date('2026-12-31T00:00:00.000Z'),
+          availabilityStatus: 'AVAILABLE',
+        },
+      });
+      expect(prisma.unitInspection.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          unit: { connect: { id: UNIT_ID } },
+          property: { connect: { id: 'property_1' } },
+          lease: { connect: { id: LEASE_ID } },
+          createdBy: { connect: { id: ACTOR_ID } },
+          type: 'MOVE_OUT',
+          status: 'SCHEDULED',
+          scheduledDate: new Date('2026-12-24T00:00:00.000Z'),
+        }),
+      });
+      expect(prisma.leaseHistory.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          lease: { connect: { id: LEASE_ID } },
+          actor: { connect: { id: '0' } },
+          fromStatus: LeaseStatus.ACTIVE,
+          toStatus: LeaseStatus.ACTIVE,
+        }),
+      });
+      expect(prisma.scheduleEvent.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          type: 'MOVE_OUT',
+          title: 'Move-Out Inspection Prep - Cedar Court',
+          date: new Date('2026-12-24T00:00:00.000Z'),
+          priority: 'HIGH',
+          propertyId: 'property_1',
+          unitId: UNIT_ID,
+          tenantId: TENANT_ID,
+        }),
+      });
+      expect(auditLogService.record).toHaveBeenCalledWith(expect.objectContaining({
+        actorId: null,
+        action: 'LEASE_VACANCY_PREPARED',
+        entityType: 'Lease',
+        entityId: LEASE_ID,
+        metadata: expect.objectContaining({
+          unitId: UNIT_ID,
+          propertyId: 'property_1',
+          inspectionDate: '2026-12-24T00:00:00.000Z',
+          leaseEndDate: '2026-12-31T00:00:00.000Z',
+        }),
+      }));
+    });
+
+    it('throws NotFoundException and performs no vacancy writes when the lease is missing', async () => {
+      prisma.lease.findUnique.mockResolvedValue(null);
+
+      await expect(service.prepareForVacancy(LEASE_ID)).rejects.toBeInstanceOf(NotFoundException);
+
+      expect(prisma.propertyMarketingProfile.create).not.toHaveBeenCalled();
+      expect(prisma.propertyMarketingProfile.update).not.toHaveBeenCalled();
+      expect(prisma.unitInspection.create).not.toHaveBeenCalled();
+      expect(prisma.leaseHistory.create).not.toHaveBeenCalled();
+      expect(auditLogService.record).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('lease document/signature stubs', () => {
+    it('generateLeaseDocument returns the current generated document stub contract without persistence', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-05-01T00:00:00.000Z'));
+
+      await expect(service.generateLeaseDocument(LEASE_ID, ACTOR_ID, ORG_ID)).resolves.toEqual({
+        success: true,
+        leaseId: LEASE_ID,
+        documentUrl: `/leases/${LEASE_ID}/documents/lease-agreement.pdf`,
+        status: 'GENERATED',
+        generatedAt: '2026-05-01T00:00:00.000Z',
+      });
+
+      expect(prisma.lease.findFirst).not.toHaveBeenCalled();
+      expect(prisma.lease.update).not.toHaveBeenCalled();
+      expect(auditLogService.record).not.toHaveBeenCalled();
+      jest.useRealTimers();
+    });
+
+    it('sendForSignature returns the current signature stub contract with provided signer details and no persistence', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-05-01T00:00:00.000Z'));
+
+      await expect(
+        service.sendForSignature(LEASE_ID, 'tenant@example.com', 'Taylor Tenant', ACTOR_ID, ORG_ID),
+      ).resolves.toEqual({
+        success: true,
+        leaseId: LEASE_ID,
+        signerEmail: 'tenant@example.com',
+        signerName: 'Taylor Tenant',
+        status: 'SENT_FOR_SIGNATURE',
+        sentAt: '2026-05-01T00:00:00.000Z',
+        expiresAt: '2026-05-31T00:00:00.000Z',
+      });
+
+      expect(prisma.lease.findFirst).not.toHaveBeenCalled();
+      expect(prisma.lease.update).not.toHaveBeenCalled();
+      expect(auditLogService.record).not.toHaveBeenCalled();
+      jest.useRealTimers();
+    });
+
+    it('sendForSignature uses tenant fallback signer details in the current stub contract', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-05-01T00:00:00.000Z'));
+
+      await expect(service.sendForSignature(LEASE_ID, undefined, undefined, ACTOR_ID, ORG_ID)).resolves.toEqual(expect.objectContaining({
+        signerEmail: 'tenant@example.com',
+        signerName: 'Tenant',
+        status: 'SENT_FOR_SIGNATURE',
+      }));
+
+      jest.useRealTimers();
     });
   });
 
