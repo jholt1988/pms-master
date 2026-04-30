@@ -1,5 +1,6 @@
 import { Module, Global } from '@nestjs/common';
 import { CircuitBreakerService } from './circuit-breaker.service';
+import { ExternalServiceBreaker } from './external-service-breaker';
 
 /**
  * Circuit Breaker Module
@@ -15,7 +16,7 @@ import { CircuitBreakerService } from './circuit-breaker.service';
  */
 @Global()
 @Module({
-  providers: [CircuitBreakerService],
-  exports: [CircuitBreakerService],
+  providers: [CircuitBreakerService, ExternalServiceBreaker],
+  exports: [CircuitBreakerService, ExternalServiceBreaker],
 })
 export class CircuitBreakerModule {}
