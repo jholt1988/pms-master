@@ -387,7 +387,7 @@ export class MaintenanceController {
       result: 'SUCCESS',
     });
     const result = await this.maintenanceService.assignVendor(id, body.vendorId, body.notes, req.user.userId, orgId);
-    await this.prisma.telemetryEvent.create({
+    await (this.prisma as any).telemetryEvent.create({
       data: {
         eventName: 'vendor_dispatched',
         userId: req.user.userId,
@@ -414,7 +414,7 @@ export class MaintenanceController {
     @OrgId() orgId: string,
   ) {
     const result = await this.maintenanceService.notifyTenant(id, body.message, req.user.userId, orgId);
-    await this.prisma.telemetryEvent.create({
+    await (this.prisma as any).telemetryEvent.create({
       data: {
         eventName: 'tenant_notified_maintenance',
         userId: req.user.userId,

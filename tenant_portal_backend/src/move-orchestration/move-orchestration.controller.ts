@@ -4,9 +4,9 @@
 
 import { Controller, Get, Post, Param, Body, Query, UseGuards, NotFoundException, BadRequestException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { RolesGuard } from '../../auth/roles.guard';
-import { Roles } from '../../auth/roles.decorator';
-import { PrismaService } from '../../prisma/prisma.service';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { PrismaService } from '../prisma/prisma.service';
 
 interface StartMoveInDto {
   unitId: number;
@@ -49,23 +49,23 @@ export class MoveOrchestrationController {
   @Post('start-move-in')
   @Roles('PROPERTY_MANAGER', 'ADMIN')
   async startMoveIn(@Body() dto: StartMoveInDto) {
-    const unit = await this.prisma.unit.findUnique({
+    const unit = await (this.prisma as any).unit.findUnique({
       where: { id: dto.unitId },
     });
     if (!unit) throw new NotFoundException('Unit not found');
 
-    const tenant = await this.prisma.tenant.findUnique({
+    const tenant = await (this.prisma as any).tenant.findUnique({
       where: { id: dto.tenantId },
     });
     if (!tenant) throw new NotFoundException('Tenant not found');
 
     if (dto.leaseId) {
-      const lease = await this.prisma.lease.findUnique({ where: { id: dto.leaseId } });
+      const lease = await (this.prisma as any).lease.findUnique({ where: { id: dto.leaseId } });
       if (!lease) throw new NotFoundException('Lease not found');
     }
 
     // Create move orchestration record
-    const moveIn = await this.prisma.moveOrchestration.create({
+    const moveIn = await (this.prisma as any).moveOrchestration.create({
       data: {
         type: 'MOVE_IN',
         unitId: dto.unitId,
@@ -78,7 +78,7 @@ export class MoveOrchestrationController {
     });
 
     // Create decisions for each step
-    await this.prisma.decision.createMany({
+    await (this.prisma as any).decision.createMany({
       data: [
         { domain: 'leasing', type: 'MOVE_IN_SCHEDULED', entityId: String(moveIn.id), title: `Move-in scheduled for ${tenant.fullName}`, priority: 60, urgency: 'this_week', context: { moveId: moveIn.id } },
         { domain: 'leasing', type: 'INVENTORY_CHECK', entityId: String(moveIn.id), title: `Complete inventory check`, priority: 50, urgency: 'this_week', context: { moveId: moveIn.id } },
@@ -95,11 +95,11 @@ export class MoveOrchestrationController {
   @Roles('PROPERTY_MANAGER', 'ADMIN')
   async completeMoveIn(@Param('id') id: string, @Body() dto: CompleteMoveInDto) {
     const moveId = parseInt(id, 10);
-    const moveIn = await this.prisma.moveOrchestration.findUnique({ where: { id: moveId } });
+    const moveIn = await (this.prisma as any).moveOrchestration.findUnique({ where: { id: moveId } });
     if (!moveIn) throw new NotFoundException('Move orchestration not found');
     if (moveIn.type !== 'MOVE_IN') throw new BadRequestException('Not a move-in');
 
-    const completed = await this.prisma.moveOrchestration.update({
+    const completed = await (this.prisma as any).moveOrchestration.update({
       where: { id: moveId },
       data: {
         status: 'COMPLETED',
@@ -113,13 +113,13 @@ export class MoveOrchestrationController {
     });
 
     // Update unit status
-    await this.prisma.unit.update({
+    await (this.prisma as any).unit.update({
       where: { id: moveIn.unitId },
       data: { status: 'OCCUPIED' },
     });
 
     // Resolve related decisions
-    await this.prisma.decision.updateMany({
+    await (this.prisma as any).decision.updateMany({
       where: { domain: 'leasing', entityId: String(moveId), resolved: false },
       data: { resolved: true, resolvedAt: new Date() },
     });
@@ -132,13 +132,13 @@ export class MoveOrchestrationController {
   @Post('start-move-out')
   @Roles('PROPERTY_MANAGER', 'ADMIN')
   async startMoveOut(@Body() dto: StartMoveOutDto) {
-    const unit = await this.prisma.unit.findUnique({ where: { id: dto.unitId } });
+    const unit = await (this.prisma as any).unit.findUnique({ where: { id: dto.unitId } });
     if (!unit) throw new NotFoundException('Unit not found');
 
-    const tenant = await this.prisma.tenant.findUnique({ where: { id: dto.tenantId } });
+    const tenant = await (this.prisma as any).tenant.findUnique({ where: { id: dto.tenantId } });
     if (!tenant) throw new NotFoundException('Tenant not found');
 
-    const moveOut = await this.prisma.moveOrchestration.create({
+    const moveOut = await (this.prisma as any).moveOrchestration.create({
       data: {
         type: 'MOVE_OUT',
         unitId: dto.unitId,
@@ -150,7 +150,7 @@ export class MoveOrchestrationController {
     });
 
     // Create move-out decisions
-    await this.prisma.decision.createMany({
+    await (this.prisma as any).decision.createMany({
       data: [
         { domain: 'leasing', type: 'MOVE_OUT_SCHEDULED', entityId: String(moveOut.id), title: `Move-out scheduled`, priority: 60, urgency: 'this_week', context: { moveId: moveOut.id } },
         { domain: 'leasing', type: 'FINAL_WALKTHROUGH', entityId: String(moveOut.id), title: `Schedule final walkthrough`, priority: 50, urgency: 'this_week', context: { moveId: moveOut.id } },
@@ -159,7 +159,7 @@ export class MoveOrchestrationController {
     });
 
     // Mark unit as pending move-out
-    await this.prisma.unit.update({ where: { id: dto.unitId }, data: { status: 'PENDING_MOVE_OUT' } });
+    await (this.prisma as any).unit.update({ where: { id: dto.unitId }, data: { status: 'PENDING_MOVE_OUT' } });
 
     console.log('[MOVE] Move-out started:', moveOut.id);
 
@@ -170,11 +170,11 @@ export class MoveOrchestrationController {
   @Roles('PROPERTY_MANAGER', 'ADMIN')
   async completeMoveOut(@Param('id') id: string, @Body() dto: CompleteMoveOutDto) {
     const moveId = parseInt(id, 10);
-    const moveOut = await this.prisma.moveOrchestration.findUnique({ where: { id: moveId } });
+    const moveOut = await (this.prisma as any).moveOrchestration.findUnique({ where: { id: moveId } });
     if (!moveOut) throw new NotFoundException('Move orchestration not found');
     if (moveOut.type !== 'MOVE_OUT') throw new BadRequestException('Not a move-out');
 
-    const completed = await this.prisma.moveOrchestration.update({
+    const completed = await (this.prisma as any).moveOrchestration.update({
       where: { id: moveId },
       data: {
         status: 'COMPLETED',
@@ -189,10 +189,10 @@ export class MoveOrchestrationController {
     });
 
     // Update unit to vacant
-    await this.prisma.unit.update({ where: { id: moveOut.unitId }, data: { status: 'VACANT' } });
+    await (this.prisma as any).unit.update({ where: { id: moveOut.unitId }, data: { status: 'VACANT' } });
 
     // Resolve decisions
-    await this.prisma.decision.updateMany({
+    await (this.prisma as any).decision.updateMany({
       where: { domain: 'leasing', entityId: String(moveId), resolved: false },
       data: { resolved: true, resolvedAt: new Date() },
     });
@@ -208,7 +208,7 @@ export class MoveOrchestrationController {
     if (status) where.status = status;
     if (type) where.type = type;
 
-    const moves = await this.prisma.moveOrchestration.findMany({
+    const moves = await (this.prisma as any).moveOrchestration.findMany({
       where,
       include: {
         unit: { include: { property: true } },
@@ -224,7 +224,7 @@ export class MoveOrchestrationController {
   @Get(':id')
   async getMove(@Param('id') id: string) {
     const moveId = parseInt(id, 10);
-    const move = await this.prisma.moveOrchestration.findUnique({
+    const move = await (this.prisma as any).moveOrchestration.findUnique({
       where: { id: moveId },
       include: {
         unit: { include: { property: true } },

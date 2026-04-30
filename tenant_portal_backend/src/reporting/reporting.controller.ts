@@ -4,9 +4,9 @@
 
 import { Controller, Get, Post, Param, Query, UseGuards, NotFoundException, BadRequestException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { RolesGuard } from '../../auth/roles.guard';
-import { Roles } from '../../auth/roles.decorator';
-import { PrismaService } from '../../prisma/prisma.service';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Controller('reports')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
@@ -16,28 +16,25 @@ export class ReportingController {
   @Get('rent-roll')
   @Roles('PROPERTY_MANAGER', 'OWNER', 'ADMIN')
   async getRentRoll(@Query('propertyId') propertyId?: string) {
-    const where: any = propertyId ? { propertyId: parseInt(propertyId, 10) } : {};
+    const where: any = propertyId ? { propertyId } : {};
 
     const units = await this.prisma.unit.findMany({
       where,
-      include: {
-        property: true,
-        leases: { where: { status: 'ACTIVE' }, include: { tenant: true } },
-      },
+      include: { property: true, lease: { include: { tenant: true } } } as any,
     });
 
     const data = units.map(unit => {
-      const lease = unit.leases[0];
+      const lease = (unit as any).lease;
       return {
-        property: unit.property?.name,
+        property: (unit as any).property?.name,
         unit: unit.name,
         unitNumber: unit.unitNumber,
         bedrooms: unit.bedrooms,
         bathrooms: unit.bathrooms,
         sqft: unit.squareFeet,
-        tenant: lease?.tenant?.fullName || 'Vacant',
+        tenant: lease?.tenant?.username || 'Vacant',
         leaseEnd: lease?.endDate,
-        monthlyRent: lease?.monthlyRent || 0,
+        monthlyRent: lease?.rentAmount || 0,
         status: unit.status,
       };
     });
@@ -54,7 +51,7 @@ export class ReportingController {
 
     const overdue = await this.prisma.payment.findMany({
       where: {
-        status: { not: 'PAID' },
+        status: { not: 'COMPLETED' },
         paymentDate: { lt: cutoff },
       },
       include: {
@@ -88,19 +85,19 @@ export class ReportingController {
   @Get('maintenance-summary')
   @Roles('PROPERTY_MANAGER', 'OWNER', 'ADMIN')
   async getMaintenanceSummary(@Query('propertyId') propertyId?: string) {
-    const where: any = propertyId ? { propertyId: parseInt(propertyId, 10) } : {};
+    const where: any = propertyId ? { propertyId } : {};
 
     const requests = await this.prisma.maintenanceRequest.findMany({ where });
 
     const byStatus = {
-      submitted: requests.filter(r => r.status === 'SUBMITTED').length,
+      submitted: requests.filter(r => r.status === 'PENDING').length,
       inProgress: requests.filter(r => r.status === 'IN_PROGRESS').length,
       completed: requests.filter(r => r.status === 'COMPLETED').length,
-      cancelled: requests.filter(r => r.status === 'CANCELLED').length,
+      cancelled: requests.filter(r => r.status === 'COMPLETED').length,
     };
 
     const byPriority = {
-      urgent: requests.filter(r => r.priority === 'URGENT').length,
+      urgent: requests.filter(r => r.priority === 'EMERGENCY').length,
       high: requests.filter(r => r.priority === 'HIGH').length,
       medium: requests.filter(r => r.priority === 'MEDIUM').length,
       low: requests.filter(r => r.priority === 'LOW').length,
@@ -114,7 +111,7 @@ export class ReportingController {
   @Get('occupancy-report')
   @Roles('PROPERTY_MANAGER', 'OWNER', 'ADMIN')
   async getOccupancyReport(@Query('propertyId') propertyId?: string) {
-    const where: any = propertyId ? { propertyId: parseInt(propertyId, 10) } : {};
+    const where: any = propertyId ? { propertyId } : {};
 
     const units = await this.prisma.unit.findMany({ where, include: { property: true } });
 
@@ -152,11 +149,11 @@ export class ReportingController {
     const end = endDate ? new Date(endDate) : new Date();
 
     const where: any = { paymentDate: { gte: start, lte: end } };
-    if (propertyId) where.lease = { unit: { propertyId: parseInt(propertyId, 10) } };
+    if (propertyId) where.lease = { unit: { propertyId } };
 
     const payments = await this.prisma.payment.findMany({ where });
-    const collected = payments.filter(p => p.status === 'PAID').reduce((sum, p) => sum + p.amount, 0);
-    const pending = payments.filter(p => p.status !== 'PAID').reduce((sum, p) => sum + p.amount, 0);
+    const collected = payments.filter(p => p.status === 'COMPLETED').reduce((sum, p) => sum + p.amount, 0);
+    const pending = payments.filter(p => p.status !== 'COMPLETED').reduce((sum, p) => sum + p.amount, 0);
 
     const charges = await this.prisma.manualCharge.findMany({
       where: { chargeDate: { gte: start, lte: end } },

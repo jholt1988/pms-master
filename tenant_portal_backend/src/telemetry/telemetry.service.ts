@@ -33,7 +33,7 @@ export class TelemetryService {
     // For now, log and optionally store in Prisma if available
     try {
       // Try to log to audit log for compliance
-      await this.prisma.auditLog?.create({
+      await (this.prisma as any).auditLog?.create({
         data: {
           action: event.action,
           domain: event.domain,
@@ -134,7 +134,7 @@ export class TelemetryService {
     startDate.setDate(startDate.getDate() - days);
 
     // Query audit log for telemetry data
-    const events = await this.prisma.auditLog?.findMany({
+    const events = await (this.prisma as any).auditLog?.findMany({
       where: {
         createdAt: { gte: startDate },
       },

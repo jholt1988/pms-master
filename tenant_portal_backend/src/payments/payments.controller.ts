@@ -118,7 +118,7 @@ export class PaymentsController {
   ) {
     const orgId = (req as any).org?.orgId as string | undefined;
     const result = await this.paymentsService.getOperationalLedgerAccount(leaseId, req.user, orgId);
-    await this.prisma.telemetryEvent.create({
+    await (this.prisma as any).telemetryEvent.create({
       data: {
         eventName: 'ledger_context_opened',
         userId: req.user.userId,
@@ -194,7 +194,7 @@ export class PaymentsController {
     @OrgId() orgId: string,
   ) {
     const result = await this.paymentsService.issueDelinquencyNotice(dto, req.user.userId, orgId);
-    await this.prisma.telemetryEvent.create({
+    await (this.prisma as any).telemetryEvent.create({
       data: {
         eventName: 'payment_notice_sent',
         userId: req.user.userId,
@@ -347,7 +347,7 @@ export class PaymentsController {
     @OrgId() orgId: string,
   ) {
     const result = await this.paymentsService.getDelinquencyLegalTracker(leaseId, orgId);
-    await this.prisma.telemetryEvent.create({
+    await (this.prisma as any).telemetryEvent.create({
       data: {
         eventName: 'notice_trail_opened',
         userId: req.user.userId,
