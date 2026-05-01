@@ -296,12 +296,13 @@ describe('QuickBooksMinimalService', () => {
 
   describe('Error Handling', () => {
     it('should handle database connection errors gracefully', async () => {
-      const userId = 1;
+      const userId = 'user_1';
+      const orgId = 'org_1';
       mockPrismaService.quickBooksConnection.findFirst.mockRejectedValue(
         new Error('Database connection failed')
       );
 
-      await expect(service.getConnectionStatus(userId)).rejects.toThrow('Database connection failed');
+      await expect(service.getConnectionStatus(userId, orgId)).resolves.toEqual({ connected: false });
     });
 
     it('should handle QuickBooks API errors gracefully', async () => {
