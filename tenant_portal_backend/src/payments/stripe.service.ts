@@ -64,9 +64,16 @@ export class StripeService {
     private readonly eventsService: EventsService,
     private readonly rabbitMQService: RabbitMQService,
   ) {
+    if (process.env.NODE_ENV === 'production' && process.env.DISABLE_STRIPE === 'true' && process.env.ALLOW_DISABLED_STRIPE_IN_PRODUCTION !== 'true') {
+      throw new Error('DISABLE_STRIPE=true is not allowed in production unless ALLOW_DISABLED_STRIPE_IN_PRODUCTION=true is explicitly set.');
+    }
+
     // In development we want the backend to boot even if Stripe isn’t configured yet.
     // Treat missing STRIPE_SECRET_KEY as "Stripe disabled" instead of a hard crash.
     if (!this.isStripeDisabled && !process.env.STRIPE_SECRET_KEY) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('STRIPE_SECRET_KEY must be set in production.');
+      }
       this.isStripeDisabled = true;
       this.logger.warn('STRIPE_SECRET_KEY not set; disabling Stripe integration for this run.');
     }

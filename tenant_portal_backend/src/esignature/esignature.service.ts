@@ -1,8 +1,8 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { DocumentCategory, EsignEnvelope, EsignEnvelopeStatus, EsignParticipantStatus, EsignProvider, LeaseStatus, Prisma, Role } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance } from 'axios';
-import { randomUUID } from 'crypto';
+import { createHmac, randomUUID, timingSafeEqual } from 'crypto';
 import { isUUID } from 'class-validator';
 import * as docusign from 'docusign-esign';
 import * as fs from 'fs/promises';
@@ -144,6 +144,32 @@ export class EsignatureService {
       this.logger.warn('   DocuSign features will not work until these are configured.');
     } else {
       this.logger.log('✅ DocuSign configuration validated successfully');
+    }
+  }
+
+  assertValidWebhookSignature(rawBody: Buffer, signatureHeader?: string): void {
+    const secret = this.configService.get<string>('ESIGN_WEBHOOK_SECRET') || this.configService.get<string>('DOCUSIGN_CONNECT_SECRET');
+    const strict = process.env.NODE_ENV === 'production' || this.configService.get<string>('ESIGN_WEBHOOK_REQUIRE_SIGNATURE') === 'true';
+
+    if (!secret) {
+      if (strict) {
+        throw new Error('ESIGN_WEBHOOK_SECRET or DOCUSIGN_CONNECT_SECRET must be set when e-signature webhook signatures are required.');
+      }
+      this.logger.warn('E-signature webhook signature validation skipped because no webhook secret is configured.');
+      return;
+    }
+
+    if (!signatureHeader) {
+      throw new UnauthorizedException('Missing DocuSign webhook signature.');
+    }
+
+    const expected = createHmac('sha256', secret).update(rawBody).digest('base64');
+    const actual = signatureHeader.trim();
+    const expectedBuffer = Buffer.from(expected, 'base64');
+    const actualBuffer = Buffer.from(actual, 'base64');
+
+    if (actualBuffer.length !== expectedBuffer.length || !timingSafeEqual(actualBuffer, expectedBuffer)) {
+      throw new UnauthorizedException('Invalid DocuSign webhook signature.');
     }
   }
 
@@ -952,10 +978,7 @@ export class EsignatureService {
       return { ignored: true, reason: 'Missing envelopeId' };
     }
 
-    // TODO: Add webhook signature validation for security
-    // For DocuSign, validate X-DocuSign-Signature header
-    // For now, we'll log webhook events for debugging
-      this.logger.log(`Received DocuSign webhook: event=${event}, envelope=${envelopeId}, status=${status}`);
+    this.logger.log(`Received DocuSign webhook: event=${event}, envelope=${envelopeId}, status=${status}`);
 
     const envelope = await this.prisma.esignEnvelope.findFirst({
       where: { providerEnvelopeId: envelopeId },
