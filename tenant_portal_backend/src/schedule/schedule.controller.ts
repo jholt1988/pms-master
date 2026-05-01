@@ -19,6 +19,12 @@ export class ScheduleController {
     return this.scheduleService.getAllEvents(orgId);
   }
 
+  @Get('events')
+  @Roles('PROPERTY_MANAGER')
+  async getEvents(@OrgId() orgId?: string) {
+    return this.scheduleService.getAllEvents(orgId);
+  }
+
   @Get('summary')
   @Roles('PROPERTY_MANAGER')
   async getSummary(@OrgId() orgId?: string) {

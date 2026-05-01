@@ -46,6 +46,28 @@ export class FeatureFlagsController {
     return this.featureFlagsService.getEnabledFlags(context);
   }
 
+  @Get('check')
+  @ApiOperation({ summary: 'Check if a specific feature flag is enabled by query parameter' })
+  @ApiQuery({ name: 'key', required: true })
+  @ApiResponse({ status: 200, description: 'Feature flag evaluation result' })
+  checkFlagByQuery(@Query('key') key: string, @Req() req: AuthenticatedRequest) {
+    const context = this.extractContext(req);
+    return this.featureFlagsService.evaluate(key, context);
+  }
+
+  @Get('check-batch')
+  @ApiOperation({ summary: 'Check multiple feature flags by query parameter' })
+  @ApiQuery({ name: 'keys', required: true, isArray: true })
+  @ApiResponse({ status: 200, description: 'Map of feature flag keys to enabled status' })
+  checkFlagsByQuery(@Query('keys') keys: string[] | string, @Req() req: AuthenticatedRequest) {
+    const context = this.extractContext(req);
+    const flagKeys = Array.isArray(keys) ? keys : [keys].filter(Boolean);
+    return flagKeys.reduce<Record<string, boolean>>((result, key) => {
+      result[key] = this.featureFlagsService.evaluate(key, context).enabled;
+      return result;
+    }, {});
+  }
+
   @Get('check/:key')
   @ApiOperation({ summary: 'Check if a specific feature flag is enabled' })
   @ApiResponse({ status: 200, description: 'Feature flag evaluation result' })

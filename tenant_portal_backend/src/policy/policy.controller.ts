@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Put, Request, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Role } from '@prisma/client';
 import { Request as ExpressRequest } from 'express';
@@ -54,6 +54,30 @@ export class PolicyController {
     @Body() dto: { section: PolicySection; data: unknown },
   ) {
     return this.policyService.updateSection(propertyId, dto.section, dto.data);
+  }
+
+  @Put(':propertyId/underwriting')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async updateUnderwriting(@Param('propertyId') propertyId: string, @Body() data: unknown) {
+    return this.policyService.updateSection(propertyId, 'underwriting', data);
+  }
+
+  @Put(':propertyId/payment-plan')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async updatePaymentPlan(@Param('propertyId') propertyId: string, @Body() data: unknown) {
+    return this.policyService.updateSection(propertyId, 'paymentPlan', data);
+  }
+
+  @Put(':propertyId/maintenance')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async updateMaintenance(@Param('propertyId') propertyId: string, @Body() data: unknown) {
+    return this.policyService.updateSection(propertyId, 'maintenanceTaxonomy', data);
+  }
+
+  @Put(':propertyId/denial-compliance')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async updateDenialCompliance(@Param('propertyId') propertyId: string, @Body() data: unknown) {
+    return this.policyService.updateSection(propertyId, 'denialCompliance', data);
   }
 
   @Get(':propertyId')
