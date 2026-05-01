@@ -30,7 +30,7 @@ import { InspectionsModule } from './inspections/inspections.module';
 import { EventScheduleModule } from './schedule/schedule.module';
 import { HealthModule } from './health/health.module';
 import { JobsModule } from './jobs/jobs.module';
-// import { QuickBooksModule } from './quickbooks/quickbooks.module'; // Deferring quickbooks for now due to TS errors
+import { QuickBooksModule } from './quickbooks/quickbooks.module';
 import { ListingSyndicationModule } from './listing-syndication/listing-syndication.module';
 import { EsignatureModule } from './esignature/esignature.module';
 import { DashboardModule } from './dashboard/dashboard.module';
@@ -147,7 +147,7 @@ const rateLimitProviders = rateLimitEnabled
     EventScheduleModule,
     HealthModule,
     JobsModule,
-    // QuickBooksModule, // Disabled due to TS errors
+    QuickBooksModule,
     ListingSyndicationModule,
     EsignatureModule,
     DashboardModule,

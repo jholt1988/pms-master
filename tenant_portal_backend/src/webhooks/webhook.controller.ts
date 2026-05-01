@@ -2,7 +2,7 @@
 // POST /webhooks, GET /webhooks, POST /webhooks/:id/test, DELETE /webhooks/:id
 // Dependencies: All | Estimate: Medium
 
-import { Controller, Get, Post, Delete, Param, Body, UseGuards, NotFoundException, BadRequestException, Patch } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, NotFoundException, BadRequestException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';

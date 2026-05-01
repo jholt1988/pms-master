@@ -66,14 +66,15 @@ export class FeatureFlagsService {
       };
     }
 
-    // Check dependencies
-    for (const dep of flag.dependencies) {
+    // Check dependencies. Registry entries are plain objects, so defaults from
+    // featureFlagSchema are not applied unless we normalize optional arrays here.
+    for (const dep of flag.dependencies ?? []) {
       if (!this.isEnabled(dep, context)) {
         return {
           key,
           enabled: false,
           reason: `Dependency not met: ${dep}`,
-          metadata: { strategy: flag.strategy },
+          metadata: { rolloutPercentage: flag.rolloutPercentage ?? 100, strategy: flag.strategy },
         };
       }
     }
@@ -92,7 +93,10 @@ export class FeatureFlagsService {
     flag: FeatureFlag,
     context?: FeatureFlagContext,
   ): FeatureFlagEvaluation {
-    const { strategy, rolloutPercentage, tenantIds, userIds } = flag;
+    const { strategy } = flag;
+    const rolloutPercentage = flag.rolloutPercentage ?? 100;
+    const tenantIds = flag.tenantIds ?? [];
+    const userIds = flag.userIds ?? [];
 
     switch (strategy) {
       case 'admin':
@@ -118,7 +122,7 @@ export class FeatureFlagsService {
           };
         }
         // Otherwise use percentage rollout
-        return this.evaluatePercentage(rolloutPercentage, `Tenant: ${context?.tenantId ?? 'unknown'}`);
+        return this.evaluatePercentage(flag.key, rolloutPercentage, `Tenant: ${context?.tenantId ?? 'unknown'}`, strategy);
 
       case 'user':
         // Check if user is in allowlist
@@ -130,11 +134,11 @@ export class FeatureFlagsService {
             metadata: { rolloutPercentage, strategy },
           };
         }
-        return this.evaluatePercentage(rolloutPercentage, `User: ${context?.userId ?? 'unknown'}`);
+        return this.evaluatePercentage(flag.key, rolloutPercentage, `User: ${context?.userId ?? 'unknown'}`, strategy);
 
       case 'safe-mode':
         // Inverse: percentage of users are EXCLUDED
-        const excluded = this.evaluatePercentage(rolloutPercentage, 'safe-mode');
+        const excluded = this.evaluatePercentage(flag.key, rolloutPercentage, 'safe-mode', strategy);
         return {
           key: flag.key,
           enabled: !excluded.enabled,
@@ -144,23 +148,28 @@ export class FeatureFlagsService {
 
       case 'all':
       default:
-        return this.evaluatePercentage(rolloutPercentage, 'global rollout');
+        return this.evaluatePercentage(flag.key, rolloutPercentage, 'global rollout', strategy);
     }
   }
 
   /**
    * Simple percentage-based evaluation using deterministic hashing
    */
-  private evaluatePercentage(percentage: number, salt: string): FeatureFlagEvaluation {
+  private evaluatePercentage(
+    key: string,
+    percentage: number,
+    salt: string,
+    strategy: FeatureFlag['strategy'],
+  ): FeatureFlagEvaluation {
     // Deterministic hash based on flag key + salt for consistent behavior
-    const hash = this.hashString(`${salt}`) % 100;
+    const hash = this.hashString(`${key}:${salt}`) % 100;
     const enabled = hash < percentage;
     
     return {
-      key: '',
+      key,
       enabled,
       reason: enabled ? `Rollout ${percentage}% (hash: ${hash})` : `Not in ${percentage}% rollout (hash: ${hash})`,
-      metadata: { rolloutPercentage: percentage },
+      metadata: { rolloutPercentage: percentage, strategy },
     };
   }
 

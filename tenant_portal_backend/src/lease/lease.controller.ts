@@ -19,7 +19,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 interface AuthenticatedRequest extends Request {
   user: {
-    userId: number;
+    userId: string;
     role: Role;
   };
 }
@@ -189,7 +189,7 @@ export class LeaseController {
     @OrgId() orgId: string,
   ) {
     const result = await this.leaseService.generateLeaseDocument(id, req.user.userId, orgId);
-    await this.prisma.telemetryEvent.create({
+    await (this.prisma as any).telemetryEvent.create({
       data: {
         eventName: 'lease_document_generated',
         userId: String(req.user.userId),
@@ -217,7 +217,7 @@ export class LeaseController {
     @OrgId() orgId: string,
   ) {
     const result = await this.leaseService.sendForSignature(id, body.signerEmail, body.signerName, req.user.userId, orgId);
-    await this.prisma.telemetryEvent.create({
+    await (this.prisma as any).telemetryEvent.create({
       data: {
         eventName: 'lease_sent_for_signature',
         userId: String(req.user.userId),
