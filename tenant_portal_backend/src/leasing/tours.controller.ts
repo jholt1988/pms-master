@@ -18,7 +18,7 @@ import {
 import { ToursService } from './tours.service';
 import { isUUID } from 'class-validator';
 
-@Controller('api/tours')
+@Controller(['api/tours', 'tours'])
 export class ToursController {
   constructor(private readonly toursService: ToursService) {}
 

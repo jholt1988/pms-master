@@ -8,7 +8,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 
-@Controller('reports')
+@Controller(['reports', 'reporting'])
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class ReportingController {
   constructor(private readonly prisma: PrismaService) {}
