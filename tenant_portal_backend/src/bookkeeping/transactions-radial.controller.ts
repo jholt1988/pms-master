@@ -2,11 +2,11 @@
 // PATCH /transactions/:id
 // Dependencies: None | Estimate: Medium
 
-import { Controller, Patch, Param, Body, UseGuards, NotFoundException } from '@nestjs/common';
+import { Controller, Patch, Post, Param, Body, UseGuards, NotFoundException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { RolesGuard } from '../../auth/roles.guard';
-import { Roles } from '../../auth/roles.decorator';
-import { PrismaService } from '../../prisma/prisma.service';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { PrismaService } from '../prisma/prisma.service';
 
 interface CategorizeTransactionDto {
   category: string;

@@ -4,7 +4,8 @@
  */
 
 import { Injectable, Logger } from '@nestjs/common';
-import { CircuitBreakerService, CircuitState } from './circuit-breaker.service';
+import { CircuitBreakerService } from './circuit-breaker.service';
+import { CircuitBreakerState } from './circuit-breaker.interface';
 
 export enum ExternalService {
   STRIPE = 'stripe',
@@ -27,8 +28,7 @@ export class ExternalServiceBreaker {
     Object.values(ExternalService).forEach((service) => {
       this.circuitBreaker.register(service, {
         failureThreshold: 5,
-        recoveryTimeout: 30000, // 30 seconds
-        timeout: 10000, // 10 second timeout
+        timeout: 30000, // 30 seconds before attempting recovery
       });
     });
   }
@@ -46,7 +46,7 @@ export class ExternalServiceBreaker {
     // Check if circuit is open
     const state = this.circuitBreaker.getState(serviceName);
     
-    if (state === CircuitState.OPEN) {
+    if (state === CircuitBreakerState.OPEN) {
       this.logger.warn(`Circuit breaker OPEN for ${serviceName}, using fallback`);
       
       if (fallback) {
@@ -84,7 +84,7 @@ export class ExternalServiceBreaker {
    */
   isAvailable(service: ExternalService): boolean {
     const state = this.circuitBreaker.getState(service.toString());
-    return state !== CircuitState.OPEN;
+    return state !== CircuitBreakerState.OPEN;
   }
 
   /**

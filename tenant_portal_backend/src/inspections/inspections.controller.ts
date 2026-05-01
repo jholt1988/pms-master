@@ -42,7 +42,7 @@ interface AuthenticatedRequest extends Request {
 
 // Legacy inspections API (v1). Kept for backwards compatibility during consolidation.
 // Prefer /api/inspections from src/inspection/* going forward.
-@Controller('inspections-legacy')
+@Controller(['inspections-legacy', 'inspections'])
 @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 export class InspectionsController {
   private readonly uploadDir = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads', 'inspections');
@@ -126,6 +126,12 @@ export class InspectionsController {
       req.user.sub,
       orgId,
     );
+  }
+
+  @Post('start')
+  @Roles('PROPERTY_MANAGER', 'ADMIN', 'OWNER', 'TENANT')
+  async start(@Body('inspectionId', ParseIntPipe) inspectionId: number, @Req() req: AuthenticatedRequest, @OrgId() orgId?: string) {
+    return this.inspectionsService.findOne(inspectionId, req.user.sub, req.user.role, orgId);
   }
 
   @Put(':id/complete')

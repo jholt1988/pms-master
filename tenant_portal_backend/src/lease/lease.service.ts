@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { isUUID } from 'class-validator';
 import {
   LeaseNoticeDeliveryMethod,
@@ -945,6 +945,7 @@ export class LeaseService {
   // ========== GAP REMEDIATION - Issue 3: Lease Signing Flow ==========
 
   async generateLeaseDocument(leaseId: string, actorId: string, orgId: string) {
+    this.assertLeaseSigningStubAllowed('generate lease documents');
     this.logger.log(`[STUB] Lease ${leaseId}: Generating document`);
     return {
       success: true,
@@ -962,6 +963,7 @@ export class LeaseService {
     actorId: string,
     orgId: string,
   ) {
+    this.assertLeaseSigningStubAllowed('send leases for signature');
     this.logger.log(`[STUB] Lease ${leaseId}: Sending for signature to ${signerEmail}`);
     return {
       success: true,
@@ -974,9 +976,19 @@ export class LeaseService {
     };
   }
 
+  private assertLeaseSigningStubAllowed(action: string) {
+    const isProduction = process.env.NODE_ENV === 'production';
+    const explicitlyAllowed = process.env.ALLOW_LEASE_SIGNATURE_STUBS === 'true';
+
+    if (isProduction && !explicitlyAllowed) {
+      throw new ServiceUnavailableException(
+        `Lease signing stubs are disabled in production; configure a real document/e-signature integration to ${action}.`,
+      );
+    }
+  }
+
   // ========== END GAP REMEDIATION =========-
 }
-
 
 
 

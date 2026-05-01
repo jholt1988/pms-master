@@ -36,12 +36,13 @@ describe('FeatureFlagsService', () => {
       expect(service.isEnabled('unknown_feature_xyz')).toBe(false);
     });
 
-    it('should respect admin strategy', () => {
-      // smart_lease_contract is admin-only
+    it('should respect disabled admin strategy flags', () => {
+      // smart_lease_contract is admin-only, but globally disabled and dependent
+      // on web3_wallet_connection; disabled must win over role eligibility.
       const adminContext = { roles: ['admin'] };
       const userContext = { roles: ['tenant'] };
 
-      expect(service.isEnabled('smart_lease_contract', adminContext)).toBe(true);
+      expect(service.isEnabled('smart_lease_contract', adminContext)).toBe(false);
       expect(service.isEnabled('smart_lease_contract', userContext)).toBe(false);
     });
 

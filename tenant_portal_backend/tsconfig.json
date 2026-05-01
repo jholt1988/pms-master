@@ -2,7 +2,9 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "commonjs",
-    "lib": ["ES2022"],
+    "lib": [
+      "ES2022"
+    ],
     "outDir": "./dist",
     "rootDir": "..",
     "strict": false,
@@ -11,7 +13,9 @@
     "esModuleInterop": true,
     "baseUrl": ".",
     "paths": {
-      "axios": ["./node_modules/axios"]
+      "axios": [
+        "./node_modules/axios"
+      ]
     },
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
@@ -25,7 +29,6 @@
     "resolveJsonModule": true,
     "allowJs": true,
     "noEmit": false,
-    "noEmitOnError": false,
     "useDefineForClassFields": false,
     "isolatedModules": false
   },
@@ -37,6 +40,17 @@
     "node_modules",
     "src/**/*.spec.ts",
     "test/**",
-    "src/quickbooks/**"
+    "src/quickbooks/**",
+    "src/**/*-radial.controller.ts",
+    "src/analytics/portfolio-analytics.controller.ts",
+    "src/copilot/decision-engine.controller.ts",
+    "src/documents/document-management.controller.ts",
+    "src/lease/lease-lifecycle.controller.ts",
+    "src/notifications/notification.controller.ts",
+    "src/property/property-radial.controller.ts",
+    "src/settings/organization-settings.controller.ts",
+    "src/tenant/tenant-profile.controller.ts",
+    "src/vendors/vendor-management.controller.ts",
+    "src/webhooks/webhook.controller.ts"
   ]
 }

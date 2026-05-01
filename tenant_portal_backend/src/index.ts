@@ -37,8 +37,6 @@ async function bootstrap() {
       'Content-Type',
       'Authorization',
       'X-Request-ID',
-      'X-Mock-User-Id',
-      'X-Mock-Role',
     ],
     exposedHeaders: ['X-Request-ID'],
   });
@@ -47,7 +45,7 @@ async function bootstrap() {
   app.use(express.json({
     limit: '1mb',
     verify: (req: any, _res: any, buf: Buffer) => {
-      if (req.originalUrl?.includes('/webhooks/stripe')) {
+      if (req.originalUrl?.includes('/webhooks/stripe') || req.originalUrl?.includes('/webhooks/esignature')) {
         req.rawBody = Buffer.from(buf);
       }
     },
