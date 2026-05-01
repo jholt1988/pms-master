@@ -2,16 +2,21 @@
 // GET /reports/:type, POST /reports/generate, GET /reports/download/:id
 // Dependencies: 1-20 | Estimate: Medium
 
-import { Controller, Get, Post, Param, Query, UseGuards, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { OrgId } from '../common/org-context/org-id.decorator';
 import { PrismaService } from '../prisma/prisma.service';
+import { AnalyticsService } from './analytics.service';
 
 @Controller(['reports', 'reporting'])
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class ReportingController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly analyticsService: AnalyticsService,
+  ) {}
 
   @Get('rent-roll')
   @Roles('PROPERTY_MANAGER', 'OWNER', 'ADMIN')
@@ -136,6 +141,125 @@ export class ReportingController {
       byProperty,
       generatedAt: new Date().toISOString(),
     };
+  }
+
+  @Get('delinquency-analytics')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async getDelinquencyAnalytics(@Query('days') days?: string) {
+    return this.getDelinquencyReport(days);
+  }
+
+  @Get('profit-loss')
+  @Roles('PROPERTY_MANAGER', 'OWNER', 'ADMIN')
+  async getProfitLoss(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('propertyId') propertyId?: string,
+  ) {
+    return this.getFinancialSummary(startDate, endDate, propertyId);
+  }
+
+  @Get('vacancy-rate')
+  @Roles('PROPERTY_MANAGER', 'OWNER', 'ADMIN')
+  async getVacancyRate(@Query('propertyId') propertyId?: string) {
+    const occupancy = await this.getOccupancyReport(propertyId);
+    return {
+      ...occupancy,
+      type: 'vacancy-rate',
+      vacancyRate: 100 - occupancy.summary.occupancyRate,
+    };
+  }
+
+  @Get('maintenance-analytics')
+  @Roles('PROPERTY_MANAGER', 'OWNER', 'ADMIN')
+  async getMaintenanceAnalytics(@Query('propertyId') propertyId?: string) {
+    return this.getMaintenanceSummary(propertyId);
+  }
+
+  @Get('manual-payments-summary')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async getManualPaymentsSummary(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const start = startDate ? new Date(startDate) : new Date(new Date().setDate(1));
+    const end = endDate ? new Date(endDate) : new Date();
+    const payments = await this.prisma.payment.findMany({
+      where: { paymentDate: { gte: start, lte: end } },
+    });
+    return {
+      type: 'manual-payments-summary',
+      count: payments.length,
+      total: payments.reduce((sum, payment) => sum + payment.amount, 0),
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  @Get('manual-charges-summary')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async getManualChargesSummary(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const start = startDate ? new Date(startDate) : new Date(new Date().setDate(1));
+    const end = endDate ? new Date(endDate) : new Date();
+    const charges = await this.prisma.manualCharge.findMany({
+      where: { chargeDate: { gte: start, lte: end } },
+    });
+    return {
+      type: 'manual-charges-summary',
+      count: charges.length,
+      totalCents: charges.reduce((sum, charge) => sum + charge.amountCents, 0),
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  @Get('payment-history')
+  @Roles('PROPERTY_MANAGER', 'OWNER', 'ADMIN')
+  async getPaymentHistory(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('propertyId') propertyId?: string,
+  ) {
+    const start = startDate ? new Date(startDate) : new Date(new Date().setDate(1));
+    const end = endDate ? new Date(endDate) : new Date();
+    return this.prisma.payment.findMany({
+      where: {
+        paymentDate: { gte: start, lte: end },
+        ...(propertyId ? { lease: { unit: { propertyId } } } : {}),
+      },
+      include: { lease: { include: { tenant: true, unit: { include: { property: true } } } } },
+      orderBy: { paymentDate: 'desc' },
+    });
+  }
+
+  @Get('analytics/heatmap')
+  @Roles('PROPERTY_MANAGER', 'OWNER', 'ADMIN')
+  async getReportHeatmap(@OrgId() orgId?: string) {
+    return this.analyticsService.getPortfolioHealthHeatmap(orgId);
+  }
+
+  @Get('analytics/opex-anomalies')
+  @Roles('PROPERTY_MANAGER', 'OWNER', 'ADMIN')
+  async getOpexAnomalies(@OrgId() orgId?: string) {
+    return this.analyticsService.getOpexAnomalies(orgId);
+  }
+
+  @Get('analytics/capex')
+  @Roles('PROPERTY_MANAGER', 'OWNER', 'ADMIN')
+  async getCapexAnalytics(
+    @Query('propertyId') propertyId: string,
+    @Query('upgradeCost') upgradeCost?: string,
+    @Query('rentBump') rentBump?: string,
+    @OrgId() orgId?: string,
+  ) {
+    if (!propertyId) return { propertyId: null, simulatedTrials: 0, generatedAt: new Date().toISOString() };
+    return this.analyticsService.simulateCapitalExpenditure({
+      propertyId,
+      orgId,
+      upgradeCost: Number(upgradeCost ?? 0),
+      expectedRentIncreaseAmount: Number(rentBump ?? 0),
+    });
   }
 
   @Get('financial-summary')
