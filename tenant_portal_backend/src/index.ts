@@ -37,8 +37,6 @@ async function bootstrap() {
       'Content-Type',
       'Authorization',
       'X-Request-ID',
-      'X-Mock-User-Id',
-      'X-Mock-Role',
     ],
     exposedHeaders: ['X-Request-ID'],
   });
