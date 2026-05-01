@@ -53,7 +53,7 @@ model User {
   passwordUpdatedAt         DateTime                    @default(now())
   lastLoginAt               DateTime?
   requests                  MaintenanceRequest[]
-  lease                     Lease?
+  leases                    Lease[]
   payments                  Payment[]
   manualPayments            ManualPayment[]             @relation("ManualPaymentTenant")
   manualCharges             ManualCharge[]              @relation("ManualChargeTenant")
@@ -134,7 +134,7 @@ model User {
   ownerStatementsReceived         OwnerStatement[]            @relation("OwnerStatementOwner")
   ownerStatementsApproved         OwnerStatement[]            @relation("OwnerStatementApprover")
 
-  tenantProfile                   TenantProfile?
+  tenantProfile TenantProfile?
 
   @@index([email])
   @@index([role])
@@ -153,8 +153,15 @@ model Organization {
   stripeLastOnboardingCheckAt DateTime?
   delinquencyDaysWeight       Float?
   delinquencyAmountWeight     Float?
-  createdAt                   DateTime               @default(now())
-  updatedAt                   DateTime               @updatedAt
+  timezone                    String?  @default("America/New_York")
+  dateFormat                  String?  @default("MM/DD/YYYY")
+  currency                    String?  @default("USD")
+  lateFeeEnabled              Boolean  @default(false)
+  lateFeeGraceDays            Int?     @default(5)
+  lateFeeAmount               Float?   @default(0)
+  quickbooksConnected         Boolean  @default(false)
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
 
   users                   UserOrganization[]
   properties              Property[]
@@ -388,7 +395,7 @@ model Unit {
   status             UnitStatus           @default(VACANT)
   property           Property             @relation(fields: [propertyId], references: [id])
   propertyId         String               @db.Uuid
-  lease              Lease?
+  leases             Lease[]
   rentalApplications RentalApplication[]
   leadApplications   LeadApplication[]
   propertyInquiries  PropertyInquiry[]
@@ -567,10 +574,12 @@ model Lease {
   rentEscalationEffectiveAt DateTime?
   billingAlignment          BillingAlignment          @default(FULL_CYCLE)
   currentBalance            Float                     @default(0)
-  tenant                    User                      @relation(fields: [tenantId], references: [id])
-  tenantId                  String                    @unique @db.Uuid // A user can only have one lease
+  tenant                    Tenant                    @relation(fields: [tenantId], references: [id])
+  tenantId                  String                    @db.Uuid // A person can have multiple leases over time
+  user                      User?                     @relation(fields: [userId], references: [id])
+  userId                    String?                   @db.Uuid // Optional link to a user account
   unit                      Unit                      @relation(fields: [unitId], references: [id])
-  unitId                    String                    @unique @db.Uuid // A unit can only have one lease
+  unitId                    String                    @db.Uuid // A unit can have multiple leases over time
   payments                  Payment[]
   manualPayments            ManualPayment[]
   manualCharges             ManualCharge[]
@@ -635,6 +644,10 @@ model MaintenanceRequest {
   agentRuns         AgentRun[]                   @relation("AgentRunRequest")
   communicationLogs CommunicationLog[]           @relation("CommunicationLogRequest")
   documents         MaintenanceRequestDocument[] @relation("MaintenanceRequestDocuments")
+
+  vendorId   String?   @db.Uuid
+  assignedAt DateTime?
+  vendor     Vendor?   @relation(fields: [vendorId], references: [id])
 
   approvalTasks ApprovalTask[]
 }
@@ -1527,6 +1540,9 @@ enum Status {
   PENDING
   IN_PROGRESS
   COMPLETED
+  ASSIGNED
+  SCHEDULED
+  CANCELLED
 }
 
 enum MaintenancePriority {
@@ -3156,20 +3172,107 @@ model AuditLog {
 // --- Phase 1: Core Financials, Compliance & Owner Experience ---
 
 model Vendor {
-  id             String             @id @default(uuid()) @db.Uuid
-  organizationId String             @db.Uuid
-  organization   Organization       @relation(fields: [organizationId], references: [id])
-  name           String
-  taxId          String? // Encrypted or masked
-  type           String             @default("CONTRACTOR") // e.g., CONTRACTOR, UTILITY, SUPPLIER
-  email          String?
-  phone          String?
-  address        String?
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  compliances    VendorCompliance[]
+  id                  String               @id @default(uuid()) @db.Uuid
+  organizationId      String               @db.Uuid
+  organization        Organization         @relation(fields: [organizationId], references: [id])
+  name                String
+  taxId               String? // Encrypted or masked
+  type                String               @default("CONTRACTOR") // e.g., CONTRACTOR, UTILITY, SUPPLIER
+  email               String?
+  phone               String?
+  address             String?
+  category            String               @default("GENERAL")
+  specialties         String[]             @default([])
+  hourlyRate          Float?
+  licenseNumber       String?
+  insuranceExpiry     DateTime?
+  notes               String?
+  status              String               @default("ACTIVE")
+  averageRating       Float?               @default(0)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  compliances         VendorCompliance[]
+  ratings             VendorRating[]
+  assignments         VendorAssignment[]
+  maintenanceRequests MaintenanceRequest[]
 
   @@index([organizationId])
+}
+
+model VendorRating {
+  id                   String   @id @default(uuid()) @db.Uuid
+  vendorId             String   @db.Uuid
+  vendor               Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  rating               Int
+  comment              String?
+  maintenanceRequestId String?  @db.Uuid
+  ratedBy              String?
+  createdAt            DateTime @default(now())
+
+  @@index([vendorId])
+}
+
+model VendorAssignment {
+  id                   String    @id @default(uuid()) @db.Uuid
+  vendorId             String    @db.Uuid
+  vendor               Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  maintenanceRequestId String    @db.Uuid
+  status               String    @default("ASSIGNED") // ASSIGNED, ACTIVE, COMPLETED, CANCELLED
+  scheduledDate        DateTime?
+  estimatedDuration    Float?
+  quotedPrice          Float?
+  notes                String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([vendorId])
+  @@index([maintenanceRequestId])
+}
+
+model Webhook {
+  id         String            @id @default(uuid()) @db.Uuid
+  name       String
+  url        String
+  events     String[]
+  secret     String?
+  isActive   Boolean           @default(true)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  deliveries WebhookDelivery[]
+}
+
+model WebhookDelivery {
+  id             String    @id @default(uuid()) @db.Uuid
+  webhookId      String    @db.Uuid
+  webhook        Webhook   @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  eventType      String
+  payload        String // JSON string
+  status         String    @default("PENDING") // PENDING, SUCCESS, FAILED
+  responseStatus Int?
+  errorMessage   String?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([webhookId])
+}
+
+model Decision {
+  id          String    @id @default(uuid()) @db.Uuid
+  type        String // e.g. MAINTENANCE_SCHEDULE, RENT_ADJUSTMENT
+  domain      String // repairs, payments, leasing
+  entityId    String // ID of the related object
+  title       String
+  description String?
+  urgency     String    @default("medium") // low, medium, high, immediate
+  priority    Int       @default(50)
+  context     Json?
+  resolved    Boolean   @default(false)
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([domain, resolved])
+  @@index([domain, type, resolved])
 }
 
 model VendorCompliance {
@@ -3441,26 +3544,26 @@ enum TenantHealthClassification {
 }
 
 model TenantProfile {
-  id                 String                   @id @default(uuid()) @db.Uuid
-  userId             String                   @unique @db.Uuid
-  user               User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                 String                     @id @default(uuid()) @db.Uuid
+  userId             String                     @unique @db.Uuid
+  user               User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
   preferredName      String?
-  relationshipStatus TenantRelationshipStatus @default(ACTIVE)
+  relationshipStatus TenantRelationshipStatus   @default(ACTIVE)
   healthClass        TenantHealthClassification @default(STABLE)
-  tags               String[]                 @default([])
+  tags               String[]                   @default([])
   pets               Json?
   vehicles           Json?
-  idVerified         Boolean                  @default(false)
+  idVerified         Boolean                    @default(false)
   idVerifiedAt       DateTime?
   moveInDate         DateTime?
   moveOutDate        DateTime?
   notes              String?
-  createdAt          DateTime                 @default(now())
-  updatedAt          DateTime                 @updatedAt
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
 
-  householdMembers   HouseholdMember[]
-  statusHistory      TenantStatusHistory[]
-  violations         Violation[]
+  householdMembers HouseholdMember[]
+  statusHistory    TenantStatusHistory[]
+  violations       Violation[]
 
   @@index([relationshipStatus])
   @@index([healthClass])
@@ -3485,15 +3588,15 @@ model HouseholdMember {
 }
 
 model TenantStatusHistory {
-  id              String                   @id @default(uuid()) @db.Uuid
-  tenantProfileId String                   @db.Uuid
-  tenantProfile   TenantProfile            @relation(fields: [tenantProfileId], references: [id], onDelete: Cascade)
+  id              String                    @id @default(uuid()) @db.Uuid
+  tenantProfileId String                    @db.Uuid
+  tenantProfile   TenantProfile             @relation(fields: [tenantProfileId], references: [id], onDelete: Cascade)
   fromStatus      TenantRelationshipStatus?
   toStatus        TenantRelationshipStatus
   reason          String?
-  changedById     String?                  @db.Uuid
+  changedById     String?                   @db.Uuid
   metadata        Json?
-  createdAt       DateTime                 @default(now())
+  createdAt       DateTime                  @default(now())
 
   @@index([tenantProfileId, createdAt])
 }
@@ -3531,4 +3634,17 @@ model TelemetryEvent {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   @@map("telemetry_events")
+}
+
+model Tenant {
+  id                    String   @id @default(uuid()) @db.Uuid
+  fullName              String
+  email                 String   @unique
+  phone                 String
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  notes                 String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  leases                Lease[]
 }

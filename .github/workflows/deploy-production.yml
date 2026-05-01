@@ -59,6 +59,12 @@ jobs:
           echo "version=${TAG}" >> $GITHUB_OUTPUT
           echo "date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
 
+      - name: Validate Docker Compose configuration
+        run: |
+          docker compose --env-file ops/.env.prod.example config > /tmp/compose-dev.yaml
+          BACKEND_IMAGE=${{ env.BACKEND_IMAGE }} FRONTEND_IMAGE=${{ env.FRONTEND_IMAGE }} IMAGE_TAG=${{ github.ref_name }} \
+            docker compose --env-file ops/.env.prod.example -f docker-compose.yml -f docker-compose.prod.yml config > /tmp/compose-prod.yaml
+
       - name: Build and push backend image
         uses: docker/build-push-action@v5
         with:
@@ -70,8 +76,6 @@ jobs:
             ${{ env.BACKEND_IMAGE }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: |
-            DATABASE_URL=${{ secrets.PRODUCTION_DATABASE_URL }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -129,17 +133,15 @@ jobs:
               cp .current-deploy-tag .previous-deploy-tag
             fi
 
-            # Pull new images
-            docker pull ${{ env.BACKEND_IMAGE }}:${{ steps.tag.outputs.image_tag }}
-            docker pull ${{ env.FRONTEND_IMAGE }}:${{ steps.tag.outputs.image_tag }}
+            export BACKEND_IMAGE="${{ env.BACKEND_IMAGE }}"
+            export FRONTEND_IMAGE="${{ env.FRONTEND_IMAGE }}"
+            export IMAGE_TAG="${{ steps.tag.outputs.image_tag }}"
 
-            # Tag as current
-            docker tag ${{ env.BACKEND_IMAGE }}:${{ steps.tag.outputs.image_tag }} pms-backend:current
-            docker tag ${{ env.FRONTEND_IMAGE }}:${{ steps.tag.outputs.image_tag }} pms-frontend:current
+            # Pull new images
+            docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml pull backend frontend
 
             # Run migrations
-            docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml run --rm backend \
-              sh -c "npx prisma migrate deploy --schema=./prisma/schema.prisma"
+            docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml run --rm backend-migrate
 
             # Rolling restart
             docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build
@@ -182,10 +184,11 @@ jobs:
             if [ -f .previous-deploy-tag ]; then
               PREV_TAG=$(cat .previous-deploy-tag)
               echo "Rolling back to ${PREV_TAG}"
-              docker pull ${{ env.BACKEND_IMAGE }}:${PREV_TAG}
-              docker pull ${{ env.FRONTEND_IMAGE }}:${PREV_TAG}
-              docker tag ${{ env.BACKEND_IMAGE }}:${PREV_TAG} pms-backend:current
-              docker tag ${{ env.FRONTEND_IMAGE }}:${PREV_TAG} pms-frontend:current
+              export BACKEND_IMAGE="${{ env.BACKEND_IMAGE }}"
+              export FRONTEND_IMAGE="${{ env.FRONTEND_IMAGE }}"
+              export IMAGE_TAG="${PREV_TAG}"
+              docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml pull backend frontend
+              docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml run --rm backend-migrate
               docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build
               echo "${PREV_TAG}" > .current-deploy-tag
               echo "Rollback complete"
@@ -212,10 +215,11 @@ jobs:
             if [ -f .previous-deploy-tag ]; then
               PREV_TAG=$(cat .previous-deploy-tag)
               echo "Rolling back to ${PREV_TAG}"
-              docker pull ${{ env.BACKEND_IMAGE }}:${PREV_TAG}
-              docker pull ${{ env.FRONTEND_IMAGE }}:${PREV_TAG}
-              docker tag ${{ env.BACKEND_IMAGE }}:${PREV_TAG} pms-backend:current
-              docker tag ${{ env.FRONTEND_IMAGE }}:${PREV_TAG} pms-frontend:current
+              export BACKEND_IMAGE="${{ env.BACKEND_IMAGE }}"
+              export FRONTEND_IMAGE="${{ env.FRONTEND_IMAGE }}"
+              export IMAGE_TAG="${PREV_TAG}"
+              docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml pull backend frontend
+              docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml run --rm backend-migrate
               docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build
               cp .current-deploy-tag .rollback-from-tag
               echo "${PREV_TAG}" > .current-deploy-tag

@@ -32,10 +32,11 @@ export class TelemetryService {
     // In production, would persist to database or send to analytics
     // For now, log and optionally store in Prisma if available
     try {
-      // Try to log to audit log for compliance
-      await this.prisma.auditLog?.create({
+      // Try to log to telemetry events for analytics
+      await this.prisma.telemetryEvent?.create({
         data: {
-          action: event.action,
+          eventName: event.eventType,
+          outcome: event.action,
           domain: event.domain,
           entityId: event.entityId,
           userId: event.userId,
@@ -133,20 +134,22 @@ export class TelemetryService {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
-    // Query audit log for telemetry data
-    const events = await this.prisma.auditLog?.findMany({
+    // Query telemetry events for summary data
+    const events = await this.prisma.telemetryEvent?.findMany({
       where: {
         createdAt: { gte: startDate },
       },
-      select: { action: true, domain: true },
+      select: { outcome: true, domain: true },
     }).catch(() => []);
 
     const eventsByType: Record<string, number> = {};
     const eventsByDomain: Record<string, number> = {};
 
     for (const event of events ?? []) {
-      eventsByType[event.action] = (eventsByType[event.action] ?? 0) + 1;
-      eventsByDomain[event.domain] = (eventsByDomain[event.domain] ?? 0) + 1;
+      const outcome = (event as any).outcome || 'unknown';
+      const domain = (event as any).domain || 'unknown';
+      eventsByType[outcome] = (eventsByType[outcome] ?? 0) + 1;
+      eventsByDomain[domain] = (eventsByDomain[domain] ?? 0) + 1;
     }
 
     return {

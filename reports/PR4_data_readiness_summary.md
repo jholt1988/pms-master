@@ -29,7 +29,7 @@
 ## Commands run + outputs
 
 Working directory for all commands below:
-`/home/jordanh316/.openclaw/workspace/pms-master/tenant_portal_backend`
+`/home/developer/.openclaw/workspace/pms-master/tenant_portal_backend`
 
 ### 1) Standard audit
 
@@ -60,7 +60,7 @@ npm run ml:readiness:md
 
 Output (excerpt):
 ```text
-Markdown report written to: /home/jordanh316/.openclaw/workspace/pms-master/tenant_portal_backend/reports/ml-data-readiness-latest.md
+Markdown report written to: /home/developer/.openclaw/workspace/pms-master/tenant_portal_backend/reports/ml-data-readiness-latest.md
 ```
 
 Full captured output:

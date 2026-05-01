@@ -1,5 +1,6 @@
 .git
 .gitignore
+.github
 node_modules
 **/node_modules
 **/dist
@@ -7,7 +8,23 @@ node_modules
 **/.turbo
 **/.next
 **/.cache
+**/.pytest_cache
+**/playwright-report
+**/test-results
+**/reports
+**/logs
+**/uploads
+**/generated
+**/*.log
+**/*.tmp
+**/*.swp
+**/*.swo
+.env
+.env.*
+.venv
+venv
+.vscode
+.idea
 reports
-*.log
-
+coverage
 

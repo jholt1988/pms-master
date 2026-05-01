@@ -4,9 +4,9 @@
 
 import { Controller, Post, Patch, Body, Param, UseGuards, NotFoundException, BadRequestException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { RolesGuard } from '../../auth/roles.guard';
-import { Roles } from '../../auth/roles.decorator';
-import { PrismaService } from '../../prisma/prisma.service';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { PrismaService } from '../prisma/prisma.service';
 
 interface CreateTenantDto {
   fullName: string;
@@ -15,8 +15,8 @@ interface CreateTenantDto {
   emergencyContactName?: string;
   emergencyContactPhone?: string;
   notes?: string;
-  unitId: number;
-  leaseId?: number;
+  unitId: string;
+  leaseId?: string;
 }
 
 interface UpdateTenantDto {
@@ -109,7 +109,7 @@ export class TenantProfileController {
     @Param('id') id: string,
     @Body() dto: UpdateTenantDto,
   ) {
-    const tenantId = parseInt(id, 10);
+    const tenantId = id;
 
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
@@ -154,7 +154,7 @@ export class TenantProfileController {
 export class UnitTenantSummaryController {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getUnitWithTenantSummary(unitId: number) {
+  async getUnitWithTenantSummary(unitId: string) {
     const unit = await this.prisma.unit.findUnique({
       where: { id: unitId },
       include: {

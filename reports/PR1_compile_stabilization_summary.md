@@ -2,7 +2,7 @@
 
 ## Scope
 Executed PR1 compile/type stabilization pass in:
-`/home/jordanh316/.openclaw/workspace/pms-master/tenant_portal_backend`
+`/home/developer/.openclaw/workspace/pms-master/tenant_portal_backend`
 
 ## What I validated
 
@@ -52,7 +52,7 @@ These changes stabilize runtime behavior around optional service injection and r
 If rollback is needed for this pass only:
 
 ```bash
-cd /home/jordanh316/.openclaw/workspace/pms-master/tenant_portal_backend
+cd /home/developer/.openclaw/workspace/pms-master/tenant_portal_backend
 git checkout -- src/workflows/workflow-engine.service.ts
 ```
 

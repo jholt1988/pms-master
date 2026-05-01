@@ -4,9 +4,9 @@
 
 import { Controller, Get, Post, Patch, Param, Body, Query, UseGuards, NotFoundException, BadRequestException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { RolesGuard } from '../../auth/roles.guard';
-import { Roles } from '../../auth/roles.decorator';
-import { PrismaService } from '../../prisma/prisma.service';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { PrismaService } from '../prisma/prisma.service';
 
 interface CreateVendorDto {
   name: string;
@@ -18,16 +18,17 @@ interface CreateVendorDto {
   licenseNumber?: string;
   insuranceExpiry?: string;
   notes?: string;
+  organizationId: string;
 }
 
 interface RateVendorDto {
   rating: number;
   comment?: string;
-  maintenanceRequestId?: number;
+  maintenanceRequestId?: string;
 }
 
 interface AssignVendorDto {
-  maintenanceRequestId: number;
+  maintenanceRequestId: string;
   scheduledDate?: string;
   estimatedDuration?: number;
   quotedPrice?: number;
@@ -57,6 +58,7 @@ export class VendorManagementController {
         insuranceExpiry: dto.insuranceExpiry ? new Date(dto.insuranceExpiry) : null,
         notes: dto.notes,
         status: 'ACTIVE',
+        organizationId: dto.organizationId,
       },
     });
 
@@ -105,7 +107,7 @@ export class VendorManagementController {
 
   @Get(':id')
   async getVendor(@Param('id') id: string) {
-    const vendorId = parseInt(id, 10);
+    const vendorId = id;
     const vendor = await this.prisma.vendor.findUnique({
       where: { id: vendorId },
       include: {
@@ -131,7 +133,7 @@ export class VendorManagementController {
   @Patch(':id')
   @Roles('PROPERTY_MANAGER', 'ADMIN')
   async updateVendor(@Param('id') id: string, @Body() dto: Partial<CreateVendorDto>) {
-    const vendorId = parseInt(id, 10);
+    const vendorId = id;
     const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
     if (!vendor) throw new NotFoundException('Vendor not found');
 
@@ -158,7 +160,7 @@ export class VendorManagementController {
   @Post(':id/rate')
   @Roles('PROPERTY_MANAGER', 'ADMIN')
   async rateVendor(@Param('id') id: string, @Body() dto: RateVendorDto) {
-    const vendorId = parseInt(id, 10);
+    const vendorId = id;
     const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
     if (!vendor) throw new NotFoundException('Vendor not found');
 
@@ -194,7 +196,7 @@ export class VendorManagementController {
   @Post(':id/assign')
   @Roles('PROPERTY_MANAGER', 'ADMIN')
   async assignVendor(@Param('id') id: string, @Body() dto: AssignVendorDto) {
-    const vendorId = parseInt(id, 10);
+    const vendorId = id;
     const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
     if (!vendor) throw new NotFoundException('Vendor not found');
 
@@ -221,9 +223,9 @@ export class VendorManagementController {
       where: { id: dto.maintenanceRequestId },
       data: {
         status: 'ASSIGNED',
-        vendorId,
+        vendorId: vendorId,
         assignedAt: new Date(),
-      },
+      } as any,
     });
 
     // Resolve any related scheduling decision
@@ -240,7 +242,7 @@ export class VendorManagementController {
   @Post(':id/deactivate')
   @Roles('ADMIN')
   async deactivateVendor(@Param('id') id: string) {
-    const vendorId = parseInt(id, 10);
+    const vendorId = id;
     const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
     if (!vendor) throw new NotFoundException('Vendor not found');
 

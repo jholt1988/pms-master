@@ -2,11 +2,23 @@
 // GET /settings, PATCH /settings, GET /settings/users, POST /settings/users, PATCH /settings/users/:id
 // Dependencies: 12 | Estimate: Medium
 
-import { Controller, Get, Post, Patch, Param, Body, Query, UseGuards, NotFoundException, BadRequestException } from '@nestjs/common';
+import { 
+  Controller, 
+  Get, 
+  Post, 
+  Patch, 
+  Param, 
+  Body, 
+  Query, 
+  UseGuards, 
+  NotFoundException, 
+  BadRequestException, 
+  Req 
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { RolesGuard } from '../../auth/roles.guard';
-import { Roles } from '../../auth/roles.decorator';
-import { PrismaService } from '../../prisma/prisma.service';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { PrismaService } from '../prisma/prisma.service';
 
 interface UpdateOrgSettingsDto {
   name?: string;
@@ -21,13 +33,12 @@ interface UpdateOrgSettingsDto {
 interface InviteUserDto {
   email: string;
   role: 'ADMIN' | 'PROPERTY_MANAGER' | 'OWNER' | 'TENANT';
-  propertyIds?: number[];
+  propertyIds?: string[];
 }
 
 interface UpdateUserDto {
   role?: string;
-  isActive?: boolean;
-  propertyIds?: number[];
+  propertyIds?: string[];
 }
 
 @Controller('settings')
@@ -66,17 +77,19 @@ export class OrganizationSettingsController {
   async updateOrganizationSettings(@Body() dto: UpdateOrgSettingsDto, @Req() req: any) {
     const orgId = req.user.organizationId;
 
+    // Filter out undefined values so we don't accidentally overwrite with null
+    const data: Record<string, any> = {};
+    if (dto.name !== undefined) data.name = dto.name;
+    if (dto.timezone !== undefined) data.timezone = dto.timezone;
+    if (dto.dateFormat !== undefined) data.dateFormat = dto.dateFormat;
+    if (dto.currency !== undefined) data.currency = dto.currency;
+    if (dto.lateFeeEnabled !== undefined) data.lateFeeEnabled = dto.lateFeeEnabled;
+    if (dto.lateFeeGraceDays !== undefined) data.lateFeeGraceDays = dto.lateFeeGraceDays;
+    if (dto.lateFeeAmount !== undefined) data.lateFeeAmount = dto.lateFeeAmount;
+
     const updated = await this.prisma.organization.update({
       where: { id: orgId },
-      data: {
-        name: dto.name,
-        timezone: dto.timezone,
-        dateFormat: dto.dateFormat,
-        currency: dto.currency,
-        lateFeeEnabled: dto.lateFeeEnabled,
-        lateFeeGraceDays: dto.lateFeeGraceDays,
-        lateFeeAmount: dto.lateFeeAmount,
-      },
+      data: data as any,
     });
 
     console.log('[SETTINGS] Org updated:', orgId);
@@ -89,18 +102,28 @@ export class OrganizationSettingsController {
   async listOrganizationUsers(@Req() req: any) {
     const orgId = req.user.organizationId;
 
-    const users = await this.prisma.user.findMany({
+    // Users are linked to orgs via the UserOrganization join table
+    const orgWithUsers = await this.prisma.userOrganization.findMany({
       where: { organizationId: orgId },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        isActive: true,
-        lastLoginAt: true,
-        createdAt: true,
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            role: true,
+            lastLoginAt: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+          },
+        },
       },
-      orderBy: { createdAt: 'desc' },
     });
+
+    const users = orgWithUsers.map(ou => ({
+      ...ou.user,
+      orgRole: ou.role,
+    }));
 
     return { data: users, total: users.length };
   }
@@ -121,14 +144,20 @@ export class OrganizationSettingsController {
     const tempPassword = Math.random().toString(36).slice(-8);
     const passwordHash = require('crypto').createHash('sha256').update(tempPassword).digest('hex');
 
+    // Create the user then link to org
     const user = await this.prisma.user.create({
       data: {
         email: dto.email.toLowerCase(),
-        passwordHash,
+        // Use 'password' field (the schema field name)
+        password: passwordHash,
+        username: dto.email.toLowerCase(),
         role: dto.role,
-        organizationId: orgId,
-        isActive: true,
-        // In production, send invitation email instead
+        organizations: {
+          create: {
+            organizationId: orgId,
+            role: 'MEMBER',
+          },
+        },
       },
     });
 
@@ -146,7 +175,8 @@ export class OrganizationSettingsController {
   @Patch('users/:id')
   @Roles('ADMIN')
   async updateUser(@Param('id') id: string, @Body() dto: UpdateUserDto) {
-    const userId = parseInt(id, 10);
+    // UUID-based ID (no parseInt)
+    const userId = id;
 
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
@@ -155,29 +185,29 @@ export class OrganizationSettingsController {
       where: { id: userId },
       data: {
         role: dto.role as any,
-        isActive: dto.isActive,
       },
     });
 
     console.log('[SETTINGS] User updated:', userId);
 
-    return { id: updated.id, role: updated.role, isActive: updated.isActive };
+    return { id: updated.id, role: updated.role };
   }
 
   @Post('users/:id/deactivate')
   @Roles('ADMIN')
-  async deactivateUser(@Param('id') id: string) {
-    const userId = parseInt(id, 10);
+  async deactivateUser(@Param('id') id: string, @Req() req: any) {
+    const userId = id;
+    const orgId = req.user.organizationId;
 
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
 
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { isActive: false },
+    // Remove user from the organization instead of deactivating (no isActive field)
+    await this.prisma.userOrganization.deleteMany({
+      where: { userId, organizationId: orgId },
     });
 
-    console.log('[SETTINGS] User deactivated:', userId);
+    console.log('[SETTINGS] User removed from org:', userId);
 
     return { success: true };
   }
@@ -187,18 +217,13 @@ export class OrganizationSettingsController {
   async listIntegrations(@Req() req: any) {
     const orgId = req.user.organizationId;
 
-    // Get integration status
-    const [org, connections] = await Promise.all([
-      this.prisma.organization.findUnique({ where: { id: orgId } }),
-      this.prisma.integrationConnection.findMany({
-        where: { organizationId: orgId },
-      }),
-    ]);
+    const org = await this.prisma.organization.findUnique({ where: { id: orgId } });
 
     return {
-      quickbooks: { connected: org?.quickbooksConnected || false },
+      quickbooks: {
+        connected: org?.quickbooksConnected ?? false,
+      },
       stripe: { connected: !!org?.stripeConnectedAccountId },
-      integrations: connections,
     };
   }
 
@@ -215,7 +240,7 @@ export class OrganizationSettingsController {
     const orgId = req.user.organizationId;
     await this.prisma.organization.update({
       where: { id: orgId },
-      data: { quickbooksConnected: false },
+      data: { quickbooksConnected: false } as any,
     });
     return { success: true };
   }
@@ -223,10 +248,10 @@ export class OrganizationSettingsController {
   @Get('audit-log')
   @Roles('ADMIN')
   async getAuditLog(
+    @Req() req: any,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('limit') limit?: string,
-    @Req() req: any,
   ) {
     const orgId = req.user.organizationId;
     const limitNum = parseInt(limit || '50', 10);

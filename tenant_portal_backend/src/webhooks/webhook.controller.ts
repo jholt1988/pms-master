@@ -2,11 +2,11 @@
 // POST /webhooks, GET /webhooks, POST /webhooks/:id/test, DELETE /webhooks/:id
 // Dependencies: All | Estimate: Medium
 
-import { Controller, Get, Post, Delete, Param, Body, UseGuards, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Param, Body, UseGuards, NotFoundException, BadRequestException, Patch } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { RolesGuard } from '../../auth/roles.guard';
-import { Roles } from '../../auth/roles.decorator';
-import { PrismaService } from '../../prisma/prisma.service';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { PrismaService } from '../prisma/prisma.service';
 
 interface CreateWebhookDto {
   name: string;
@@ -60,7 +60,7 @@ export class WebhookController {
   @Get(':id')
   @Roles('ADMIN')
   async getWebhook(@Param('id') id: string) {
-    const webhookId = parseInt(id, 10);
+    const webhookId = id;
     const webhook = await this.prisma.webhook.findUnique({
       where: { id: webhookId },
       include: { deliveries: { take: 10, orderBy: { createdAt: 'desc' } } },
@@ -73,7 +73,7 @@ export class WebhookController {
   @Patch(':id')
   @Roles('ADMIN')
   async updateWebhook(@Param('id') id: string, @Body() dto: Partial<CreateWebhookDto>) {
-    const webhookId = parseInt(id, 10);
+    const webhookId = id;
     const webhook = await this.prisma.webhook.findUnique({ where: { id: webhookId } });
     if (!webhook) throw new NotFoundException('Webhook not found');
 
@@ -96,7 +96,7 @@ export class WebhookController {
   @Post(':id/test')
   @Roles('ADMIN')
   async testWebhook(@Param('id') id: string, @Body() dto: TestWebhookDto) {
-    const webhookId = parseInt(id, 10);
+    const webhookId = id;
     const webhook = await this.prisma.webhook.findUnique({ where: { id: webhookId } });
     if (!webhook) throw new NotFoundException('Webhook not found');
 
@@ -137,7 +137,7 @@ export class WebhookController {
   @Delete(':id')
   @Roles('ADMIN')
   async deleteWebhook(@Param('id') id: string) {
-    const webhookId = parseInt(id, 10);
+    const webhookId = id;
     const webhook = await this.prisma.webhook.findUnique({ where: { id: webhookId } });
     if (!webhook) throw new NotFoundException('Webhook not found');
 

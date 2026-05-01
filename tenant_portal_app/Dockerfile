@@ -2,12 +2,15 @@
 
 FROM node:22-alpine AS build
 WORKDIR /app
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY tenant_portal_app/package.json tenant_portal_app/package.json
 COPY tenant_portal_backend/package.json tenant_portal_backend/package.json
 COPY packages/mil-client/package.json packages/mil-client/package.json
-RUN pnpm install 
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+    pnpm install --frozen-lockfile --filter tenant_portal_app...
 COPY . .
 WORKDIR /app/tenant_portal_app
 ARG VITE_API_URL=/api

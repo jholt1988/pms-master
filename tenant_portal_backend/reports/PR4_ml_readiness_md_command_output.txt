@@ -36,4 +36,4 @@ Payment NBA coverage: 12.5% (population 0)
   - Invoices with payment attempt records: 0.0% (0/0)
   - Attempts with terminal status timestamp: 0.0% (0/0)
 
-Markdown report written to: /home/jordanh316/.openclaw/workspace/pms-master/tenant_portal_backend/reports/ml-data-readiness-latest.md
+Markdown report written to: /home/developer/.openclaw/workspace/pms-master/tenant_portal_backend/reports/ml-data-readiness-latest.md

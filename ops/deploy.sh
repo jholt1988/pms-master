@@ -13,7 +13,13 @@ echo "Pulling latest main..."
 git checkout main
 git pull origin main
 
-echo "Building and starting stack..."
-docker compose --env-file ops/.env.prod -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+echo "Pulling release images..."
+docker compose --env-file ops/.env.prod -f docker-compose.yml -f docker-compose.prod.yml pull backend frontend
+
+echo "Running database migrations..."
+docker compose --env-file ops/.env.prod -f docker-compose.yml -f docker-compose.prod.yml run --rm backend-migrate
+
+echo "Starting stack..."
+docker compose --env-file ops/.env.prod -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build
 
 echo "Deploy complete. Run smoke checklist: reports/SMOKE_CHECKLIST_POST_P2.md"
