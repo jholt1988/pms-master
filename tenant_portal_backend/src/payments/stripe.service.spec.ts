@@ -6,9 +6,11 @@ describe('StripeService webhook idempotency', () => {
   let rabbitMQService: any;
 
   const createService = () => new StripeService(basePrisma, eventsService, rabbitMQService);
+  const originalEnv = process.env;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env = { ...originalEnv };
     process.env.NODE_ENV = 'test';
     delete process.env.DISABLE_STRIPE;
 
@@ -50,6 +52,26 @@ describe('StripeService webhook idempotency', () => {
       findFirst: jest.fn(),
     },
   };
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  it('fails fast when Stripe is disabled in production without an explicit override', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.DISABLE_STRIPE = 'true';
+    delete process.env.ALLOW_DISABLED_STRIPE_IN_PRODUCTION;
+
+    expect(() => createService()).toThrow('DISABLE_STRIPE=true is not allowed in production');
+  });
+
+  it('fails fast when STRIPE_SECRET_KEY is missing in production', () => {
+    process.env.NODE_ENV = 'production';
+    delete process.env.DISABLE_STRIPE;
+    delete process.env.STRIPE_SECRET_KEY;
+
+    expect(() => createService()).toThrow('STRIPE_SECRET_KEY must be set in production');
   });
 
   it('dedupes duplicate events when create hits unique constraint', async () => {

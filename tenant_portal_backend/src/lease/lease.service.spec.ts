@@ -634,6 +634,24 @@ describe('LeaseService core lease workflows', () => {
 
       jest.useRealTimers();
     });
+
+    it('blocks lease document/signature stubs in production unless explicitly allowed', async () => {
+      const originalNodeEnv = process.env.NODE_ENV;
+      const originalAllow = process.env.ALLOW_LEASE_SIGNATURE_STUBS;
+      process.env.NODE_ENV = 'production';
+      delete process.env.ALLOW_LEASE_SIGNATURE_STUBS;
+
+      await expect(service.generateLeaseDocument(LEASE_ID, ACTOR_ID, ORG_ID)).rejects.toThrow(
+        'Lease signing stubs are disabled in production',
+      );
+      await expect(service.sendForSignature(LEASE_ID, undefined, undefined, ACTOR_ID, ORG_ID)).rejects.toThrow(
+        'Lease signing stubs are disabled in production',
+      );
+
+      process.env.NODE_ENV = originalNodeEnv;
+      if (originalAllow === undefined) delete process.env.ALLOW_LEASE_SIGNATURE_STUBS;
+      else process.env.ALLOW_LEASE_SIGNATURE_STUBS = originalAllow;
+    });
   });
 
   describe('getLeasesExpiringInDays', () => {
