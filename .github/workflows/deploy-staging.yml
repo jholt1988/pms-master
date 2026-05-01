@@ -45,6 +45,12 @@ jobs:
           echo "version=staging-$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
           echo "date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
 
+      - name: Validate Docker Compose configuration
+        run: |
+          docker compose --env-file ops/.env.dev config > /tmp/compose-dev.yaml
+          BACKEND_IMAGE=${{ env.BACKEND_IMAGE }} FRONTEND_IMAGE=${{ env.FRONTEND_IMAGE }} IMAGE_TAG=staging-${{ github.sha }} \
+            docker compose --env-file ops/.env.prod.example -f docker-compose.yml -f docker-compose.prod.yml config > /tmp/compose-prod.yaml
+
       - name: Build and push backend image
         uses: docker/build-push-action@v5
         with:
@@ -56,8 +62,6 @@ jobs:
             ${{ env.BACKEND_IMAGE }}:staging-latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: |
-            DATABASE_URL=${{ secrets.STAGING_DATABASE_URL }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -100,19 +104,13 @@ jobs:
           script: |
             cd ${{ secrets.STAGING_DEPLOY_PATH }}
 
-            # Pull latest images
-            docker pull ${{ env.BACKEND_IMAGE }}:${{ needs.build-and-push.outputs.image_tag }}
-            docker pull ${{ env.FRONTEND_IMAGE }}:${{ needs.build-and-push.outputs.image_tag }}
+            export BACKEND_IMAGE="${{ env.BACKEND_IMAGE }}"
+            export FRONTEND_IMAGE="${{ env.FRONTEND_IMAGE }}"
+            export IMAGE_TAG="${{ needs.build-and-push.outputs.image_tag }}"
 
-            # Tag as current
-            docker tag ${{ env.BACKEND_IMAGE }}:${{ needs.build-and-push.outputs.image_tag }} pms-backend:current
-            docker tag ${{ env.FRONTEND_IMAGE }}:${{ needs.build-and-push.outputs.image_tag }} pms-frontend:current
-
-            # Save previous image tags for rollback
-            docker inspect pms-backend:current --format='{{index .RepoDigests 0}}' > .previous-backend-digest 2>/dev/null || true
-            docker inspect pms-frontend:current --format='{{index .RepoDigests 0}}' > .previous-frontend-digest 2>/dev/null || true
-
-            # Run migrations and restart
+            echo "${IMAGE_TAG}" > .current-deploy-tag
+            docker compose --env-file .env.staging -f docker-compose.yml -f docker-compose.prod.yml pull backend frontend
+            docker compose --env-file .env.staging -f docker-compose.yml -f docker-compose.prod.yml run --rm backend-migrate
             docker compose --env-file .env.staging -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build
             sleep 10
 

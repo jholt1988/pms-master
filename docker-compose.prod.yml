@@ -1,66 +1,55 @@
-# Production override for pms-master
+# Production/staging override for image-based deploys.
 services:
   postgres:
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-        reservations:
-          memory: 256M
+    ports: !reset []
+    mem_limit: 512m
     logging: &default-logging
-      driver: "json-file"
+      driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
 
   redis:
-    deploy:
-      resources:
-        limits:
-          memory: 256M
+    ports: !reset []
+    mem_limit: 256m
     logging: *default-logging
 
   rabbitmq:
-    deploy:
-      resources:
-        limits:
-          memory: 512M
+    ports: !reset []
+    mem_limit: 512m
     logging: *default-logging
 
   mil:
-    deploy:
-      resources:
-        limits:
-          memory: 512M
+    ports: !reset []
+    mem_limit: 512m
     logging: *default-logging
 
   backend:
-    command: >
-      sh -c "npx prisma migrate deploy --schema=./prisma/schema.prisma &&
-      node dist/tenant_portal_backend/src/index.js"
-    deploy:
-      resources:
-        limits:
-          memory: 1G
+    build: !reset null
+    image: ${BACKEND_IMAGE:-ghcr.io/jholt1988/pms-master/backend}:${IMAGE_TAG:-latest}
+    pull_policy: always
+    ports: !reset []
+    mem_limit: 1g
+    logging: *default-logging
+
+  backend-migrate:
+    build: !reset null
+    image: ${BACKEND_IMAGE:-ghcr.io/jholt1988/pms-master/backend}:${IMAGE_TAG:-latest}
+    pull_policy: always
     logging: *default-logging
 
   frontend:
-    deploy:
-      resources:
-        limits:
-          memory: 256M
+    build: !reset null
+    image: ${FRONTEND_IMAGE:-ghcr.io/jholt1988/pms-master/frontend}:${IMAGE_TAG:-latest}
+    pull_policy: always
+    mem_limit: 256m
     logging: *default-logging
 
   workflow-engine:
-    deploy:
-      resources:
-        limits:
-          memory: 512M
+    ports: !reset []
+    mem_limit: 512m
     logging: *default-logging
 
   ml-service:
-    deploy:
-      resources:
-        limits:
-          memory: 2G
+    mem_limit: 2g
     logging: *default-logging

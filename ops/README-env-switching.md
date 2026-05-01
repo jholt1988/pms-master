@@ -1,103 +1,73 @@
-# Environment Switching (Docker Compose)
+# Docker Environment Workflow
 
-This project includes two ready-to-use env profiles:
+Docker builds in this repo must use the monorepo root as the build context. The supported Dockerfiles are:
 
-- `ops/.env.dev` → Local Docker DB/Redis mode (fastest + most stable for dev)
-- `ops/.env.supabase` → Supabase-backed mode (production-like)
+- `tenant_portal_backend/Dockerfile`
+- `tenant_portal_app/Dockerfile`
 
----
+## Local development
 
-## 1) Start in local mode (recommended for daily dev)
+Start the stack with local infrastructure:
 
 ```bash
 docker compose --env-file ops/.env.dev up -d --build
 ```
 
-Check services:
+Run Prisma migrations explicitly:
 
 ```bash
-docker compose ps
-docker compose logs --tail=120 backend
-docker compose logs --tail=120 frontend
+docker compose --env-file ops/.env.dev run --rm --profile tools backend-migrate
 ```
 
----
+Helpful shortcuts:
 
-## 2) Start in Supabase mode
+```bash
+pnpm env:dev
+pnpm env:dev:migrate
+pnpm env:logs:backend
+pnpm env:health
+```
 
-Before using this mode, update placeholders in `ops/.env.supabase`:
+## Supabase-backed development
 
-- `<PROJECT_REF>`
-- `<PASSWORD>`
-- `<REGION>`
-
-Then:
+Use the Supabase profile when you want production-like database connectivity:
 
 ```bash
 docker compose --env-file ops/.env.supabase up -d --build
+docker compose --env-file ops/.env.supabase run --rm --profile tools backend-migrate
 ```
 
-If backend can’t connect and restarts with Prisma `P1001`, validate firewall/VPN and Supabase connection details.
+If Prisma returns `P1001`, validate the direct database URL, firewall access, and VPN requirements first.
 
----
+## Production and staging deploys
 
-## 3) Switch modes cleanly
+Production-style deployments are image based. `docker-compose.prod.yml` overrides backend and frontend to use:
+
+- `BACKEND_IMAGE`
+- `FRONTEND_IMAGE`
+- `IMAGE_TAG`
+
+Typical flow:
 
 ```bash
-docker compose down
-docker compose --env-file ops/.env.dev up -d --build
-# or
-docker compose --env-file ops/.env.supabase up -d --build
+docker compose --env-file ops/.env.prod -f docker-compose.yml -f docker-compose.prod.yml pull backend frontend
+docker compose --env-file ops/.env.prod -f docker-compose.yml -f docker-compose.prod.yml run --rm backend-migrate
+docker compose --env-file ops/.env.prod -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build
 ```
 
----
+`ops/.env.prod.example` documents the required image and runtime variables.
 
-## 4) Manual migration run (when needed)
+## Validation
 
-If you choose to keep backend startup independent from migrations:
+Validate the merged Compose files before shipping changes:
 
 ```bash
-docker compose exec backend sh -lc "npx prisma migrate deploy"
+docker compose --env-file ops/.env.dev config
+docker compose --env-file ops/.env.prod.example -f docker-compose.yml -f docker-compose.prod.yml config
 ```
 
----
+## Notes
 
-## 5) Quick health checks
-
-Host-level:
-
-```bash
-curl -i http://localhost:3000
-curl -i http://localhost:3000/api/health
-```
-
-Container-network check (from frontend -> backend):
-
-```bash
-docker compose exec frontend sh -lc "wget -S -O- http://backend:3001/api/health | head -n 40"
-```
-
----
-
-## 6) Known noisy-but-nonfatal signals
-
-- `POST /api/metrics/web-vitals` 404 (telemetry endpoint not implemented)
-- workflow scheduler errors for missing workflows (avoid by keeping `DISABLE_WORKFLOW_SCHEDULER=true` in non-prod)
-- `ml-service DOWN` in health monitor when no ML service is deployed (`MONITORING_ENABLED=false` avoids this in local/dev)
-
----
-
-## 7) Recommended defaults by environment
-
-### Local dev
-- `DISABLE_WORKFLOW_SCHEDULER=true`
-- `MONITORING_ENABLED=false`
-- `MIL_WRAPPER_ENABLED=true`
-- `MIL_ENCRYPT_AT_REST_ENABLED=false`
-- `MIL_AUDIT_PERSIST_ENABLED=false`
-
-### Production-like staging
-- `DISABLE_WORKFLOW_SCHEDULER=false` (if workflows are fully configured)
-- `MONITORING_ENABLED=true` (with real dependencies available)
-- MIL flags enabled according to rollout plan
-
+- The backend container no longer runs Prisma migrations on startup.
+- `backend-migrate` is the only supported Compose service for running deploy migrations.
+- In production-oriented Compose, backend and frontend do not publish host ports; traffic should enter through the frontend or external ingress.

@@ -1,44 +1,65 @@
 # syntax=docker/dockerfile:1.7
 
+# This Dockerfile must be built from the monorepo root as context:
+#   docker build -f tenant_portal_backend/Dockerfile .
+
 FROM node:22-alpine AS base
 WORKDIR /app
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable
 
 FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY tenant_portal_backend/package.json tenant_portal_backend/package.json
-COPY tenant_portal_app/package.json tenant_portal_app/package.json
 COPY packages/mil-client/package.json packages/mil-client/package.json
-RUN pnpm install 
-FROM deps AS build
-COPY . .
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+    pnpm install --frozen-lockfile --filter tenant_portal_backend...
+
+FROM base AS build
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/package.json ./package.json
+COPY --from=deps /app/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=deps /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
+COPY --from=deps /app/tsconfig.base.json ./tsconfig.base.json
+COPY --from=deps /app/tenant_portal_backend/package.json ./tenant_portal_backend/package.json
+COPY --from=deps /app/packages/mil-client/package.json ./packages/mil-client/package.json
+COPY tenant_portal_backend ./tenant_portal_backend
+COPY packages/mil-client ./packages/mil-client
+
 WORKDIR /app/tenant_portal_backend
-
-# Build-time Prisma env
-ARG DATABASE_URL
-ENV DATABASE_URL=$DATABASE_URL
-
-# Generate Prisma client before TypeScript build
+ENV DATABASE_URL=postgresql://pms:pms@localhost:5432/pms?schema=public
 RUN pnpm exec prisma generate --schema=./prisma/schema.prisma
-# RUN pnpm exec prisma migrate deploy --schema=./prisma/schema.prisma
+RUN pnpm build
+RUN test -f dist/tenant_portal_backend/src/index.js
 
+FROM base AS prod-deps
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY tenant_portal_backend/package.json tenant_portal_backend/package.json
+COPY packages/mil-client/package.json packages/mil-client/package.json
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+    pnpm install --frozen-lockfile --prod --filter tenant_portal_backend...
 
-# Build TypeScript code
-RUN pnpm build 
-
-FROM base AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-RUN apk add --no-cache python3 py3-pip
-RUN corepack enable
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+RUN corepack enable \
+    && addgroup -S nodejs \
+    && adduser -S nodeuser -G nodejs
 
-# IMPORTANT: copy generated node_modules from build, not deps
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml /app/tsconfig.base.json ./
-COPY --from=build /app/tenant_portal_backend ./tenant_portal_backend
-COPY --from=build /app/packages ./packages
-COPY --from=build /app/tools ./tools
+COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=prod-deps /app/package.json ./package.json
+COPY --from=prod-deps /app/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=prod-deps /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
+COPY --from=prod-deps /app/tsconfig.base.json ./tsconfig.base.json
+COPY --from=build /app/packages/mil-client ./packages/mil-client
+COPY --from=build /app/tenant_portal_backend/package.json ./tenant_portal_backend/package.json
+COPY --from=build /app/tenant_portal_backend/prisma ./tenant_portal_backend/prisma
+COPY --from=build /app/tenant_portal_backend/dist ./tenant_portal_backend/dist
 
 WORKDIR /app/tenant_portal_backend
+USER nodeuser
 EXPOSE 3001
 CMD ["node", "dist/tenant_portal_backend/src/index.js"]

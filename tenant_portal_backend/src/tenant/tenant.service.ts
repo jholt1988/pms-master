@@ -33,7 +33,9 @@ export class TenantService {
         violations: { where: { isResolved: false }, orderBy: { createdAt: 'desc' as const } },
       },
     },
-    lease: {
+    leases: {
+      orderBy: { createdAt: 'desc' as const },
+      take: 1,
       include: {
         unit: { include: { property: true } },
         renewalOffers: { orderBy: { createdAt: 'desc' as const }, take: 1 },
@@ -72,11 +74,11 @@ export class TenantService {
     }
 
     if (query.propertyId) {
-      where.lease = { unit: { propertyId: query.propertyId } };
+      (where as any).leases = { some: { unit: { propertyId: query.propertyId } } };
     }
 
     if (query.unitId) {
-      where.lease = { ...((where.lease as any) ?? {}), unitId: query.unitId };
+      (where as any).leases = { some: { unitId: query.unitId } };
     }
 
     if (query.delinquent === 'true') {
@@ -89,10 +91,11 @@ export class TenantService {
     if (query.leaseEndingSoon === 'true') {
       const ninetyDaysOut = new Date();
       ninetyDaysOut.setDate(ninetyDaysOut.getDate() + 90);
-      where.lease = {
-        ...((where.lease as any) ?? {}),
-        endDate: { lte: ninetyDaysOut },
-        status: { in: ['ACTIVE', 'RENEWAL_PENDING'] },
+      (where as any).leases = {
+        some: {
+          endDate: { lte: ninetyDaysOut },
+          status: { in: ['ACTIVE', 'RENEWAL_PENDING'] },
+        },
       };
     }
 
@@ -108,11 +111,11 @@ export class TenantService {
     }
 
     if (orgId) {
-      where.lease = {
-        ...((where.lease as any) ?? {}),
-        unit: {
-          ...((where.lease as any)?.unit ?? {}),
-          property: { organizationId: orgId },
+      (where as any).leases = {
+        some: {
+          unit: {
+            property: { organizationId: orgId },
+          },
         },
       };
     }
@@ -129,7 +132,7 @@ export class TenantService {
     ]);
 
     const tenants = await Promise.all(
-      data.map(async (user) => {
+      data.map(async (user: any) => {
         const openMaintenance = await this.prisma.maintenanceRequest.count({
           where: { authorId: user.id, status: { not: 'COMPLETED' } },
         });
@@ -138,7 +141,7 @@ export class TenantService {
           ? { classification: user.tenantProfile.healthClass }
           : { classification: 'STABLE' as const };
 
-        const lease = user.lease;
+        const lease = user.leases?.[0];
         const daysUntilLeaseEnd = lease
           ? Math.floor((lease.endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
           : null;
@@ -177,7 +180,7 @@ export class TenantService {
     });
 
     if (!user) throw new NotFoundException('Tenant not found');
-    return user;
+    return user as any;
   }
 
   async getTenantWorkspace(userId: string) {
@@ -197,7 +200,7 @@ export class TenantService {
       this.getDocuments(userId),
     ]);
 
-    const lease = user.lease;
+    const lease = user.leases?.[0];
     const daysUntilLeaseEnd = lease
       ? Math.floor((lease.endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
       : null;
@@ -253,7 +256,7 @@ export class TenantService {
       communications,
       documents,
       violations: user.tenantProfile?.violations ?? [],
-      notices: user.lease?.notices ?? [],
+      notices: lease?.notices ?? [],
     };
   }
 
@@ -278,13 +281,13 @@ export class TenantService {
         select: { id: true, channel: true, direction: true, subject: true, message: true, createdAt: true },
       }),
       this.prisma.leaseNotice.findMany({
-        where: { lease: { tenantId: userId } },
+        where: { lease: { tenantId: userId } } as any,
         orderBy: { sentAt: 'desc' },
         take: limit,
         select: { id: true, type: true, message: true, sentAt: true },
       }),
       this.prisma.leaseHistory.findMany({
-        where: { lease: { tenantId: userId } },
+        where: { lease: { tenantId: userId } } as any,
         orderBy: { createdAt: 'desc' },
         take: limit,
         select: { id: true, fromStatus: true, toStatus: true, note: true, createdAt: true },
@@ -504,12 +507,12 @@ export class TenantService {
     ).length;
 
     const lease = await this.prisma.lease.findFirst({
-      where: { tenantId: userId },
+      where: { tenantId: userId } as any,
       select: { currentBalance: true },
     });
 
     const paymentPlan = await this.prisma.paymentPlan.findFirst({
-      where: { invoice: { lease: { tenantId: userId } }, status: 'ACTIVE' },
+      where: { invoice: { lease: { tenantId: userId } } as any, status: 'ACTIVE' },
     });
 
     return {

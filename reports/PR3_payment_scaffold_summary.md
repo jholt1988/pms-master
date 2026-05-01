@@ -60,7 +60,7 @@ Added/updated tests validating:
 Command run:
 
 ```bash
-cd /home/jordanh316/.openclaw/workspace/pms-master/tenant_portal_backend
+cd /home/developer/.openclaw/workspace/pms-master/tenant_portal_backend
 npm test -- src/payments/ai/guardrail-policy.spec.ts src/payments/ai-payment.service.spec.ts
 ```
 

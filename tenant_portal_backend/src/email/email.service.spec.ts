@@ -13,9 +13,9 @@ describe('EmailService', () => {
         SMTP_HOST: 'smtp.gmail.com',
         SMTP_PORT: '587',
 
-        SMTP_USER: 'jordanh316@gmail.com',
-        SMTP_PASS: 'Bentley07Sheridan',
-        SMTP_FROM: 'jordanh316@gmail.com',
+        SMTP_USER: 'admin@example.com',
+        SMTP_PASS: 'placeholder-password',
+        SMTP_FROM: 'admin@example.com',
         APP_URL: 'http://localhost:3000',
       };
       return config[key] || defaultValue;
