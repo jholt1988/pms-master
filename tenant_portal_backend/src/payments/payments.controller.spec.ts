@@ -29,6 +29,9 @@ describe('PaymentsController', () => {
     userOrganization: {
       findMany: jest.fn().mockResolvedValue([{ organizationId: 'org-1', role: 'MEMBER' }]),
     },
+    telemetryEvent: {
+      create: jest.fn().mockResolvedValue({ id: 'telemetry-1' }),
+    },
   };
 
   const mockAuditLogService = {
