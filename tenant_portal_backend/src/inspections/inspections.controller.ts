@@ -128,6 +128,12 @@ export class InspectionsController {
     );
   }
 
+  @Post('start')
+  @Roles('PROPERTY_MANAGER', 'ADMIN', 'OWNER', 'TENANT')
+  async start(@Body('inspectionId', ParseIntPipe) inspectionId: number, @Req() req: AuthenticatedRequest, @OrgId() orgId?: string) {
+    return this.inspectionsService.findOne(inspectionId, req.user.sub, req.user.role, orgId);
+  }
+
   @Put(':id/complete')
   @Roles('PROPERTY_MANAGER', 'ADMIN', 'OWNER', 'TENANT')
   async complete(

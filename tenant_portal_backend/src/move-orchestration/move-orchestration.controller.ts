@@ -46,6 +46,12 @@ interface CompleteMoveOutDto {
 export class MoveOrchestrationController {
   constructor(private readonly prisma: PrismaService) {}
 
+  @Post('move-in')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async startMoveInAlias(@Body() dto: StartMoveInDto) {
+    return this.startMoveIn(dto);
+  }
+
   @Post('start-move-in')
   @Roles('PROPERTY_MANAGER', 'ADMIN')
   async startMoveIn(@Body() dto: StartMoveInDto) {
@@ -127,6 +133,12 @@ export class MoveOrchestrationController {
     console.log('[MOVE] Move-in completed:', moveId);
 
     return { id: completed.id, status: completed.status, completedAt: completed.completedAt };
+  }
+
+  @Post('move-out')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async startMoveOutAlias(@Body() dto: StartMoveOutDto) {
+    return this.startMoveOut(dto);
   }
 
   @Post('start-move-out')
