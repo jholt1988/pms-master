@@ -1,16 +1,12 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
-import { BulkMessageStatus, BulkRecipientStatus, BulkSendStrategy, LeaseStatus } from '@prisma/client';
+import { BulkMessageStatus, BulkRecipientStatus, BulkSendStrategy } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBulkMessageDto, RecipientFilterDto } from './dto/messaging.dto';
 import { MessagingService } from './messaging.service';
 
 const ONE_MINUTE_MS = 60 * 1000;
-const RECIPIENT_CONTEXT_LEASE_STATUSES: LeaseStatus[] = [
-  LeaseStatus.ACTIVE,
-  LeaseStatus.RENEWAL_PENDING,
-];
 
 @Injectable()
 export class BulkMessagingService {
@@ -202,10 +198,8 @@ export class BulkMessagingService {
           include: {
             user: {
               include: {
-                leases: {
+                lease: {
                   include: { unit: { include: { property: true } } },
-                  where: { status: { in: RECIPIENT_CONTEXT_LEASE_STATUSES } },
-                  take: 1,
                 },
               },
             },
@@ -406,7 +400,7 @@ export class BulkMessagingService {
       if (filters.leaseStatuses?.length) {
         leaseFilter.status = { in: filters.leaseStatuses };
       }
-      andConditions.push({ leases: { some: leaseFilter } });
+      andConditions.push({ lease: { is: leaseFilter } });
     }
 
     if (andConditions.length) {
@@ -417,10 +411,8 @@ export class BulkMessagingService {
       ? await this.prisma.user.findMany({
           where,
           include: {
-            leases: {
+            lease: {
               include: { unit: { include: { property: true } } },
-              where: { status: { in: RECIPIENT_CONTEXT_LEASE_STATUSES } },
-              take: 1,
             },
           },
         })
@@ -433,10 +425,8 @@ export class BulkMessagingService {
             ...(orgId ? { organizations: { some: { id: orgId } } } : {}),
           },
           include: {
-            leases: {
+            lease: {
               include: { unit: { include: { property: true } } },
-              where: { status: { in: RECIPIENT_CONTEXT_LEASE_STATUSES } },
-              take: 1,
             },
           },
         })
@@ -453,7 +443,7 @@ export class BulkMessagingService {
   }
 
   private buildRecipientContext(user: any, templateBody: string, mergeFields: Record<string, string>) {
-    const lease = (user.leases?.[0] ?? null) as any;
+    const lease = (user.lease ?? null) as any;
     const propertyName = lease?.unit?.property?.name ?? '';
     const unitName = lease?.unit?.name ?? '';
     const derived = {

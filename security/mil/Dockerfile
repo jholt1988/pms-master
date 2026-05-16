@@ -4,7 +4,7 @@
 FROM node:22-slim AS builder
 
 WORKDIR /usr/src/app
-RUN corepack enable
+RUN npm install -g pnpm@8.15.8
 
 # Build MIL as a standalone package to avoid monorepo root builds
 COPY security/mil ./security/mil

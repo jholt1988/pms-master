@@ -3,6 +3,7 @@
 import { initializeSentry } from './sentry.config';
 initializeSentry();
 import 'reflect-metadata';
+import * as Sentry from '@sentry/nestjs';
 
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';

@@ -37,6 +37,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         throw new UnauthorizedException('Token has been revoked');
       }
     }
-    return { sub: payload.sub, userId: payload.sub, username: payload.username, role: payload.role };
+    return { sub: payload.sub, userId: payload.sub, username: payload.username, role: payload.role, jti: payload.jti, exp: payload.exp };
   }
 }

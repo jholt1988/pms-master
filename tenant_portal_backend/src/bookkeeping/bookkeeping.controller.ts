@@ -8,6 +8,7 @@ import {
   Query,
   UseGuards,
   Request,
+  HttpCode,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
@@ -138,5 +139,27 @@ export class BookkeepingController {
     @Body() body: { code: string; name: string; type: string; parentId?: string; description?: string },
   ) {
     return this.bookkeepingService.createAccount(orgId, body);
+  }
+
+  /**
+   * POST /bookkeeping/transactions/import
+   * Manual bank transaction import — accepts JSON rows or parsed CSV.
+   * Rows are ingested as PENDING_REVIEW and flow through the existing
+   * categorization / reconciliation pipeline.
+   *
+   * Body: { transactions: Array<{ date, description, amount, type? }> }
+   * Dates: any format parseable by new Date()
+   * Amount: dollar value string or number (e.g. "1234.56" or 1234.56)
+   * Type: "CREDIT" | "DEBIT" (default CREDIT if omitted)
+   */
+  @Post('transactions/import')
+  @Roles('ADMIN', 'PROPERTY_MANAGER')
+  @HttpCode(201)
+  importTransactions(
+    @OrgId() orgId: string,
+    @Request() req: any,
+    @Body() body: { transactions: any[] },
+  ) {
+    return this.bookkeepingService.importTransactions(orgId, body.transactions, req.user?.sub ?? req.user?.userId);
   }
 }

@@ -81,7 +81,7 @@ services:
     build:
       context: .
       dockerfile: tenant_portal_backend/Dockerfile
-    image: pms-backend:dev
+    image: pms-backend:latest
     container_name: pms-backend
     restart: unless-stopped
     depends_on:
@@ -105,10 +105,12 @@ services:
       RABBITMQ_URL: ${RABBITMQ_URL:-amqp://pms:pms@rabbitmq:5672}
       DISABLE_WORKFLOW_SCHEDULER: ${DISABLE_WORKFLOW_SCHEDULER:-true}
       MONITORING_ENABLED: ${MONITORING_ENABLED:-false}
+      DISABLE_STRIPE: ${DISABLE_STRIPE:-true}
+      ALLOW_DISABLED_STRIPE_IN_PRODUCTION: ${ALLOW_DISABLED_STRIPE_IN_PRODUCTION:-true}
     ports:
       - "${BACKEND_PORT:-3001}:3001"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health/liveness"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health/liveness"]
       interval: 20s
       timeout: 5s
       retries: 3
@@ -120,7 +122,7 @@ services:
     build:
       context: .
       dockerfile: tenant_portal_backend/Dockerfile
-    image: pms-backend:dev
+    image: pms-backend
     profiles: ["tools"]
     depends_on:
       postgres:
@@ -130,7 +132,8 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://pms:pms@postgres:5432/pms?schema=public}
       SHADOW_DATABASE_URL: ${SHADOW_DATABASE_URL:-postgresql://pms:pms@postgres:5432/pms_shadow?schema=public}
       DIRECT_URL: ${DIRECT_URL:-}
-    command: ["pnpm", "exec", "prisma", "migrate", "deploy", "--schema=./prisma/schema.prisma"]
+    user: root
+    command: ["npx", "prisma","generate", "&&", "npx", "prisma", "migrate", "deploy", "--schema=./prisma/schema.prisma"]
     restart: "no"
     networks:
       - pms-internal
@@ -183,7 +186,7 @@ services:
       dockerfile: tenant_portal_app/Dockerfile
       args:
         VITE_API_URL: ${VITE_API_URL:-/api}
-    image: pms-frontend:dev
+    image: pms-frontend
     container_name: pms-frontend
     restart: unless-stopped
     depends_on:
@@ -208,6 +211,21 @@ services:
       NEXT_PUBLIC_API_BASE_URL: ${PROPERTY_PULSE_API_BASE_URL:-http://backend:3001/api}
     ports:
       - "3002:3000"
+    networks:
+      - pms-internal
+
+  keyring-os:
+    image: jholt1988/keyring_os:1.0
+    container_name: pms-keyring-os
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      BACKEND_API_ORIGIN: ${KEYRING_BACKEND_API_ORIGIN:-http://backend:3001}
+      NEXT_PUBLIC_API_BASE_URL: ${KEYRING_API_BASE_URL:-http://backend:3001/api}
+    ports:
+      - "3004:3000"
     networks:
       - pms-internal
 

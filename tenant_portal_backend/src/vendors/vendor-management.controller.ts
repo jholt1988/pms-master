@@ -38,6 +38,7 @@ interface AssignVendorDto {
 @Controller('vendors')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class VendorManagementController {
+  private readonly logger = new Logger(this.constructor.name);
   constructor(private readonly prisma: PrismaService) {}
 
   @Post()
@@ -62,7 +63,7 @@ export class VendorManagementController {
       },
     });
 
-    console.log('[VENDOR] Created:', vendor.id, vendor.name);
+    this.logger.log('[VENDOR] Created:', vendor.id, vendor.name);
 
     return { id: vendor.id, name: vendor.name, category: vendor.category };
   }
@@ -152,7 +153,7 @@ export class VendorManagementController {
       },
     });
 
-    console.log('[VENDOR] Updated:', vendorId);
+    this.logger.log('[VENDOR] Updated:', vendorId);
 
     return { id: updated.id, name: updated.name };
   }
@@ -188,7 +189,7 @@ export class VendorManagementController {
       data: { averageRating: avgRating },
     });
 
-    console.log('[VENDOR] Rated:', vendorId, dto.rating);
+    this.logger.log('[VENDOR] Rated:', vendorId, dto.rating);
 
     return { id: rating.id, rating: dto.rating };
   }
@@ -234,7 +235,7 @@ export class VendorManagementController {
       data: { resolved: true, resolvedAt: new Date() },
     });
 
-    console.log('[VENDOR] Assigned:', vendorId, 'to request:', dto.maintenanceRequestId);
+    this.logger.log('[VENDOR] Assigned:', vendorId, 'to request:', dto.maintenanceRequestId);
 
     return { id: assignment.id, vendorId, requestId: dto.maintenanceRequestId, status: 'ASSIGNED' };
   }
@@ -251,7 +252,7 @@ export class VendorManagementController {
       data: { status: 'INACTIVE' },
     });
 
-    console.log('[VENDOR] Deactivated:', vendorId);
+    this.logger.log('[VENDOR] Deactivated:', vendorId);
 
     return { success: true };
   }

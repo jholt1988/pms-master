@@ -12,7 +12,7 @@ import { authenticator } from 'otplib';
 import { addHours, addMinutes } from 'date-fns';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
-import { randomBytes, randomUUID } from 'crypto';
+import { randomBytes, randomUUID, createHash } from 'crypto';
 import { DefaultApi as MilApiClient } from '@propertyos/mil-client';
 import { TokenBlacklistService } from './revocation/token-blacklist.service';
 
@@ -43,7 +43,7 @@ export class AuthService {
   async login(
     dto: LoginRequestDto,
     context: { ipAddress?: string; userAgent?: string },
-  ): Promise<{ access_token: string; accessToken: string }> {
+  ): Promise<{ access_token: string; accessToken: string; refreshToken: string }> {
     const user = await this.usersService.findOne(dto.username);
     if (!user) {
       await this.securityEvents.logEvent({
@@ -146,7 +146,64 @@ export class AuthService {
     const jti = randomUUID();
     const payload = { username: user.username, sub: user.id, role: user.role, jti };
     const token = this.jwtService.sign(payload);
-    return { access_token: token, accessToken: token };
+
+    const refreshToken = randomBytes(32).toString('hex');
+    const refreshTokenHash = createHash('sha256').update(refreshToken).digest('hex');
+
+    await this.prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: refreshTokenHash,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      },
+    });
+
+    return { access_token: token, accessToken: token, refreshToken };
+  }
+
+  async refresh(refreshToken: string): Promise<{ access_token: string; accessToken: string; refreshToken: string }> {
+    const tokenHash = createHash('sha256').update(refreshToken).digest('hex');
+
+    const storedToken = await this.prisma.refreshToken.findFirst({
+      where: {
+        tokenHash,
+        expiresAt: { gt: new Date() },
+        revokedAt: null,
+      },
+      include: { user: true },
+    });
+
+    if (!storedToken) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    const jti = randomUUID();
+    const payload = { 
+      username: storedToken.user.username, 
+      sub: storedToken.user.id, 
+      role: storedToken.user.role, 
+      jti 
+    };
+    const token = this.jwtService.sign(payload);
+
+    // Rotate refresh token
+    await this.prisma.refreshToken.update({
+      where: { id: storedToken.id },
+      data: { revokedAt: new Date() },
+    });
+
+    const newRefreshToken = randomBytes(32).toString('hex');
+    const newRefreshTokenHash = createHash('sha256').update(newRefreshToken).digest('hex');
+
+    await this.prisma.refreshToken.create({
+      data: {
+        userId: storedToken.user.id,
+        tokenHash: newRefreshTokenHash,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    return { access_token: token, accessToken: token, refreshToken: newRefreshToken };
   }
 
   private async safeUpdateUser(userId: string | number, data: Prisma.UserUpdateInput) {

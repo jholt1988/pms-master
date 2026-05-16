@@ -3,6 +3,7 @@
 // Dependencies: 5, 6, 7, 8, 9, 10, 11 | Estimate: Large
 
 import { Controller, Get, Post, Param, Body, Query, UseGuards, NotFoundException } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -24,6 +25,7 @@ interface DecisionQueryDto {
 @Controller('copilot')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class DecisionEngineController {
+  private readonly logger = new Logger(this.constructor.name);
   constructor(private readonly prisma: PrismaService) {}
 
   @Get('decisions')
@@ -127,7 +129,7 @@ export class DecisionEngineController {
       },
     });
 
-    console.log('[DECISION] Resolved:', decisionId, dto.resolution);
+    this.logger.log('[DECISION] Resolved:', decisionId, dto.resolution);
 
     return {
       id: updated.id,
@@ -220,6 +222,7 @@ export class DecisionEngineController {
 // Decision generation worker (runs periodically)
 @Controller('copilot')
 export class DecisionWorker {
+  private readonly logger = new Logger(this.constructor.name);
   constructor(private readonly prisma: PrismaService) {}
 
   async generateDecisions() {
@@ -331,7 +334,7 @@ export class DecisionWorker {
       }
     }
 
-    console.log('[DECISIONWORKER] Generated:', results);
+    this.logger.log('[DECISIONWORKER] Generated:', results);
     return results;
   }
 }

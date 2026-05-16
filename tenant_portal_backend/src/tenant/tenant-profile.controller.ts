@@ -31,6 +31,7 @@ interface UpdateTenantDto {
 @Controller('tenants')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class TenantProfileController {
+  private readonly logger = new Logger(this.constructor.name);
   constructor(private readonly prisma: PrismaService) {}
 
   @Post()
@@ -91,7 +92,7 @@ export class TenantProfileController {
       });
     }
 
-    console.log('[TENANT] ProfileCreated:', tenant.id);
+    this.logger.log('[TENANT] ProfileCreated:', tenant.id);
 
     return {
       id: tenant.id,
@@ -137,7 +138,7 @@ export class TenantProfileController {
       },
     });
 
-    console.log('[TENANT] ProfileUpdated:', tenantId);
+    this.logger.log('[TENANT] ProfileUpdated:', tenantId);
 
     return {
       id: updated.id,
@@ -152,6 +153,7 @@ export class TenantProfileController {
 @Controller('units')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class UnitTenantSummaryController {
+  private readonly logger = new Logger(this.constructor.name);
   constructor(private readonly prisma: PrismaService) {}
 
   async getUnitWithTenantSummary(unitId: string) {

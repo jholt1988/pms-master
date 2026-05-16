@@ -3,6 +3,7 @@
 // Dependencies: 2, 3, 10, 11, 16 | Estimate: Large
 
 import { Controller, Get, Post, Param, Body, Query, UseGuards, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -44,6 +45,7 @@ interface CompleteMoveOutDto {
 @Controller('move-orchestration')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class MoveOrchestrationController {
+  private readonly logger = new Logger(this.constructor.name);
   constructor(private readonly prisma: PrismaService) {}
 
   @Post('move-in')
@@ -92,7 +94,7 @@ export class MoveOrchestrationController {
       ],
     });
 
-    console.log('[MOVE] Move-in started:', moveIn.id);
+    this.logger.log('[MOVE] Move-in started:', moveIn.id);
 
     return { id: moveIn.id, status: moveIn.status, scheduledDate: moveIn.scheduledDate };
   }
@@ -130,7 +132,7 @@ export class MoveOrchestrationController {
       data: { resolved: true, resolvedAt: new Date() },
     });
 
-    console.log('[MOVE] Move-in completed:', moveId);
+    this.logger.log('[MOVE] Move-in completed:', moveId);
 
     return { id: completed.id, status: completed.status, completedAt: completed.completedAt };
   }
@@ -173,7 +175,7 @@ export class MoveOrchestrationController {
     // Mark unit as pending move-out
     await (this.prisma as any).unit.update({ where: { id: dto.unitId }, data: { status: 'PENDING_MOVE_OUT' } });
 
-    console.log('[MOVE] Move-out started:', moveOut.id);
+    this.logger.log('[MOVE] Move-out started:', moveOut.id);
 
     return { id: moveOut.id, status: moveOut.status, scheduledDate: moveOut.scheduledDate };
   }
@@ -209,7 +211,7 @@ export class MoveOrchestrationController {
       data: { resolved: true, resolvedAt: new Date() },
     });
 
-    console.log('[MOVE] Move-out completed:', moveId);
+    this.logger.log('[MOVE] Move-out completed:', moveId);
 
     return { id: completed.id, status: completed.status, completedAt: completed.completedAt };
   }

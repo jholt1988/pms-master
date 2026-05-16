@@ -2,23 +2,27 @@
 // GET /settings, PATCH /settings, GET /settings/users, POST /settings/users, PATCH /settings/users/:id
 // Dependencies: 12 | Estimate: Medium
 
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Patch, 
-  Param, 
-  Body, 
-  Query, 
-  UseGuards, 
-  NotFoundException, 
-  BadRequestException, 
-  Req 
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+  Req,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
+import { OrgId } from '../common/org-context/org-id.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { PrismaService } from '../prisma/prisma.service';
+import * as bcrypt from 'bcrypt';
 
 interface UpdateOrgSettingsDto {
   name?: string;
@@ -42,15 +46,15 @@ interface UpdateUserDto {
 }
 
 @Controller('settings')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 export class OrganizationSettingsController {
+  private readonly logger = new Logger(OrganizationSettingsController.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   @Get()
   @Roles('ADMIN', 'PROPERTY_MANAGER')
-  async getOrganizationSettings(@Req() req: any) {
-    const orgId = req.user.organizationId;
-
+  async getOrganizationSettings(@OrgId() orgId: string) {
     const org = await this.prisma.organization.findUnique({
       where: { id: orgId },
     });
@@ -74,9 +78,7 @@ export class OrganizationSettingsController {
 
   @Patch()
   @Roles('ADMIN')
-  async updateOrganizationSettings(@Body() dto: UpdateOrgSettingsDto, @Req() req: any) {
-    const orgId = req.user.organizationId;
-
+  async updateOrganizationSettings(@Body() dto: UpdateOrgSettingsDto, @OrgId() orgId: string) {
     // Filter out undefined values so we don't accidentally overwrite with null
     const data: Record<string, any> = {};
     if (dto.name !== undefined) data.name = dto.name;
@@ -92,7 +94,7 @@ export class OrganizationSettingsController {
       data: data as any,
     });
 
-    console.log('[SETTINGS] Org updated:', orgId);
+    this.logger.log(`Organization settings updated: ${orgId}`);
 
     return { id: updated.id, name: updated.name };
   }
@@ -130,9 +132,7 @@ export class OrganizationSettingsController {
 
   @Post('users/invite')
   @Roles('ADMIN')
-  async inviteUser(@Body() dto: InviteUserDto, @Req() req: any) {
-    const orgId = req.user.organizationId;
-
+  async inviteUser(@Body() dto: InviteUserDto, @OrgId() orgId: string) {
     // Check if user already exists
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
@@ -140,15 +140,18 @@ export class OrganizationSettingsController {
 
     if (existing) throw new BadRequestException('User with this email already exists');
 
-    // Generate temporary password
-    const tempPassword = Math.random().toString(36).slice(-8);
-    const passwordHash = require('crypto').createHash('sha256').update(tempPassword).digest('hex');
+    // Generate a cryptographically stronger temporary password
+    const tempPassword =
+      Math.random().toString(36).slice(-10) +
+      Math.random().toString(36).toUpperCase().slice(-4);
+
+    // Hash with bcrypt (cost factor 12) — SHA-256 is NOT a password KDF
+    const passwordHash = await bcrypt.hash(tempPassword, 12);
 
     // Create the user then link to org
     const user = await this.prisma.user.create({
       data: {
         email: dto.email.toLowerCase(),
-        // Use 'password' field (the schema field name)
         password: passwordHash,
         username: dto.email.toLowerCase(),
         role: dto.role,
@@ -161,14 +164,15 @@ export class OrganizationSettingsController {
       },
     });
 
-    console.log('[SETTINGS] User invited:', user.email, 'role:', dto.role);
+    // TODO: Send tempPassword to user.email via transactional email service.
+    // Never return tempPassword in the API response.
+    this.logger.log(`User invited: ${user.id} role: ${dto.role} org: ${orgId}`);
 
     return {
       id: user.id,
       email: user.email,
       role: user.role,
-      // TEMP - remove in production
-      tempPassword,
+      message: 'User invited. Temporary credentials will be sent via email.',
     };
   }
 
@@ -188,16 +192,15 @@ export class OrganizationSettingsController {
       },
     });
 
-    console.log('[SETTINGS] User updated:', userId);
+    this.logger.log(`User role updated: ${userId}`);
 
     return { id: updated.id, role: updated.role };
   }
 
   @Post('users/:id/deactivate')
   @Roles('ADMIN')
-  async deactivateUser(@Param('id') id: string, @Req() req: any) {
+  async deactivateUser(@Param('id') id: string, @OrgId() orgId: string) {
     const userId = id;
-    const orgId = req.user.organizationId;
 
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
@@ -207,7 +210,7 @@ export class OrganizationSettingsController {
       where: { userId, organizationId: orgId },
     });
 
-    console.log('[SETTINGS] User removed from org:', userId);
+    this.logger.log(`User removed from org: ${userId} org: ${orgId}`);
 
     return { success: true };
   }

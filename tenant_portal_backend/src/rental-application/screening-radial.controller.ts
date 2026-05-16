@@ -17,6 +17,7 @@ interface ScreeningDecisionDto {
 @Controller('screening')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class ScreeningRadialController {
+  private readonly logger = new Logger(this.constructor.name);
   constructor(private readonly prisma: PrismaService) {}
 
   @Post(':id/decision')
@@ -56,7 +57,7 @@ export class ScreeningRadialController {
 
     // Trigger lease creation on approve
     if (dto.decision === 'APPROVE') {
-      console.log('[RADIAL] ApplicationApproved - Trigger lease creation for:', applicationId);
+      this.logger.log('[RADIAL] ApplicationApproved - Trigger lease creation for:', applicationId);
     }
 
     return {

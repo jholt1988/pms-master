@@ -3,6 +3,7 @@
 // Dependencies: 1, 2, 3, 4, 11 | Estimate: Medium
 
 import { Controller, Get, Post, Delete, Param, Body, Query, UseGuards, NotFoundException, UploadedFile, UseInterceptors, BadRequestException } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.decorator';
 import { Roles } from '../auth/roles.decorator';
@@ -32,6 +33,7 @@ interface DocumentQueryDto {
 @Controller('documents')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class DocumentManagementController {
+  private readonly logger = new Logger(this.constructor.name);
   constructor(private readonly prisma: PrismaService) {}
 
   @Post()
@@ -100,7 +102,7 @@ export class DocumentManagementController {
       },
     });
 
-    console.log('[DOC] Created:', document.id, document.name);
+    this.logger.log('[DOC] Created:', document.id, document.name);
 
     return {
       id: document.id,
@@ -198,7 +200,7 @@ export class DocumentManagementController {
       data: { status: 'DELETED' },
     });
 
-    console.log('[DOC] Deleted:', docId);
+    this.logger.log('[DOC] Deleted:', docId);
 
     return { success: true, id: docId };
   }
