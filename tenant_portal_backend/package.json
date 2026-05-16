@@ -9,6 +9,7 @@
     "start:check": "ts-node --transpile-only src/index.ts",
     "seed:check": "ts-node scripts/check-seed-coverage.ts",
     "seed:missing": "ts-node scripts/seed-missing.ts",
+    "seed:events": "ts-node scripts/seed-event-simulations.ts",
     "seed:inspection-demo": "ts-node scripts/dev-seed-inspection-demo.ts",
     "seed:inspection-demo:robust": "node scripts/seed-inspection-demo-robust.js",
     "seed:verify:demo": "ts-node scripts/verify-demo-seed.ts",

@@ -7,9 +7,9 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
+  url      = "postgresql://pms:pms@127.0.0.1:5432/pms"
 
+}
 // --- Multi-tenant foundation (PM company / landlord account) ---
 
 enum OrgRole {
