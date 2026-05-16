@@ -122,19 +122,20 @@ export class FeedAggregatorService {
         return [];
       }
 
-      const href = action.href ?? action.viewUrl ?? action.resolveUrl;
-      const type = action.type === 'mutation' || (!href && action.intent)
-        ? 'mutation'
-        : 'navigation';
+      const isMutation = action.type === 'mutation' || (!action.href && !action.viewUrl && !action.resolveUrl);
 
       return [{
-        id: action.id ?? `${type}-${index}`,
-        type,
-        label: action.label ?? (type === 'mutation' ? 'Run action' : 'View details'),
+        id: action.id ?? `${isMutation ? 'mutation' : 'navigation'}-${index}`,
+        type: isMutation ? 'mutation' : 'navigation',
+        label: action.label ?? (isMutation ? 'Run action' : 'View details'),
         variant: action.variant ?? 'default',
         intent: action.intent,
-        href,
-        requiresConfirm: Boolean(action.requiresConfirm),
+        href: action.href ?? action.viewUrl ?? action.resolveUrl,
+        endpoint: action.endpoint,
+        method: action.method ?? (isMutation ? 'POST' : 'GET'),
+        body: action.body,
+        requiresConfirm: Boolean(action.requiresConfirm || action.confirmRequired),
+        confirmRequired: Boolean(action.requiresConfirm || action.confirmRequired),
         openInNewTab: Boolean(action.openInNewTab),
         description: typeof action.description === 'string' ? action.description : undefined,
         tooltip: typeof action.tooltip === 'string' ? action.tooltip : undefined,
@@ -149,7 +150,7 @@ export class FeedAggregatorService {
         metadata: action.metadata && typeof action.metadata === 'object'
           ? action.metadata as Record<string, unknown>
           : undefined,
-      } satisfies CanonicalFeedAction];
+      } satisfies CanonicalFeedAction & Record<string, any>];
     });
   }
 
@@ -231,6 +232,9 @@ export class FeedAggregatorService {
             type: 'mutation',
             label: 'Issue 3-Day Notice',
             intent: 'send_3_day_notice',
+            endpoint: `/payments/delinquency/${payload.paymentId}/issue-notice`,
+            method: 'POST',
+            body: { noticeType: '3_DAY' },
             variant: 'destructive',
             requiresConfirm: true
           },
@@ -238,6 +242,9 @@ export class FeedAggregatorService {
             type: 'mutation',
             label: 'Issue Late Notice',
             intent: 'send_late_notice',
+            endpoint: `/payments/delinquency/${payload.paymentId}/issue-notice`,
+            method: 'POST',
+            body: { noticeType: 'LATE_FEE' },
             variant: 'destructive',
             requiresConfirm: true
           },
@@ -245,12 +252,16 @@ export class FeedAggregatorService {
             type: 'navigation',
             label: 'Review Ledger',
             href: `/properties/${payload.propertyId}/tenants/${payload.tenantId}/ledger`,
+            endpoint: `/properties/${payload.propertyId}/tenants/${payload.tenantId}/ledger`,
+            method: 'GET',
             variant: 'primary'
           },
           {
             type:'mutation', 
             label: 'Mark as Resolved',
             intent: 'dismiss_manually',
+            endpoint: `/feed/${signalId}/dismiss`,
+            method: 'PATCH',
             variant: 'secondary'
           }
         ],
@@ -317,6 +328,9 @@ export class FeedAggregatorService {
             type: 'mutation',
             label: 'Issue New 3-Day Notice',
             intent: 'send_3_day_notice',
+            endpoint: `/payments/delinquency/${payload.paymentId}/issue-notice`,
+            method: 'POST',
+            body: { noticeType: '3_DAY' },
             variant: 'destructive',
             requiresConfirm: true,
           },
@@ -324,6 +338,8 @@ export class FeedAggregatorService {
             type: 'mutation',
             label: 'Set Promise to Pay',
             intent: 'promise_to_pay',
+            endpoint: `/payments/delinquency/${payload.paymentId}/promise-to-pay`,
+            method: 'POST',
             variant: 'secondary',
           },
         ],
@@ -369,9 +385,19 @@ export class FeedAggregatorService {
           {
             type: 'navigation',
             label: 'Review Application',
-            href: `/applications/${applicationId}`,
+            href: `/screening/${applicationId}`,
+            endpoint: `/screening/${applicationId}`,
+            method: 'GET',
             variant: 'primary',
           },
+          {
+            type: 'mutation',
+            label: 'Auto-Approve',
+            endpoint: `/rental-applications/${applicationId}/review-action`,
+            method: 'POST',
+            body: { action: 'APPROVE' },
+            variant: 'secondary',
+          }
         ],
         roleAccess: ['PROPERTY_MANAGER', 'ADMIN', 'OWNER'],
       },
@@ -408,7 +434,24 @@ export class FeedAggregatorService {
         summary: `New Repair Estimate: $${totalEstimatedCost}`,
         priorityScore: priorityScore,
         evidence: payload,
-        actions: { viewUrl: `/inspections/${inspectionId}/estimate` },
+        actions: [
+          {
+            type: 'navigation',
+            label: 'View Estimate',
+            href: `/inspections/${inspectionId}/estimate`,
+            endpoint: `/inspections/${inspectionId}/estimate`,
+            method: 'GET',
+            variant: 'primary',
+          },
+          {
+            type: 'mutation',
+            label: 'Approve',
+            endpoint: `/estimates/${inspectionId}/approve`,
+            method: 'PATCH',
+            variant: 'secondary',
+            requiresConfirm: true
+          }
+        ],
         roleAccess: ['PROPERTY_MANAGER', 'ADMIN', 'OWNER'],
       },
     });
@@ -436,7 +479,16 @@ export class FeedAggregatorService {
         summary: `Halt Triggered: ${reason}`,
         priorityScore: 100, // Maximum priority
         evidence: payload,
-        actions: { resolveUrl: `/halt-resolution/${domain.toLowerCase()}/${referenceId}` },
+        actions: [
+          {
+            type: 'navigation',
+            label: 'Resolve Halt',
+            href: `/halt-resolution/${domain.toLowerCase()}/${referenceId}`,
+            endpoint: `/halt-resolution/${domain.toLowerCase()}/${referenceId}`,
+            method: 'GET',
+            variant: 'primary'
+          }
+        ],
         roleAccess: [requiresRole, 'ADMIN', 'OWNER'],
       },
     });

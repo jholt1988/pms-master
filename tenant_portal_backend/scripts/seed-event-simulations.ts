@@ -17,6 +17,9 @@ async function main() {
     return;
   }
 
+  console.log(`🔑 Found Tenant User: ${user.email}`);
+  console.log(`🏠 Found Property: ${property.name} (ID: ${property.id})`);
+
   const lease = await prisma.lease.findFirst({
     where: { tenantId: user.id },
   });

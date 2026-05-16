@@ -189,33 +189,96 @@ export class DecisionEngineController {
       priority: d.priority,
       urgency: d.urgency,
       createdAt: d.createdAt,
-      actions: this.getActionsForDomain(d.domain),
+      actions: this.getActionsForDecision(d),
     }));
 
     return { items: feedItems, total: feedItems.length };
   }
 
-  private getActionsForDomain(domain: string): { label: string; action: string }[] {
-    const actionMap: Record<string, { label: string; action: string }[]> = {
-      payments: [
-        { label: 'View Payment', action: 'navigate:/payments' },
-        { label: 'Send Notice', action: 'api:/payments/:id/send-notice' },
-      ],
-      leasing: [
-        { label: 'Review Application', action: 'navigate:/screening' },
-        { label: 'Create Lease', action: 'navigate:/leases/new' },
-      ],
-      repairs: [
-        { label: 'Schedule', action: 'api:/maintenance/:id/schedule' },
-        { label: 'Assign Vendor', action: 'api:/maintenance/:id/assign' },
-      ],
-      financials: [
-        { label: 'Categorize', action: 'api:/transactions/:id/categorize' },
-        { label: 'Reconcile', action: 'api:/transactions/reconcile' },
-      ],
-    };
+  private getActionsForDecision(decision: any): any[] {
+    if (decision.domain === 'payments') {
+      return [
+        {
+          label: 'Send Notice',
+          endpoint: `/copilot/actions/payments/${decision.entityId}/send-notice`,
+          method: 'POST',
+          variant: 'primary',
+          confirmRequired: true,
+          confirmation: {
+            title: 'Send Late Notice',
+            message: 'Are you sure you want to send a late notice to this tenant?',
+          },
+        },
+        {
+          label: 'View Ledger',
+          endpoint: `/payments`,
+          method: 'GET',
+          variant: 'neutral',
+        },
+      ];
+    }
 
-    return actionMap[domain] || [];
+    if (decision.domain === 'repairs') {
+      return [
+        {
+          label: 'Schedule',
+          endpoint: `/copilot/actions/maintenance/${decision.entityId}/schedule`,
+          method: 'POST',
+          variant: 'primary',
+        },
+        {
+          label: 'Assign Vendor',
+          endpoint: `/copilot/actions/maintenance/${decision.entityId}/assign`,
+          method: 'POST',
+          variant: 'neutral',
+        },
+      ];
+    }
+
+    if (decision.domain === 'leasing' || decision.domain === 'screening') {
+      return [
+        {
+          label: 'Review Application',
+          endpoint: `/screening`,
+          method: 'GET',
+          variant: 'primary',
+        },
+        {
+          label: 'Deny',
+          endpoint: `/copilot/actions/screening/${decision.entityId}/deny`,
+          method: 'POST',
+          variant: 'danger',
+          confirmRequired: true,
+        },
+      ];
+    }
+
+    if (decision.domain === 'financials') {
+      return [
+        {
+          label: 'Categorize',
+          endpoint: `/copilot/actions/financials/${decision.entityId}/categorize`,
+          method: 'POST',
+          variant: 'primary',
+        },
+        {
+          label: 'Reconcile',
+          endpoint: `/copilot/actions/financials/reconcile`,
+          method: 'POST',
+          variant: 'neutral',
+        },
+      ];
+    }
+
+    return [
+      {
+        label: 'Acknowledge',
+        endpoint: `/copilot/decisions/${decision.id}/resolve`,
+        method: 'POST',
+        variant: 'neutral',
+        body: { resolution: 'Acknowledged' },
+      },
+    ];
   }
 }
 
