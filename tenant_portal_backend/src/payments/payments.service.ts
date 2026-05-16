@@ -1822,6 +1822,73 @@ export class PaymentsService {
     return summary;
   }
 
+  async getPaymentDecisions(orgId?: string) {
+    const summary = await this.getPaymentsOpsSummary(orgId, 50);
+    const decisions = [];
+
+    for (const item of summary.delinquency) {
+      decisions.push({
+        id: `delinquency-${item.leaseId}`,
+        domain: 'payments',
+        type: 'delinquency',
+        entityId: item.leaseId,
+        title: `${item.tenantName} needs intervention`,
+        summary: `${item.propertyName}${item.unitName ? `, ${item.unitName}` : ''} has $${(item.amountDueCents / 100).toLocaleString()} outstanding.`,
+        priorityScore: item.priorityScore,
+        evidence: { ...item },
+        actions: [
+          {
+            type: 'mutation',
+            label: 'Send reminder',
+            intent: 'send_reminder',
+            endpoint: `/payments/delinquency/issue-notice`,
+            method: 'POST',
+            body: { leaseId: item.leaseId, deliveryMethod: 'EMAIL', approvalConfirmed: true },
+            variant: 'primary',
+            requiresConfirm: true
+          },
+          {
+            type: 'navigation',
+            label: 'Review ledger',
+            href: `/properties/${item.propertyId}/tenants/${item.tenantId}/ledger`,
+            endpoint: `/payments/ledger/accounts/${item.leaseId}`,
+            method: 'GET',
+            variant: 'secondary'
+          }
+        ],
+      });
+    }
+
+    for (const fp of summary.failedPayments) {
+      decisions.push({
+        id: `failed-payment-${fp.id}`,
+        domain: 'payments',
+        type: 'failed_payment',
+        entityId: fp.id,
+        title: `Failed payment from ${fp.tenantName}`,
+        summary: `$${fp.amount} payment failed for ${fp.propertyName}.`,
+        priorityScore: 85,
+        evidence: { ...fp },
+        actions: [
+          {
+            type: 'mutation',
+            label: 'Retry Payment',
+            intent: 'retry_payment',
+            endpoint: `/payments/${fp.id}/retry`,
+            method: 'POST',
+            variant: 'primary',
+            requiresConfirm: true
+          }
+        ]
+      });
+    }
+
+    return {
+      decisions: decisions.sort((a, b) => b.priorityScore - a.priorityScore)
+    };
+  }
+
+
   async executePaymentsBulkAction(
     action: 'SEND_PAYMENT_REMINDER' | 'RETRY_FAILED_PAYMENT',
     ids: Array<string | number>,

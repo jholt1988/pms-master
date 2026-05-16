@@ -132,6 +132,15 @@ export class PaymentsController {
     return result;
   }
 
+  @Get('decisions')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async getPaymentDecisions(
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const orgId = (req as any).org?.orgId as string | undefined;
+    return this.paymentsService.getPaymentDecisions(orgId);
+  }
+
   @Get('delinquency/queue')
   @Roles('PROPERTY_MANAGER', 'ADMIN')
   async getDelinquencyQueue(
