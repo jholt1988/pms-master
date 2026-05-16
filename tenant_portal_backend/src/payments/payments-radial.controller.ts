@@ -4,6 +4,7 @@
 // Dependencies: Story 4 | Estimate: Small
 
 import { Controller, Post, Param, Body, UseGuards, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -17,6 +18,7 @@ interface SendNoticeDto {
 @Controller('payments')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class PaymentsRadialController {
+  private readonly logger = new Logger(this.constructor.name);
   constructor(private readonly prisma: PrismaService) {}
 
   @Post(':id/send-notice')
@@ -66,7 +68,7 @@ export class PaymentsRadialController {
       },
     });
 
-    console.log('[RADIAL] PaymentNoticeSent:', paymentId);
+    this.logger.log('[RADIAL] PaymentNoticeSent:', paymentId);
 
     return {
       id: notice.id,
@@ -80,6 +82,7 @@ export class PaymentsRadialController {
 // Story 5: Overdue Detection Worker (cron)
 @Controller('payments')
 export class OverdueDetectionWorker {
+  private readonly logger = new Logger(this.constructor.name);
   constructor(private readonly prisma: PrismaService) {}
 
   async detectOverduePayments() {
@@ -117,7 +120,7 @@ export class OverdueDetectionWorker {
           },
         });
 
-        console.log('[RADIAL] PaymentOverdueDecision:', payment.id);
+        this.logger.log('[RADIAL] PaymentOverdueDecision:', payment.id);
       }
     }
 

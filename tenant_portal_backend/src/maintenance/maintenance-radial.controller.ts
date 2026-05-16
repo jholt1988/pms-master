@@ -7,6 +7,7 @@
 // Dependencies: Story 9 | Estimate: Medium
 
 import { Controller, Post, Body, Param, UseGuards, NotFoundException } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -30,6 +31,7 @@ interface ScheduleMaintenanceDto {
 @Controller('maintenance')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class MaintenanceRadialController {
+  private readonly logger = new Logger(this.constructor.name);
   constructor(private readonly prisma: PrismaService) {}
 
   @Post()
@@ -61,7 +63,7 @@ export class MaintenanceRadialController {
       },
     });
 
-    console.log('[RADIAL] MaintenanceRequestCreated:', request.id);
+    this.logger.log('[RADIAL] MaintenanceRequestCreated:', request.id);
 
     return {
       id: request.id,
@@ -111,7 +113,7 @@ export class MaintenanceRadialController {
       },
     });
 
-    console.log('[RADIAL] MaintenanceScheduled:', requestId);
+    this.logger.log('[RADIAL] MaintenanceScheduled:', requestId);
 
     return {
       id: updated.id,

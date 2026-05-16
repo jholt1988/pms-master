@@ -502,4 +502,76 @@ export class BookkeepingService {
 
     return events;
   }
+
+  // ---- Manual Transaction Import ----
+
+  async importTransactions(
+    orgId: string,
+    rows: Array<{
+      date?: string;
+      description?: string;
+      amount?: string | number;
+      amountCents?: number;
+      type?: string; // CREDIT | DEBIT
+    }>,
+    actorId: string,
+  ) {
+    if (!Array.isArray(rows) || rows.length === 0) {
+      throw new BadRequestException('No transaction rows provided');
+    }
+    if (rows.length > 500) {
+      throw new BadRequestException('Maximum 500 rows per import');
+    }
+
+    let imported = 0;
+    let skipped = 0;
+    const errors: Array<{ row: number; reason: string }> = [];
+
+    const validRows: any[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const rowNum = i + 1;
+
+      if (!row.date) { errors.push({ row: rowNum, reason: 'Missing date' }); skipped++; continue; }
+      if (!row.description?.toString().trim()) { errors.push({ row: rowNum, reason: 'Missing description' }); skipped++; continue; }
+
+      const parsedDate = new Date(row.date);
+      if (isNaN(parsedDate.getTime())) { errors.push({ row: rowNum, reason: `Invalid date: ${row.date}` }); skipped++; continue; }
+
+      // Resolve amountCents: prefer explicit amountCents, else convert amount (dollars)
+      let amountCents: number;
+      if (row.amountCents !== undefined) {
+        amountCents = Math.round(Number(row.amountCents));
+      } else if (row.amount !== undefined) {
+        const dollars = parseFloat(String(row.amount).replace(/[$,]/g, ''));
+        if (isNaN(dollars)) { errors.push({ row: rowNum, reason: `Invalid amount: ${row.amount}` }); skipped++; continue; }
+        // DEBIT rows → negative cents; CREDIT rows → positive cents
+        const sign = (row.type ?? '').toUpperCase() === 'DEBIT' ? -1 : 1;
+        amountCents = Math.round(dollars * 100 * sign);
+      } else {
+        errors.push({ row: rowNum, reason: 'Missing amount' }); skipped++; continue;
+      }
+
+      validRows.push({
+        organizationId: orgId,
+        date: parsedDate,
+        description: String(row.description).trim(),
+        amountCents,
+        status: 'PENDING_REVIEW',
+        sourceType: 'MANUAL_IMPORT',
+        importedById: actorId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
+
+    if (validRows.length > 0) {
+      await this.prisma.bookkeepingTransaction.createMany({ data: validRows });
+      imported = validRows.length;
+      this.logger.log(`Imported ${imported} transactions for org ${orgId} by ${actorId}`);
+    }
+
+    return { imported, skipped, errors, total: rows.length };
+  }
 }

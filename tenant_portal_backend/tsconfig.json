@@ -6,12 +6,11 @@
       "ES2022"
     ],
     "outDir": "./dist",
-    "rootDir": "..",
+    "rootDir": "../",
     "strict": false,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "esModuleInterop": true,
-    "baseUrl": ".",
     "paths": {
       "axios": [
         "./node_modules/axios"

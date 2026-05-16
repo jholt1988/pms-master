@@ -24,26 +24,13 @@ export class UtilityBillingService {
     
     const bill = await this.prisma.masterUtilityBill.findUnique({
       where: { id: billId },
-      include: {
-        property: {
-          include: {
-            units: {
-              include: {
-                leases: {
-                  where: { status: 'ACTIVE' },
-                  take: 1
-                }
-              }
-            }
-          }
-        }
-      }
+      include: { property: { include: { units: { include: { lease: true } } } } }
     });
 
     if (!bill) throw new Error('Bill not found');
 
     const activeLeases = bill.property.units
-      .map(u => u.leases[0])
+      .map(u => u.lease)
       .filter(l => l && l.status === 'ACTIVE');
 
     if (activeLeases.length === 0) return { allocated: 0 };

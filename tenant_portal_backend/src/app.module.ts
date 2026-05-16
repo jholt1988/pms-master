@@ -71,10 +71,12 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 import { CircuitBreakerModule } from './common/circuit-breaker/circuit-breaker.module';
 import { TelemetryModule } from './telemetry/telemetry.module';
-
+import { SentryModule } from '@sentry/nestjs/setup'
 
 const rateLimitEnabled =
   process.env.NODE_ENV !== 'test' && process.env.RATE_LIMIT_ENABLED !== 'false';
+
+
 
 const throttlerConfigs = rateLimitEnabled
   ? [
@@ -118,7 +120,9 @@ const rateLimitProviders = rateLimitEnabled
       envFilePath: ['.env.local', '.env'],
       validate: validateEnv,
     }),
+
     EventEmitterModule.forRoot(),
+    SentryModule.forRoot(),
     ScheduleModule.forRoot(),
     // Winston logging
     WinstonModule.forRoot(winstonConfig),

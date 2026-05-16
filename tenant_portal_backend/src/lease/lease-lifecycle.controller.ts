@@ -3,6 +3,7 @@
 // Dependencies: 11 | Estimate: Large
 
 import { Controller, Get, Post, Patch, Param, Body, Query, UseGuards, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -44,6 +45,7 @@ interface LeaseQueryDto {
 @Controller('leases')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class LeaseLifecycleController {
+  private readonly logger = new Logger(this.constructor.name);
   constructor(private readonly prisma: PrismaService) {}
 
   @Post()
@@ -110,7 +112,7 @@ export class LeaseLifecycleController {
       },
     });
 
-    console.log('[LEASE] Created:', lease.id);
+    this.logger.log('[LEASE] Created:', lease.id);
 
     return {
       id: lease.id,
@@ -248,7 +250,7 @@ export class LeaseLifecycleController {
       data: { resolved: true, resolvedAt: new Date() },
     });
 
-    console.log('[LEASE] Activated:', leaseId);
+    this.logger.log('[LEASE] Activated:', leaseId);
 
     return { id: activated.id, status: activated.status };
   }
@@ -307,7 +309,7 @@ export class LeaseLifecycleController {
       data: { status: 'LEASE_RENEWED' },
     });
 
-    console.log('[LEASE] Renewed:', leaseId, '->', newLease.id);
+    this.logger.log('[LEASE] Renewed:', leaseId, '->', newLease.id);
 
     return {
       oldLeaseId: leaseId,
@@ -366,7 +368,7 @@ export class LeaseLifecycleController {
       });
     }
 
-    console.log('[LEASE] Terminated:', leaseId);
+    this.logger.log('[LEASE] Terminated:', leaseId);
 
     return {
       id: terminated.id,

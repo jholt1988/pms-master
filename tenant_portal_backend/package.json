@@ -112,6 +112,7 @@
     "ajv": "^8.18.0",
     "amqp-connection-manager": "^4.1.14",
     "amqplib": "^0.10.3",
+    "approve-builds": "^1.0.0",
     "axios": "^1.13.2",
     "bcrypt": "^6.0.0",
     "bull": "^4.16.5",

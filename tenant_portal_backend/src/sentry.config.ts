@@ -1,5 +1,6 @@
 import * as Sentry from '@sentry/nestjs';
 
+
 function getProfilingIntegration(): any | undefined {
   if (process.env.SENTRY_PROFILING !== 'true') {
     return undefined;

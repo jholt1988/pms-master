@@ -3,6 +3,7 @@
 // Dependencies: None | Estimate: Medium
 
 import { Controller, Patch, Post, Param, Body, UseGuards, NotFoundException } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -15,6 +16,7 @@ interface CategorizeTransactionDto {
 @Controller('transactions')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class TransactionsRadialController {
+  private readonly logger = new Logger(this.constructor.name);
   constructor(private readonly prisma: PrismaService) {}
 
   @Patch(':id')
@@ -63,6 +65,7 @@ export class TransactionsRadialController {
 @Controller('transactions')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class ReconcileRadialController {
+  private readonly logger = new Logger(this.constructor.name);
   constructor(private readonly prisma: PrismaService) {}
 
   @Post('reconcile')
@@ -90,7 +93,7 @@ export class ReconcileRadialController {
       data: { resolved: true },
     });
 
-    console.log('[RADIAL] TransactionsReconciled:', result.count);
+    this.logger.log('[RADIAL] TransactionsReconciled:', result.count);
 
     return {
       reconciled: result.count,

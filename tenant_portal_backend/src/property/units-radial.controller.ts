@@ -3,6 +3,7 @@
 // Dependencies: Story 1 | Estimate: Medium
 
 import { Controller, Post, Body, UseGuards, BadRequestException } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -17,6 +18,7 @@ interface BulkCreateUnitsDto {
 @Controller('units')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class UnitsRadialController {
+  private readonly logger = new Logger(this.constructor.name);
   constructor(private readonly prisma: PrismaService) {}
 
   @Post('bulk')
@@ -55,7 +57,7 @@ export class UnitsRadialController {
       data: units,
     });
 
-    console.log('[RADIAL] UnitsCreated:', created.count, 'for property:', propertyId);
+    this.logger.log('[RADIAL] UnitsCreated:', created.count, 'for property:', propertyId);
 
     return {
       success: true,

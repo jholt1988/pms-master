@@ -131,7 +131,12 @@ export class InspectionsController {
   @Post('start')
   @Roles('PROPERTY_MANAGER', 'ADMIN', 'OWNER', 'TENANT')
   async start(@Body('inspectionId', ParseIntPipe) inspectionId: number, @Req() req: AuthenticatedRequest, @OrgId() orgId?: string) {
-    return this.inspectionsService.findOne(inspectionId, req.user.sub, req.user.role, orgId);
+    return this.inspectionsService.update(
+      inspectionId,
+      { status: InspectionStatus.IN_PROGRESS },
+      req.user.sub,
+      orgId,
+    );
   }
 
   @Put(':id/complete')

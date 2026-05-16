@@ -3,6 +3,7 @@
 // Dependencies: None | Estimate: Small
 
 import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -17,6 +18,7 @@ interface CreatePropertyDto {
 @Controller('properties')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class PropertyRadialController {
+  private readonly logger = new Logger(this.constructor.name);
   constructor(private readonly prisma: PrismaService) {}
 
   @Post()
@@ -45,7 +47,7 @@ export class PropertyRadialController {
 
     // Emit event for Decision Engine
     // In production, emit via EventEmitter2
-    console.log('[RADIAL] PropertyCreated:', property.id);
+    this.logger.log('[RADIAL] PropertyCreated:', property.id);
 
     return {
       id: property.id,
