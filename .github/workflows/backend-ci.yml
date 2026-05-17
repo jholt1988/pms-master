@@ -31,7 +31,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-       
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -49,9 +48,15 @@ jobs:
         env:
           DATABASE_URL: postgresql://stub:stub@localhost:5432/stub
 
+      - name: Generate Prisma Client for tenant_portal_backend
+        working-directory: ./tenant_portal_backend
+        env:
+          DATABASE_URL: postgresql://stub:stub@localhost:5432/stub
+        run: pnpm exec prisma generate
+
       - name: Lint backend
         working-directory: ./tenant_portal_backend
-        run: pnpm exec eslint 'src/**/*.ts' 
+        run: pnpm exec eslint 'src/**/*.ts'
 
       - name: Type check
         working-directory: ./tenant_portal_backend
@@ -92,7 +97,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-     
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -104,12 +108,12 @@ jobs:
         run: pnpm install --frozen-lockfile
         env:
           DATABASE_URL: postgresql://u:p@localhost:5432/property_management_test
-        
+
       - name: Generate Prisma Client
         run: npm run prebuild
         env:
           DATABASE_URL: postgresql://u:p@localhost:5432/property_management_test
-        
+
       - name: Run Prisma migrations
         working-directory: ./tenant_portal_backend
         env:
