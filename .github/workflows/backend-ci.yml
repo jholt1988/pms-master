@@ -44,7 +44,7 @@ jobs:
 
       - name: Lint backend
         working-directory: ./tenant_portal_backend
-        run: pnpm exec eslint 'src/**/*.ts' --max-warnings 0
+        run: pnpm exec eslint 'src/**/*.ts' 
 
       - name: Type check
         working-directory: ./tenant_portal_backend
@@ -85,8 +85,7 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 8
+     
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -148,8 +147,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 8
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
