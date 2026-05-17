@@ -75,9 +75,9 @@ export class WorkflowEventProcessor {
             ruleName: result.ruleName,
             decisionType: result.decision,
             confidence: result.confidence ?? null,
-            reasonsJson: result.reasons as Prisma.InputJsonValue,
-            inputSnapshotJson: ctx.payload as Prisma.InputJsonValue,
-            outputSnapshotJson: result as unknown as Prisma.InputJsonValue,
+            reasonsJson: result.reasons as Prisma.JsonValue,
+            inputSnapshotJson: ctx.payload as Prisma.JsonValue,
+            outputSnapshotJson: result as unknown as Prisma.JsonValue,
             policyVersion: policy.version,
           },
         });
@@ -103,7 +103,7 @@ export class WorkflowEventProcessor {
                 eventType: event.eventType,
                 actions: result.actions,
                 stateTransitions: result.stateTransitions ?? [],
-              } as Prisma.InputJsonValue,
+              } as Prisma.JsonValue,
             },
           });
           approvalTaskId = approvalTask.id;
@@ -117,7 +117,7 @@ export class WorkflowEventProcessor {
                 entityType: 'RuleAction',
                 entityId: evaluation.id,
                 action: action.type,
-                afterJson: action as unknown as Prisma.InputJsonValue,
+                afterJson: action as unknown as Prisma.JsonValue,
               },
             });
             await this.actionDispatcher.dispatch(action, {
@@ -136,7 +136,7 @@ export class WorkflowEventProcessor {
               entityType: transition.entityType,
               entityId: transition.entityId,
               action: 'STATE_TRANSITION',
-              afterJson: transition as unknown as Prisma.InputJsonValue,
+              afterJson: transition as unknown as Prisma.JsonValue,
             },
           });
         }
