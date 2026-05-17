@@ -7,8 +7,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = "postgresql://pms:pms@127.0.0.1:5432/pms"
-
+  url      = env("DATABASE_URL")
 }
 // --- Multi-tenant foundation (PM company / landlord account) ---
 
@@ -77,7 +76,7 @@ model User {
   LeaseRenewalOffer         LeaseRenewalOffer[]
   LeaseNotice               LeaseNotice[]
   passwordResetTokens       PasswordResetToken[]
-  refreshTokens             RefreshToken[]
+  refreshTokens             RefreshToken[]            
   notifications             Notification[]
   notificationPreference    NotificationPreference?
   documents                 Document[]
@@ -3543,6 +3542,39 @@ model TelemetryEvent {
   outcome   String?  @db.VarChar(20)
   metadata  Json?
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-
   @@map("telemetry_events")
 }
+
+model Decision {
+  id         Int      @id @default(autoincrement())
+  domain     String   @db.VarChar(50)
+  type       String   @db.VarChar(100)
+  entityId   String   @map("entity_id") @db.VarChar(100)
+  title      String   @db.VarChar(255)
+  priority   Int      @default(50)
+  urgency    String   @db.VarChar(50)
+  context    Json?
+  resolved   Boolean  @default(false)
+  resolvedAt DateTime? @map("resolved_at")
+  resolution String?
+  note       String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([domain, resolved])
+  @@index([entityId])
+  @@map("decisions")
+}
+
+model Notice {
+  id         Int      @id @default(autoincrement())
+  paymentId  Int      @map("payment_id")
+  noticeType String   @map("notice_type") @db.VarChar(50)
+  message    String
+  sentAt     DateTime @default(now()) @map("sent_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([paymentId])
+  @@map("notices")
+}
+

@@ -43,7 +43,7 @@ export class AuthService {
   async login(
     dto: LoginRequestDto,
     context: { ipAddress?: string; userAgent?: string },
-  ): Promise<{ access_token: string; accessToken: string; refreshToken: string }> {
+  ): Promise<{ accessToken: string; refreshToken: string}> {
     const user = await this.usersService.findOne(dto.username);
     if (!user) {
       await this.securityEvents.logEvent({
@@ -158,7 +158,7 @@ export class AuthService {
       },
     });
 
-    return { access_token: token, accessToken: token, refreshToken };
+    return {  accessToken: token, refreshToken };
   }
 
   async refresh(refreshToken: string): Promise<{ access_token: string; accessToken: string; refreshToken: string }> {
