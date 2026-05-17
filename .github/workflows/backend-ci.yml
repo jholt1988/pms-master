@@ -113,7 +113,11 @@ jobs:
         run: npm run prebuild
         env:
           DATABASE_URL: postgresql://u:p@localhost:5432/property_management_test
-
+      - name: Generate Prisma Client for tenant_portal_backend
+        working-directory: ./tenant_portal_backend
+        env:
+          DATABASE_URL: postgresql://u:p@localhost:5432/property_management_test
+        run: pnpm exec prisma generate
       - name: Run Prisma migrations
         working-directory: ./tenant_portal_backend
         env:
