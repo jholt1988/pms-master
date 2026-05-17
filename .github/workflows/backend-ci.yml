@@ -41,9 +41,13 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        env:
+          DATABASE_URL: postgresql://stub:stub@localhost:5432/stub
 
       - name: Generate Prisma Client
         run: npm run prebuild
+        env:
+          DATABASE_URL: postgresql://stub:stub@localhost:5432/stub
 
       - name: Lint backend
         working-directory: ./tenant_portal_backend
@@ -98,16 +102,14 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        env:
+          DATABASE_URL: postgresql://u:p@localhost:5432/property_management_test
         
       - name: Generate Prisma Client
         run: npm run prebuild
-        
-      - name: Generate Prisma Client
-        working-directory: ./tenant_portal_backend
         env:
           DATABASE_URL: postgresql://u:p@localhost:5432/property_management_test
-        run: pnpm exec prisma generate
-
+        
       - name: Run Prisma migrations
         working-directory: ./tenant_portal_backend
         env:
@@ -162,14 +164,18 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        env:
+          DATABASE_URL: postgresql://stub:stub@localhost:5432/stub
 
       - name: Generate Prisma Client
         run: npm run prebuild
+        env:
+          DATABASE_URL: postgresql://stub:stub@localhost:5432/stub
 
-      - name: Generate Prisma Client
+      - name: Generate Prisma Client for tenant_portal_backend
         working-directory: ./tenant_portal_backend
         env:
-          DATABASE_URL: postgresql://u:p@localhost:5432/stub
+          DATABASE_URL: postgresql://stub:stub@localhost:5432/stub
         run: pnpm exec prisma generate
 
       - name: Build backend
