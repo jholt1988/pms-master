@@ -24,7 +24,8 @@
     "lint:backend": "pnpm --filter tenant_portal_backend lint",
     "lint:backend:fix": "pnpm --filter tenant_portal_backend lint:fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "prebuild": "pnpm --filter prisma run db:generate"
   },
   "dependencies": {
     "@nestjs/event-emitter": "^3.0.1",
