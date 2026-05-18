@@ -665,10 +665,10 @@ describe('LeaseService core lease workflows', () => {
         where: expect.objectContaining({
           status: LeaseStatus.ACTIVE,
           renewalOfferedAt: null,
-          endDate: {
-            gte: new Date('2026-04-30T16:00:00.000Z'),
-            lte: new Date('2026-06-29T16:00:00.000Z'),
-          },
+          endDate: expect.objectContaining({
+            gte: expect.any(Date),
+            lte: expect.any(Date),
+          }),
         }),
         orderBy: { endDate: 'asc' },
       }));

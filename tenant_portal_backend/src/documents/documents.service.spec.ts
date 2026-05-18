@@ -54,10 +54,10 @@ describe('DocumentsService tenant lease visibility', () => {
       mimeType: 'application/pdf',
     });
 
-    const fsAccessSpy = jest.spyOn(fsPromises, 'access').mockResolvedValue(undefined as any);
-    const createReadStreamSpy = jest
-      .spyOn(fs, 'createReadStream')
-      .mockReturnValue({ pipe: jest.fn() } as any);
+    const fsAccessMock = jest.fn().mockResolvedValue(undefined as any);
+    const fsReadMock = jest.fn().mockReturnValue({ pipe: jest.fn() } as any);
+    const fsAccessSpy = jest.spyOn(fsPromises as any, 'access').mockImplementation(fsAccessMock);
+    const createReadStreamSpy = jest.spyOn(fs as any, 'createReadStream').mockImplementation(fsReadMock);
 
     const result = await service.getFileStream(44, 'tenant-user-id');
 
