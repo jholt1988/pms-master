@@ -46,7 +46,11 @@ async function bootstrap() {
   app.use(express.json({
     limit: '1mb',
     verify: (req: any, _res: any, buf: Buffer) => {
-      if (req.originalUrl?.includes('/webhooks/stripe') || req.originalUrl?.includes('/webhooks/esignature')) {
+      if (
+        req.originalUrl?.includes('/webhooks/stripe') ||
+        req.originalUrl?.includes('/webhooks/esignature') ||
+        req.originalUrl?.includes('/webhooks/quickbooks')
+      ) {
         req.rawBody = Buffer.from(buf);
       }
     },
@@ -67,6 +71,7 @@ async function bootstrap() {
       // Webhooks are excluded to match external service expectations
       'webhooks/esignature',
       'webhooks/stripe',
+      'webhooks/quickbooks',
     ],
   });
 

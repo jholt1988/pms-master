@@ -9,6 +9,9 @@ import { WorkflowMetricsService } from './workflow-metrics.service';
 import { WorkflowCacheService } from './workflow-cache.service';
 import { WorkflowRateLimiterService } from './workflow-rate-limiter.service';
 import { WorkflowStep, WorkflowExecution } from './workflow.types';
+import { PaymentsService } from '../payments/payments.service';
+import { EsignatureService } from '../esignature/esignature.service';
+import { AbstractQuickBooksService } from '../quickbooks/quickbooks.types';
 
 describe('WorkflowEngineService', () => {
   let service: WorkflowEngineService;
@@ -64,6 +67,18 @@ describe('WorkflowEngineService', () => {
     clearExpiredEntries: jest.fn(),
   };
 
+  const mockPaymentsService = {
+    createStripeCheckoutSession: jest.fn(),
+  };
+
+  const mockEsignatureService = {
+    createEnvelope: jest.fn(),
+  };
+
+  const mockQuickBooksService = {
+    basicSync: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -76,6 +91,9 @@ describe('WorkflowEngineService', () => {
         { provide: WorkflowMetricsService, useValue: mockWorkflowMetricsService },
         { provide: WorkflowCacheService, useValue: mockWorkflowCacheService },
         { provide: WorkflowRateLimiterService, useValue: mockWorkflowRateLimiterService },
+        { provide: PaymentsService, useValue: mockPaymentsService },
+        { provide: EsignatureService, useValue: mockEsignatureService },
+        { provide: AbstractQuickBooksService, useValue: mockQuickBooksService },
       ],
     }).compile();
 
@@ -679,6 +697,203 @@ describe('WorkflowEngineService', () => {
       } catch (error) {
         expect(error).toBeDefined();
       }
+    });
+  });
+
+  describe('External Integrations Workflow Steps', () => {
+    it('should create stripe checkout session', async () => {
+      const step: WorkflowStep = {
+        id: 's1',
+        type: 'CREATE_STRIPE_CHECKOUT',
+        input: {
+          invoiceId: 42,
+          successUrl: 'https://example.com/success',
+          cancelUrl: 'https://example.com/cancel',
+        },
+      };
+
+      const execution: WorkflowExecution = {
+        id: 'exec1',
+        workflowId: 'workflow1',
+        status: 'RUNNING',
+        input: { organizationId: 'org-1', userId: 'user-1' },
+        output: {},
+        steps: [],
+        startedAt: new Date(),
+        completedAt: null,
+        error: null,
+      };
+
+      mockPaymentsService.createStripeCheckoutSession.mockResolvedValueOnce({
+        checkoutUrl: 'https://checkout.stripe.com/session/test',
+        sessionId: 'cs_test_123',
+        invoiceId: 42,
+      });
+
+      const result = await service['executeStep'](step, execution, 'user-1', 'corr1');
+      expect(result.success).toBe(true);
+      expect(result.output.stripeCheckoutCreated).toBe(true);
+      expect(mockPaymentsService.createStripeCheckoutSession).toHaveBeenCalled();
+    });
+
+    it('should send docusign envelope', async () => {
+      const step: WorkflowStep = {
+        id: 's2',
+        type: 'SEND_DOCUSIGN_ENVELOPE',
+        input: {
+          leaseId: 'lease-1',
+          templateId: 'tpl_123',
+          message: 'Review and sign',
+          recipients: [{ name: 'Tenant One', email: 'tenant@example.com', role: 'tenant' }],
+        },
+      };
+
+      const execution: WorkflowExecution = {
+        id: 'exec2',
+        workflowId: 'workflow1',
+        status: 'RUNNING',
+        input: { userId: 'manager-1' },
+        output: {},
+        steps: [],
+        startedAt: new Date(),
+        completedAt: null,
+        error: null,
+      };
+
+      mockEsignatureService.createEnvelope.mockResolvedValueOnce({
+        id: 10,
+        providerEnvelopeId: 'env_123',
+        status: 'SENT',
+      });
+
+      const result = await service['executeStep'](step, execution, 'manager-1', 'corr1');
+      expect(result.success).toBe(true);
+      expect(result.output.docusignEnvelopeSent).toBe(true);
+      expect(result.output.providerEnvelopeId).toBe('env_123');
+    });
+
+    it('should trigger quickbooks basic sync', async () => {
+      const step: WorkflowStep = {
+        id: 's3',
+        type: 'SYNC_QUICKBOOKS_BASIC',
+        input: {
+          userId: 'user-1',
+          organizationId: 'org-1',
+        },
+      };
+
+      const execution: WorkflowExecution = {
+        id: 'exec3',
+        workflowId: 'workflow1',
+        status: 'RUNNING',
+        input: {},
+        output: {},
+        steps: [],
+        startedAt: new Date(),
+        completedAt: null,
+        error: null,
+      };
+
+      mockQuickBooksService.basicSync.mockResolvedValueOnce({
+        success: true,
+        message: 'Basic sync completed successfully',
+        syncedItems: 0,
+      });
+
+      const result = await service['executeStep'](step, execution, 'user-1', 'corr1');
+      expect(result.success).toBe(true);
+      expect(result.output.quickbooksSyncTriggered).toBe(true);
+      expect(mockQuickBooksService.basicSync).toHaveBeenCalledWith('user-1', 'org-1');
+    });
+
+    it('should fail CREATE_STRIPE_CHECKOUT when invoiceId is missing', async () => {
+      const step: WorkflowStep = {
+        id: 's4',
+        type: 'CREATE_STRIPE_CHECKOUT',
+        input: { successUrl: 'https://ok', cancelUrl: 'https://cancel' },
+      };
+      const execution: WorkflowExecution = {
+        id: 'exec4', workflowId: 'w', status: 'RUNNING', input: {}, output: {}, steps: [], startedAt: new Date(), completedAt: null, error: null,
+      };
+      const result = await service['executeStep'](step, execution, 'user-1', 'corr1');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('invoiceId is required');
+    });
+
+    it('should fail SEND_DOCUSIGN_ENVELOPE when templateId/recipients are missing', async () => {
+      const step: WorkflowStep = {
+        id: 's5',
+        type: 'SEND_DOCUSIGN_ENVELOPE',
+        input: { leaseId: 'lease-1' },
+      };
+      const execution: WorkflowExecution = {
+        id: 'exec5', workflowId: 'w', status: 'RUNNING', input: { userId: 'u1' }, output: {}, steps: [], startedAt: new Date(), completedAt: null, error: null,
+      };
+      const result = await service['executeStep'](step, execution, 'u1', 'corr1');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('templateId and non-empty recipients are required');
+    });
+
+    it('should fail SYNC_QUICKBOOKS_BASIC when organizationId is missing', async () => {
+      const step: WorkflowStep = {
+        id: 's6',
+        type: 'SYNC_QUICKBOOKS_BASIC',
+        input: { userId: 'user-1' },
+      };
+      const execution: WorkflowExecution = {
+        id: 'exec6', workflowId: 'w', status: 'RUNNING', input: {}, output: {}, steps: [], startedAt: new Date(), completedAt: null, error: null,
+      };
+      const result = await service['executeStep'](step, execution, 'user-1', 'corr1');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('userId and organizationId are required');
+    });
+
+    it('should fail CREATE_STRIPE_CHECKOUT when downstream service throws', async () => {
+      mockPaymentsService.createStripeCheckoutSession.mockRejectedValueOnce(new Error('stripe failed'));
+      const step: WorkflowStep = {
+        id: 's7',
+        type: 'CREATE_STRIPE_CHECKOUT',
+        input: { invoiceId: 77, successUrl: 'https://ok', cancelUrl: 'https://cancel' },
+      };
+      const execution: WorkflowExecution = {
+        id: 'exec7', workflowId: 'w', status: 'RUNNING', input: { organizationId: 'org-1' }, output: {}, steps: [], startedAt: new Date(), completedAt: null, error: null,
+      };
+      const result = await service['executeStep'](step, execution, 'user-1', 'corr1');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('stripe failed');
+    });
+
+    it('should reuse cached stripe checkout output for same step id', async () => {
+      const step: WorkflowStep = {
+        id: 's8',
+        type: 'CREATE_STRIPE_CHECKOUT',
+        input: { invoiceId: 88, successUrl: 'https://ok', cancelUrl: 'https://cancel' },
+      };
+      const execution: WorkflowExecution = {
+        id: 'exec8',
+        workflowId: 'w',
+        status: 'RUNNING',
+        input: { organizationId: 'org-1', userId: 'user-1' },
+        output: {},
+        steps: [],
+        startedAt: new Date(),
+        completedAt: null,
+        error: null,
+      };
+
+      mockPaymentsService.createStripeCheckoutSession.mockResolvedValueOnce({
+        checkoutUrl: 'https://checkout.stripe.com/session/cached',
+        sessionId: 'cs_cached',
+        invoiceId: 88,
+      });
+
+      const first = await service['executeStep'](step, execution, 'user-1', 'corr1');
+      expect(first.success).toBe(true);
+
+      const second = await service['executeStep'](step, execution, 'user-1', 'corr1');
+      expect(second.success).toBe(true);
+      expect(second.output.sessionId).toBe('cs_cached');
+      expect(mockPaymentsService.createStripeCheckoutSession).toHaveBeenCalledTimes(1);
     });
   });
 });

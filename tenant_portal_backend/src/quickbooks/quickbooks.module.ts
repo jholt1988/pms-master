@@ -6,6 +6,7 @@ import { QuickBooksSyncProcessor } from './quickbooks-sync.processor';
 
 import { QuickBooksMinimalService } from './quickbooks-minimal.service';
 import { QuickBooksController as QuickBooksMinimalController } from './quickbooks-minimal.controller';
+import { QuickBooksWebhookController } from './quickbooks-webhook.controller';
 
 import { QuickBooksService } from './quickbooks.service';
 import { AbstractQuickBooksService } from './quickbooks.types';
@@ -20,7 +21,7 @@ const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
       name: 'quickbooks-sync',
     }),
   ],
-  controllers: [QuickBooksMinimalController],
+  controllers: [QuickBooksMinimalController, QuickBooksWebhookController],
   providers: [
     QuickBooksMinimalService,
     OrgContextGuard,
