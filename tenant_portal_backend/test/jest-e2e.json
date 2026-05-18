@@ -8,11 +8,13 @@
   "setupFilesAfterEnv": ["<rootDir>/test/setup.ts"],
   "testEnvironment": "node",
   "forceExit": true,
-  "detectOpenHandles": false,
+  "detectOpenHandles": true,
   "moduleNameMapper": {
     "^@/(.*)$": "<rootDir>/src/$1"
   },
   "collectCoverage": false,
+  "testRunner": "jest-circus/runner",
+  "testResultsProcessor": "jest-junit",
   "coverageDirectory": "<rootDir>/coverage/e2e",
   "coveragePathIgnorePatterns": [
     "/node_modules/",
@@ -30,10 +32,10 @@
   ],
   "coverageThreshold": {
     "global": {
-      "branches": 0,
-      "functions": 0,
-      "lines": 0,
-      "statements": 0
+      "branches": 40,
+      "functions": 50,
+      "lines": 50,
+      "statements": 50
     }
   },
   "collectCoverageFrom": [
