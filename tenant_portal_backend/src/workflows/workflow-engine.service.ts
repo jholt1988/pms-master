@@ -15,6 +15,10 @@ import { Parser } from 'expr-eval';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
+import { PaymentsService } from '../payments/payments.service';
+import { EsignatureService } from '../esignature/esignature.service';
+import { AbstractQuickBooksService } from '../quickbooks/quickbooks.types';
+import { CreateEnvelopeDto } from '../esignature/dto/create-envelope.dto';
 
 export interface WorkflowDefinition {
   id: string;
@@ -58,6 +62,9 @@ export class WorkflowEngineService {
     @Optional() private readonly aiPaymentService?: AIPaymentService,
     @Optional() private readonly aiLeaseRenewalService?: AILeaseRenewalService,
     @Optional() private readonly aiNotificationService?: AINotificationService,
+    @Optional() private readonly paymentsService?: PaymentsService,
+    @Optional() private readonly esignatureService?: EsignatureService,
+    @Optional() private readonly quickBooksService?: AbstractQuickBooksService,
   ) {
     this.registerDefaultWorkflows();
     // Clear expired cache entries periodically
@@ -417,6 +424,19 @@ export class WorkflowEngineService {
     const startedAt = new Date();
 
     try {
+      const cachedIntegrationResult = this.getCachedIntegrationStepResult(step, execution);
+      if (cachedIntegrationResult) {
+        this.logger.log(`Using cached integration step result: ${step.id}`);
+        return {
+          success: true,
+          input: step.input || {},
+          output: cachedIntegrationResult,
+          error: null,
+          startedAt,
+          completedAt: new Date(),
+        };
+      }
+
       let output: any = {};
 
       switch (step.type) {
@@ -450,6 +470,15 @@ export class WorkflowEngineService {
         case 'PERSONALIZE_NOTIFICATION_AI':
           output = await this.executePersonalizeNotificationAI(step, execution, userId, correlationId);
           break;
+        case 'CREATE_STRIPE_CHECKOUT':
+          output = await this.executeCreateStripeCheckout(step, execution, userId);
+          break;
+        case 'SEND_DOCUSIGN_ENVELOPE':
+          output = await this.executeSendDocusignEnvelope(step, execution, userId);
+          break;
+        case 'SYNC_QUICKBOOKS_BASIC':
+          output = await this.executeSyncQuickBooksBasic(step, execution, userId);
+          break;
         case 'CONDITIONAL':
           output = await this.executeConditional(step, execution, userId);
           break;
@@ -463,7 +492,7 @@ export class WorkflowEngineService {
       return {
         success: true,
         input: step.input || {},
-        output,
+        output: this.cacheIntegrationStepResult(step, execution, output),
         error: null,
         startedAt,
         completedAt: new Date(),
@@ -985,6 +1014,130 @@ export class WorkflowEngineService {
       }
       return false;
     }
+  }
+
+  private getCachedIntegrationStepResult(step: WorkflowStep, execution: WorkflowExecution): any | null {
+    const integrationTypes = new Set(['CREATE_STRIPE_CHECKOUT', 'SEND_DOCUSIGN_ENVELOPE', 'SYNC_QUICKBOOKS_BASIC']);
+    if (!integrationTypes.has(step.type)) return null;
+
+    const cacheBucket = (execution.output as any)?.__integrationStepResults as Record<string, any> | undefined;
+    if (!cacheBucket) return null;
+
+    return cacheBucket[step.id] || null;
+  }
+
+  private cacheIntegrationStepResult(step: WorkflowStep, execution: WorkflowExecution, output: any): any {
+    const integrationTypes = new Set(['CREATE_STRIPE_CHECKOUT', 'SEND_DOCUSIGN_ENVELOPE', 'SYNC_QUICKBOOKS_BASIC']);
+    if (!integrationTypes.has(step.type)) return output;
+
+    const existing = (execution.output as any)?.__integrationStepResults || {};
+    (execution.output as any).__integrationStepResults = {
+      ...existing,
+      [step.id]: output,
+    };
+    return output;
+  }
+
+  private async executeCreateStripeCheckout(
+    step: WorkflowStep,
+    execution: WorkflowExecution,
+    userId?: string,
+  ): Promise<any> {
+    if (!this.paymentsService) {
+      throw new Error('PaymentsService is not available for CREATE_STRIPE_CHECKOUT');
+    }
+
+    const rawInvoiceId = step.input?.invoiceId ?? execution.input?.invoiceId ?? execution.output?.invoiceId;
+    const invoiceId = typeof rawInvoiceId === 'number' ? rawInvoiceId : Number(rawInvoiceId);
+    if (!Number.isFinite(invoiceId)) {
+      throw new Error('invoiceId is required for CREATE_STRIPE_CHECKOUT');
+    }
+
+    const successUrl = step.input?.successUrl;
+    const cancelUrl = step.input?.cancelUrl;
+    if (!successUrl || !cancelUrl) {
+      throw new Error('successUrl and cancelUrl are required for CREATE_STRIPE_CHECKOUT');
+    }
+
+    const authUser = {
+      userId: userId || this.normalizeInputId(execution.input?.userId) || 'system',
+      role: step.input?.role || 'PROPERTY_MANAGER',
+    } as any;
+
+    const result = await this.paymentsService.createStripeCheckoutSession(
+      { invoiceId, successUrl, cancelUrl },
+      authUser,
+      execution.input?.organizationId,
+    );
+
+    return {
+      stripeCheckoutCreated: true,
+      ...result,
+    };
+  }
+
+  private async executeSendDocusignEnvelope(
+    step: WorkflowStep,
+    execution: WorkflowExecution,
+    userId?: string,
+  ): Promise<any> {
+    if (!this.esignatureService) {
+      throw new Error('EsignatureService is not available for SEND_DOCUSIGN_ENVELOPE');
+    }
+
+    const leaseId = this.normalizeInputId(step.input?.leaseId ?? execution.input?.leaseId ?? execution.output?.leaseId);
+    if (!leaseId) {
+      throw new Error('leaseId is required for SEND_DOCUSIGN_ENVELOPE');
+    }
+
+    const actorId = userId || this.normalizeInputId(execution.input?.userId);
+    if (!actorId) {
+      throw new Error('userId is required for SEND_DOCUSIGN_ENVELOPE');
+    }
+
+    const templateId = step.input?.templateId;
+    const recipients = step.input?.recipients;
+    if (!templateId || !Array.isArray(recipients) || recipients.length === 0) {
+      throw new Error('templateId and non-empty recipients are required for SEND_DOCUSIGN_ENVELOPE');
+    }
+
+    const dto: CreateEnvelopeDto = {
+      templateId,
+      message: step.input?.message || 'Please review and sign your lease documents.',
+      recipients,
+      provider: step.input?.provider,
+    };
+
+    const envelope = await this.esignatureService.createEnvelope(leaseId, dto, actorId);
+    return {
+      docusignEnvelopeSent: true,
+      envelopeId: envelope.id,
+      providerEnvelopeId: envelope.providerEnvelopeId,
+      status: envelope.status,
+    };
+  }
+
+  private async executeSyncQuickBooksBasic(
+    step: WorkflowStep,
+    execution: WorkflowExecution,
+    userId?: string,
+  ): Promise<any> {
+    if (!this.quickBooksService) {
+      throw new Error('QuickBooksService is not available for SYNC_QUICKBOOKS_BASIC');
+    }
+
+    const targetUserId = userId || this.normalizeInputId(step.input?.userId ?? execution.input?.userId);
+    const orgId = this.normalizeInputId(step.input?.organizationId ?? execution.input?.organizationId);
+
+    if (!targetUserId || !orgId) {
+      throw new Error('userId and organizationId are required for SYNC_QUICKBOOKS_BASIC');
+    }
+
+    const result = await this.quickBooksService.basicSync(targetUserId, orgId);
+    return {
+      quickbooksSyncTriggered: true,
+      ...result,
+    };
   }
 
   /**

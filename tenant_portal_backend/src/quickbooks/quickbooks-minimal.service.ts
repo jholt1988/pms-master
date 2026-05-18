@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { createHmac, timingSafeEqual } from 'crypto';
 import {
   AbstractQuickBooksService,
   OAuthCallbackResult,
@@ -16,6 +17,7 @@ import OAuthClient = require('intuit-oauth');
 export class QuickBooksMinimalService extends AbstractQuickBooksService {
   private readonly logger = new Logger(QuickBooksMinimalService.name);
   private oauthClient: any;
+  private readonly webhookDedupe = new Map<string, number>();
 
   constructor(private prisma: PrismaService) {
     super();
@@ -267,5 +269,62 @@ export class QuickBooksMinimalService extends AbstractQuickBooksService {
     }
 
     return connection;
+  }
+
+  async handleWebhook(
+    rawBody: Buffer,
+    signatureHeader: string | undefined,
+    payload: any,
+  ): Promise<{ eventKey: string; deduped: boolean }> {
+    this.assertValidWebhookSignature(rawBody, signatureHeader);
+    this.cleanupWebhookDedupe();
+
+    const firstNotification = payload?.eventNotifications?.[0];
+    const realmId = firstNotification?.realmId || 'unknown-realm';
+    const eventId = firstNotification?.dataChangeEvent?.entities?.[0]?.id || 'unknown-entity';
+    const operation = firstNotification?.dataChangeEvent?.entities?.[0]?.operation || 'unknown-op';
+    const name = firstNotification?.dataChangeEvent?.entities?.[0]?.name || 'unknown-name';
+    const eventKey = `${realmId}:${name}:${eventId}:${operation}`;
+
+    if (this.webhookDedupe.has(eventKey)) {
+      return { eventKey, deduped: true };
+    }
+
+    this.webhookDedupe.set(eventKey, Date.now());
+    this.logger.log(`Accepted QuickBooks webhook event ${eventKey}`);
+    return { eventKey, deduped: false };
+  }
+
+  private assertValidWebhookSignature(rawBody: Buffer, signatureHeader?: string): void {
+    const verifierToken = process.env.QUICKBOOKS_WEBHOOK_VERIFIER;
+    const strict = process.env.NODE_ENV === 'production' || process.env.QUICKBOOKS_WEBHOOK_REQUIRE_SIGNATURE === 'true';
+
+    if (!verifierToken) {
+      if (strict) {
+        throw new Error('QUICKBOOKS_WEBHOOK_VERIFIER must be configured for QuickBooks webhook signature verification.');
+      }
+      this.logger.warn('Skipping QuickBooks webhook signature verification because QUICKBOOKS_WEBHOOK_VERIFIER is not set.');
+      return;
+    }
+
+    if (!signatureHeader) {
+      throw new Error('Missing intuit-signature header.');
+    }
+
+    const expected = createHmac('sha256', verifierToken).update(rawBody).digest('base64');
+    const expectedBuf = Buffer.from(expected, 'base64');
+    const actualBuf = Buffer.from(signatureHeader.trim(), 'base64');
+
+    if (expectedBuf.length !== actualBuf.length || !timingSafeEqual(expectedBuf, actualBuf)) {
+      throw new Error('Invalid QuickBooks webhook signature.');
+    }
+  }
+
+  private cleanupWebhookDedupe(): void {
+    const now = Date.now();
+    const ttlMs = 1000 * 60 * 60;
+    for (const [key, ts] of this.webhookDedupe.entries()) {
+      if (now - ts > ttlMs) this.webhookDedupe.delete(key);
+    }
   }
 }

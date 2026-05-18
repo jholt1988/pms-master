@@ -10,6 +10,8 @@ import { MaintenanceModule } from '../maintenance/maintenance.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { LeaseModule } from '../lease/lease.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { EsignatureModule } from '../esignature/esignature.module';
+import { QuickBooksModule } from '../quickbooks/quickbooks.module';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { NotificationsModule } from '../notifications/notifications.module';
     PaymentsModule,
     LeaseModule,
     NotificationsModule,
+    EsignatureModule,
+    QuickBooksModule,
   ],
   controllers: [WorkflowsController],
   providers: [
