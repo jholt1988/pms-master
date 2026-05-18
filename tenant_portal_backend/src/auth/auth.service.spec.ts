@@ -68,6 +68,11 @@ describe('AuthService', () => {
   };
 
   const mockPrismaService = {
+    refreshToken: {
+      create: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+    },
     passwordResetToken: {
       findUnique: jest.fn(),
       create: jest.fn(),
@@ -91,6 +96,7 @@ describe('AuthService', () => {
 
   const mockMilApiClient = {
     milValidateSessionV1AuthSessionValidatePost: jest.fn(),
+    milTenantTenantIdCryptoStatusGet: jest.fn(),
   };
 
   const mockTokenBlacklist = {
@@ -157,7 +163,7 @@ describe('AuthService', () => {
 
       const result = await service.login(loginDto, context);
 
-      expect(result).toEqual({ access_token: 'jwt-token', accessToken: 'jwt-token' });
+      expect(result).toEqual(expect.objectContaining({ accessToken: 'jwt-token', refreshToken: expect.any(String) }));
       expect(mockUsersService.findOne).toHaveBeenCalledWith(loginDto.username);
       expect(bcryptMock.compare).toHaveBeenCalledWith(loginDto.password, mockUser.password);
       expect(mockJwtService.sign).toHaveBeenCalledWith(
@@ -337,7 +343,7 @@ describe('AuthService', () => {
 
       const result = await service.login(loginDtoWithMfa, context);
 
-      expect(result).toEqual({ access_token: 'jwt-token', accessToken: 'jwt-token' });
+      expect(result).toEqual(expect.objectContaining({ accessToken: 'jwt-token', refreshToken: expect.any(String) }));
       expect(authenticator.verify).toHaveBeenCalledWith({
         token: '123456',
         secret: 'secret',

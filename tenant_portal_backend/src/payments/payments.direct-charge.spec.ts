@@ -18,6 +18,9 @@ describe('PaymentsService direct charge fee derivation', () => {
     organization: { findUnique: jest.fn() },
     orgPlanCycle: { findFirst: jest.fn() },
     payment: { create: jest.fn() },
+    ledgerAccount: { upsert: jest.fn() },
+    paymentLedgerEntry: { create: jest.fn(), updateMany: jest.fn() },
+    ledgerTransaction: { findFirst: jest.fn(), create: jest.fn() },
   };
 
 
@@ -76,6 +79,11 @@ describe('PaymentsService direct charge fee derivation', () => {
       providerPaymentMethodId: 'pm_1',
     });
     prisma.organization.findUnique.mockResolvedValue({ stripeConnectedAccountId: 'acct_123' });
+    prisma.ledgerAccount.upsert.mockResolvedValue({ id: 'ledger-1' });
+    prisma.paymentLedgerEntry.create.mockResolvedValue({ id: 'ple-1' });
+    prisma.paymentLedgerEntry.updateMany.mockResolvedValue({ count: 1 });
+    prisma.ledgerTransaction.findFirst.mockResolvedValue(null);
+    prisma.ledgerTransaction.create.mockResolvedValue({ id: 'lt-1' });
     prisma.orgPlanCycle.findFirst.mockResolvedValue({
       id: 'cycle-1',
       activeFeeSchedule: {
