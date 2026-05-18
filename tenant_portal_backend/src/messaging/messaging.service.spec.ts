@@ -10,11 +10,16 @@ describe('MessagingService.createThread', () => {
   };
 
   let service: MessagingService;
+  const sentimentAnalysis = {
+    detectLanguage: jest.fn().mockReturnValue('en'),
+    translateToEnglish: jest.fn((text: string) => text),
+    analyzeIncomingText: jest.fn().mockReturnValue({ sentiment: 'neutral', confidence: 0.8 }),
+  };
 
   beforeEach(() => {
     prisma.user.findMany.mockReset();
     prisma.$transaction.mockReset();
-    service = new MessagingService(prisma);
+    service = new MessagingService(prisma, sentimentAnalysis as any);
   });
 
   it('throws when no recipients are provided', async () => {
