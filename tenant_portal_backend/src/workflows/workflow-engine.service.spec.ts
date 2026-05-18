@@ -581,6 +581,42 @@ describe('WorkflowEngineService', () => {
       });
     });
 
+    it('should log rejected malicious/invalid conditions as warn, not error', () => {
+      const execution: WorkflowExecution = {
+        id: 'exec1',
+        workflowId: 'workflow1',
+        status: 'RUNNING',
+        input: {},
+        output: { amount: 100, threshold: 50 },
+        steps: [],
+        startedAt: new Date(),
+        completedAt: null,
+        error: null,
+      };
+
+      const logger = (service as any).logger;
+      const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
+      const errorSpy = jest.spyOn(logger, 'error').mockImplementation(() => undefined);
+
+      const result = service['evaluateCondition']('process.exit(1)', execution);
+
+      expect(result).toBe(false);
+      expect(warnSpy).toHaveBeenCalledWith(
+        'Invalid or unsafe condition rejected',
+        expect.objectContaining({
+          condition: 'process.exit(1)',
+        }),
+      );
+      expect(errorSpy).not.toHaveBeenCalledWith(
+        'Condition evaluation failed',
+        expect.anything(),
+      );
+      expect(errorSpy).not.toHaveBeenCalledWith(
+        'Condition evaluation failed unexpectedly',
+        expect.anything(),
+      );
+    });
+
     it('should verify expr-eval is used (not eval)', () => {
       // This test ensures that the code is using expr-eval Parser
       // by checking that it can handle expressions that eval() would execute
