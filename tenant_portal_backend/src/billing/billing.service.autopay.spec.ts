@@ -243,4 +243,31 @@ describe('BillingService autopay state machine', () => {
 
     expect(prisma.autopayEnrollment.upsert).not.toHaveBeenCalled();
   });
+
+  it('rejects disabling autopay when tenant does not own lease', async () => {
+    const service = new BillingService(prisma, paymentsService, securityEvents, stripeService);
+    prisma.lease.findFirst.mockResolvedValueOnce({
+      id: '11111111-1111-4111-8111-111111111111',
+      tenantId: 'tenant-owner',
+    });
+
+    await expect(
+      service.disableAutopay(
+        { userId: 'tenant-other', username: 'other', role: Role.TENANT },
+        '11111111-1111-4111-8111-111111111111',
+      ),
+    ).rejects.toThrow('You can only modify autopay for your lease');
+  });
+
+  it('returns not found when disabling autopay for missing lease', async () => {
+    const service = new BillingService(prisma, paymentsService, securityEvents, stripeService);
+    prisma.lease.findFirst.mockResolvedValueOnce(null);
+    await expect(
+      service.disableAutopay(
+        { userId: 'pm-1', username: 'manager', role: Role.PROPERTY_MANAGER },
+        '11111111-1111-4111-8111-111111111111',
+        'org-1',
+      ),
+    ).rejects.toThrow('Lease not found');
+  });
 });
