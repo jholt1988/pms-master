@@ -14,6 +14,7 @@ describe('MessagingService.createThread', () => {
     detectLanguage: jest.fn().mockReturnValue('en'),
     translateToEnglish: jest.fn((text: string) => text),
     analyzeIncomingText: jest.fn().mockReturnValue({ sentiment: 'neutral', confidence: 0.8 }),
+    generateDraftReply: jest.fn().mockReturnValue('Thanks for your message'),
   };
 
   beforeEach(() => {
