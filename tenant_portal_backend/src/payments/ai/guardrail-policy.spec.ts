@@ -37,7 +37,7 @@ describe('AIPaymentGuardrailPolicy', () => {
 
     expect(decision.allow).toBe(true);
     expect(decision.adjustedSendTime).toBeInstanceOf(Date);
-    expect(['quiet_hours_adjusted', 'allow_reminder_timing']).toContain(decision.reason);
+   expect(['quiet_hours_adjusted', 'allow_reminder_timing']).toContain(decision.reason);
   });
 
   it('falls back from unconsented SMS to EMAIL', () => {
