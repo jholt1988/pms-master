@@ -4,6 +4,15 @@ import { NotFoundException } from '@nestjs/common';
 import { DocumentCategory } from '@prisma/client';
 import { DocumentsService } from './documents.service';
 
+jest.mock('fs/promises', () => ({
+  ...jest.requireActual('fs/promises'),
+  access: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('fs', () => ({
+  ...jest.requireActual('fs'),
+  createReadStream: jest.fn(() => ({ pipe: jest.fn() })),
+}));
+
 describe('DocumentsService tenant lease visibility', () => {
   const prisma: any = {
     document: {
@@ -54,11 +63,6 @@ describe('DocumentsService tenant lease visibility', () => {
       mimeType: 'application/pdf',
     });
 
-    const fsAccessMock = jest.fn().mockResolvedValue(undefined as any);
-    const fsReadMock = jest.fn().mockReturnValue({ pipe: jest.fn() } as any);
-    const fsAccessSpy = jest.spyOn(fsPromises as any, 'access').mockImplementation(fsAccessMock);
-    const createReadStreamSpy = jest.spyOn(fs as any, 'createReadStream').mockImplementation(fsReadMock);
-
     const result = await service.getFileStream(44, 'tenant-user-id');
 
     expect(prisma.document.findFirst).toHaveBeenCalledWith(
@@ -78,8 +82,6 @@ describe('DocumentsService tenant lease visibility', () => {
     );
     expect(result.fileName).toBe('lease.pdf');
 
-    fsAccessSpy.mockRestore();
-    createReadStreamSpy.mockRestore();
   });
 
   it('still throws when document cannot be found in tenant scope', async () => {

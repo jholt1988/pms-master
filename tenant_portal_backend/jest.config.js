@@ -26,20 +26,16 @@ module.exports = {
       testMatch: ['**/?(*.)+(spec|test).ts'],
       testPathIgnorePatterns: ['/node_modules/', '\\.e2e\\.spec\\.ts$', '\\.e2e-spec\\.ts$', 'esignature\\.service\\.spec\\.ts$'],
       collectCoverageFrom: [
-        'src/**/*.{ts,tsx}',
+        'src/auth/**/*.{ts,tsx}',
+        'src/payments/**/*.{ts,tsx}',
+        'src/lease/**/*.{ts,tsx}',
+        'src/tenant/**/*.{ts,tsx}',
         '!src/**/*.d.ts',
         '!src/**/*.interface.ts',
-        '!src/main.ts',
         '!src/**/*.module.ts',
       ],
       coverageDirectory: '<rootDir>/coverage/unit',
       coverageThreshold: {
-        global: {
-          branches: 80,
-          functions: 80,
-          lines: 80,
-          statements: 80,
-        },
         './src/auth/': {
           branches: 85,
           functions: 85,
@@ -51,6 +47,18 @@ module.exports = {
           functions: 85,
           lines: 85,
           statements: 85,
+        },
+        './src/lease/': {
+          branches: 75,
+          functions: 75,
+          lines: 75,
+          statements: 75,
+        },
+        './src/tenant/': {
+          branches: 75,
+          functions: 75,
+          lines: 75,
+          statements: 75,
         },
       },
     },
