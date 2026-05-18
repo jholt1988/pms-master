@@ -967,10 +967,22 @@ export class WorkflowEngineService {
       const result = expr.evaluate(scope);
       return typeof result === 'boolean' ? result : Boolean(result);
     } catch (error) {
-      this.logger.error('Condition evaluation failed', {
-        condition,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isExpectedValidationFailure =
+        /undefined variable|parse error|unexpected TEOF|Unknown character|unexpected TOP|Expected EOF/i
+          .test(errorMessage);
+
+      if (isExpectedValidationFailure) {
+        this.logger.warn('Invalid or unsafe condition rejected', {
+          condition,
+          error: errorMessage,
+        });
+      } else {
+        this.logger.error('Condition evaluation failed unexpectedly', {
+          condition,
+          error: errorMessage,
+        });
+      }
       return false;
     }
   }
