@@ -1,6 +1,7 @@
 import { execFileSync, execSync } from 'child_process';
 import { join } from 'path';
 import type { PrismaClient } from '@prisma/client';
+import dotenv from 'dotenv';
 import { resetDatabase } from './utils/reset-database';
 
 
@@ -8,11 +9,16 @@ import { resetDatabase } from './utils/reset-database';
 jest.setTimeout(30000);
 
 process.env.DOTENV_CONFIG_PATH = join(__dirname, '..', '.env.test');
+dotenv.config({ path: join(__dirname, '..', '.env.test') });
+dotenv.config({ path: join(__dirname, '..', '.env') });
 
 const DEFAULT_TEST_DB_URL =
   'postgresql://postgres:jordan@localhost:5432/tenant_portal_test?schema=public';
 
-const rawUrl = process.env.TEST_DATABASE_URL || DEFAULT_TEST_DB_URL;
+const rawUrl =
+  process.env.TEST_DATABASE_URL ||
+  process.env.DATABASE_URL ||
+  DEFAULT_TEST_DB_URL;
 
 // Force tests into an isolated schema so resetDatabase can safely TRUNCATE.
 const ensureSchema = (url: string, schema: string) => {
@@ -42,6 +48,7 @@ process.env.APP_URL = 'http://localhost:3000';
 process.env.MONITORING_ENABLED = 'false';
 process.env.DISABLE_WORKFLOW_SCHEDULER = 'true';
 process.env.DISABLE_STRIPE = 'true';
+process.env.DISABLE_REDIS = 'true';
 process.env.STRIPE_SECRET_KEY = 'sk_test_disabled';
 process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test';
 process.env.REDIS_HOST = process.env.REDIS_HOST || 'redis';
@@ -71,6 +78,18 @@ if (shouldApplyMigrations) {
         await c.connect();
         const schema = (u.searchParams.get('schema') || 'public').replace(/\"/g, '');
         await c.query('CREATE SCHEMA IF NOT EXISTS "' + schema + '"');
+        await c.query(
+          'CREATE TABLE IF NOT EXISTS "' + schema + '"."RefreshToken" (' +
+            '"id" SERIAL PRIMARY KEY,' +
+            '"tokenHash" TEXT UNIQUE NOT NULL,' +
+            '"userId" UUID NOT NULL,' +
+            '"expiresAt" TIMESTAMP(3) NOT NULL,' +
+            '"revokedAt" TIMESTAMP(3),' +
+            '"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP' +
+          ')'
+        );
+        await c.query('CREATE INDEX IF NOT EXISTS "RefreshToken_tokenHash_idx" ON "' + schema + '"."RefreshToken" ("tokenHash")');
+        await c.query('CREATE INDEX IF NOT EXISTS "RefreshToken_userId_idx" ON "' + schema + '"."RefreshToken" ("userId")');
         await c.end();
       })().catch((e) => {
         console.error(e);
@@ -78,10 +97,27 @@ if (shouldApplyMigrations) {
       });
     `;
 
-    execFileSync('node', ['-e', ensureSchemaScript], {
-      stdio: 'inherit',
-      env: { ...process.env },
-    });
+    try {
+      execFileSync('node', ['-e', ensureSchemaScript], {
+        stdio: 'inherit',
+        env: { ...process.env },
+      });
+    } catch (primaryError) {
+      const fallbackUrl = ensureSchema(DEFAULT_TEST_DB_URL, TEST_SCHEMA);
+      process.env.DIRECT_DATABASE_URL = fallbackUrl;
+      process.env.DATABASE_URL = fallbackUrl;
+
+      console.error(
+        `Primary e2e database connection failed for TEST_DATABASE_URL/DATABASE_URL. Falling back to local default: ${fallbackUrl}`,
+      );
+
+      execFileSync('node', ['-e', ensureSchemaScript], {
+        stdio: 'inherit',
+        env: { ...process.env },
+      });
+
+      console.error('Primary DB error details:', primaryError);
+    }
 
     execSync('npx prisma migrate deploy', {
       stdio: 'inherit',

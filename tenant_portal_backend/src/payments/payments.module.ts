@@ -14,9 +14,10 @@ import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { PaymentStrategyRegistry } from './ai/payment-strategy.registry';
 import { MilModule } from '../mil/mil.module';
 import { PolicyModule } from '../policy/policy.module';
+import { BookkeepingModule } from '../bookkeeping/bookkeeping.module';
 
 @Module({
-  imports: [PrismaModule, ConfigModule, EmailModule, MilModule, PolicyModule],
+  imports: [PrismaModule, ConfigModule, EmailModule, MilModule, PolicyModule, BookkeepingModule],
   controllers: [PaymentMethodsController, PaymentsController],
   providers: [
     PaymentsService,

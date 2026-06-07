@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PropertyOS dependency audit exceptions",
+  "type": "object",
+  "required": ["updatedOn", "exceptions"],
+  "additionalProperties": false,
+  "properties": {
+    "updatedOn": {
+      "type": "string",
+      "format": "date"
+    },
+    "exceptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "severity",
+          "packageName",
+          "advisoryIds",
+          "affectedWorkspaces",
+          "dependencyType",
+          "owner",
+          "rationale",
+          "mitigation",
+          "expiresOn",
+          "reviewedOn"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^DEP-[0-9]{4}-[0-9]{3}$" },
+          "status": { "type": "string", "enum": ["accepted", "mitigating", "remediated"] },
+          "severity": { "type": "string", "enum": ["low", "moderate", "high", "critical"] },
+          "packageName": { "type": "string", "minLength": 1 },
+          "advisoryIds": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 },
+            "uniqueItems": true
+          },
+          "affectedWorkspaces": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 },
+            "uniqueItems": true
+          },
+          "dependencyType": { "type": "string", "enum": ["runtime", "dev", "transitive"] },
+          "owner": { "type": "string", "minLength": 1 },
+          "rationale": { "type": "string", "minLength": 12 },
+          "mitigation": { "type": "string", "minLength": 12 },
+          "expiresOn": { "type": "string", "format": "date" },
+          "reviewedOn": { "type": "string", "format": "date" },
+          "notes": { "type": "string" }
+        }
+      }
+    }
+  }
+}

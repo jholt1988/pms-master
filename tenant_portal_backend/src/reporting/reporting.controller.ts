@@ -47,7 +47,7 @@ export class ReportingController {
     return { type: 'rent-roll', data, generatedAt: new Date().toISOString() };
   }
 
-  @Get(' delinquency-report')
+  @Get('delinquency-report')
   @Roles('PROPERTY_MANAGER', 'ADMIN')
   async getDelinquencyReport(@Query('days') days?: string) {
     const daysNum = parseInt(days || '30', 10);

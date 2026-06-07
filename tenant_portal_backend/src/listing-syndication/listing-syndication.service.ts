@@ -1,5 +1,5 @@
 import { InjectQueue } from '@nestjs/bull';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { Prisma, SyndicationChannel, SyndicationStatus } from '@prisma/client';
 import { Queue } from 'bull';
 import { PrismaService } from '../prisma/prisma.service';
@@ -27,7 +27,7 @@ export class ListingSyndicationService {
     private readonly reportingService: ReportingService,
     zillowAdapter: ZillowSyndicationAdapter,
     apartmentsComAdapter: ApartmentsComSyndicationAdapter,
-    @InjectQueue('listingSyndication') private readonly queue: Queue,
+    @Optional() @InjectQueue('listingSyndication') private readonly queue?: Queue,
   ) {
     this.adapters = {
       [zillowAdapter.channel]: zillowAdapter,
@@ -140,6 +140,7 @@ export class ListingSyndicationService {
     });
 
     for (const entry of pendingEntries) {
+      if (!this.queue) continue;
       await this.queue.add(
         'sync',
         { entryId: entry.id },
@@ -223,6 +224,7 @@ export class ListingSyndicationService {
       });
 
       if (hasRetriesRemaining) {
+        if (!this.queue) return;
         await this.queue.add('sync', { entryId: queueEntry.id }, { delay: 60_000 });
       }
     }

@@ -3,6 +3,8 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { CryptoService } from '../mil/crypto.service';
 import { KeyringService } from '../mil/keyring.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { EventEnvelope } from '../common/events/event-envelope';
+import { redactPii } from './pii-redaction';
 
 export type AuditResult = 'SUCCESS' | 'FAILURE';
 
@@ -32,6 +34,7 @@ export class AuditLogService {
 
   async record(event: AuditLogEvent): Promise<void> {
     const timestamp = new Date();
+    const metadata = event.metadata ? redactPii(event.metadata) : null;
     const payload = {
       timestamp: timestamp.toISOString(),
       orgId: event.orgId ?? null,
@@ -41,7 +44,7 @@ export class AuditLogService {
       entityType: event.entityType,
       entityId: event.entityId ?? null,
       result: event.result,
-      metadata: event.metadata ?? null,
+      metadata,
     };
 
     this.logger.log(
@@ -76,6 +79,33 @@ export class AuditLogService {
         error instanceof Error ? error.stack : String(error),
       );
     }
+  }
+
+  async recordEnvelope(envelope: EventEnvelope, params?: {
+    module?: string;
+    action?: string;
+    entityType?: string;
+    entityId?: string | number;
+    result?: AuditResult;
+  }): Promise<void> {
+    await this.record({
+      orgId: envelope.organizationId,
+      actorId: envelope.actorId ?? null,
+      module: params?.module ?? envelope.source,
+      action: params?.action ?? envelope.type,
+      entityType: params?.entityType ?? envelope.subject?.type ?? 'EventEnvelope',
+      entityId: params?.entityId ?? envelope.subject?.id ?? envelope.id,
+      result: params?.result ?? 'SUCCESS',
+      metadata: {
+        eventEnvelopeId: envelope.id,
+        eventType: envelope.type,
+        eventVersion: envelope.version,
+        occurredAt: envelope.occurredAt,
+        correlationId: envelope.correlationId,
+        idempotencyKey: envelope.idempotencyKey,
+        payload: envelope.payload,
+      },
+    });
   }
 
   async log(action: string, actorId?: string | null, metadata?: Record<string, unknown>): Promise<void> {

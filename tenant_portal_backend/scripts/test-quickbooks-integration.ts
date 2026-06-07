@@ -27,15 +27,15 @@ import * as dotenv from 'dotenv';
 // Load environment variables
 dotenv.config();
 
-const BASE_URL = process.env.API_BASE_URL || 'http://localhost:3001';
+const BASE_URL = process.env.API_BASE_URL || 'https://3f04-8-41-22-238.ngrok-free.app'
+
 const API_BASE = `${BASE_URL}/api`;
 
 // Test configuration
 const TEST_CONFIG = {
-  // Use a test user ID - in real app this would come from JWT
-  userId: 1,
-  // Mock JWT token for testing - replace with real token in actual testing
-  authToken: 'mock_jwt_token_for_testing',
+  authToken: process.env.QUICKBOOKS_TEST_BEARER_TOKEN || 'G4ubmdyb2suY29tLyIsImNvZGUiOiIzMjAwIiwibWVzc2FnZSI6IlRoZSBlbmRwb2ludCA4YjM3LTgtNDEtMjItMjM4Lm5ncm9rLWZyZWUuYXBwIGlzIG9mZmxpbmUuIiwidGl0bGUiOiJOb3QgRm91bmQifQ=="',
+  username: process.env.QUICKBOOKS_TEST_USERNAME || 'pm@test.com',
+  password: process.env.QUICKBOOKS_TEST_PASSWORD || 'password123',
 };
 
 class QuickBooksIntegrationTester {
@@ -43,9 +43,45 @@ class QuickBooksIntegrationTester {
 
   constructor() {
     this.authHeaders = {
-      'Authorization': `Bearer ${TEST_CONFIG.authToken}`,
       'Content-Type': 'application/json',
     };
+    if (TEST_CONFIG.authToken) {
+      this.authHeaders.Authorization = `Bearer ${TEST_CONFIG.authToken}`;
+    }
+  }
+
+  private async ensureAuth(): Promise<boolean> {
+    if (this.authHeaders.Authorization) return true;
+    console.log('\\n🔐 Acquiring auth token via /auth/login...');
+    try {
+      let response;
+      try {
+        response = await axios.post(
+          `${BASE_URL}/auth/login`,
+          { username: TEST_CONFIG.username, password: TEST_CONFIG.password },
+          { timeout: 10000 },
+        );
+      } catch (firstError: any) {
+        if (firstError?.response?.status !== 404) throw firstError;
+        response = await axios.post(
+          `${API_BASE}/auth/login`,
+          { username: TEST_CONFIG.username, password: TEST_CONFIG.password },
+          { timeout: 10000 },
+        );
+      }
+      const token = response.data?.access_token || response.data?.accessToken;
+      if (!token) {
+        console.error('❌ Login succeeded but no access token was returned.');
+        return false;
+      }
+      this.authHeaders.Authorization = `Bearer ${token}`;
+      console.log(`✅ Authenticated as ${TEST_CONFIG.username}`);
+      return true;
+    } catch (error: any) {
+      console.error('❌ Failed to authenticate for QuickBooks tests:', error.response?.data || error.message);
+      console.error('   Set QUICKBOOKS_TEST_BEARER_TOKEN or QUICKBOOKS_TEST_USERNAME/QUICKBOOKS_TEST_PASSWORD');
+      return false;
+    }
   }
 
   async checkEnvironmentConfig(): Promise<boolean> {
@@ -69,8 +105,28 @@ class QuickBooksIntegrationTester {
     console.log(`   Client ID: ${process.env.QUICKBOOKS_CLIENT_ID?.substring(0, 8)}...`);
     console.log(`   Redirect URI: ${process.env.QUICKBOOKS_REDIRECT_URI}`);
     console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
+
+    this.warnIfBaseUrlMismatchesRedirectHost();
     
     return true;
+  }
+
+  private warnIfBaseUrlMismatchesRedirectHost(): void {
+    const redirectUri = process.env.QUICKBOOKS_REDIRECT_URI;
+    if (!redirectUri) return;
+
+    try {
+      const baseHost = new URL(BASE_URL).host;
+      const redirectHost = new URL(redirectUri).host;
+      if (baseHost !== redirectHost) {
+        console.warn('⚠️  API_BASE_URL host does not match QUICKBOOKS_REDIRECT_URI host');
+        console.warn(`   API_BASE_URL host: ${baseHost}`);
+        console.warn(`   Redirect host:    ${redirectHost}`);
+        console.warn('   This often causes ngrok offline/404 test failures.');
+      }
+    } catch {
+      // Ignore URL parsing issues here; they are validated elsewhere.
+    }
   }
 
   async testServerHealth(): Promise<boolean> {
@@ -211,6 +267,7 @@ class QuickBooksIntegrationTester {
     const results = {
       environment: await this.checkEnvironmentConfig(),
       server: await this.testServerHealth(),
+      auth: await this.ensureAuth(),
       authUrl: await this.testAuthorizationUrl(),
       status: await this.testConnectionStatus(),
       sync: await this.testBasicSync(),
@@ -257,6 +314,7 @@ class QuickBooksIntegrationTester {
     const descriptions: { [key: string]: string } = {
       environment: 'Environment variables configuration',
       server: 'Backend server health and connectivity',
+      auth: 'Authentication token acquisition',
       authUrl: 'OAuth authorization URL generation',
       status: 'Connection status endpoint',
       sync: 'Basic synchronization functionality',

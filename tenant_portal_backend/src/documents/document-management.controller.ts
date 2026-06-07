@@ -30,7 +30,9 @@ interface DocumentQueryDto {
   offset?: number;
 }
 
-@Controller('documents')
+// Deprecated legacy document-management controller. It is intentionally kept
+// off the canonical /documents route to avoid conflicting with DocumentsController.
+@Controller('documents-legacy')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class DocumentManagementController {
   private readonly logger = new Logger(this.constructor.name);

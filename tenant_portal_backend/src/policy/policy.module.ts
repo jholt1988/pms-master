@@ -8,9 +8,10 @@ import { RuleActionDispatcher } from './rule-action-dispatcher.service';
 import { PolicyApprovalService } from './policy-approval.service';
 import { PolicyController } from './policy.controller';
 import { StateTransitionApplierService } from './state-transition-applier.service';
+import { DecisionsModule } from '../decisions/decisions.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, DecisionsModule],
   controllers: [PolicyController],
   providers: [
     PolicyService,

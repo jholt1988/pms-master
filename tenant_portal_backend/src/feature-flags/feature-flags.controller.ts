@@ -10,7 +10,7 @@
  */
 
 import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { FeatureFlagsService } from './feature-flags.service';
 import { FeatureFlag, FeatureFlagCategory } from './feature-flag.types';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt.guard';
@@ -78,6 +78,7 @@ export class FeatureFlagsController {
 
   @Get('categories/:category')
   @ApiOperation({ summary: 'Get feature flags by category' })
+  @ApiParam({ name: 'category', required: true })
   @ApiResponse({ status: 200, description: 'Flags in the specified category' })
   getFlagsByCategory(
     @Param('category') category: FeatureFlagCategory,

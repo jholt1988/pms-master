@@ -15,6 +15,10 @@ export class HealthMetricsService implements OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
   ) {
+    if (process.env.NODE_ENV === 'test' || process.env.DISABLE_REDIS === 'true') {
+      this.redis = null;
+      return;
+    }
     try {
       this.redis = new Redis({
         host: this.config.get('REDIS_HOST', 'redis'),
