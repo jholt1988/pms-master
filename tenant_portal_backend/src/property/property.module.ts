@@ -9,5 +9,6 @@ import { OrgContextGuard } from '../common/org-context/org-context.guard';
 @Module({
   controllers: [PropertyController],
   providers: [PropertyService, UnitLifecycleService, PropertyRollupService, OrgContextGuard],
+  exports: [PropertyService, UnitLifecycleService, PropertyRollupService],
 })
 export class PropertyModule {}

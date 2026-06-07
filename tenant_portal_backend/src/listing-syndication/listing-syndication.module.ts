@@ -9,20 +9,25 @@ import { ApartmentsComSyndicationAdapter } from './providers/apartments-com.adap
 import { ListingSyndicationProcessor } from '../jobs/listing-syndication.processor';
 import { ListingSyndicationScheduler } from '../jobs/listing-syndication.scheduler';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
+const queueEnabled = process.env.NODE_ENV !== 'test' && process.env.DISABLE_REDIS !== 'true';
 
 @Module({
   imports: [
     PrismaModule,
     ReportingModule,
-    BullModule.forRoot({
-      redis: {
-        host: process.env.REDIS_HOST || 'redis',
-        port: Number(process.env.REDIS_PORT || 6379),
-      },
-    }),
-    BullModule.registerQueue({
-      name: 'listingSyndication',
-    }),
+    ...(queueEnabled
+      ? [
+          BullModule.forRoot({
+            redis: {
+              host: process.env.REDIS_HOST || 'redis',
+              port: Number(process.env.REDIS_PORT || 6379),
+            },
+          }),
+          BullModule.registerQueue({
+            name: 'listingSyndication',
+          }),
+        ]
+      : []),
   ],
   controllers: [ListingSyndicationController],
   providers: [

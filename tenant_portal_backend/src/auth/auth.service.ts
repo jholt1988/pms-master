@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, UnauthorizedException, HttpException, HttpStatus } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, UnauthorizedException, HttpException, HttpStatus } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -38,6 +38,20 @@ export class AuthService {
 
   private get lockoutMinutes(): number {
     return Number(this.configService.get<number>('AUTH_LOCKOUT_MINUTES') ?? 15);
+  }
+
+  private get requireOperatorMfa(): boolean {
+    const configured = this.configService.get<string>('AUTH_REQUIRE_OPERATOR_MFA');
+    return String(configured ?? '').toLowerCase() === 'true';
+  }
+
+  private assertOperatorMfaEnrollment(user: { role?: string | null; mfaEnabled?: boolean | null }) {
+    if (!this.requireOperatorMfa) return;
+    const role = String(user.role ?? '').toUpperCase();
+    const operatorRole = role === 'ADMIN' || role === 'PROPERTY_MANAGER';
+    if (operatorRole && !user.mfaEnabled) {
+      throw new ForbiddenException('MFA enrollment required for operator access');
+    }
   }
 
   async login(
@@ -128,6 +142,8 @@ export class AuthService {
       }
     }
 
+    this.assertOperatorMfaEnrollment(user);
+
     await this.safeUpdateUser(user.id, {
       failedLoginAttempts: 0,
       lockoutUntil: null,
@@ -176,6 +192,8 @@ export class AuthService {
     if (!storedToken) {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
+
+    this.assertOperatorMfaEnrollment(storedToken.user);
 
     const jti = randomUUID();
     const payload = { 

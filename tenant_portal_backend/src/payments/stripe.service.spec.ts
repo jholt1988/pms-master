@@ -100,6 +100,38 @@ describe('StripeService webhook idempotency', () => {
     expect(basePrisma.paymentLedgerEntry.create).not.toHaveBeenCalled();
   });
 
+  it('dedupes duplicate connected-account updates before organization side effects', async () => {
+    basePrisma.stripeWebhookEvent.create.mockRejectedValueOnce({ code: 'P2002' });
+    basePrisma.stripeWebhookEvent.findUnique.mockResolvedValueOnce({ organizationId: 'org-connected' });
+
+    process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test';
+
+    const svc = createService();
+    (svc as any).isStripeDisabled = false;
+    (svc as any).stripe = {
+      webhooks: {
+        constructEvent: jest.fn().mockReturnValue({
+          id: 'evt_account_dup',
+          type: 'account.updated',
+          data: {
+            object: {
+              id: 'acct_123',
+              charges_enabled: true,
+              payouts_enabled: true,
+              details_submitted: true,
+            },
+          },
+        }),
+      },
+    };
+
+    const result = await svc.handleWebhook('sig', Buffer.from('{}'));
+
+    expect(result).toEqual({ eventId: 'evt_account_dup', deduped: true, organizationId: 'org-connected' });
+    expect(basePrisma.organization.findFirst).not.toHaveBeenCalled();
+    expect(basePrisma.organization.update).not.toHaveBeenCalled();
+  });
+
   it('ignores duplicate ledger finalization writes for same event id', async () => {
     basePrisma.payment.findFirst.mockResolvedValueOnce({ id: 33, amount: 12.5 });
     basePrisma.payment.update.mockResolvedValueOnce({ id: 33, status: 'COMPLETED' });

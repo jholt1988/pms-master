@@ -46,8 +46,8 @@ describe('EsignatureModule (e2e)', () => {
 
     lease = await prisma.lease.create({
       data: {
-        tenantId: tenant.id,
-        unitId: unit.id,
+        tenant: { connect: { id: tenant.id } },
+        unit: { connect: { id: unit.id } },
         startDate,
         endDate,
         rentAmount: 1500,

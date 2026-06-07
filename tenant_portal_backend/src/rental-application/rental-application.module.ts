@@ -14,6 +14,7 @@ import { RentalApplicationAiService } from './rental-application.ai.service';
 import { RentalApplicationProcessor } from './rental-application.processor';
 import { EventScheduleModule } from '../schedule/schedule.module';
 import { PolicyModule } from '../policy/policy.module';
+const queueEnabled = process.env.NODE_ENV !== 'test' && process.env.DISABLE_REDIS !== 'true';
 
 @Module({
   imports: [
@@ -23,17 +24,21 @@ import { PolicyModule } from '../policy/policy.module';
     HttpModule,
     EventScheduleModule,
     PolicyModule,
-    BullModule.registerQueue({
-      name: 'ai-screening',
-      defaultJobOptions: {
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 1000,
-        },
-        removeOnComplete: true,
-      },
-    }),
+    ...(queueEnabled
+      ? [
+          BullModule.registerQueue({
+            name: 'ai-screening',
+            defaultJobOptions: {
+              attempts: 3,
+              backoff: {
+                type: 'exponential',
+                delay: 1000,
+              },
+              removeOnComplete: true,
+            },
+          }),
+        ]
+      : []),
   ],
   controllers: [RentalApplicationController],
   providers: [

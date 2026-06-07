@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { createHmac, timingSafeEqual } from 'crypto';
+import { Prisma } from '@prisma/client';
 import {
   AbstractQuickBooksService,
   OAuthCallbackResult,
@@ -17,7 +18,6 @@ import OAuthClient = require('intuit-oauth');
 export class QuickBooksMinimalService extends AbstractQuickBooksService {
   private readonly logger = new Logger(QuickBooksMinimalService.name);
   private oauthClient: any;
-  private readonly webhookDedupe = new Map<string, number>();
 
   constructor(private prisma: PrismaService) {
     super();
@@ -34,7 +34,7 @@ export class QuickBooksMinimalService extends AbstractQuickBooksService {
     
     const authUri = this.oauthClient.authorizeUri({
       scope: [OAuthClient.scopes.Accounting, OAuthClient.scopes.Payment],
-      state: JSON.stringify({ userId, orgId }),
+      state: this.createSignedState({ userId, orgId, nonce: `${Date.now()}:${Math.random().toString(36).slice(2)}` }),
     });
 
     this.logger.log('QuickBooks authorization URL generated successfully');
@@ -47,14 +47,12 @@ export class QuickBooksMinimalService extends AbstractQuickBooksService {
     realmId: string
   ): Promise<OAuthCallbackResult> {
     try {
-      let parsedState: any;
-      try {
-        parsedState = JSON.parse(state);
-      } catch (parseError) {
-        this.logger.error('Failed to parse QuickBooks state payload', parseError);
+      const parsedState = this.verifySignedState(state);
+      if (!parsedState) {
+        this.logger.error('Failed to verify QuickBooks state payload');
         return {
           success: false,
-          message: 'Failed to establish QuickBooks connection: Invalid state payload',
+          message: 'Failed to establish QuickBooks connection: Invalid or expired state payload',
         };
       }
 
@@ -277,7 +275,6 @@ export class QuickBooksMinimalService extends AbstractQuickBooksService {
     payload: any,
   ): Promise<{ eventKey: string; deduped: boolean }> {
     this.assertValidWebhookSignature(rawBody, signatureHeader);
-    this.cleanupWebhookDedupe();
 
     const firstNotification = payload?.eventNotifications?.[0];
     const realmId = firstNotification?.realmId || 'unknown-realm';
@@ -285,12 +282,32 @@ export class QuickBooksMinimalService extends AbstractQuickBooksService {
     const operation = firstNotification?.dataChangeEvent?.entities?.[0]?.operation || 'unknown-op';
     const name = firstNotification?.dataChangeEvent?.entities?.[0]?.name || 'unknown-name';
     const eventKey = `${realmId}:${name}:${eventId}:${operation}`;
+    const connection = realmId !== 'unknown-realm'
+      ? await this.prisma.quickBooksConnection.findFirst({
+          where: { companyId: realmId, isActive: true },
+          select: { organizationId: true },
+        })
+      : null;
 
-    if (this.webhookDedupe.has(eventKey)) {
-      return { eventKey, deduped: true };
+    try {
+      await (this.prisma as any).quickBooksWebhookEvent.create({
+        data: {
+          eventKey,
+          realmId,
+          entityName: name,
+          entityId: eventId,
+          operation,
+          organizationId: connection?.organizationId,
+          payload,
+        },
+      });
+    } catch (error) {
+      if (this.isUniqueConstraintError(error)) {
+        return { eventKey, deduped: true };
+      }
+      throw error;
     }
 
-    this.webhookDedupe.set(eventKey, Date.now());
     this.logger.log(`Accepted QuickBooks webhook event ${eventKey}`);
     return { eventKey, deduped: false };
   }
@@ -320,11 +337,54 @@ export class QuickBooksMinimalService extends AbstractQuickBooksService {
     }
   }
 
-  private cleanupWebhookDedupe(): void {
-    const now = Date.now();
-    const ttlMs = 1000 * 60 * 60;
-    for (const [key, ts] of this.webhookDedupe.entries()) {
-      if (now - ts > ttlMs) this.webhookDedupe.delete(key);
+  private createSignedState(payload: { userId: string; orgId: string; nonce: string }): string {
+    const body = Buffer.from(JSON.stringify({ ...payload, issuedAt: Date.now() }), 'utf8').toString('base64url');
+    const signature = this.signStateBody(body);
+    return `${body}.${signature}`;
+  }
+
+  private verifySignedState(state: string): { userId: string; orgId: string } | null {
+    const [body, signature] = state.split('.');
+    if (!body || !signature) return null;
+
+    const expected = this.signStateBody(body);
+    const actualBuffer = Buffer.from(signature);
+    const expectedBuffer = Buffer.from(expected);
+    if (actualBuffer.length !== expectedBuffer.length || !timingSafeEqual(actualBuffer, expectedBuffer)) return null;
+
+    try {
+      const parsed = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+      const issuedAt = Number(parsed.issuedAt);
+      const maxAgeMs = 15 * 60 * 1000;
+      if (!Number.isFinite(issuedAt) || Date.now() - issuedAt > maxAgeMs) return null;
+      if (!parsed.userId || !parsed.orgId) return null;
+      return { userId: parsed.userId, orgId: parsed.orgId };
+    } catch {
+      return null;
     }
+  }
+
+  private signStateBody(body: string): string {
+    const secret = process.env.QUICKBOOKS_OAUTH_STATE_SECRET || process.env.QUICKBOOKS_CLIENT_SECRET;
+    if (!secret) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('QUICKBOOKS_OAUTH_STATE_SECRET or QUICKBOOKS_CLIENT_SECRET must be configured in production.');
+      }
+      return createHmac('sha256', 'development-quickbooks-state-secret').update(body).digest('base64url');
+    }
+    return createHmac('sha256', secret).update(body).digest('base64url');
+  }
+
+  private isUniqueConstraintError(error: unknown): boolean {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      return error.code === 'P2002';
+    }
+
+    return Boolean(
+      error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        (error as { code?: unknown }).code === 'P2002',
+    );
   }
 }

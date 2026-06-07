@@ -1,7 +1,7 @@
 const axios = require('axios');
 const chalk = require('chalk');
 
-const BASE_URL = 'http://localhost:3001';
+const BASE_URL = 'http://127.0.0.1:3001';
 
 console.log(chalk.blue.bold('\n🔍 QuickBooks Integration - Pre-Testing Validation\n'));
 console.log(chalk.gray('='.repeat(60)));
