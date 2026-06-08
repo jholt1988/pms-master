@@ -199,8 +199,10 @@ describe('AuthController', () => {
       const result = controller.getProfile(mockRequest);
 
       expect(result).toEqual({
+        id: 1,
         sub: 1,
         username: 'testuser',
+        role: undefined,
       });
     });
   });

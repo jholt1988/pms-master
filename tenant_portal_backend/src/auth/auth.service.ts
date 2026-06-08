@@ -174,7 +174,15 @@ export class AuthService {
       },
     });
 
-    return {  accessToken: token, refreshToken };
+    return {
+      accessToken: token,
+      refreshToken,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+      },
+    };
   }
 
   async refresh(refreshToken: string): Promise<{ access_token: string; accessToken: string; refreshToken: string }> {
