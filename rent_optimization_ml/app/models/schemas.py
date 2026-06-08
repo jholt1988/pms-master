@@ -84,3 +84,20 @@ class ModelInfo(BaseModel):
     trained_on: Optional[str] = None
     features: List[str] = []
     ready: bool = False
+
+
+class MaintenanceRULRequest(BaseModel):
+    asset_id: str
+    category: str
+    age_years: float
+    minor_repairs_count: int
+    run_hours: float
+    has_warranty: bool
+
+
+class MaintenanceRULResponse(BaseModel):
+    remaining_useful_life_days: float
+    failure_probability_30d: float
+    recommended_action: str
+    confidence_score: float
+
