@@ -57,7 +57,7 @@ export class AuthService {
   async login(
     dto: LoginRequestDto,
     context: { ipAddress?: string; userAgent?: string },
-  ): Promise<{ accessToken: string; refreshToken: string}> {
+  ): Promise<{ accessToken: string; refreshToken: string; user?: { id: string; username: string; role: string } }> {
     const user = await this.usersService.findOne(dto.username);
     if (!user) {
       await this.securityEvents.logEvent({
