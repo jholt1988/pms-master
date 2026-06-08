@@ -9,5 +9,6 @@ import { OrgContextGuard } from '../common/org-context/org-context.guard';
   imports: [PrismaModule, BookkeepingModule],
   controllers: [BriefingController],
   providers: [BriefingService, OrgContextGuard],
+  exports: [BriefingService],
 })
 export class BriefingModule {}

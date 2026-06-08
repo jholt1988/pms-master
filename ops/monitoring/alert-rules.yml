@@ -46,6 +46,16 @@ groups:
           summary: "AI service error rate elevated"
           description: "AI service errors at {{ $value }}/s over 10 minutes."
 
+      - alert: AIGatewayHttpFailures
+        expr: sum(rate(http_errors_total{route=~".*ai-gateway.*",status_code=~"5.."}[5m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+          phase5_gate: "true"
+        annotations:
+          summary: "AI gateway 5xx failures detected"
+          description: "AI gateway is returning 5xx responses. Check provider health, prompt/tool failures, and audit records."
+
       - alert: AIServiceSlow
         expr: histogram_quantile(0.95, rate(ai_service_duration_seconds_bucket[5m])) > 10
         for: 5m
@@ -64,6 +74,46 @@ groups:
           summary: "Background job failure rate elevated"
           description: "Job errors at {{ $value }}/s over 15 minutes."
 
+      - alert: EventBusProcessingFailures
+        expr: sum(rate(event_bus_errors_total[10m])) > 0
+        for: 10m
+        labels:
+          severity: warning
+          phase5_gate: "true"
+        annotations:
+          summary: "Event bus processing failures detected"
+          description: "Event processing errors are increasing. Inspect workflow, audit, and integration event consumers."
+
+      - alert: WebhookEndpointFailures
+        expr: sum(rate(http_errors_total{route=~".*(webhooks|webhook).*",status_code=~"4..|5.."}[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          phase5_gate: "true"
+        annotations:
+          summary: "Webhook endpoint failures elevated"
+          description: "Provider webhook callbacks are failing. Check Stripe, DocuSign, QuickBooks signature validation and idempotency paths."
+
+      - alert: AuthFailureSpike
+        expr: sum(rate(http_errors_total{route=~".*auth.*(login|refresh|mfa).*",status_code=~"401|403|429"}[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          phase5_gate: "true"
+        annotations:
+          summary: "Authentication failure spike"
+          description: "Authentication failures are elevated. Check brute-force attempts, MFA rollout, and token refresh failures."
+
+      - alert: QueueWorkerFailures
+        expr: sum(rate(background_job_errors_total{job_name=~".*(queue|worker|processor|webhook|sync).*"}[10m])) > 0
+        for: 10m
+        labels:
+          severity: warning
+          phase5_gate: "true"
+        annotations:
+          summary: "Queue or worker failures detected"
+          description: "Background queue/worker errors are present. Inspect Bull/BullMQ workers, Redis health, and retry/dead-letter behavior."
+
       - alert: HealthCheckDown
         expr: service_health_status == 0
         for: 1m
@@ -72,6 +122,26 @@ groups:
         annotations:
           summary: "Service health check failing: {{ $labels.service }}"
           description: "{{ $labels.service }} has been unhealthy for over 1 minute."
+
+      - alert: RedisHealthDown
+        expr: service_health_status{service="redis"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          phase5_gate: "true"
+        annotations:
+          summary: "Redis health check failing"
+          description: "Redis is unavailable. Queue workers, idempotency flows, and cache-backed features may be degraded."
+
+      - alert: DatabaseHealthDown
+        expr: service_health_status{service="database"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          phase5_gate: "true"
+        annotations:
+          summary: "Database health check failing"
+          description: "PostgreSQL health is failing. Treat as production incident for private beta."
 
       - alert: HighMemoryUsage
         expr: process_resident_memory_bytes / 1024 / 1024 > 512

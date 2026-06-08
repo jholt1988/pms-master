@@ -1,5 +1,37 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+
+const REQUIRED_ACCOUNT_CODES = {
+  operatingCash: '1000',
+  stripeClearing: '1010',
+  securityDepositsHeld: '1020',
+  ownerPayable: '2100',
+  rentalIncome: '4000',
+  feeIncome: '4010',
+  maintenanceExpense: '5000',
+  processingFees: '5050',
+  suspense: '9000',
+};
+
+const DEFAULT_ACCOUNTS = [
+  { code: '1000', name: 'Operating Cash', type: 'ASSET', isSystem: true },
+  { code: '1010', name: 'Stripe Clearing', type: 'ASSET', isSystem: true },
+  { code: '1020', name: 'Security Deposits Held', type: 'LIABILITY', isSystem: true },
+  { code: '1100', name: 'Accounts Receivable', type: 'ASSET', isSystem: true },
+  { code: '2000', name: 'Tenant Prepayments', type: 'LIABILITY', isSystem: true },
+  { code: '2100', name: 'Owner Payable', type: 'LIABILITY', isSystem: true },
+  { code: '3000', name: 'Owner Equity / Contributions', type: 'EQUITY', isSystem: true },
+  { code: '4000', name: 'Rental Income', type: 'REVENUE', isSystem: true },
+  { code: '4010', name: 'Fee Income', type: 'REVENUE', isSystem: true },
+  { code: '4020', name: 'Other Income', type: 'REVENUE', isSystem: true },
+  { code: '5000', name: 'Repairs And Maintenance', type: 'EXPENSE', isSystem: true },
+  { code: '5010', name: 'Utilities', type: 'EXPENSE', isSystem: true },
+  { code: '5020', name: 'Management Fees', type: 'EXPENSE', isSystem: true },
+  { code: '5030', name: 'Insurance', type: 'EXPENSE', isSystem: true },
+  { code: '5040', name: 'Taxes', type: 'EXPENSE', isSystem: true },
+  { code: '5050', name: 'Bank And Processing Fees', type: 'EXPENSE', isSystem: true },
+  { code: '9000', name: 'Suspense / Uncategorized', type: 'EXPENSE', isSystem: true },
+];
 
 @Injectable()
 export class BookkeepingService {
@@ -9,22 +41,38 @@ export class BookkeepingService {
 
   // ---- Transaction Capture & Categorization ----
 
-  async getPendingTransactions(orgId: string, take = 50) {
-    return this.prisma.bookkeepingTransaction.findMany({
+  async getPendingTransactions(orgId: string, take = 50, skip = 0) {
+    const safeTake = Math.min(Math.max(take || 50, 1), 100);
+    const safeSkip = Math.max(skip || 0, 0);
+    const where = { organizationId: orgId, status: 'PENDING_REVIEW' as const };
+    const [data, total] = await Promise.all([
+      this.prisma.bookkeepingTransaction.findMany({
       where: { organizationId: orgId, status: 'PENDING_REVIEW' },
       include: { allocations: true, bankTransaction: true },
       orderBy: { date: 'desc' },
-      take,
-    });
+      skip: safeSkip,
+      take: safeTake,
+      }),
+      this.prisma.bookkeepingTransaction.count({ where }),
+    ]);
+    return { data, total, skip: safeSkip, take: safeTake };
   }
 
-  async getExceptionTransactions(orgId: string, take = 50) {
-    return this.prisma.bookkeepingTransaction.findMany({
+  async getExceptionTransactions(orgId: string, take = 50, skip = 0) {
+    const safeTake = Math.min(Math.max(take || 50, 1), 100);
+    const safeSkip = Math.max(skip || 0, 0);
+    const where = { organizationId: orgId, status: 'EXCEPTION' as const };
+    const [data, total] = await Promise.all([
+      this.prisma.bookkeepingTransaction.findMany({
       where: { organizationId: orgId, status: 'EXCEPTION' },
       include: { allocations: true, bankTransaction: true },
       orderBy: { date: 'desc' },
-      take,
-    });
+      skip: safeSkip,
+      take: safeTake,
+      }),
+      this.prisma.bookkeepingTransaction.count({ where }),
+    ]);
+    return { data, total, skip: safeSkip, take: safeTake };
   }
 
   async categorizeTransaction(id: string, category: string, userId: string) {
@@ -110,6 +158,22 @@ export class BookkeepingService {
   }
 
   async confirmReconciliationMatch(itemId: string, userId: string) {
+    const item = await this.prisma.reconciliationSessionItem.findUnique({
+      where: { id: itemId },
+    });
+    if (!item) {
+      throw new BadRequestException('Reconciliation item not found');
+    }
+    if (item.status === 'EXCEPTION') {
+      throw new BadRequestException('Exception reconciliation items must be resolved before confirmation');
+    }
+    if (!item.suggestedMatchId && !item.ledgerEntryId) {
+      throw new BadRequestException('Cannot confirm reconciliation item without a ledger match');
+    }
+    if (item.ledgerAmountCents !== null && item.ledgerAmountCents !== item.bankAmountCents) {
+      throw new BadRequestException('Cannot confirm reconciliation item with amount mismatch');
+    }
+
     return this.prisma.reconciliationSessionItem.update({
       where: { id: itemId },
       data: { status: 'CONFIRMED', resolvedAt: new Date(), resolvedById: userId },
@@ -178,6 +242,11 @@ export class BookkeepingService {
   }
 
   async lockMonth(propertyId: string, month: string, userId: string) {
+    const blockers = await this.getMonthlyCloseBlockers(propertyId, month);
+    if (blockers.length > 0) {
+      throw new BadRequestException(`Cannot lock month with unresolved blockers: ${blockers.join(', ')}`);
+    }
+
     return this.prisma.policyMonthlyClose.upsert({
       where: { propertyId_month: { propertyId, month } },
       create: { propertyId, month, isLocked: true, closedAt: new Date(), closedByUserId: userId },
@@ -186,6 +255,10 @@ export class BookkeepingService {
   }
 
   async reopenMonth(propertyId: string, month: string, reason: string) {
+    if (!reason?.trim()) {
+      throw new BadRequestException('A reopen reason is required');
+    }
+
     return this.prisma.policyMonthlyClose.update({
       where: { propertyId_month: { propertyId, month } },
       data: { isLocked: false, closedAt: null, reopenReason: reason },
@@ -208,6 +281,17 @@ export class BookkeepingService {
   }
 
   async approveOwnerStatement(id: string, userId: string) {
+    const statement = await this.prisma.ownerStatement.findUnique({ where: { id } });
+    if (!statement) {
+      throw new BadRequestException('Owner statement not found');
+    }
+    const close = await this.prisma.policyMonthlyClose.findFirst({
+      where: { month: statement.month, isLocked: true, property: { organizationId: statement.organizationId } },
+    });
+    if (!close) {
+      throw new BadRequestException('Owner statement cannot be approved before monthly close is locked');
+    }
+
     return this.prisma.ownerStatement.update({
       where: { id },
       data: { status: 'APPROVED', approvedById: userId, approvedAt: new Date() },
@@ -215,6 +299,14 @@ export class BookkeepingService {
   }
 
   async markOwnerStatementSent(id: string) {
+    const statement = await this.prisma.ownerStatement.findUnique({ where: { id } });
+    if (!statement) {
+      throw new BadRequestException('Owner statement not found');
+    }
+    if (statement.status !== 'APPROVED') {
+      throw new BadRequestException('Owner statement must be approved before it can be sent');
+    }
+
     return this.prisma.ownerStatement.update({
       where: { id },
       data: { status: 'SENT', sentAt: new Date() },
@@ -236,6 +328,258 @@ export class BookkeepingService {
     });
   }
 
+  async seedDefaultChartOfAccounts(orgId: string) {
+    const results = await Promise.all(
+      DEFAULT_ACCOUNTS.map((account) =>
+        this.prisma.chartOfAccount.upsert({
+          where: { organizationId_code: { organizationId: orgId, code: account.code } },
+          create: { organizationId: orgId, ...account } as any,
+          update: { name: account.name, type: account.type as any, isSystem: true, isActive: true },
+        }),
+      ),
+    );
+
+    return { seeded: results.length, accounts: results };
+  }
+
+  async validateRequiredAccountingMappings(orgId: string) {
+    const requiredCodes = Object.values(REQUIRED_ACCOUNT_CODES);
+    const accounts = await this.prisma.chartOfAccount.findMany({
+      where: { organizationId: orgId, code: { in: requiredCodes }, isActive: true },
+    });
+    const present = new Set(accounts.map((account) => account.code));
+    const missing = Object.entries(REQUIRED_ACCOUNT_CODES)
+      .filter(([, code]) => !present.has(code))
+      .map(([mapping, code]) => ({ mapping, code }));
+
+    return {
+      ready: missing.length === 0,
+      missing,
+      required: REQUIRED_ACCOUNT_CODES,
+    };
+  }
+
+  private async requireAccountingMappings(orgId: string) {
+    const status = await this.validateRequiredAccountingMappings(orgId);
+    if (!status.ready) {
+      throw new BadRequestException(`Accounting mappings are incomplete: ${status.missing.map((item) => item.code).join(', ')}`);
+    }
+    return status;
+  }
+
+  private async accountByCode(orgId: string, code: string) {
+    const account = await this.prisma.chartOfAccount.findUnique({
+      where: { organizationId_code: { organizationId: orgId, code } },
+    });
+    if (!account) {
+      throw new BadRequestException(`Required account ${code} is missing`);
+    }
+    return account;
+  }
+
+  private validateBalancedLines(lines: Array<{ debitCents?: number; creditCents?: number }>) {
+    if (!Array.isArray(lines) || lines.length < 2) {
+      throw new BadRequestException('A journal entry requires at least two line items');
+    }
+    const totals = lines.reduce(
+      (sum, line) => ({
+        debitCents: sum.debitCents + (line.debitCents ?? 0),
+        creditCents: sum.creditCents + (line.creditCents ?? 0),
+      }),
+      { debitCents: 0, creditCents: 0 },
+    );
+    if (totals.debitCents <= 0 || totals.creditCents <= 0 || totals.debitCents !== totals.creditCents) {
+      throw new BadRequestException('Journal entry debits and credits must be positive and balanced');
+    }
+    return totals;
+  }
+
+  private async nextJournalEntryNumber(orgId: string) {
+    const latest = await this.prisma.journalEntry.findFirst({
+      where: { organizationId: orgId },
+      orderBy: { entryNumber: 'desc' },
+      select: { entryNumber: true },
+    });
+    return (latest?.entryNumber ?? 0) + 1;
+  }
+
+  async createJournalDraft(orgId: string, payload: {
+    date?: string;
+    memo?: string;
+    type?: string;
+    sourceType?: string;
+    sourceId?: string;
+    isAdjusting?: boolean;
+    lines: Array<{
+      accountId: string;
+      debitCents?: number;
+      creditCents?: number;
+      propertyId?: string;
+      unitId?: string;
+      leaseId?: string;
+      vendorId?: string;
+      description?: string;
+    }>;
+  }, actorId: string) {
+    this.validateBalancedLines(payload.lines);
+    const accountIds = [...new Set(payload.lines.map((line) => line.accountId))];
+    const accountCount = await this.prisma.chartOfAccount.count({
+      where: { organizationId: orgId, id: { in: accountIds }, isActive: true },
+    });
+    if (accountCount !== accountIds.length) {
+      throw new BadRequestException('All journal line accounts must exist and belong to the organization');
+    }
+
+    return this.prisma.journalEntry.create({
+      data: {
+        organizationId: orgId,
+        entryNumber: await this.nextJournalEntryNumber(orgId),
+        date: payload.date ? new Date(payload.date) : new Date(),
+        type: payload.type ?? 'standard',
+        memo: payload.memo,
+        sourceType: payload.sourceType,
+        sourceId: payload.sourceId,
+        isAdjusting: payload.isAdjusting ?? false,
+        status: 'DRAFT',
+        createdById: actorId,
+        lineItems: {
+          create: payload.lines.map((line) => ({
+            accountId: line.accountId,
+            debitCents: line.debitCents ?? 0,
+            creditCents: line.creditCents ?? 0,
+            propertyId: line.propertyId,
+            unitId: line.unitId,
+            leaseId: line.leaseId,
+            vendorId: line.vendorId,
+            description: line.description,
+          })),
+        },
+      },
+      include: { lineItems: true },
+    });
+  }
+
+  async postJournalEntry(id: string, actorId: string) {
+    const entry = await this.prisma.journalEntry.findUnique({
+      where: { id },
+      include: { lineItems: true },
+    });
+    if (!entry) {
+      throw new BadRequestException('Journal entry not found');
+    }
+    if (entry.status === 'POSTED') {
+      return entry;
+    }
+    if (entry.status !== 'DRAFT') {
+      throw new BadRequestException('Only draft journal entries can be posted');
+    }
+    this.validateBalancedLines(entry.lineItems);
+
+    return this.prisma.journalEntry.update({
+      where: { id },
+      data: { status: 'POSTED', postedAt: new Date(), postedById: actorId },
+      include: { lineItems: true },
+    });
+  }
+
+  async reverseJournalEntry(id: string, reason: string, actorId: string, date = new Date()) {
+    if (!reason?.trim()) {
+      throw new BadRequestException('A reversal reason is required');
+    }
+    const original = await this.prisma.journalEntry.findUnique({
+      where: { id },
+      include: { lineItems: true },
+    });
+    if (!original) {
+      throw new BadRequestException('Journal entry not found');
+    }
+    if (original.status !== 'POSTED') {
+      throw new BadRequestException('Only posted journal entries can be reversed');
+    }
+    const existing = await this.prisma.journalEntry.findFirst({
+      where: { reversesId: id, status: { in: ['DRAFT', 'POSTED'] } },
+      include: { lineItems: true },
+    });
+    if (existing) {
+      return existing;
+    }
+
+    const reversal = await this.createJournalDraft(original.organizationId, {
+      date: date.toISOString(),
+      type: 'reversal',
+      memo: `Reversal: ${reason}`,
+      sourceType: 'journal_reversal',
+      sourceId: original.id,
+      lines: original.lineItems.map((line) => ({
+        accountId: line.accountId,
+        debitCents: line.creditCents,
+        creditCents: line.debitCents,
+        propertyId: line.propertyId ?? undefined,
+        unitId: line.unitId ?? undefined,
+        leaseId: line.leaseId ?? undefined,
+        vendorId: line.vendorId ?? undefined,
+        description: `Reversal of ${line.description ?? original.memo ?? original.entryNumber}`,
+      })),
+    }, actorId);
+
+    await this.prisma.journalEntry.update({
+      where: { id: reversal.id },
+      data: { reversesId: original.id, isReversing: true },
+    });
+
+    return this.postJournalEntry(reversal.id, actorId);
+  }
+
+  async createAccountingDraftFromOperationalLedgerEvent(orgId: string, ledgerTransactionId: string, actorId: string) {
+    await this.requireAccountingMappings(orgId);
+    const ledgerTx = await this.prisma.ledgerTransaction.findUnique({
+      where: { id: ledgerTransactionId },
+      include: { account: true },
+    });
+    if (!ledgerTx || ledgerTx.account.organizationId !== orgId) {
+      throw new BadRequestException('Operational ledger transaction not found for organization');
+    }
+    const existing = await this.prisma.journalEntry.findFirst({
+      where: { organizationId: orgId, sourceType: 'operational_ledger', sourceId: ledgerTransactionId },
+      include: { lineItems: true },
+    });
+    if (existing) {
+      return existing;
+    }
+
+    const amount = Math.abs(ledgerTx.amountCents);
+    const cash = await this.accountByCode(orgId, REQUIRED_ACCOUNT_CODES.stripeClearing);
+    const rentIncome = await this.accountByCode(orgId, REQUIRED_ACCOUNT_CODES.rentalIncome);
+    const depositLiability = await this.accountByCode(orgId, REQUIRED_ACCOUNT_CODES.securityDepositsHeld);
+    const suspense = await this.accountByCode(orgId, REQUIRED_ACCOUNT_CODES.suspense);
+
+    let balancingAccount = rentIncome;
+    if (ledgerTx.categoryCode?.includes('deposit') || ledgerTx.sourceType?.includes('deposit')) {
+      balancingAccount = depositLiability;
+    } else if (!['PAYMENT', 'CHARGE', 'CREDIT', 'REVERSAL', 'RETURN_FEE', 'WRITEOFF'].includes(ledgerTx.entryType as any)) {
+      balancingAccount = suspense;
+    }
+
+    const paymentIncreasesCash = ledgerTx.entryType === 'PAYMENT' || ledgerTx.direction === 'CREDIT';
+    const lines = paymentIncreasesCash
+      ? [
+          { accountId: cash.id, debitCents: amount, leaseId: ledgerTx.account.leaseId, description: ledgerTx.description ?? 'Operational ledger cash impact' },
+          { accountId: balancingAccount.id, creditCents: amount, leaseId: ledgerTx.account.leaseId, propertyId: ledgerTx.account.propertyId ?? undefined, unitId: ledgerTx.account.unitId ?? undefined, description: ledgerTx.description ?? 'Operational ledger revenue/liability impact' },
+        ]
+      : [
+          { accountId: balancingAccount.id, debitCents: amount, leaseId: ledgerTx.account.leaseId, propertyId: ledgerTx.account.propertyId ?? undefined, unitId: ledgerTx.account.unitId ?? undefined, description: ledgerTx.description ?? 'Operational ledger reversal/credit impact' },
+          { accountId: cash.id, creditCents: amount, leaseId: ledgerTx.account.leaseId, description: ledgerTx.description ?? 'Operational ledger cash reduction' },
+        ];
+
+    return this.createJournalDraft(orgId, {
+      date: ledgerTx.effectiveDate.toISOString(),
+      memo: `Accounting draft from operational ledger ${ledgerTx.id}`,
+      sourceType: 'operational_ledger',
+      sourceId: ledgerTx.id,
+      lines,
+    }, actorId);
+  }
+
   // ---- Workspace Aggregation ----
 
   async getFinancialsWorkspace(orgId: string) {
@@ -253,8 +597,8 @@ export class BookkeepingService {
       this.getOwnerStatements(orgId),
     ]);
 
-    const pending = pendingTransactions.status === 'fulfilled' ? pendingTransactions.value : [];
-    const exc = exceptions.status === 'fulfilled' ? exceptions.value : [];
+    const pending = pendingTransactions.status === 'fulfilled' ? pendingTransactions.value.data : [];
+    const exc = exceptions.status === 'fulfilled' ? exceptions.value.data : [];
     const recon = reconciliation.status === 'fulfilled' ? reconciliation.value : { unmatchedCount: 0, matchedCount: 0, exceptionCount: 0, items: [] };
     const close = monthlyClose.status === 'fulfilled' ? monthlyClose.value : [];
     const statements = ownerStatements.status === 'fulfilled' ? ownerStatements.value : [];
@@ -501,6 +845,211 @@ export class BookkeepingService {
     }
 
     return events;
+  }
+
+  async getMonthlyCloseBlockers(propertyId: string, month: string) {
+    const start = new Date(`${month}-01T00:00:00.000Z`);
+    const end = new Date(start);
+    end.setUTCMonth(end.getUTCMonth() + 1);
+
+    const property = await this.prisma.property.findUnique({
+      where: { id: propertyId },
+      select: { organizationId: true },
+    });
+    if (!property) {
+      throw new BadRequestException('Property not found');
+    }
+
+    const [unreconciled, exceptions, draftJournals, suspenseAccount, draftStatements] = await Promise.all([
+      this.prisma.bookkeepingTransaction.count({
+        where: {
+          organizationId: property.organizationId,
+          date: { gte: start, lt: end },
+          status: { in: ['PENDING_REVIEW', 'CATEGORIZED', 'ALLOCATED'] },
+          allocations: { some: { propertyId } },
+        },
+      }),
+      this.prisma.bookkeepingTransaction.count({
+        where: {
+          organizationId: property.organizationId,
+          date: { gte: start, lt: end },
+          status: 'EXCEPTION',
+          allocations: { some: { propertyId } },
+        },
+      }),
+      this.prisma.journalEntry.count({
+        where: {
+          organizationId: property.organizationId,
+          date: { gte: start, lt: end },
+          status: 'DRAFT',
+          lineItems: { some: { propertyId } },
+        },
+      }),
+      this.prisma.chartOfAccount.findUnique({
+        where: { organizationId_code: { organizationId: property.organizationId, code: REQUIRED_ACCOUNT_CODES.suspense } },
+      }),
+      this.prisma.ownerStatement.count({
+        where: { organizationId: property.organizationId, month, status: 'DRAFT' },
+      }),
+    ]);
+
+    const suspenseLines = suspenseAccount
+      ? await this.prisma.journalLineItem.count({
+          where: {
+            accountId: suspenseAccount.id,
+            propertyId,
+            journalEntry: { date: { gte: start, lt: end }, status: { in: ['DRAFT', 'POSTED'] } },
+          },
+        })
+      : 0;
+
+    const blockers: string[] = [];
+    if (unreconciled > 0) blockers.push(`${unreconciled} unreconciled transactions`);
+    if (exceptions > 0) blockers.push(`${exceptions} exception transactions`);
+    if (draftJournals > 0) blockers.push(`${draftJournals} draft journal entries`);
+    if (suspenseLines > 0) blockers.push(`${suspenseLines} suspense allocations`);
+    if (draftStatements > 0) blockers.push(`${draftStatements} draft owner statements`);
+    return blockers;
+  }
+
+  async generateOwnerStatementsFromPostedEntries(orgId: string, month: string) {
+    const start = new Date(`${month}-01T00:00:00.000Z`);
+    const end = new Date(start);
+    end.setUTCMonth(end.getUTCMonth() + 1);
+
+    const owners = await this.prisma.user.findMany({
+      where: {
+        role: 'OWNER',
+        organizations: { some: { organizationId: orgId } },
+      },
+      select: { id: true },
+    });
+    const ownerIds = owners.map((owner) => owner.id);
+    if (ownerIds.length === 0) {
+      return { generated: 0, statements: [] };
+    }
+
+    const postedEntries = await this.prisma.journalEntry.findMany({
+      where: {
+        organizationId: orgId,
+        status: 'POSTED',
+        date: { gte: start, lt: end },
+      },
+      include: {
+        lineItems: { include: { account: true } },
+      },
+    });
+
+    const statements = [];
+    for (const ownerId of ownerIds) {
+      const ownerLines = postedEntries.flatMap((entry) => entry.lineItems);
+      const grossIncomeCents = ownerLines
+        .filter((line: any) => ['REVENUE', 'CONTRA_REVENUE'].includes(line.account.type))
+        .reduce((sum: number, line: any) => sum + line.creditCents - line.debitCents, 0);
+      const totalExpensesCents = ownerLines
+        .filter((line: any) => line.account.type === 'EXPENSE')
+        .reduce((sum: number, line: any) => sum + line.debitCents - line.creditCents, 0);
+      const managementFeeCents = ownerLines
+        .filter((line: any) => line.account.code === '5020')
+        .reduce((sum: number, line: any) => sum + line.debitCents - line.creditCents, 0);
+      const netDistributionCents = grossIncomeCents - totalExpensesCents - managementFeeCents;
+
+      const statement = await this.prisma.ownerStatement.upsert({
+        where: { organizationId_ownerId_month: { organizationId: orgId, ownerId, month } },
+        create: {
+          organizationId: orgId,
+          ownerId,
+          month,
+          grossIncomeCents,
+          totalExpensesCents,
+          managementFeeCents,
+          netDistributionCents,
+          status: 'DRAFT',
+          propertyBreakdown: { sourceJournalEntryIds: postedEntries.map((entry) => entry.id) },
+        },
+        update: {
+          grossIncomeCents,
+          totalExpensesCents,
+          managementFeeCents,
+          netDistributionCents,
+          propertyBreakdown: { sourceJournalEntryIds: postedEntries.map((entry) => entry.id) },
+        },
+      });
+      statements.push(statement);
+    }
+
+    return { generated: statements.length, statements };
+  }
+
+  async getPaymentExpansionGateStatus(orgId: string) {
+    const mapping = await this.validateRequiredAccountingMappings(orgId);
+    const [draftJournals, unreconciled, exceptions, draftStatements] = await Promise.all([
+      this.prisma.journalEntry.count({ where: { organizationId: orgId, status: 'DRAFT' } }),
+      this.prisma.bookkeepingTransaction.count({ where: { organizationId: orgId, status: { in: ['PENDING_REVIEW', 'CATEGORIZED', 'ALLOCATED'] } } }),
+      this.prisma.bookkeepingTransaction.count({ where: { organizationId: orgId, status: 'EXCEPTION' } }),
+      this.prisma.ownerStatement.count({ where: { organizationId: orgId, status: 'DRAFT' } }),
+    ]);
+
+    const gates = [
+      { id: 'G1', label: 'Required chart of accounts seeded', passed: mapping.ready, detail: mapping.missing },
+      { id: 'G2', label: 'Operational ledger idempotency guards implemented', passed: true },
+      { id: 'G3', label: 'Refund, reversal, chargeback, write-off policies defined', passed: false, detail: 'Policy implementation pending' },
+      { id: 'G4', label: 'Operational events can create accounting journal drafts', passed: mapping.ready },
+      { id: 'G5', label: 'Stripe webhook replay coverage for expanded events', passed: false, detail: 'Add refund, payout, dispute replay tests' },
+      { id: 'G6', label: 'Reconciliation exception queue available', passed: true },
+      { id: 'G7', label: 'Monthly close blocks unresolved accounting work', passed: true },
+      { id: 'G8', label: 'Owner statements derive from app-owned entries', passed: true },
+      { id: 'G9', label: 'Financial mutations produce audit/approval records', passed: false, detail: 'Approval task integration pending' },
+      { id: 'G10', label: 'Contract tests cover accounting/payment routes', passed: true },
+    ];
+
+    return {
+      readyForExpandedPaymentWrites: gates.every((gate) => gate.passed) && draftJournals === 0 && unreconciled === 0 && exceptions === 0 && draftStatements === 0,
+      gates,
+      blockers: { draftJournals, unreconciled, exceptions, draftStatements },
+    };
+  }
+
+  async assertPaymentExpansionAllowed(orgId: string, flow: string) {
+    const status = await this.getPaymentExpansionGateStatus(orgId);
+    if (!status.readyForExpandedPaymentWrites) {
+      throw new ForbiddenException(`${flow} is blocked until accounting MVP gates are complete`);
+    }
+    return status;
+  }
+
+  async getQuickBooksExportBatchSpec(orgId: string) {
+    const mapping = await this.validateRequiredAccountingMappings(orgId);
+    const exportableCount = await this.prisma.journalEntry.count({
+      where: { organizationId: orgId, status: 'POSTED' },
+    });
+    const blockedCount = await this.prisma.journalEntry.count({
+      where: { organizationId: orgId, status: 'DRAFT' },
+    });
+
+    return {
+      sourceOfTruth: 'PropertyOS',
+      target: 'QuickBooks Online',
+      exportableSource: 'POSTED JournalEntry records only',
+      idempotencyKey: 'organizationId + journalEntryId + targetRealmId',
+      mappingReady: mapping.ready,
+      missingMappings: mapping.missing,
+      exportableCount,
+      blockedCount,
+      payloadShape: {
+        batchId: 'uuid',
+        organizationId: orgId,
+        entries: [
+          {
+            sourceType: 'journal_entry',
+            sourceId: 'journalEntry.id',
+            externalId: 'QuickBooks JournalEntry Id after success',
+            lines: 'JournalLineItem[] mapped to QuickBooks accounts/classes/customers',
+          },
+        ],
+      },
+      retryPolicy: 'Retry failed records by sourceId; never resend successful externalId records.',
+    };
   }
 
   // ---- Manual Transaction Import ----

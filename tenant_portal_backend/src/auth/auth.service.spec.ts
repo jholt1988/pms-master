@@ -8,7 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { TokenBlacklistService } from './revocation/token-blacklist.service';
-import { UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { UnauthorizedException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { authenticator } from 'otplib';
 import { SecurityEventType, Role } from '@prisma/client';
@@ -187,6 +187,62 @@ describe('AuthService', () => {
           success: true,
           userId: mockUser.id,
         })
+      );
+    });
+
+    it('should reject property manager login when operator MFA enforcement is enabled and MFA is not enrolled', async () => {
+      const mockUser = {
+        id: '1',
+        username: 'manager@example.com',
+        password: 'hashedPassword',
+        role: Role.PROPERTY_MANAGER,
+        failedLoginAttempts: 0,
+        lockoutUntil: null,
+        mfaEnabled: false,
+      };
+
+      mockConfigService.get.mockImplementation((key: string, defaultValue?: any) => {
+        if (key === 'AUTH_REQUIRE_OPERATOR_MFA') return 'true';
+        if (key === 'AUTH_MAX_FAILED_ATTEMPTS') return 5;
+        if (key === 'AUTH_LOCKOUT_MINUTES') return 15;
+        return defaultValue;
+      });
+      mockUsersService.findOne.mockResolvedValue(mockUser);
+      bcryptMock.compare.mockResolvedValue(true as never);
+      mockSecurityEvents.logEvent.mockResolvedValue(undefined);
+
+      await expect(service.login(loginDto, context)).rejects.toThrow(ForbiddenException);
+      expect(mockJwtService.sign).not.toHaveBeenCalled();
+      expect(mockPrismaService.refreshToken.create).not.toHaveBeenCalled();
+    });
+
+    it('should allow property manager login when operator MFA enforcement is enabled and MFA is verified', async () => {
+      const mockUser = {
+        id: '1',
+        username: 'manager@example.com',
+        password: 'hashedPassword',
+        role: Role.PROPERTY_MANAGER,
+        failedLoginAttempts: 0,
+        lockoutUntil: null,
+        mfaEnabled: true,
+        mfaSecret: 'secret',
+      };
+
+      mockConfigService.get.mockImplementation((key: string, defaultValue?: any) => {
+        if (key === 'AUTH_REQUIRE_OPERATOR_MFA') return 'true';
+        if (key === 'AUTH_MAX_FAILED_ATTEMPTS') return 5;
+        if (key === 'AUTH_LOCKOUT_MINUTES') return 15;
+        return defaultValue;
+      });
+      mockUsersService.findOne.mockResolvedValue(mockUser);
+      bcryptMock.compare.mockResolvedValue(true as never);
+      (authenticator.verify as jest.Mock).mockReturnValue(true);
+      mockJwtService.sign.mockReturnValue('jwt-token');
+      mockSecurityEvents.logEvent.mockResolvedValue(undefined);
+      mockUsersService.update.mockResolvedValue(mockUser);
+
+      await expect(service.login({ ...loginDto, mfaCode: '123456' }, context)).resolves.toEqual(
+        expect.objectContaining({ accessToken: 'jwt-token', refreshToken: expect.any(String) }),
       );
     });
 
@@ -376,6 +432,56 @@ describe('AuthService', () => {
           type: SecurityEventType.MFA_CHALLENGE_FAILED,
           metadata: { reason: 'CODE_INVALID' },
         })
+      );
+    });
+  });
+
+  describe('refresh', () => {
+    it('should reject operator refresh when MFA enforcement is enabled and MFA is not enrolled', async () => {
+      mockConfigService.get.mockImplementation((key: string, defaultValue?: any) => {
+        if (key === 'AUTH_REQUIRE_OPERATOR_MFA') return 'true';
+        if (key === 'AUTH_MAX_FAILED_ATTEMPTS') return 5;
+        if (key === 'AUTH_LOCKOUT_MINUTES') return 15;
+        return defaultValue;
+      });
+      mockPrismaService.refreshToken.findFirst.mockResolvedValue({
+        id: 'refresh-1',
+        user: {
+          id: 'user-1',
+          username: 'manager@example.com',
+          role: Role.PROPERTY_MANAGER,
+          mfaEnabled: false,
+        },
+      });
+
+      await expect(service.refresh('refresh-token')).rejects.toThrow(ForbiddenException);
+      expect(mockJwtService.sign).not.toHaveBeenCalled();
+      expect(mockPrismaService.refreshToken.update).not.toHaveBeenCalled();
+    });
+
+    it('should allow tenant refresh when operator MFA enforcement is enabled', async () => {
+      mockConfigService.get.mockImplementation((key: string, defaultValue?: any) => {
+        if (key === 'AUTH_REQUIRE_OPERATOR_MFA') return 'true';
+        if (key === 'AUTH_MAX_FAILED_ATTEMPTS') return 5;
+        if (key === 'AUTH_LOCKOUT_MINUTES') return 15;
+        return defaultValue;
+      });
+      mockPrismaService.refreshToken.findFirst.mockResolvedValue({
+        id: 'refresh-1',
+        userId: 'user-1',
+        user: {
+          id: 'user-1',
+          username: 'tenant@example.com',
+          role: Role.TENANT,
+          mfaEnabled: false,
+        },
+      });
+      mockJwtService.sign.mockReturnValue('jwt-token');
+      mockPrismaService.refreshToken.update.mockResolvedValue({});
+      mockPrismaService.refreshToken.create.mockResolvedValue({});
+
+      await expect(service.refresh('refresh-token')).resolves.toEqual(
+        expect.objectContaining({ accessToken: 'jwt-token', refreshToken: expect.any(String) }),
       );
     });
   });

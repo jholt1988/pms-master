@@ -1,0 +1,5 @@
+{
+  "$schema": "../../schemas/dependency-audit-exceptions.schema.json",
+  "updatedOn": "2026-06-07",
+  "exceptions": []
+}

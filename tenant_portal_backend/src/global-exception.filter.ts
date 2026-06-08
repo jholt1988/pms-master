@@ -10,6 +10,7 @@ import { Request, Response } from 'express';
 import { Sentry } from './sentry.config';
 import { ApiException } from './common/errors/api-exception';
 import { ErrorCode } from './common/errors/error-codes.enum';
+import { apiFail } from './common/api-envelope';
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
@@ -70,7 +71,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const isDevelopment = process.env.NODE_ENV === 'development';
     const isProduction = process.env.NODE_ENV === 'production';
 
-    const errorResponse: any = {
+    const legacyErrorResponse: any = {
       statusCode: status,
       timestamp: new Date().toISOString(),
       path: request.url,
@@ -80,34 +81,54 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     // Add error code if available
     if (errorCode) {
-      errorResponse.errorCode = errorCode;
+      legacyErrorResponse.errorCode = errorCode;
     }
 
     // Add retryable flag if available
     if (retryable !== undefined) {
-      errorResponse.retryable = retryable;
+      legacyErrorResponse.retryable = retryable;
     }
 
     // Add details if available
     if (details) {
-      errorResponse.details = details;
+      legacyErrorResponse.details = details;
     }
 
     // Development-only fields
     if (isDevelopment) {
-      errorResponse.stack = exception instanceof Error ? exception.stack : undefined;
+      legacyErrorResponse.stack = exception instanceof Error ? exception.stack : undefined;
       if (!(exception instanceof ApiException || exception instanceof HttpException)) {
-        errorResponse.exception = exception;
+        legacyErrorResponse.exception = exception;
       }
     }
 
     // Production: hide internal error details for 5xx errors
     if (isProduction && status >= 500) {
-      errorResponse.message = 'Internal server error';
-      delete errorResponse.details;
-      delete errorResponse.stack;
+      legacyErrorResponse.message = 'Internal server error';
+      delete legacyErrorResponse.details;
+      delete legacyErrorResponse.stack;
     }
 
-    response.status(status).json(errorResponse);
+    const requestId = request.headers['x-request-id'];
+    response.status(status).json({
+      ...apiFail(
+        [
+          {
+            code: errorCode ?? `HTTP_${status}`,
+            message: legacyErrorResponse.message,
+            details: legacyErrorResponse.details,
+            retryable,
+          },
+        ],
+        {
+          requestId: Array.isArray(requestId) ? requestId[0] : requestId,
+          statusCode: status,
+          timestamp: legacyErrorResponse.timestamp,
+          path: request.url,
+          method: request.method,
+        },
+      ),
+      ...legacyErrorResponse,
+    });
   }
 }

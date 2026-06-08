@@ -205,6 +205,19 @@ export class InspectionsController {
     return this.inspectionsService.addPhoto(id, url, caption, req.user.sub, orgId);
   }
 
+  @Post('sync')
+  @Roles('PROPERTY_MANAGER', 'ADMIN', 'OWNER', 'TENANT')
+  async sync(
+    @Body('actions') actions: any[],
+    @Req() req: AuthenticatedRequest,
+    @OrgId() orgId?: string,
+  ) {
+    if (!Array.isArray(actions)) {
+      throw new BadRequestException('Actions queue must be an array');
+    }
+    return this.inspectionsService.syncOfflineActions(actions, req.user.sub, orgId);
+  }
+
   @Delete(':id')
   @Roles('PROPERTY_MANAGER', 'ADMIN', 'OWNER')
   async delete(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest, @OrgId() orgId?: string) {

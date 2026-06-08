@@ -3,6 +3,7 @@ packages:
   - contracts
   - docs
   - migrations
+  - operator_app
   - packages/*
   - pms-mobile-portals
   - rent_optimization_ml

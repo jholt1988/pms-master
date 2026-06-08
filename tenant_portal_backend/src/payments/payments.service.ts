@@ -16,6 +16,7 @@ import { RecordCourtDateDto } from './dto/record-court-date.dto';
 import { WorkflowEventService } from '../policy/workflow-event.service';
 import { WorkflowEventProcessor } from '../policy/workflow-event-processor.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { BookkeepingService } from '../bookkeeping/bookkeeping.service';
 
 
 type CreateManualPaymentInput = {
@@ -69,6 +70,7 @@ export class PaymentsService {
     private readonly eventEmitter: EventEmitter2,
     @Optional() private readonly workflowEventService?: WorkflowEventService,
     @Optional() private readonly workflowEventProcessor?: WorkflowEventProcessor,
+    @Optional() private readonly bookkeepingService?: BookkeepingService,
   ) { }
 
   async createInvoice(dto: CreateInvoiceDto, orgId: string): Promise<Invoice> {
@@ -96,7 +98,7 @@ export class PaymentsService {
     });
 
     const ledgerAccount = await this.ensureLedgerAccountForLease(leaseId, orgId);
-    await this.createLedgerTransactionIfMissing(this.prisma, {
+    const ledgerTransaction = await this.createLedgerTransactionIfMissing(this.prisma, {
       accountId: ledgerAccount.id,
       entryType: 'CHARGE',
       direction: 'DEBIT',
@@ -107,6 +109,7 @@ export class PaymentsService {
       sourceId: String(invoice.id),
       description: dto.description || `Invoice #${invoice.id}`,
     });
+    await this.createAccountingDraftForLedgerTransaction(orgId, (ledgerTransaction as any).id, undefined);
 
     return invoice;
   }
@@ -799,10 +802,30 @@ export class PaymentsService {
     },
   ) {
     const account = await this.ensureLedgerAccountForLease(leaseId, orgId);
-    return this.createLedgerTransactionIfMissing(this.prisma, {
+    const ledgerTransaction = await this.createLedgerTransactionIfMissing(this.prisma, {
       accountId: account.id,
       ...data,
     });
+    await this.createAccountingDraftForLedgerTransaction(orgId, (ledgerTransaction as any).id, data.createdById);
+    return ledgerTransaction;
+  }
+
+  private async createAccountingDraftForLedgerTransaction(orgId: string, ledgerTransactionId?: string, actorId?: string) {
+    if (!this.bookkeepingService || !ledgerTransactionId) {
+      return;
+    }
+
+    try {
+      await this.bookkeepingService.createAccountingDraftFromOperationalLedgerEvent(
+        orgId,
+        ledgerTransactionId,
+        actorId ?? '00000000-0000-0000-0000-000000000000',
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Operational ledger entry ${ledgerTransactionId} did not create an accounting draft: ${error instanceof Error ? error.message : 'unknown error'}`,
+      );
+    }
   }
 
   async computeYieldSweepAllocation(orgId: string, amountCents: number) {

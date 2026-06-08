@@ -116,6 +116,97 @@ describe('AuditLogService', () => {
     expect(decrypted.action).toBe('export_requested');
   });
 
+  it('redacts PII and secrets before logging or persisting audit metadata', async () => {
+    await service.record({
+      orgId,
+      actorId,
+      module: 'auth',
+      action: 'login_failed',
+      entityType: 'User',
+      entityId: 'user-123',
+      result: 'FAILURE',
+      metadata: {
+        email: 'tenant@example.com',
+        phoneNumber: '+1 316 555 1212',
+        password: 'plain-text-password',
+        authorization: 'Bearer secret-token',
+        nested: {
+          ssn: '123-45-6789',
+          note: 'operator-visible reason',
+        },
+        contacts: [
+          { type: 'email', value: 'resident@example.com' },
+          { type: 'reference', value: 'safe value' },
+        ],
+      },
+    });
+
+    const logPayload = JSON.parse(((service as any).logger.log as jest.Mock).mock.calls[0][0]);
+    expect(logPayload.metadata).toMatchObject({
+      email: '[REDACTED]',
+      phoneNumber: '[REDACTED]',
+      password: '[REDACTED]',
+      authorization: '[REDACTED]',
+      nested: {
+        ssn: '[REDACTED]',
+        note: 'operator-visible reason',
+      },
+      contacts: [
+        { type: 'email', value: '[REDACTED]' },
+        { type: 'reference', value: 'safe value' },
+      ],
+    });
+
+    const persisted = prisma.auditLog.create.mock.calls[0][0].data;
+    const decrypted = decryptPersistedPayload(persisted, keyringService, orgId);
+    expect(decrypted.metadata).toEqual(logPayload.metadata);
+    expect(JSON.stringify(decrypted.metadata)).not.toContain('tenant@example.com');
+    expect(JSON.stringify(decrypted.metadata)).not.toContain('plain-text-password');
+    expect(JSON.stringify(decrypted.metadata)).not.toContain('123-45-6789');
+  });
+
+  it('redacts nested EventEnvelope payload metadata', async () => {
+    await service.recordEnvelope({
+      id: 'event-123',
+      type: 'application.submitted',
+      version: 1,
+      source: 'rental-application',
+      occurredAt: '2026-06-07T12:00:00.000Z',
+      organizationId: orgId,
+      actorId,
+      correlationId: 'corr-123',
+      idempotencyKey: 'idem-123',
+      subject: { type: 'Application', id: 'app-123' },
+      payload: {
+        applicantEmail: 'applicant@example.com',
+        applicantPhone: '316-555-0000',
+        screening: {
+          socialSecurityNumber: '123456789',
+          score: 720,
+        },
+      },
+    });
+
+    const persisted = prisma.auditLog.create.mock.calls[0][0].data;
+    const decrypted = decryptPersistedPayload(persisted, keyringService, orgId);
+
+    expect(decrypted.metadata).toMatchObject({
+      eventEnvelopeId: 'event-123',
+      eventType: 'application.submitted',
+      eventVersion: 1,
+      correlationId: 'corr-123',
+      idempotencyKey: '[REDACTED]',
+      payload: {
+        applicantEmail: '[REDACTED]',
+        applicantPhone: '[REDACTED]',
+        screening: {
+          socialSecurityNumber: '[REDACTED]',
+          score: 720,
+        },
+      },
+    });
+  });
+
   it('does not throw when AuditLog persistence fails', async () => {
     prisma.auditLog.create.mockRejectedValue(new Error('database unavailable'));
 

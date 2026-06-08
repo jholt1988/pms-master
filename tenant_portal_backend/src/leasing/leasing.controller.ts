@@ -18,6 +18,7 @@ import {
   Request,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { ApiParam } from '@nestjs/swagger';
 import { Request as ExpressRequest } from 'express';
 import { LeasingService } from './leasing.service';
 import { LeadStatus } from '@prisma/client';
@@ -217,6 +218,7 @@ export class LeasingController {
    */
   @Post('leads/:id/properties/search')
   @HttpCode(200)
+  @ApiParam({ name: 'id', required: true })
   async searchProperties(
     @Body() body: {
       bedrooms?: number;

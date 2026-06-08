@@ -126,7 +126,7 @@ $qbWebhook = Invoke-WebhookWithFallback -Name "QuickBooks" -Path "/webhooks/quic
     }
   )
 }
-Assert-Status -Name "QuickBooks webhook invalid signature" -Resp $qbWebhook -ExpectedStatuses @(400, 401, 500)
+Assert-Status -Name "QuickBooks webhook invalid signature" -Resp $qbWebhook -ExpectedStatuses @(400, 401)
 
 Write-Step "DocuSign webhook negative test (invalid signature)"
 $dsWebhook = Invoke-WebhookWithFallback -Name "DocuSign" -Path "/webhooks/esignature" -Headers @{

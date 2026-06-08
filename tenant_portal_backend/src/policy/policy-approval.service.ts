@@ -5,6 +5,7 @@ import { AuditLogService } from '../shared/audit-log.service';
 import { RuleActionDispatcher } from './rule-action-dispatcher.service';
 import { RuleAction } from './rules-engine.types';
 import { StateTransitionApplierService } from './state-transition-applier.service';
+import { DecisionRecordService } from '../decisions/decision-record.service';
 
 type PolicyApprovalTaskPayload = {
   ruleName: string;
@@ -29,6 +30,7 @@ export class PolicyApprovalService {
     private readonly auditLogService: AuditLogService,
     private readonly actionDispatcher: RuleActionDispatcher,
     private readonly stateTransitionApplier: StateTransitionApplierService,
+    private readonly decisionRecordService: DecisionRecordService,
   ) {}
 
   async listPendingTasks(orgId: string) {
@@ -111,6 +113,28 @@ export class PolicyApprovalService {
       },
     });
 
+    await this.decisionRecordService.create({
+      organizationId: orgId,
+      workflowId: payload.workflowEventId || payload.evaluationId,
+      workflowInstanceId: payload.evaluationId,
+      actorId: actor.userId,
+      entityType: 'ApprovalTask',
+      entityId: taskId,
+      recommendation: task.title,
+      rationale: [
+        task.summary ?? 'Approval task decision recorded.',
+        ...(input.reason ? [`Operator reason: ${input.reason}`] : []),
+      ],
+      evidenceRefs: [
+        { type: 'ApprovalTask', id: taskId, label: task.title },
+        ...(task.propertyId ? [{ type: 'Property', id: task.propertyId, label: 'Property context' }] : []),
+        ...(task.leaseId ? [{ type: 'Lease', id: task.leaseId, label: 'Lease context' }] : []),
+        ...(task.workOrderId ? [{ type: 'MaintenanceRequest', id: task.workOrderId, label: 'Work order context' }] : []),
+      ],
+      approvalTaskId: taskId,
+      result: input.decision,
+    });
+
     if (input.decision === 'REJECT') {
       return decidedTask;
     }
@@ -164,7 +188,7 @@ export class PolicyApprovalService {
         });
       }
 
-      return this.prisma.approvalTask.update({
+      const executedTask = await this.prisma.approvalTask.update({
         where: { id: taskId },
         data: {
           status: ApprovalTaskStatus.EXECUTED,
@@ -172,6 +196,25 @@ export class PolicyApprovalService {
           results: results as unknown as Prisma.InputJsonValue,
         },
       });
+
+      await this.decisionRecordService.create({
+        organizationId: orgId,
+        workflowId: payload.workflowEventId || payload.evaluationId,
+        workflowInstanceId: payload.evaluationId,
+        actorId: actor.userId,
+        entityType: 'ApprovalTask',
+        entityId: taskId,
+        recommendation: task.title,
+        rationale: ['Approved action execution completed.'],
+        evidenceRefs: [
+          { type: 'ApprovalTask', id: taskId, label: task.title },
+          ...(task.propertyId ? [{ type: 'Property', id: task.propertyId, label: 'Property context' }] : []),
+        ],
+        approvalTaskId: taskId,
+        result: 'EXECUTED',
+      });
+
+      return executedTask;
     } catch (error) {
       await this.auditLogService.record({
         orgId,
@@ -188,7 +231,7 @@ export class PolicyApprovalService {
         },
       });
 
-      return this.prisma.approvalTask.update({
+      const failedTask = await this.prisma.approvalTask.update({
         where: { id: taskId },
         data: {
           status: ApprovalTaskStatus.FAILED,
@@ -197,6 +240,22 @@ export class PolicyApprovalService {
           results: results as unknown as Prisma.InputJsonValue,
         },
       });
+
+      await this.decisionRecordService.create({
+        organizationId: orgId,
+        workflowId: payload.workflowEventId || payload.evaluationId,
+        workflowInstanceId: payload.evaluationId,
+        actorId: actor.userId,
+        entityType: 'ApprovalTask',
+        entityId: taskId,
+        recommendation: task.title,
+        rationale: [`Approved action execution failed: ${String(error)}`],
+        evidenceRefs: [{ type: 'ApprovalTask', id: taskId, label: task.title }],
+        approvalTaskId: taskId,
+        result: 'EXECUTION_FAILED',
+      });
+
+      return failedTask;
     }
   }
 }

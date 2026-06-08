@@ -406,11 +406,35 @@ export class RentOptimizationService {
    */
   async predictDynamicPricing(unit: any, orgId?: string): Promise<any> {
     try {
-      // Mocking market conditions
+      // Calculate occupancy rate for property
+      const totalUnits = await this.prisma.unit.count({
+        where: { propertyId: unit.propertyId },
+      });
+      const occupiedUnits = await this.prisma.unit.count({
+        where: {
+          propertyId: unit.propertyId,
+          status: { not: 'VACANT' },
+        },
+      });
+      const occupancyRate = totalUnits > 0 ? occupiedUnits / totalUnits : 0.90;
+
+      // Calculate open maintenance tickets for the unit
+      const openTicketsCount = await this.prisma.maintenanceRequest.count({
+        where: {
+          unitId: unit.id,
+          status: { in: ['PENDING', 'IN_PROGRESS'] },
+        },
+      });
+
+      // Simple seasonal factor calculation
+      const currentMonth = new Date().getMonth();
+      const peakSeason = currentMonth >= 4 && currentMonth <= 7; // May-August
+      const demandIndex = peakSeason ? 1.08 : 0.98;
+
       const request = {
-        occupancy_rate: 0.92,
-        market_demand_index: 1.05,
-        maintenance_tickets_open: 2
+        occupancy_rate: occupancyRate,
+        market_demand_index: demandIndex,
+        maintenance_tickets_open: openTicketsCount,
       };
 
       const response = await axios.post(
@@ -438,11 +462,31 @@ export class RentOptimizationService {
       const leaseEndDate = unit.lease?.endDate ? new Date(unit.lease.endDate).getTime() : Date.now();
       const daysToLeaseEnd = Math.max(0, Math.floor((leaseEndDate - Date.now()) / (1000 * 60 * 60 * 24)));
 
+      // Calculate occupancy rate for property
+      const totalUnits = await this.prisma.unit.count({
+        where: { propertyId: unit.propertyId },
+      });
+      const occupiedUnits = await this.prisma.unit.count({
+        where: {
+          propertyId: unit.propertyId,
+          status: { not: 'VACANT' },
+        },
+      });
+      const occupancyRate = totalUnits > 0 ? occupiedUnits / totalUnits : 0.90;
+
+      // Calculate open maintenance tickets for the unit
+      const openTicketsCount = await this.prisma.maintenanceRequest.count({
+        where: {
+          unitId: unit.id,
+          status: { in: ['PENDING', 'IN_PROGRESS'] },
+        },
+      });
+
       const request = {
         tenant_id: "tenant_" + unit.id,
         property_id: unit.propertyId,
-        occupancy_rate: 0.92,
-        maintenance_tickets_open: 5, // Mock high value to trigger churn logic
+        occupancy_rate: occupancyRate,
+        maintenance_tickets_open: openTicketsCount,
         days_to_lease_end: daysToLeaseEnd
       };
 
