@@ -31,6 +31,7 @@ async function bootstrap() {
       'http://localhost:3000',
       'http://admin.localhost:3000',
       'http://localhost:3003',
+      'http://localhost:3004'
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
@@ -72,6 +73,9 @@ async function bootstrap() {
       'webhooks/esignature',
       'webhooks/stripe',
       'webhooks/quickbooks',
+      // Prometheus scrape endpoint (commonly expected at /metrics)
+      'metrics',
+      'metrics/(.*)',
     ],
   });
 
@@ -144,7 +148,7 @@ async function bootstrap() {
   logger.log(`CORS: Configured for origins: ${process.env.ALLOWED_ORIGINS || 'http://localhost:3000'}`);
   logger.log('Monitoring: Sentry error tracking initialized');
   logger.log('Performance: Performance monitoring middleware active');
-  const schedulerDisabled = process.env.DISABLE_WORKFLOW_SCHEDULER === 'true';
+  const schedulerDisabled = process.env.DISABLE_WORKFLOW_SCHEDULER === 'false';
   logger.log(
     schedulerDisabled
       ? 'Jobs: Workflow scheduler disabled (DISABLE_WORKFLOW_SCHEDULER=true)'
