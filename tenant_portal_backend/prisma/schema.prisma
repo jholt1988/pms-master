@@ -125,6 +125,7 @@ model User {
   organizations              UserOrganization[]
   feeScheduleVersionsCreated FeeScheduleVersion[] @relation("FeeScheduleVersionCreatedBy")
   actionIntents              ActionIntent[]
+  decisionRecords            DecisionRecord[]
 
   journalEntriesPosted            JournalEntry[]              @relation("JournalEntryPostedBy")
   journalEntriesCreated           JournalEntry[]              @relation("JournalEntryCreatedBy")
@@ -160,6 +161,7 @@ model Organization {
   properties              Property[]
   technicians             Technician[]
   quickBooksConnections   QuickBooksConnection[]
+  quickBooksWebhookEvents QuickBooksWebhookEvent[]
   syndicationCredentials  SyndicationCredential[]
   planCycles              OrgPlanCycle[]
   feeScheduleVersions     FeeScheduleVersion[]
@@ -175,6 +177,8 @@ model Organization {
   reconciliationSessions  ReconciliationSession[]
   ownerStatements         OwnerStatement[]
   bookkeepingTransactions BookkeepingTransaction[]
+  idempotencyRecords      IdempotencyRecord[]
+  decisionRecords         DecisionRecord[]
   vendors                 Vendor[]
 }
 
@@ -2299,6 +2303,23 @@ model QuickBooksConnection {
   @@map("quickbooks_connections")
 }
 
+model QuickBooksWebhookEvent {
+  id             String        @id @default(uuid()) @db.Uuid
+  eventKey       String        @unique
+  realmId        String
+  entityName     String
+  entityId       String
+  operation      String
+  organizationId String?       @db.Uuid
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  payload        Json?
+  processedAt    DateTime      @default(now())
+
+  @@index([organizationId, processedAt])
+  @@index([realmId, entityName])
+  @@map("quickbooks_webhook_events")
+}
+
 // Workflow Execution Models
 model WorkflowExecution {
   id          String    @id @default(uuid())
@@ -3093,6 +3114,7 @@ model ApprovalTask {
   lease    Lease?              @relation(fields: [leaseId], references: [id], onDelete: SetNull)
   request  MaintenanceRequest? @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
   agentRun AgentRun?           @relation(fields: [agentRunId], references: [id], onDelete: SetNull)
+  decisionRecords DecisionRecord[]
 
   @@index([status, createdAt])
   @@index([tenantId, createdAt])
@@ -3119,6 +3141,52 @@ model ActionIntent {
   user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, status])
+}
+
+model IdempotencyRecord {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String?   @db.Uuid
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  scope          String
+  key            String
+  status         String    @default("RESERVED")
+  requestHash    String?
+  result         Json?
+  error          String?
+  firstSeenAt    DateTime  @default(now())
+  completedAt    DateTime?
+  expiresAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([scope, key])
+  @@index([organizationId, scope, status])
+  @@index([expiresAt])
+}
+
+model DecisionRecord {
+  id                 String   @id @default(uuid()) @db.Uuid
+  organizationId     String   @db.Uuid
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workflowId         String
+  workflowInstanceId String?
+  actorId            String?  @db.Uuid
+  actor              User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  entityType         String
+  entityId           String
+  recommendation     String
+  rationale          Json
+  confidence         Float?
+  evidenceRefs       Json
+  approvalTaskId     String?  @db.Uuid
+  approvalTask       ApprovalTask? @relation(fields: [approvalTaskId], references: [id], onDelete: SetNull)
+  result             String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([organizationId, workflowId, createdAt])
+  @@index([entityType, entityId])
+  @@index([approvalTaskId])
 }
 
 // This is your Materialized View for the keyring-os Co-Pilot
@@ -3577,4 +3645,3 @@ model Notice {
   @@index([paymentId])
   @@map("notices")
 }
-

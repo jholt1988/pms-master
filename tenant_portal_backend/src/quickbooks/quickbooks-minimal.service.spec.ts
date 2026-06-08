@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { QuickBooksMinimalService } from './quickbooks-minimal.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AbstractQuickBooksService } from './quickbooks.types';
+import { createHmac } from 'crypto';
 
 describe('QuickBooksMinimalService', () => {
   let service: AbstractQuickBooksService;
@@ -18,6 +19,9 @@ describe('QuickBooksMinimalService', () => {
       updateMany: jest.fn(),
       upsert: jest.fn(),
       delete: jest.fn(),
+    },
+    quickBooksWebhookEvent: {
+      create: jest.fn(),
     },
     property: {
       findMany: jest.fn(),
@@ -60,6 +64,9 @@ describe('QuickBooksMinimalService', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    delete process.env.QUICKBOOKS_WEBHOOK_VERIFIER;
+    delete process.env.QUICKBOOKS_WEBHOOK_REQUIRE_SIGNATURE;
+    delete process.env.QUICKBOOKS_OAUTH_STATE_SECRET;
   });
 
   it('should be defined', () => {
@@ -76,6 +83,8 @@ describe('QuickBooksMinimalService', () => {
       expect(authUrl).toContain('client_id=test_client_id');
       expect(authUrl).toContain('redirect_uri=');
       expect(authUrl).toContain('state=');
+      const state = new URL(authUrl).searchParams.get('state');
+      expect(state).toMatch(/^[^.]+\.[^.]+$/);
     });
 
     it('should include accounting scope in authorization URL', async () => {
@@ -152,6 +161,70 @@ describe('QuickBooksMinimalService', () => {
     });
   });
 
+  describe('handleWebhook', () => {
+    const payload = {
+      eventNotifications: [
+        {
+          realmId: 'realm-1',
+          dataChangeEvent: {
+            entities: [
+              {
+                id: 'invoice-1',
+                name: 'Invoice',
+                operation: 'Update',
+              },
+            ],
+          },
+        },
+      ],
+    };
+
+    it('accepts a valid QuickBooks webhook signature and records the event key', async () => {
+      process.env.QUICKBOOKS_WEBHOOK_VERIFIER = 'verifier-token';
+      const rawBody = Buffer.from(JSON.stringify(payload));
+      const signature = createHmac('sha256', 'verifier-token').update(rawBody).digest('base64');
+      mockPrismaService.quickBooksConnection.findFirst.mockResolvedValue({ organizationId: 'org-1' });
+      mockPrismaService.quickBooksWebhookEvent.create.mockResolvedValue({ id: 'qbo-event-1' });
+
+      const result = await (service as any).handleWebhook(rawBody, signature, payload);
+
+      expect(result).toEqual({ eventKey: 'realm-1:Invoice:invoice-1:Update', deduped: false });
+      expect(mockPrismaService.quickBooksWebhookEvent.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          eventKey: 'realm-1:Invoice:invoice-1:Update',
+          realmId: 'realm-1',
+          entityName: 'Invoice',
+          entityId: 'invoice-1',
+          operation: 'Update',
+          organizationId: 'org-1',
+        }),
+      });
+    });
+
+    it('rejects invalid QuickBooks webhook signatures when verifier is configured', async () => {
+      process.env.QUICKBOOKS_WEBHOOK_VERIFIER = 'verifier-token';
+      const rawBody = Buffer.from(JSON.stringify(payload));
+
+      await expect((service as any).handleWebhook(rawBody, 'invalid', payload)).rejects.toThrow(
+        'Invalid QuickBooks webhook signature',
+      );
+      expect(mockPrismaService.quickBooksWebhookEvent.create).not.toHaveBeenCalled();
+    });
+
+    it('dedupes repeated QuickBooks webhook events on unique constraint', async () => {
+      process.env.QUICKBOOKS_WEBHOOK_VERIFIER = 'verifier-token';
+      const rawBody = Buffer.from(JSON.stringify(payload));
+      const signature = createHmac('sha256', 'verifier-token').update(rawBody).digest('base64');
+      mockPrismaService.quickBooksConnection.findFirst.mockResolvedValue({ organizationId: 'org-1' });
+      mockPrismaService.quickBooksWebhookEvent.create.mockRejectedValue({ code: 'P2002' });
+
+      const result = await (service as any).handleWebhook(rawBody, signature, payload);
+
+      expect(result).toEqual({ eventKey: 'realm-1:Invoice:invoice-1:Update', deduped: true });
+      expect(mockPrismaService.quickBooksWebhookEvent.create).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('handleOAuthCallback', () => {
     beforeEach(() => {
       // Mock OAuth client methods
@@ -182,7 +255,7 @@ describe('QuickBooksMinimalService', () => {
 
     it('should return error when OAuth token exchange fails', async () => {
       const code = 'test_auth_code';
-      const state = JSON.stringify({ userId: 'user-1' });
+      const state = (service as any).createSignedState({ userId: 'user-1', orgId: 'org-1', nonce: 'test-nonce' });
       const realmId = 'test_company_123';
 
       // Mock OAuth client to throw error
@@ -196,6 +269,67 @@ describe('QuickBooksMinimalService', () => {
 
       expect(result.success).toBe(false);
       expect(result.message).toContain('Failed to establish QuickBooks connection');
+    });
+
+    it('should store tokens only when signed OAuth state verifies', async () => {
+      const code = 'test_auth_code';
+      const state = (service as any).createSignedState({ userId: 'user-1', orgId: 'org-1', nonce: 'test-nonce' });
+      const realmId = 'test_company_123';
+      mockPrismaService.quickBooksConnection.upsert.mockResolvedValue({});
+
+      const result = await service.handleOAuthCallback(code, state, realmId);
+
+      expect(result.success).toBe(true);
+      expect(mockPrismaService.quickBooksConnection.upsert).toHaveBeenCalledWith(expect.objectContaining({
+        where: { organizationId_companyId: { organizationId: 'org-1', companyId: realmId } },
+      }));
+    });
+  });
+
+  describe('handleWebhook', () => {
+    function signedPayload(payload: any, secret: string) {
+      const raw = Buffer.from(JSON.stringify(payload));
+      const signature = require('crypto').createHmac('sha256', secret).update(raw).digest('base64');
+      return { raw, signature };
+    }
+
+    const webhookPayload = {
+      eventNotifications: [
+        {
+          realmId: 'realm-1',
+          dataChangeEvent: {
+            entities: [{ name: 'Payment', id: 'pay-1', operation: 'Update' }],
+          },
+        },
+      ],
+    };
+
+    it('persists webhook event key for replay protection', async () => {
+      process.env.QUICKBOOKS_WEBHOOK_VERIFIER = 'webhook-secret';
+      mockPrismaService.quickBooksConnection.findFirst.mockResolvedValue({ organizationId: 'org-1' });
+      mockPrismaService.quickBooksWebhookEvent.create.mockResolvedValue({});
+      const { raw, signature } = signedPayload(webhookPayload, 'webhook-secret');
+
+      const result = await (service as any).handleWebhook(raw, signature, webhookPayload);
+
+      expect(result).toEqual({ eventKey: 'realm-1:Payment:pay-1:Update', deduped: false });
+      expect(mockPrismaService.quickBooksWebhookEvent.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          eventKey: 'realm-1:Payment:pay-1:Update',
+          organizationId: 'org-1',
+        }),
+      });
+    });
+
+    it('dedupes webhook replay when event key already exists', async () => {
+      process.env.QUICKBOOKS_WEBHOOK_VERIFIER = 'webhook-secret';
+      mockPrismaService.quickBooksConnection.findFirst.mockResolvedValue({ organizationId: 'org-1' });
+      mockPrismaService.quickBooksWebhookEvent.create.mockRejectedValue({ code: 'P2002' });
+      const { raw, signature } = signedPayload(webhookPayload, 'webhook-secret');
+
+      const result = await (service as any).handleWebhook(raw, signature, webhookPayload);
+
+      expect(result).toEqual({ eventKey: 'realm-1:Payment:pay-1:Update', deduped: true });
     });
   });
 

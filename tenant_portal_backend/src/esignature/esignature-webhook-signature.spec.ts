@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { createHmac } from 'crypto';
+import { EsignEnvelopeStatus, EsignProvider } from '@prisma/client';
 import { EsignatureService } from './esignature.service';
 
 describe('EsignatureService webhook signature validation', () => {
@@ -36,5 +37,44 @@ describe('EsignatureService webhook signature validation', () => {
     );
 
     process.env.NODE_ENV = originalNodeEnv;
+  });
+
+  it('dedupes repeated provider webhook events from envelope metadata', async () => {
+    const prisma = {
+      esignEnvelope: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 5,
+          leaseId: '12',
+          createdById: '7',
+          provider: EsignProvider.DOCUSIGN,
+          providerEnvelopeId: 'env-123',
+          status: EsignEnvelopeStatus.COMPLETED,
+          providerMetadata: {
+            processedWebhookKeys: ['env-123:envelope-completed:COMPLETED'],
+          },
+          participants: [{ id: 1, name: 'Tenant', email: 'tenant@test.com', userId: '42' }],
+        }),
+        update: jest.fn(),
+      },
+      esignParticipant: { updateMany: jest.fn() },
+    };
+    const notifications = { sendSignatureAlert: jest.fn() };
+    const service = new EsignatureService(
+      prisma as any,
+      { get: jest.fn(() => undefined) } as unknown as ConfigService,
+      {} as any,
+      notifications as any,
+      {} as any,
+    );
+
+    const result = await service.handleProviderWebhook({
+      event: 'envelope-completed',
+      envelopeId: 'env-123',
+      status: 'COMPLETED',
+    });
+
+    expect(result).toEqual({ success: true, envelopeId: 5, status: EsignEnvelopeStatus.COMPLETED, deduped: true });
+    expect(prisma.esignEnvelope.update).not.toHaveBeenCalled();
+    expect(notifications.sendSignatureAlert).not.toHaveBeenCalled();
   });
 });

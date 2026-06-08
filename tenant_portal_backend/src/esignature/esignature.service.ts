@@ -993,12 +993,21 @@ export class EsignatureService {
     try {
       const mappedStatus = this.mapEnvelopeStatus(status);
       const existingMetadata = (envelope.providerMetadata as Record<string, unknown>) || {};
+      const webhookKey = `${envelopeId}:${event ?? 'status'}:${status ?? 'unknown'}`;
+      const processedWebhookKeys = Array.isArray(existingMetadata.processedWebhookKeys)
+        ? (existingMetadata.processedWebhookKeys as string[])
+        : [];
+      if (processedWebhookKeys.includes(webhookKey)) {
+        this.logger.log(`Ignoring duplicate DocuSign webhook ${webhookKey}`);
+        return { success: true, envelopeId: envelope.id, status: envelope.status, deduped: true };
+      }
       const data: Prisma.EsignEnvelopeUpdateInput = {
         providerStatus: status,
         providerMetadata: this.applyStatusTimeline(
           {
             ...existingMetadata,
             lastWebhookPayload: JSON.parse(JSON.stringify(payload)) as Record<string, unknown>,
+            processedWebhookKeys: [...processedWebhookKeys, webhookKey].slice(-100),
           },
           status,
           'webhook',

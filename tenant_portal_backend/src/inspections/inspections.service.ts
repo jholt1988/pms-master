@@ -491,4 +491,51 @@ export class InspectionsService {
 
     return estimate;
   }
+
+  async syncOfflineActions(actions: any[], userId: string, orgId?: string) {
+    const results = [];
+
+    // Sort actions by timestamp to process chronologically
+    const sortedActions = [...actions].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    for (const actionItem of sortedActions) {
+      const { id, action, payload } = actionItem;
+      try {
+        const inspection = await this.prisma.unitInspection.findFirst({
+          where: { id, ...(orgId ? { property: { organizationId: orgId } } : {}) },
+        });
+
+        if (!inspection) {
+          results.push({ id, action, success: false, error: 'Inspection not found' });
+          continue;
+        }
+
+        // Conflict resolution: Ignore stale updates if inspection is already completed or approved
+        if (inspection.status === 'APPROVED' || (inspection.status === 'COMPLETED' && action !== 'add_photo')) {
+          results.push({ id, action, success: true, status: 'SKIPPED_ALREADY_COMPLETED' });
+          continue;
+        }
+
+        if (action === 'start') {
+          await this.update(id, { status: 'IN_PROGRESS' as any }, userId, orgId);
+          results.push({ id, action, success: true, status: 'IN_PROGRESS' });
+        } else if (action === 'update') {
+          await this.update(id, { notes: payload.notes }, userId, orgId);
+          results.push({ id, action, success: true, status: 'UPDATED' });
+        } else if (action === 'complete') {
+          await this.complete(id, { findings: payload.findings, notes: payload.notes }, userId, orgId);
+          results.push({ id, action, success: true, status: 'COMPLETED' });
+        } else if (action === 'add_photo') {
+          await this.addPhoto(id, payload.url, payload.caption, userId, orgId);
+          results.push({ id, action, success: true, status: 'PHOTO_ADDED' });
+        } else {
+          results.push({ id, action, success: false, error: 'Unsupported action' });
+        }
+      } catch (err: any) {
+        results.push({ id, action, success: false, error: err.message || 'Error executing action' });
+      }
+    }
+
+    return results;
+  }
 }

@@ -119,6 +119,7 @@ describe('EsignatureService', () => {
         provider: EsignProvider.DOCUSIGN,
         providerEnvelopeId: 'env-123',
         status: EsignEnvelopeStatus.SENT,
+        providerMetadata: {},
         participants: [
           { id: 1, name: 'Tenant', email: 'tenant@test.com', phone: '555-0000', userId: '42' },
         ],
@@ -157,6 +158,35 @@ describe('EsignatureService', () => {
       expect(notifications.sendSignatureAlert).toHaveBeenCalledWith(
         expect.objectContaining({ event: 'COMPLETED' }),
       );
+    });
+
+    it('dedupes repeated provider webhook events from envelope metadata', async () => {
+      const envelopeRecord = {
+        id: 5,
+        leaseId: '12',
+        createdById: '7',
+        provider: EsignProvider.DOCUSIGN,
+        providerEnvelopeId: 'env-123',
+        status: EsignEnvelopeStatus.COMPLETED,
+        providerMetadata: {
+          processedWebhookKeys: ['env-123:envelope-completed:COMPLETED'],
+        },
+        participants: [
+          { id: 1, name: 'Tenant', email: 'tenant@test.com', phone: '555-0000', userId: '42' },
+        ],
+      };
+
+      (prisma.esignEnvelope.findFirst as jest.Mock).mockResolvedValue(envelopeRecord as any);
+
+      const result = await service.handleProviderWebhook({
+        event: 'envelope-completed',
+        envelopeId: 'env-123',
+        status: 'COMPLETED',
+      });
+
+      expect(result).toEqual({ success: true, envelopeId: 5, status: EsignEnvelopeStatus.COMPLETED, deduped: true });
+      expect(prisma.esignEnvelope.update).not.toHaveBeenCalled();
+      expect(notifications.sendSignatureAlert).not.toHaveBeenCalled();
     });
 
     it('handles webhook with missing envelopeId gracefully', async () => {

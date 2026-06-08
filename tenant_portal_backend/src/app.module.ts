@@ -5,7 +5,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { WinstonModule } from 'nest-winston';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { TenantThrottlerGuard } from './middleware/tenant-throttler.guard';
 import { winstonConfig } from './config/winston.config';
 import { AppController } from './app.controller';
@@ -72,6 +72,20 @@ import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 import { CircuitBreakerModule } from './common/circuit-breaker/circuit-breaker.module';
 import { TelemetryModule } from './telemetry/telemetry.module';
 import { SentryModule } from '@sentry/nestjs/setup'
+import { FoundationModule } from './foundation/foundation.module';
+import { SuccessEnvelopeInterceptor } from './common/envelope/success-envelope.interceptor';
+import { DecisionsModule } from './decisions/decisions.module';
+import { CommandCenterModule } from './command-center/command-center.module';
+import { OperatorWorkflowsModule } from './operator-workflows/operator-workflows.module';
+import { OperatorPaymentsModule } from './operator-payments/operator-payments.module';
+import { OperatorSetupModule } from './operator-setup/operator-setup.module';
+import { OperatorApplicationsModule } from './operator-applications/operator-applications.module';
+import { OperatorLeaseSigningModule } from './operator-lease-signing/operator-lease-signing.module';
+import { OperatorMaintenanceDispatchModule } from './operator-maintenance-dispatch/operator-maintenance-dispatch.module';
+import { OperatorInspectionEstimatesModule } from './operator-inspection-estimates/operator-inspection-estimates.module';
+import { OperatorRenewalsModule } from './operator-renewals/operator-renewals.module';
+import { OperatorOwnerStatementsModule } from './operator-owner-statements/operator-owner-statements.module';
+import { AiGatewayModule } from './ai-gateway/ai-gateway.module';
 
 const rateLimitEnabled =
   process.env.NODE_ENV !== 'test' && process.env.RATE_LIMIT_ENABLED !== 'false';
@@ -184,12 +198,29 @@ const rateLimitProviders = rateLimitEnabled
     FeatureFlagsModule,
     CircuitBreakerModule,
     TelemetryModule,
+    FoundationModule,
+    DecisionsModule,
+    CommandCenterModule,
+    OperatorWorkflowsModule,
+    OperatorPaymentsModule,
+    OperatorSetupModule,
+    OperatorApplicationsModule,
+    OperatorLeaseSigningModule,
+    OperatorMaintenanceDispatchModule,
+    OperatorInspectionEstimatesModule,
+    OperatorRenewalsModule,
+    OperatorOwnerStatementsModule,
+    AiGatewayModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
     // Global rate limiting guard (disabled in test environment)
     ...rateLimitProviders,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: SuccessEnvelopeInterceptor,
+    },
   ],
 })
 export class AppModule implements NestModule {

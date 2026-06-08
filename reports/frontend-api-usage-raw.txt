@@ -1,0 +1,265 @@
+tenant_portal_app/src\AuditLogPage.tsx:62:        const data = await apiFetch('/security-events?limit=200', { token });
+tenant_portal_app/src\copilot\api.ts:8:    return await apiFetch('/briefing/daily', opts(token));
+tenant_portal_app/src\copilot\api.ts:16:    apiFetch('/payments/delinquency/queue', opts(token)),
+tenant_portal_app/src\copilot\api.ts:17:    apiFetch('/payments/ops-summary', opts(token)),
+tenant_portal_app/src\copilot\api.ts:18:    apiFetch('/api/v2/feed', opts(token)),
+tenant_portal_app/src\copilot\api.ts:19:    apiFetch('/schedule/events', opts(token)),
+tenant_portal_app/src\copilot\api.ts:115:    return await apiFetch(`/rental-applications/${applicationId}/policy-evaluation`, opts(token));
+tenant_portal_app/src\copilot\api.ts:117:    const app = await apiFetch(`/rental-applications/${applicationId}`, opts(token));
+tenant_portal_app/src\copilot\api.ts:178:  return apiFetch(endpoint, { token, method: method as any, body });
+tenant_portal_app/src\copilot\api.ts:183:    apiFetch('/payments/delinquency/queue', opts(token)),
+tenant_portal_app/src\copilot\api.ts:184:    apiFetch('/payments/ops-summary', opts(token)),
+tenant_portal_app/src\copilot\api.ts:185:    apiFetch('/payments/invoices', opts(token)),
+tenant_portal_app/src\copilot\api.ts:196:    apiFetch('/leasing/ops-summary', opts(token)),
+tenant_portal_app/src\copilot\api.ts:197:    apiFetch('/leasing/statistics', opts(token)),
+tenant_portal_app/src\copilot\api.ts:198:    apiFetch('/leasing/leads', opts(token)),
+tenant_portal_app/src\copilot\api.ts:209:    apiFetch('/maintenance?sortBy=priority&sortOrder=asc', opts(token)),
+tenant_portal_app/src\copilot\api.ts:210:    apiFetch('/estimates', opts(token)),
+tenant_portal_app/src\copilot\api.ts:211:    apiFetch('/maintenance/ai-metrics', opts(token)),
+tenant_portal_app/src\copilot\api.ts:222:    apiFetch('/leases', opts(token)),
+tenant_portal_app/src\copilot\api.ts:223:    apiFetch('/rent-recommendations', opts(token)),
+tenant_portal_app/src\copilot\api.ts:232:  const apps = await apiFetch('/rental-applications', opts(token));
+tenant_portal_app/src\copilot\api.ts:238:    apiFetch('/bookkeeping/workspace', opts(token)),
+tenant_portal_app/src\copilot\api.ts:239:    apiFetch('/bookkeeping/reconciliation', opts(token)),
+tenant_portal_app/src\copilot\api.ts:240:    apiFetch('/bookkeeping/chart-of-accounts', opts(token)),
+tenant_portal_app/src\ForgotPasswordPage.tsx:19:      const data = await apiFetch('/auth/forgot-password', {
+tenant_portal_app/src\ExpenseTrackerPageModern.tsx:124:        apiFetch('/expenses', { token }),
+tenant_portal_app/src\ExpenseTrackerPageModern.tsx:125:        apiFetch('/properties', { token }),
+tenant_portal_app/src\ExpenseTrackerPageModern.tsx:167:      await apiFetch('/expenses', {
+tenant_portal_app/src\ExpenseTrackerPageModern.tsx:205:      await apiFetch(`/expenses/${id}`, {
+tenant_portal_app/src\ExpenseTrackerPage.tsx:38:          apiFetch('/expenses', { token }),
+tenant_portal_app/src\ExpenseTrackerPage.tsx:39:          apiFetch('/properties', { token }),
+tenant_portal_app/src\ExpenseTrackerPage.tsx:64:      const newExpense = await apiFetch('/expenses', {
+tenant_portal_app/src\ExpenseTrackerPage.tsx:98:      await apiFetch(`/expenses/${id}`, {
+tenant_portal_app/src\InspectionDetailPage.tsx:739:      const resp = await apiFetch('/estimates/' + String(e.id) + '/convert-to-maintenance', {
+tenant_portal_app/src\InspectionDetailPage.tsx:967:      const resp = await apiFetch(`/inspections/${inspectionId}`, { token: token ?? undefined, signal });
+tenant_portal_app/src\InspectionDetailPage.tsx:1107:      await apiFetch(`/inspections/items/${item.id}`, {
+tenant_portal_app/src\InspectionDetailPage.tsx:1146:      const resp = await apiFetch(`/inspections/${inspection.id}/estimate`, {
+tenant_portal_app/src\InspectionDetailPage.tsx:1716:                                            const result = await apiFetch(`/inspections/items/${item.id}/photos`, {
+tenant_portal_app/src\InspectionDetailPage.tsx:1760:                                            await apiFetch(`/inspections/photos/${photo.id}`, {
+tenant_portal_app/src\InspectionDetailPage.tsx:1800:                                        const result = await apiFetch(`/inspections/items/${item.id}/analyze`, {
+tenant_portal_app/src\components\ui\ActionIntentFeed.tsx:52:        const data = await apiFetch('/dashboard/action-intents', { token });
+tenant_portal_app/src\copilot\screens\FinancialsWorkspace.tsx:56:      await apiFetch(`/bookkeeping/transactions/${txId}/categorize`, { token, method: 'PATCH', body: { category } });
+tenant_portal_app/src\copilot\screens\FinancialsWorkspace.tsx:68:      await apiFetch(`/bookkeeping/owner-statements/${stmtId}/approve`, { token, method: 'PATCH', body: {} });
+tenant_portal_app/src\components\ui\ApplicationLifecycleTimeline.tsx:124:          apiFetch(`/rental-applications/${applicationId}/timeline`, { token }),
+tenant_portal_app/src\components\ui\ApplicationLifecycleTimeline.tsx:125:          apiFetch(`/rental-applications/${applicationId}/lifecycle`, { token }),
+tenant_portal_app/src\copilot\screens\RenewalsWorkspace.tsx:56:      await apiFetch(`/leases/${leaseId}/renewal-offers`, {
+tenant_portal_app/src\copilot\screens\PropertyWorkspace.tsx:22:      apiFetch(`/properties/${id}`).then((res: any) => setProperty(res));
+tenant_portal_app/src\copilot\screens\PropertyWorkspace.tsx:23:      apiFetch(`/properties/${id}/rollup`).then((res: any) => setRollup(res));
+tenant_portal_app/src\copilot\screens\UnitWorkspace.tsx:15:      apiFetch(`/properties/${id}`).then((res: any) => {
+tenant_portal_app/src\copilot\screens\UnitWorkspace.tsx:19:      apiFetch(`/properties/units/${unitId}/rollup`).then((res: any) => setRollup(res));
+tenant_portal_app/src\copilot\screens\PortfolioWorkspace.tsx:33:      const propsRes: any = await apiFetch('/properties');
+tenant_portal_app/src\copilot\screens\PortfolioWorkspace.tsx:37:        const rollupRes: any = await apiFetch(`/properties/${p.id}/rollup`);
+tenant_portal_app/src\copilot\screens\ScreeningWorkspace.tsx:46:      await apiFetch(`/rental-applications/${appId}/status`, { token, method: 'PATCH', body: { status } });
+tenant_portal_app/src\MessagingPage.tsx:47:        const data = await apiFetch(`/messaging/conversations/${conversationId}/messages`, { token: token ?? undefined });
+tenant_portal_app/src\MessagingPage.tsx:59:        const data = await apiFetch('/messaging/conversations', { token: token ?? undefined });
+tenant_portal_app/src\MessagingPage.tsx:95:        apiFetch('/messaging/bulk', { token }),
+tenant_portal_app/src\MessagingPage.tsx:96:        apiFetch('/messaging/templates', { token }),
+tenant_portal_app/src\MessagingPage.tsx:126:      await apiFetch('/messaging/messages', {
+tenant_portal_app/src\MaintenanceManagementPage.tsx:143:      const data = await apiFetch('/maintenance', { token: token || undefined });
+tenant_portal_app/src\MaintenanceManagementPage.tsx:167:          apiFetch('/properties', { token }),
+tenant_portal_app/src\MaintenanceManagementPage.tsx:168:          apiFetch('/leases', { token }),
+tenant_portal_app/src\MaintenanceManagementPage.tsx:192:      const data = await apiFetch('/maintenance/diagnostics/data-quality', { token });
+tenant_portal_app/src\MaintenanceManagementPage.tsx:205:      const data = await apiFetch(`/maintenance/ai/features/${String(requestId)}`, { token });
+tenant_portal_app/src\MaintenanceManagementPage.tsx:237:      const created = (await apiFetch('/maintenance', {
+tenant_portal_app/src\MaintenanceManagementPage.tsx:268:      const updated = (await apiFetch(`/maintenance/${request.id}/status`, {
+tenant_portal_app/src\MaintenanceManagementPage.tsx:296:      await apiFetch(`/maintenance/${request.id}/notes`, {
+tenant_portal_app/src\MaintenanceManagementPage.tsx:302:      const updated = (await apiFetch(`/maintenance/${request.id}/status`, {
+tenant_portal_app/src\LeaseManagementPage.tsx:482:          apiFetch('/leases', { token }),
+tenant_portal_app/src\LeaseManagementPage.tsx:483:          apiFetch('/users?role=TENANT&take=200', { token }),
+tenant_portal_app/src\LeaseManagementPage.tsx:484:          apiFetch('/properties', { token }),
+tenant_portal_app/src\LeaseManagementPage.tsx:572:      const created = (await apiFetch('/leases', { token, method: 'POST', body: payload })) as Lease;
+tenant_portal_app/src\LeaseManagementPage.tsx:761:      const updated = (await apiFetch(`/leases/${lease.id}/status`, {
+tenant_portal_app/src\LeaseManagementPage.tsx:831:      const updated = (await apiFetch(`/leases/${lease.id}/renewal-offers`, {
+tenant_portal_app/src\LeaseManagementPage.tsx:879:      const updated = (await apiFetch(`/leases/${lease.id}/notices`, {
+tenant_portal_app/src\LeaseManagementPage.tsx:926:      await apiFetch('/payments/manual', {
+tenant_portal_app/src\LeaseManagementPage.tsx:943:      const updated = (await apiFetch(`/leases/${lease.id}`, { token })) as Lease;
+tenant_portal_app/src\LeaseManagementPage.tsx:992:      await apiFetch('/payments/charges/manual', {
+tenant_portal_app/src\LeaseManagementPage.tsx:1008:      const updated = (await apiFetch(`/leases/${lease.id}`, { token })) as Lease;
+tenant_portal_app/src\LeaseManagementPage.tsx:1028:      await apiFetch(`/payments/manual/${manualPaymentId}/reverse`, {
+tenant_portal_app/src\LeaseManagementPage.tsx:1033:      const updated = (await apiFetch(`/leases/${lease.id}`, { token })) as Lease;
+tenant_portal_app/src\LeaseManagementPage.tsx:1052:      await apiFetch(`/payments/charges/manual/${manualChargeId}/void`, {
+tenant_portal_app/src\LeaseManagementPage.tsx:1057:      const updated = (await apiFetch(`/leases/${lease.id}`, { token })) as Lease;
+tenant_portal_app/src\LoginPage.tsx:29:      const data = await apiFetch(`auth/login`, {
+tenant_portal_app/src\domains\property-manager\services\managerApi.ts:53:  return apiFetch('/reporting/analytics/heatmap', { token }) as Promise<PortfolioHeatmapRow[]>;
+tenant_portal_app/src\domains\property-manager\services\managerApi.ts:57:  return apiFetch('/reporting/analytics/opex-anomalies', { token }) as Promise<OpexAnomaly[]>;
+tenant_portal_app/src\domains\property-manager\services\managerApi.ts:61:  const data = await apiFetch('/dashboard/action-intents', { token }) as { intents?: ActionIntentItem[] };
+tenant_portal_app/src\domains\property-manager\services\managerApi.ts:67:  return apiFetch(`/rent-recommendations/seasonal-pricing/${unitId}${suffix}`, { token }) as Promise<SeasonalPricingMatrix>;
+tenant_portal_app/src\InspectionManagementPage.tsx:118:        apiFetch(`/inspections${queryString}`, { token: token ?? undefined }),
+tenant_portal_app/src\InspectionManagementPage.tsx:119:        apiFetch('/inspections/requests', { token: token ?? undefined }).catch(() => []),
+tenant_portal_app/src\InspectionManagementPage.tsx:136:      const data = await apiFetch('/properties?limit=500', { token: token ?? undefined });
+tenant_portal_app/src\InspectionManagementPage.tsx:170:        const property = await apiFetch(`/properties/${createForm.propertyId}`, { token });
+tenant_portal_app/src\InspectionManagementPage.tsx:197:      await apiFetch(`/inspections/requests/${requestId}/decision`, {
+tenant_portal_app/src\InspectionManagementPage.tsx:218:      await apiFetch('/inspections', {
+tenant_portal_app/src\MaintenanceDashboardModern.tsx:178:      const data = await apiFetch(url, { token });
+tenant_portal_app/src\MaintenanceDashboardModern.tsx:195:      const techniciansData = await apiFetch('/maintenance/technicians', { token });
+tenant_portal_app/src\MaintenanceDashboardModern.tsx:206:      const data = await apiFetch('/properties', { token });
+tenant_portal_app/src\MaintenanceDashboardModern.tsx:232:      await apiFetch(`/maintenance/${requestId}/status`, {
+tenant_portal_app/src\MaintenanceDashboardModern.tsx:249:      await apiFetch(`/maintenance/${requestId}/assign`, {
+tenant_portal_app/src\MaintenanceDashboardModern.tsx:273:      await apiFetch(`/maintenance/${requestId}/notes`, {
+tenant_portal_app/src\components\messages\BulkMessageStatusPanel.tsx:61:          apiFetch(`/messaging/bulk/${selectedBatch}/recipients`, { token }),
+tenant_portal_app/src\components\messages\BulkMessageStatusPanel.tsx:62:          apiFetch(`/messaging/bulk/${selectedBatch}/report`, { token }),
+tenant_portal_app/src\MaintenanceDashboard.tsx:248:      const data = (await apiFetch(url, { token })) as MaintenanceRequest[];
+tenant_portal_app/src\MaintenanceDashboard.tsx:279:        const data = (await apiFetch('/maintenance/technicians', { token })) as Technician[];
+tenant_portal_app/src\MaintenanceDashboard.tsx:289:        const data = (await apiFetch(endpoint, { token: canManageRequests ? token : undefined })) as PropertySummary[];
+tenant_portal_app/src\MaintenanceDashboard.tsx:317:        const payload = (await apiFetch(`/maintenance/assets?${params.toString()}`, { token })) as MaintenanceAsset[];
+tenant_portal_app/src\MaintenanceDashboard.tsx:403:      await apiFetch('/maintenance', {
+tenant_portal_app/src\MaintenanceDashboard.tsx:432:      await apiFetch(`/maintenance/${id}/status`, {
+tenant_portal_app/src\MaintenanceDashboard.tsx:455:      await apiFetch(`/maintenance/${id}/assign`, {
+tenant_portal_app/src\MaintenanceDashboard.tsx:494:      await apiFetch(`/maintenance/${id}/notes`, {
+tenant_portal_app/src\components\messages\BulkMessageComposer.tsx:129:      const data = await apiFetch('/messaging/bulk/preview', {
+tenant_portal_app/src\components\messages\BulkMessageComposer.tsx:150:      await apiFetch('/messaging/bulk', {
+tenant_portal_app/src\RentalApplicationsManagementPage.tsx:153:        const data = await apiFetch('/rental-applications', { token });
+tenant_portal_app/src\RentalApplicationsManagementPage.tsx:170:      const updatedApplication = await apiFetch(`/rental-applications/${id}/status`, {
+tenant_portal_app/src\RentalApplicationsManagementPage.tsx:213:      const updatedApplication = await apiFetch(`/rental-applications/${id}/screen`, {
+tenant_portal_app/src\RentalApplicationsManagementPage.tsx:242:      const updatedApplication = await apiFetch(`/rental-applications/${id}/review-action`, {
+tenant_portal_app/src\RentalApplicationsManagementPage.tsx:272:      const reviewData = await apiFetch(`/rental-applications/${id}/ai-review`, {
+tenant_portal_app/src\RentalApplicationsManagementPage.tsx:291:      const note = await apiFetch(`/rental-applications/${id}/notes`, {
+tenant_portal_app/src\components\ui\MaintenanceCard.tsx:63:          data = await apiFetch('/maintenance', { token });
+tenant_portal_app/src\QuickBooksPage.tsx:29:        const data = await apiFetch('/quickbooks/connections', { token });
+tenant_portal_app/src\copilot\screens\PaymentsWorkspace.tsx:28:      await apiFetch('/payments/delinquency/issue-notice', { token, method: 'POST', body: { leaseId, type: 'REMINDER' } });
+tenant_portal_app/src\MainDashboard.tsx:229:          apiFetch('/dashboard/metrics', { token }),
+tenant_portal_app/src\MainDashboard.tsx:230:          apiFetch('/dashboard/property-locations', { token }),
+tenant_portal_app/src\MainDashboard.tsx:265:        const health = await apiFetch('/property-os/v16/engine-health', { token });
+tenant_portal_app/src\PropertyManagerDashboard.tsx:173:      apiFetch('/dashboard/metrics', { token: authToken }),
+tenant_portal_app/src\PropertyManagerDashboard.tsx:174:      apiFetch('/dashboard/property-locations', { token: authToken }),
+tenant_portal_app/src\PropertyManagerDashboard.tsx:175:      apiFetch('/dashboard/property-locations/geocode-audit', { token: authToken }),
+tenant_portal_app/src\PropertyManagerDashboard.tsx:209:      const result = await apiFetch('/dashboard/property-locations/geocode-missing', {
+tenant_portal_app/src\domains\property-manager\features\rent-optimization\RentOptimizationDashboard.tsx:57:      const data = await apiFetch('/rent-recommendations', { token });
+tenant_portal_app/src\domains\property-manager\features\rent-optimization\RentOptimizationDashboard.tsx:81:      await apiFetch('/rent-recommendations/bulk-generate/all', {
+tenant_portal_app/src\domains\property-manager\features\rent-optimization\RentOptimizationDashboard.tsx:113:      await apiFetch(`/rent-recommendations/${recommendation.id}/accept`, {
+tenant_portal_app/src\domains\property-manager\features\rent-optimization\RentOptimizationDashboard.tsx:147:      await apiFetch(`/rent-recommendations/${recommendation.id}/reject`, {
+tenant_portal_app/src\PropertyManagementPage.tsx:263:      const data = await apiFetch('/properties', { token });
+tenant_portal_app/src\PropertyManagementPage.tsx:282:      const data: MarketingProfileResponse = await apiFetch(`/properties/${selectedProperty.id}/marketing`, { token });
+tenant_portal_app/src\PropertyManagementPage.tsx:309:      const data = (await apiFetch(`/listings/syndication/${selectedProperty.id}/status`, { token })) as SyndicationEntry[];
+tenant_portal_app/src\PropertyManagementPage.tsx:324:      const data: Array<{ channel: ChannelEnum; config: Record<string, unknown> }> = await apiFetch('/listings/syndication/credentials/all', { token });
+tenant_portal_app/src\PropertyManagementPage.tsx:411:        property = await apiFetch(`/properties/${selectedProperty.id}`, {
+tenant_portal_app/src\PropertyManagementPage.tsx:417:        property = await apiFetch('/properties', {
+tenant_portal_app/src\PropertyManagementPage.tsx:445:        await apiFetch(`/properties/${property.id}/marketing`, {
+tenant_portal_app/src\PropertyManagementPage.tsx:498:        const createdUnit: Unit = await apiFetch(`/properties/${selectedProperty.id}/units`, {
+tenant_portal_app/src\PropertyManagementPage.tsx:563:      const updatedUnit: Unit = await apiFetch(`/properties/${selectedProperty.id}/units/${editingUnit.id}`, {
+tenant_portal_app/src\PropertyManagementPage.tsx:598:      await apiFetch(`/properties/${selectedProperty.id}/marketing`, {
+tenant_portal_app/src\PropertyManagementPage.tsx:619:      await apiFetch(`/listings/syndication/${selectedProperty.id}/trigger`, {
+tenant_portal_app/src\PropertyManagementPage.tsx:640:      await apiFetch(`/listings/syndication/${selectedProperty.id}/pause`, {
+tenant_portal_app/src\PropertyManagementPage.tsx:692:      await apiFetch('/listings/syndication/credentials', {
+tenant_portal_app/src\NotificationCenter.tsx:54:      const data = await apiFetch('/notifications/unread-count', { token });
+tenant_portal_app/src\NotificationCenter.tsx:65:      const data = await apiFetch('/notifications?take=20', { token });
+tenant_portal_app/src\NotificationCenter.tsx:94:      await apiFetch(`/notifications/${id}/read`, {
+tenant_portal_app/src\NotificationCenter.tsx:110:      await apiFetch('/notifications/read-all', {
+tenant_portal_app/src\NotificationCenter.tsx:124:      await apiFetch(`/notifications/${id}`, {
+tenant_portal_app/src\pages\LeadManagementPage.tsx:86:      const data = await apiFetch(`/leasing/leads?${params}`, { token });
+tenant_portal_app/src\pages\LeadManagementPage.tsx:100:      const data = await apiFetch('/leasing/statistics', { token });
+tenant_portal_app/src\pages\LeadManagementPage.tsx:120:      const data = await apiFetch(`/leasing/leads/${leadId}/messages`, { token });
+tenant_portal_app/src\pages\LeadManagementPage.tsx:133:      await apiFetch(`/leasing/leads/${leadId}/status`, {
+tenant_portal_app/src\PasswordResetPage.tsx:41:      await apiFetch('/auth/reset-password', {
+tenant_portal_app/src\LeaseManagementPageModern.tsx:55:      const data = await apiFetch('/leases', { token });
+tenant_portal_app/src\SchedulePage.tsx:67:      const data = await apiFetch(endpoint, { token: token ?? undefined });
+tenant_portal_app/src\SchedulePage.tsx:78:      const data = await apiFetch(`${API_BASE}/schedule/summary`, { token: token ?? undefined });
+tenant_portal_app/src\SchedulePage.tsx:87:      await apiFetch(`${API_BASE}/schedule`, {
+tenant_portal_app/src\PaymentsPage.tsx:133:      apiFetch('/payments/invoices', { token }),
+tenant_portal_app/src\PaymentsPage.tsx:134:      apiFetch('/payments', { token }),
+tenant_portal_app/src\PaymentsPage.tsx:146:    const methodsData = await apiFetch('/payment-methods', { token });
+tenant_portal_app/src\PaymentsPage.tsx:150:      const attempts = await apiFetch('/billing/autopay/needs-auth-attempts', { token });
+tenant_portal_app/src\PaymentsPage.tsx:160:        const leaseData = await apiFetch('/leases/my-lease', { token });
+tenant_portal_app/src\PaymentsPage.tsx:179:      const autopayData = await apiFetch(autopayUrl, { token });
+tenant_portal_app/src\PaymentsPage.tsx:252:      await apiFetch('/payment-methods', {
+tenant_portal_app/src\PaymentsPage.tsx:277:      await apiFetch(`/payment-methods/${id}`, {
+tenant_portal_app/src\PaymentsPage.tsx:309:      await apiFetch('/billing/autopay', {
+tenant_portal_app/src\PaymentsPage.tsx:330:      await apiFetch(`/billing/autopay/needs-auth-attempts/${attemptId}/recover`, {
+tenant_portal_app/src\PaymentsPage.tsx:352:      await apiFetch(`/billing/autopay/${leaseId}/disable`, {
+tenant_portal_app/src\UserManagementPage.tsx:123:      const data: UserListResponse = await apiFetch(`/users?${params}`, { token });
+tenant_portal_app/src\UserManagementPage.tsx:139:      await apiFetch('/users', {
+tenant_portal_app/src\UserManagementPage.tsx:167:      await apiFetch(`/users/${selectedUser.id}`, {
+tenant_portal_app/src\UserManagementPage.tsx:189:      await apiFetch(`/users/${id}`, {
+tenant_portal_app/src\SignupPage.tsx:27:        const data = await apiFetch('/auth/password-policy');
+tenant_portal_app/src\SignupPage.tsx:42:      await apiFetch('/auth/register', {
+tenant_portal_app/src\ReportingPage.tsx:114:      const reportData = await apiFetch(`/reporting/${reportType}?${params}`, { token });
+tenant_portal_app/src\DocumentManagementPage.tsx:80:      const data = await apiFetch(`/documents?${params}`, { token });
+tenant_portal_app/src\DocumentManagementPage.tsx:110:      const response = await fetch(url, {
+tenant_portal_app/src\DocumentManagementPage.tsx:138:      const response = await fetch(url, {
+tenant_portal_app/src\DocumentManagementPage.tsx:169:      await apiFetch(`/documents/${id}`, {
+tenant_portal_app/src\domains\property-manager\features\inspections\PMEstimatingReviewCenter.tsx:36:      const data = unwrapApi<any[]>(await apiFetch('/inspections?take=50', { token }));
+tenant_portal_app/src\domains\property-manager\features\inspections\PMEstimatingReviewCenter.tsx:55:      const response = await apiFetch(`/inspections/${id}/approve`, {
+tenant_portal_app/src\mocks\handlers.ts:13:// - In Vitest (jsdom + undici), `fetch('/api/...')` becomes absolute using `window.location.origin`.
+tenant_portal_app/src\RentEstimatorPage.tsx:26:        const data = await apiFetch('/properties', { token });
+tenant_portal_app/src\RentEstimatorPage.tsx:62:      const data = await apiFetch(`/rent-estimator?propertyId=${selectedProperty}&unitId=${selectedUnit}`, { token });
+tenant_portal_app/src\services\apiClient.ts:66:export async function apiFetch(path: string, options: ApiOptions = {}) {
+tenant_portal_app/src\services\apiClient.ts:82:  // In browser, `fetch('/api/...')` is fine. In Node (Vitest/undici), relative URLs throw.
+tenant_portal_app/src\services\apiClient.ts:93:    const response = await fetch(url, {
+tenant_portal_app/src\services\AIOperatingSystemService.ts:261:      const response = await apiFetch('/chatbot/message', {
+tenant_portal_app/src\services\apiClient.test.ts:38:      const result = await apiFetch('/test');
+tenant_portal_app/src\services\apiClient.test.ts:61:      await apiFetch('/test', { token: 'test-token' });
+tenant_portal_app/src\services\apiClient.test.ts:83:      await apiFetch('/test', {
+tenant_portal_app/src\services\apiClient.test.ts:105:      await expect(apiFetch('/test')).rejects.toThrow();
+tenant_portal_app/src\services\apiClient.test.ts:115:      const result = await apiFetch('/test', { method: 'DELETE' });
+tenant_portal_app/src\domains\shared\features\messaging\MessagingPage.tsx:51:        const data = await apiFetch(`/messaging/conversations/${conversationId}/messages`, { token: token ?? undefined });
+tenant_portal_app/src\domains\shared\features\messaging\MessagingPage.tsx:64:        const data = await apiFetch('/messaging/conversations', { token: token ?? undefined });
+tenant_portal_app/src\domains\shared\features\messaging\MessagingPage.tsx:100:        apiFetch('/messaging/bulk', { token }),
+tenant_portal_app/src\domains\shared\features\messaging\MessagingPage.tsx:101:        apiFetch('/messaging/templates', { token }),
+tenant_portal_app/src\domains\shared\features\messaging\MessagingPage.tsx:126:        const data = await apiFetch(endpoint, { token });
+tenant_portal_app/src\domains\shared\features\messaging\MessagingPage.tsx:153:      await apiFetch('/messaging/messages', {
+tenant_portal_app/src\domains\shared\features\messaging\MessagingPage.tsx:181:      const thread = await apiFetch('/messaging/threads', {
+tenant_portal_app/src\services\propertySearch.ts:153:  return apiFetch(url, { token });
+tenant_portal_app/src\services\propertySearch.ts:157:  return apiFetch(`${API_BASE}/properties/saved-filters`, { token });
+tenant_portal_app/src\services\propertySearch.ts:161:  return apiFetch(`${API_BASE}/properties/saved-filters`, {
+tenant_portal_app/src\services\propertySearch.ts:169:  return apiFetch(`${API_BASE}/properties/saved-filters/${filterId}`, {
+tenant_portal_app/src\domains\tenant\features\payments\PaymentsPage.tsx:112:      const setup = await apiFetch('/payments/payment-methods/setup-intent', {
+tenant_portal_app/src\domains\tenant\features\payments\PaymentsPage.tsx:138:      await apiFetch('/payments/payment-methods', {
+tenant_portal_app/src\domains\tenant\features\payments\PaymentsPage.tsx:233:          return await apiFetch(path, { token });
+tenant_portal_app/src\domains\tenant\features\payments\PaymentsPage.tsx:254:        const autopayData = await apiFetch('/billing/autopay', { token });
+tenant_portal_app/src\domains\tenant\features\payments\PaymentsPage.tsx:298:      await apiFetch(`/payments/payment-methods/${id}`, { token, method: 'DELETE' });
+tenant_portal_app/src\domains\tenant\features\payments\PaymentsPage.tsx:317:      const response = await apiFetch('/payments/stripe/checkout-session', {
+tenant_portal_app/src\domains\tenant\features\payments\PaymentsPage.tsx:359:      await apiFetch('/billing/autopay', {
+tenant_portal_app/src\domains\tenant\features\inspection\InspectionPage.tsx:49:      const data = await apiFetch('/inspections', { token });
+tenant_portal_app/src\domains\tenant\features\inspection\TenantInspectionsListPage.tsx:56:        apiFetch('/inspections', { token }),
+tenant_portal_app/src\domains\tenant\features\inspection\TenantInspectionsListPage.tsx:57:        apiFetch('/inspections/requests', { token }).catch(() => []),
+tenant_portal_app/src\domains\tenant\features\inspection\TenantInspectionsListPage.tsx:91:      await apiFetch('/inspections/requests', {
+tenant_portal_app/src\domains\tenant\features\inspection\TenantInspectionsListPage.tsx:110:      const resp = await apiFetch('/inspections/start', {
+tenant_portal_app/src\domains\tenant\features\inspection\TenantInspectionDetailPage.tsx:73:        apiFetch(`/inspections/${inspectionId}`, { token }),
+tenant_portal_app/src\domains\tenant\features\inspection\TenantInspectionDetailPage.tsx:74:        apiFetch('/inspections/requests', { token }).catch(() => []),
+tenant_portal_app/src\domains\tenant\features\inspection\TenantInspectionDetailPage.tsx:198:      await apiFetch(`/inspections/rooms/${roomId}/items`, {
+tenant_portal_app/src\domains\tenant\features\inspection\TenantInspectionDetailPage.tsx:224:      await apiFetch(`/inspections/items/${itemId}/photos`, {
+tenant_portal_app/src\domains\tenant\features\inspection\TenantInspectionDetailPage.tsx:248:      const reqResp = await apiFetch('/inspections/requests', { token });
+tenant_portal_app/src\domains\tenant\features\inspection\TenantInspectionDetailPage.tsx:254:      await apiFetch('/inspections/start', {
+tenant_portal_app/src\domains\tenant\features\inspection\TenantInspectionDetailPage.tsx:273:      await apiFetch(`/inspections/${inspectionId}/status`, {
+tenant_portal_app/src\domains\shared\ai-services\chatbot\ChatbotService.ts:350:      const response = await fetch(`${apiBase}/chatbot/message`, {
+tenant_portal_app/src\domains\tenant\features\application\ApplicationPage.tsx:187:        const data = await apiFetch('/properties/public');
+tenant_portal_app/src\domains\tenant\features\application\ApplicationPage.tsx:393:      const data = await apiFetch('/rental-applications', {
+tenant_portal_app/src\domains\shared\ai-services\rent-optimization\RentOptimizationService.ts:241:          const data = await apiFetch(`${API_BASE}/unit/${unitId}`, { token });
+tenant_portal_app/src\domains\shared\ai-services\rent-optimization\RentOptimizationService.ts:368:      const data = await apiFetch(`${API_BASE}/stats`, { token });
+tenant_portal_app/src\domains\shared\ai-services\rent-optimization\RentOptimizationService.ts:405:      const data = await apiFetch(`${API_BASE}/recent?limit=${limit}`, { token });
+tenant_portal_app/src\domains\shared\ai-services\rent-optimization\RentOptimizationService.ts:446:      const data = await apiFetch(`${API_BASE}/${status}`, { token });
+tenant_portal_app/src\domains\shared\ai-services\rent-optimization\RentOptimizationService.ts:487:      const data = await apiFetch(`${API_BASE}/property/${propertyId}`, { token });
+tenant_portal_app/src\domains\shared\ai-services\rent-optimization\RentOptimizationService.ts:528:      const data = await apiFetch(`${API_BASE}/generate`, {
+tenant_portal_app/src\domains\shared\ai-services\rent-optimization\RentOptimizationService.ts:574:      const data = await apiFetch(`${API_BASE}/${recommendationId}/accept`, {
+tenant_portal_app/src\domains\shared\ai-services\rent-optimization\RentOptimizationService.ts:615:      const data = await apiFetch(`${API_BASE}/${recommendationId}/reject`, {
+tenant_portal_app/src\domains\shared\ai-services\rent-optimization\RentOptimizationService.ts:656:      const data = await apiFetch(`${API_BASE}/${recommendationId}/apply`, {
+tenant_portal_app/src\domains\shared\ai-services\rent-optimization\RentOptimizationService.ts:701:      const data = await apiFetch(`${API_BASE}/${recommendationId}/update`, {
+tenant_portal_app/src\domains\shared\ai-services\rent-optimization\RentOptimizationService.ts:745:      const data = await apiFetch(`${API_BASE}/${recommendationId}`, {
+tenant_portal_app/src\services\EsignatureApi.ts:79:  const response = await fetch(`/api/esignature/leases/${leaseId}/envelopes`, {
+tenant_portal_app/src\services\EsignatureApi.ts:106:  const response = await fetch(url, {
+tenant_portal_app/src\services\EsignatureApi.ts:166:  const response = await fetch(`/api/esignature/envelopes/${envelopeId}`, {
+tenant_portal_app/src\services\EsignatureApi.ts:185:  const response = await fetch(`/api/esignature/envelopes/${envelopeId}/void`, {
+tenant_portal_app/src\services\EsignatureApi.ts:202:  const response = await fetch(`/api/esignature/envelopes/${envelopeId}/refresh`, {
+tenant_portal_app/src\services\EsignatureApi.ts:220:  const response = await fetch(`/api/esignature/envelopes/${envelopeId}/resend`, {
+tenant_portal_app/src\services\EsignatureApi.ts:235:  const response = await fetch(`/api/esignature/envelopes/${envelopeId}/documents/signed`, {
+tenant_portal_app/src\services\EsignatureApi.ts:258:  const response = await fetch(`/api/esignature/envelopes/${envelopeId}/documents/certificate`, {
+tenant_portal_app/src\services\performance-monitor.ts:36:    fetch('/api/metrics/web-vitals', {
+tenant_portal_app/src\domains\tenant\features\dashboard\TenantDashboard.tsx:250:        const response = await apiFetch('/tenant/dashboard', { token });
+tenant_portal_app/src\services\LeasingAgentService.ts:207:      const savedLead = await apiFetch(`${this.API_BASE_URL}/leads`, {
+tenant_portal_app/src\services\LeasingAgentService.ts:241:      await apiFetch(`${this.API_BASE_URL}/leads/${leadId}/messages`, {
+tenant_portal_app/src\services\LeasingAgentService.ts:655:      const properties = await apiFetch(`${this.API_BASE_URL}/properties/search?${params}`, {
+tenant_portal_app/src\services\LeasingAgentService.ts:798:      await apiFetch(`${this.API_BASE_URL}/leads/${leadId}/inquiries`, {
+tenant_portal_app/src\services\LeasingAgentService.ts:817:      const result = await apiFetch(`${this.API_BASE_URL}/tours/schedule`, {
+tenant_portal_app/src\services\LeasingAgentService.ts:843:      const result = await apiFetch(`${this.API_BASE_URL}/applications/submit`, {
+tenant_portal_app/src\services\LeasingAgentService.ts:896:      const result = await apiFetch(`${this.API_BASE_URL}/leads`, {
+tenant_portal_app/src\domains\tenant\features\lease\MyLeasePage.tsx:237:        const data = (await apiFetch('/leases/my-lease', { token })) as Lease | null;
+tenant_portal_app/src\domains\tenant\features\lease\MyLeasePage.tsx:335:      const response = await fetch(url, {
+tenant_portal_app/src\domains\tenant\features\lease\MyLeasePage.tsx:385:      const updated = (await apiFetch(
+tenant_portal_app/src\domains\tenant\features\lease\MyLeasePage.tsx:423:      const updated = (await apiFetch(`/leases/${lease.id}/tenant-notices`, {
+tenant_portal_app/src\domains\tenant\features\maintenance\MaintenancePage.tsx:129:      const data = await apiFetch('/maintenance', { token });
+tenant_portal_app/src\domains\tenant\features\maintenance\MaintenancePage.tsx:217:      const created = await apiFetch('/maintenance', {
+tenant_portal_app/src\domains\tenant\features\maintenance\MaintenancePage.tsx:257:        await apiFetch(`/maintenance/${created.id}/photos`, {
+tenant_portal_app/src\domains\shared\auth\features\login\LoginPage.tsx:36:      const data = await apiFetch('/auth/login', {
+tenant_portal_app/src\domains\shared\auth\features\signup\SignupPage.tsx:47:        const data = await apiFetch('/auth/password-policy');
+tenant_portal_app/src\domains\shared\auth\features\signup\SignupPage.tsx:130:      await apiFetch('/auth/register', {

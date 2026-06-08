@@ -12,12 +12,16 @@ import { MaintenanceFeatureExtractionService } from './ai/maintenance-feature-ex
 import { MaintenanceDataQualityService } from './ai/maintenance-data-quality.service';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { EventScheduleModule } from '../schedule/schedule.module';
+import { PredictiveMaintenanceService } from './predictive-maintenance.service';
+import { PredictiveMaintenanceController } from './predictive-maintenance.controller';
 
 const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
 
 @Module({
   imports: [PrismaModule, ConfigModule, NotificationsModule, EventScheduleModule],
-  controllers: legacyEnabled ? [MaintenanceController, MaintenanceLegacyController] : [MaintenanceController],
+  controllers: legacyEnabled
+    ? [MaintenanceController, MaintenanceLegacyController, PredictiveMaintenanceController]
+    : [MaintenanceController, PredictiveMaintenanceController],
   providers: [
     MaintenanceService,
     AIMaintenanceService,
@@ -26,6 +30,7 @@ const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
     OrgContextGuard,
     MaintenanceFeatureExtractionService,
     MaintenanceDataQualityService,
+    PredictiveMaintenanceService,
   ],
   exports: [
     MaintenanceService,
@@ -33,6 +38,7 @@ const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
     AIMaintenanceMetricsService,
     MaintenanceFeatureExtractionService,
     MaintenanceDataQualityService,
+    PredictiveMaintenanceService,
   ],
 })
 export class MaintenanceModule {}
