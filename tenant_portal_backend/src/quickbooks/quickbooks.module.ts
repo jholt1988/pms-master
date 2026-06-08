@@ -13,13 +13,18 @@ import { AbstractQuickBooksService } from './quickbooks.types';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 
 const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
+const queueEnabled = process.env.NODE_ENV !== 'test' && process.env.DISABLE_REDIS !== 'true';
 
 @Module({
   imports: [
     PrismaModule,
-    BullModule.registerQueue({
-      name: 'quickbooks-sync',
-    }),
+    ...(queueEnabled
+      ? [
+          BullModule.registerQueue({
+            name: 'quickbooks-sync',
+          }),
+        ]
+      : []),
   ],
   controllers: [QuickBooksMinimalController, QuickBooksWebhookController],
   providers: [
