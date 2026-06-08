@@ -440,6 +440,7 @@ export type OperatorMaintenanceDispatchItem = {
   latestBid: OperatorMaintenanceBidSummary | null;
   latestDispatch: OperatorMaintenanceBidSummary | null;
   dispatchHistory: OperatorMaintenanceBidSummary[];
+  bids?: OperatorMaintenanceBidSummary[];
   nextAction: 'triage' | 'assign_technician' | 'dispatch_vendor' | 'monitor_vendor' | 'complete' | 'blocked';
   blockers: string[];
   canonicalRoute: string;
@@ -456,6 +457,7 @@ export type OperatorMaintenanceBidSummary = {
     status: string;
     bidAmountCents: number | null;
     aiScore: number | null;
+    aiRationale?: string | null;
     dueDate: string | null;
     awardedAt?: string | null;
     responseNotes?: string | null;

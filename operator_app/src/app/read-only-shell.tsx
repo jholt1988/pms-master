@@ -984,6 +984,60 @@ function MaintenanceDispatchView({
   const [pending, setPending] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
+  const [predictiveAssets, setPredictiveAssets] = useState<any>(null);
+  const [loadingPredictive, setLoadingPredictive] = useState(false);
+  const [triggeringAssetId, setTriggeringAssetId] = useState<number | null>(null);
+
+  const loadPredictive = useCallback(async () => {
+    setLoadingPredictive(true);
+    try {
+      const res = await fetch('/api/maintenance/predictive/assets', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        }
+      });
+      if (res.ok) {
+        const body = await res.json();
+        setPredictiveAssets(body.data || body);
+      }
+    } catch (err) {
+      console.error('Failed to load predictive assets.');
+    } finally {
+      setLoadingPredictive(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (token) {
+      void loadPredictive();
+    }
+  }, [token, loadPredictive]);
+
+  async function triggerPreventiveTicket(assetId: number) {
+    setTriggeringAssetId(assetId);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/maintenance/predictive/assets/${assetId}/trigger-preventive`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (res.ok) {
+        setMessage('Preventative work order successfully generated.');
+        await loadPredictive();
+        await onRefresh();
+      } else {
+        setMessage('Failed to generate preventative work order.');
+      }
+    } catch (err) {
+      setMessage('Error triggering preventative ticket.');
+    } finally {
+      setTriggeringAssetId(null);
+    }
+  }
+
   async function dispatch(item: OperatorMaintenanceDispatchItem) {
     const vendorId = selectedVendorByRequest[item.requestId];
     if (!vendorId) {
@@ -1027,13 +1081,14 @@ function MaintenanceDispatchView({
     }
   }
 
-  async function awardBid(item: OperatorMaintenanceDispatchItem) {
-    if (!item.latestBid) return;
+  async function awardBid(item: OperatorMaintenanceDispatchItem, bidId?: string) {
+    const targetBidId = bidId || item.latestBid?.id;
+    if (!targetBidId) return;
     setPending(`award-${item.requestId}`);
     setMessage(null);
     try {
       const note = noteByRequest[item.requestId] ?? '';
-      await awardMaintenanceVendorBid(item.latestBid.id, {
+      await awardMaintenanceVendorBid(targetBidId, {
         note: note.trim() || undefined,
         notifyTenant: Boolean(notifyByRequest[item.requestId]),
         tenantMessage: notifyByRequest[item.requestId] ? `A vendor bid has been approved for ${item.title}. ${note}`.trim() : undefined,
@@ -1064,12 +1119,13 @@ function MaintenanceDispatchView({
     }
   }
 
-  async function rejectBid(item: OperatorMaintenanceDispatchItem) {
-    if (!item.latestBid) return;
+  async function rejectBid(item: OperatorMaintenanceDispatchItem, bidId?: string) {
+    const targetBidId = bidId || item.latestBid?.id;
+    if (!targetBidId) return;
     setPending(`reject-${item.requestId}`);
     setMessage(null);
     try {
-      await rejectMaintenanceVendorBid(item.latestBid.id, {
+      await rejectMaintenanceVendorBid(targetBidId, {
         reason: noteByRequest[item.requestId]?.trim() || undefined,
       }, { token });
       setMessage('Vendor bid rejected.');
@@ -1097,6 +1153,49 @@ function MaintenanceDispatchView({
         <MetricTile label="Open bids" value={formatNumber(workbench?.metrics.bidsOpen)} detail="vendor responses" icon={ClipboardList} />
         <MetricTile label="Dispatched" value={formatNumber(workbench?.metrics.dispatchedRequests)} detail="vendors active" icon={Wrench} />
         <MetricTile label="Complete" value={formatNumber(workbench?.metrics.completedDispatches)} detail="vendor finished" icon={ShieldCheck} />
+      </div>
+
+      {/* High-Risk Assets Panel */}
+      <div className="mb-6 rounded-md border border-[var(--border)] bg-[var(--panel)] p-4">
+        <div className="mb-3 flex items-center justify-between border-b border-[var(--border)] pb-2">
+          <h3 className="font-semibold text-sm flex items-center gap-2">
+            <AlertTriangle size={16} className="text-yellow-600 animate-pulse" />
+            Predictive Maintenance: High-Risk Appliances
+          </h3>
+          <button
+            onClick={() => void loadPredictive()}
+            disabled={loadingPredictive}
+            className="text-xs text-[var(--accent)] font-medium hover:underline"
+          >
+            {loadingPredictive ? 'Scanning...' : 'Scan Assets'}
+          </button>
+        </div>
+
+        {predictiveAssets?.alerts?.length > 0 ? (
+          <div className="space-y-3">
+            {predictiveAssets.alerts.map((alert: any) => (
+              <div key={alert.id} className="flex flex-col gap-3 rounded-md bg-[var(--panel-strong)] p-3 text-xs md:flex-row md:items-center md:justify-between">
+                <div>
+                  <div className="font-semibold text-[var(--foreground)]">{alert.metadata?.assetName} ({alert.metadata?.category})</div>
+                  <div className="mt-1 text-[var(--muted)]">
+                    Projected life remaining: <strong className="text-[var(--foreground)]">{alert.metadata?.remainingLifeDays} days</strong> · 
+                    Failure Probability: <strong className="text-red-600 font-semibold">{Math.round(alert.metadata?.failureProbability * 100)}%</strong>
+                  </div>
+                  <div className="mt-1 font-medium text-yellow-700">{alert.metadata?.recommendedAction}</div>
+                </div>
+                <button
+                  disabled={triggeringAssetId === alert.metadata?.assetId}
+                  onClick={() => void triggerPreventiveTicket(alert.metadata?.assetId)}
+                  className="rounded bg-[var(--accent)] px-3 py-1.5 font-semibold text-white hover:opacity-90 disabled:opacity-50 min-w-[150px] text-center"
+                >
+                  {triggeringAssetId === alert.metadata?.assetId ? 'Generating...' : 'Approve Work Order'}
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-xs text-[var(--muted)]">No critical assets currently flagged for imminent failure.</div>
+        )}
       </div>
 
       <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
@@ -1137,9 +1236,9 @@ function MaintenanceDispatchView({
                   onNotifyChange={(notify) => setNotifyByRequest((current) => ({ ...current, [item.requestId]: notify }))}
                   onDispatch={() => void dispatch(item)}
                   onRequestBid={() => void requestBid(item)}
-                  onAwardBid={() => void awardBid(item)}
+                  onAwardBid={(bidId) => void awardBid(item, bidId)}
                   onCompleteDispatch={() => void completeDispatch(item)}
-                  onRejectBid={() => void rejectBid(item)}
+                  onRejectBid={(bidId) => void rejectBid(item, bidId)}
                 />
               ))}
             </div>
@@ -1179,9 +1278,9 @@ function MaintenanceDispatchRow({
   onNotifyChange: (notify: boolean) => void;
   onDispatch: () => void;
   onRequestBid: () => void;
-  onAwardBid: () => void;
+  onAwardBid: (bidId?: string) => void;
   onCompleteDispatch: () => void;
-  onRejectBid: () => void;
+  onRejectBid: (bidId?: string) => void;
 }) {
   const hasAwardableBid = Boolean(item.latestBid && !['AWARDED', 'COMPLETED', 'REJECTED'].includes(item.latestBid.status));
   const hasRejectableBid = Boolean(item.latestBid && !['AWARDED', 'COMPLETED', 'REJECTED'].includes(item.latestBid.status));
@@ -1205,11 +1304,81 @@ function MaintenanceDispatchRow({
           <span>{item.bidsCount} bids</span>
           {item.responseDueAt ? <span>Response due {new Date(item.responseDueAt).toLocaleString()}</span> : null}
         </div>
-        {item.latestBid ? (
-          <div className="mt-3 rounded-md border border-[var(--border)] bg-[var(--panel-strong)] p-2 text-xs text-[var(--muted)]">
-            Latest bid: {item.latestBid.vendorName ?? 'Vendor'} · {item.latestBid.status} {cents(item.latestBid.bidAmountCents) ? `· ${cents(item.latestBid.bidAmountCents)}` : ''}
+
+        {/* Nested Bids Marketplace with Composite Scores */}
+        {item.bids && item.bids.length > 0 ? (
+          <div className="mt-4 space-y-2.5">
+            <h5 className="text-xs font-semibold text-[var(--foreground)] uppercase tracking-wider">Marketplace Vendor Bids</h5>
+            <div className="space-y-2">
+              {item.bids.map((bid) => {
+                const canAction = !['AWARDED', 'COMPLETED', 'REJECTED'].includes(bid.status);
+                const scoreColor = (bid.aiScore ?? 0) >= 80 
+                  ? 'text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200' 
+                  : (bid.aiScore ?? 0) >= 60 
+                    ? 'text-yellow-700 bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200' 
+                    : 'text-rose-700 bg-rose-50 dark:bg-rose-950/30 border-rose-200';
+                
+                return (
+                  <div key={bid.id} className="rounded-md border border-[var(--border)] bg-[var(--panel-strong)]/40 p-3 text-xs flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="font-semibold text-[var(--foreground)]">
+                        {bid.vendorName ?? 'Vendor'}
+                        {bid.vendorEmail ? ` (${bid.vendorEmail})` : ''}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold ${scoreColor}`}>
+                          Rank: {bid.aiScore ?? 'N/A'}/100
+                        </span>
+                        <span className="rounded-sm border border-[var(--border)] px-1.5 py-0.5 text-[10px] text-[var(--muted)] uppercase font-mono">
+                          {bid.status}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-[var(--muted)] border-t border-[var(--border)]/50 pt-2">
+                      <div>Bid Amount: <strong className="text-[var(--foreground)]">{cents(bid.bidAmountCents) ?? 'N/A'}</strong></div>
+                      <div>Expected By: <strong className="text-[var(--foreground)]">{bid.dueDate ? new Date(bid.dueDate).toLocaleDateString() : 'Immediate'}</strong></div>
+                    </div>
+
+                    {bid.aiRationale ? (
+                      <div className="text-[11px] text-[var(--muted)] leading-relaxed italic bg-[var(--panel)]/50 p-2 rounded border border-[var(--border)]/30">
+                        {bid.aiRationale}
+                      </div>
+                    ) : null}
+
+                    {bid.scope ? (
+                      <div className="text-[11px] text-[var(--foreground)] leading-relaxed">
+                        <span className="text-[var(--muted)] font-medium">Scope:</span> {bid.scope}
+                      </div>
+                    ) : null}
+
+                    {canAction && (
+                      <div className="flex justify-end gap-2 border-t border-[var(--border)]/50 pt-2">
+                        <button
+                          disabled={pending}
+                          onClick={() => onRejectBid(bid.id)}
+                          className="rounded border border-[var(--border)] px-2.5 py-1 font-semibold text-[var(--danger)] hover:bg-rose-50 dark:hover:bg-rose-950/20 disabled:opacity-50"
+                        >
+                          Reject
+                        </button>
+                        <button
+                          disabled={pending}
+                          onClick={() => onAwardBid(bid.id)}
+                          className="rounded bg-[var(--accent)] px-2.5 py-1 font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                        >
+                          Award Bid
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        ) : null}
+        ) : (
+          <div className="mt-3 text-xs text-[var(--muted)] italic">No bids submitted yet for this RFP scope.</div>
+        )}
+
         {item.latestDispatch ? (
           <div className="mt-2 rounded-md border border-[var(--border)] bg-[var(--panel-strong)] p-2 text-xs text-[var(--muted)]">
             Dispatch: {item.latestDispatch.vendorName ?? 'Vendor'} · {item.latestDispatch.status}
@@ -1246,14 +1415,14 @@ function MaintenanceDispatchRow({
         <button disabled={pending || item.nextAction === 'blocked'} onClick={onDispatch} className="rounded-md bg-[var(--accent)] px-3 py-2 text-sm font-medium text-white disabled:opacity-50">
           Dispatch vendor
         </button>
-        <button disabled={pending || !hasAwardableBid} onClick={onAwardBid} className="rounded-md border border-[var(--border)] px-3 py-2 text-sm font-medium disabled:opacity-50">
-          Award bid
+        <button disabled={pending || !hasAwardableBid} onClick={() => onAwardBid()} className="rounded-md border border-[var(--border)] px-3 py-2 text-sm font-medium disabled:opacity-50">
+          Award latest bid
         </button>
         <button disabled={pending || !hasActiveDispatch} onClick={onCompleteDispatch} className="rounded-md border border-[var(--border)] px-3 py-2 text-sm font-medium disabled:opacity-50">
           Complete dispatch
         </button>
-        <button disabled={pending || !hasRejectableBid} onClick={onRejectBid} className="rounded-md border border-[var(--border)] px-3 py-2 text-sm font-medium text-[var(--danger)] disabled:opacity-50">
-          Reject bid
+        <button disabled={pending || !hasRejectableBid} onClick={() => onRejectBid()} className="rounded-md border border-[var(--border)] px-3 py-2 text-sm font-medium text-[var(--danger)] disabled:opacity-50">
+          Reject latest bid
         </button>
       </div>
     </article>
@@ -1279,6 +1448,71 @@ function InspectionEstimatesView({
   const [pending, setPending] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [noteByEstimate, setNoteByEstimate] = useState<Record<string, string>>({});
+
+  const [isOnline, setIsOnline] = useState(true);
+  const [offlineQueue, setOfflineQueue] = useState<any[]>([]);
+  const [simTargetId, setSimTargetId] = useState<string>('');
+  const [simFinding, setSimFinding] = useState('');
+  const [syncingQueue, setSyncingQueue] = useState(false);
+
+  function simulateOfflineFinding() {
+    if (!simTargetId) {
+      setMessage('Select an inspection to simulate first.');
+      return;
+    }
+    const targetId = parseInt(simTargetId, 10);
+    const newAction = {
+      id: targetId,
+      action: 'complete',
+      timestamp: new Date().toISOString(),
+      payload: {
+        findings: [
+          {
+            location: 'Unit Interior',
+            category: 'Safety',
+            issueType: 'Repair',
+            description: simFinding || 'Simulated offline inspection checklist issue.',
+          },
+        ],
+        notes: 'Offline field device checklist sync draft.',
+      },
+    };
+
+    if (isOnline) {
+      setMessage('Direct sync online is not simulated. Toggle Offline mode to test the queuing mechanism.');
+      return;
+    }
+
+    setOfflineQueue((curr) => [...curr, newAction]);
+    setSimFinding('');
+    setMessage(`Offline action successfully queued: Complete Inspection #${targetId}`);
+  }
+
+  async function syncQueue() {
+    if (offlineQueue.length === 0) return;
+    setSyncingQueue(true);
+    setMessage(null);
+    try {
+      const res = await fetch('/api/backend/inspections/sync', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ actions: offlineQueue }),
+      });
+      if (!res.ok) {
+        throw new Error(`Sync failed with status: ${res.status}`);
+      }
+      setMessage(`Successfully synchronized ${offlineQueue.length} offline inspection action(s) to the database.`);
+      setOfflineQueue([]);
+      await onRefresh();
+    } catch (err: any) {
+      setMessage(err.message || 'Failed to sync offline queue.');
+    } finally {
+      setSyncingQueue(false);
+    }
+  }
 
   async function run(item: OperatorInspectionEstimateItem, action: 'generate' | 'approve' | 'reject' | 'repair') {
     const estimate = item.latestEstimate;
@@ -1319,6 +1553,103 @@ function InspectionEstimatesView({
         matched={workflowFocus ? workbench?.inspections.some((item) => workflowFocusMatchesEntity(workflowFocus, 'InspectionRequest', item.inspectionId)) ?? false : undefined}
         onClear={onClearWorkflowFocus}
       />
+
+      {/* Offline Sync Simulator Panel */}
+      <div className="mb-6 rounded-md border border-[var(--border)] bg-[var(--panel)] p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-[var(--border)] pb-3">
+          <div>
+            <h3 className="font-semibold text-sm flex items-center gap-2">
+              <span className={`h-2.5 w-2.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></span>
+              Offline-First Mobile Sync Simulator
+            </h3>
+            <p className="text-xs text-[var(--muted)] mt-1">Simulates mobile field inspectors taking offline room assessments and batch syncing findings.</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setIsOnline(true)}
+              className={`px-3 py-1.5 text-xs font-semibold rounded ${isOnline ? 'bg-[var(--accent)] text-white' : 'bg-[var(--panel-strong)] text-[var(--muted)]'}`}
+            >
+              Online Mode
+            </button>
+            <button
+              onClick={() => setIsOnline(false)}
+              className={`px-3 py-1.5 text-xs font-semibold rounded ${!isOnline ? 'bg-amber-600 text-white' : 'bg-[var(--panel-strong)] text-[var(--muted)]'}`}
+            >
+              Offline Mode
+            </button>
+          </div>
+        </div>
+
+        <div className="grid gap-5 mt-4 md:grid-cols-[1fr_280px]">
+          <div className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="block text-xs font-medium text-[var(--muted)] mb-1" htmlFor="sim-inspection-select">Target Scheduled Inspection</label>
+                <select
+                  id="sim-inspection-select"
+                  value={simTargetId}
+                  onChange={(e) => setSimTargetId(e.target.value)}
+                  className="h-10 w-full rounded-md border border-[var(--border)] bg-[var(--panel)] px-2 text-xs"
+                >
+                  <option value="">Select Scheduled Unit</option>
+                  {workbench?.inspections
+                    .filter((item) => item.status === 'SCHEDULED' || item.status === 'PENDING')
+                    .map((item) => (
+                      <option key={item.inspectionId} value={item.inspectionId}>
+                        Inspection #{item.inspectionId} · {item.propertyName} ({item.unitLabel ?? 'General'})
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[var(--muted)] mb-1" htmlFor="sim-finding-input">Findings & Notes (Offline Assessment)</label>
+                <input
+                  id="sim-finding-input"
+                  value={simFinding}
+                  onChange={(e) => setSimFinding(e.target.value)}
+                  placeholder="e.g. Scratched living room floor, clogged bathroom sink"
+                  className="h-10 w-full rounded-md border border-[var(--border)] bg-[var(--panel)] px-3 text-xs outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+            </div>
+            <button
+              disabled={isOnline || !simTargetId}
+              onClick={simulateOfflineFinding}
+              className="rounded bg-[var(--panel-strong)] border border-[var(--border)] px-4 py-2 text-xs font-semibold disabled:opacity-50 hover:bg-[var(--panel)]"
+            >
+              Record Finding Offline
+            </button>
+          </div>
+
+          <div className="rounded-md border border-[var(--border)] bg-[var(--panel-strong)]/30 p-3 text-xs flex flex-col justify-between">
+            <div>
+              <div className="font-semibold text-xs border-b border-[var(--border)] pb-1.5 flex justify-between">
+                <span>Unsynced Queue</span>
+                <span className="font-mono text-amber-600 font-bold">{offlineQueue.length} items</span>
+              </div>
+              <div className="mt-2 space-y-1.5 max-h-[80px] overflow-y-auto">
+                {offlineQueue.length === 0 ? (
+                  <div className="text-[11px] text-[var(--muted)] italic">Queue is empty. Toggle Offline Mode & add assessments.</div>
+                ) : (
+                  offlineQueue.map((item, index) => (
+                    <div key={index} className="text-[11px] bg-[var(--panel)] border border-[var(--border)] p-1 rounded font-mono truncate">
+                      [{new Date(item.timestamp).toLocaleTimeString()}] Sync Inspection #{item.id}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            <button
+              disabled={!isOnline || offlineQueue.length === 0 || syncingQueue}
+              onClick={syncQueue}
+              className="mt-3 w-full rounded bg-[var(--accent)] py-2 text-xs font-semibold text-white disabled:opacity-50 hover:opacity-95 text-center flex items-center justify-center gap-1.5"
+            >
+              {syncingQueue ? <Loader2 size={13} className="animate-spin" /> : null}
+              Sync Offline Queue
+            </button>
+          </div>
+        </div>
+      </div>
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         <MetricTile label="Completed" value={formatNumber(workbench?.metrics.completedInspections)} detail="inspections" icon={ClipboardList} />
@@ -1469,6 +1800,33 @@ function RenewalsView({
   const [noteByLease, setNoteByLease] = useState<Record<string, string>>({});
   const [moveOutByLease, setMoveOutByLease] = useState<Record<string, string>>({});
 
+  const [selectedPricingUnitId, setSelectedPricingUnitId] = useState<string | null>(null);
+  const [pricingMatrix, setPricingMatrix] = useState<any>(null);
+  const [loadingPricing, setLoadingPricing] = useState(false);
+
+  async function loadPricing(unitId: string) {
+    setSelectedPricingUnitId(unitId);
+    setLoadingPricing(true);
+    setPricingMatrix(null);
+    try {
+      const res = await fetch(`/api/rent-recommendations/seasonal-pricing/${unitId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        }
+      });
+      if (res.ok) {
+        const body = await res.json();
+        setPricingMatrix(body.data || body);
+      } else {
+        setMessage('Failed to load seasonal pricing matrix.');
+      }
+    } catch (err) {
+      setMessage('Error loading pricing matrix.');
+    } finally {
+      setLoadingPricing(false);
+    }
+  }
+
   async function run(item: OperatorRenewalItem, action: 'offer' | 'accept' | 'decline' | 'signature' | 'refresh' | 'moveout') {
     setPending(`${action}-${item.leaseId}`);
     setMessage(null);
@@ -1576,11 +1934,95 @@ function RenewalsView({
                   onNoteChange={(value) => setNoteByLease((current) => ({ ...current, [item.leaseId]: value }))}
                   onMoveOutChange={(value) => setMoveOutByLease((current) => ({ ...current, [item.leaseId]: value }))}
                   onAction={(action) => void run(item, action)}
+                  onViewPricing={() => void loadPricing(item.unitId)}
                 />
               ))}
             </div>
           )}
         </section>
+      )}
+
+      {selectedPricingUnitId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-4xl rounded-lg border border-[var(--border)] bg-[var(--panel)] p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="mb-4 flex items-center justify-between border-b border-[var(--border)] pb-3">
+              <h3 className="text-xl font-bold">Seasonal Pricing Matrix & Dynamic Optimization</h3>
+              <button onClick={() => setSelectedPricingUnitId(null)} className="text-[var(--muted)] hover:text-[var(--foreground)] text-lg">✕</button>
+            </div>
+
+            {loadingPricing ? (
+              <div className="flex h-64 items-center justify-center">
+                <Loader2 className="animate-spin text-[var(--accent)]" size={32} />
+              </div>
+            ) : pricingMatrix ? (
+              <div>
+                <div className="mb-5 grid gap-4 sm:grid-cols-3">
+                  <div className="rounded-md border border-[var(--border)] p-3">
+                    <span className="text-xs text-[var(--muted)]">Unit</span>
+                    <div className="text-sm font-semibold">{pricingMatrix.unitName}</div>
+                  </div>
+                  <div className="rounded-md border border-[var(--border)] p-3">
+                    <span className="text-xs text-[var(--muted)]">Base Rent</span>
+                    <div className="text-sm font-semibold">{formatCurrency(pricingMatrix.baseRent)}</div>
+                  </div>
+                  <div className="rounded-md border border-[var(--border)] p-3">
+                    <span className="text-xs text-[var(--muted)]">Generated At</span>
+                    <div className="text-sm font-semibold">{new Date(pricingMatrix.generatedAt).toLocaleDateString()}</div>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-[var(--border)] text-xs uppercase text-[var(--muted)]">
+                        <th className="py-2 px-3">Term (Months)</th>
+                        <th className="py-2 px-3">Start Month</th>
+                        <th className="py-2 px-3 text-right">Rent</th>
+                        <th className="py-2 px-3 text-right">Adj %</th>
+                        <th className="py-2 px-3">Recommendation</th>
+                        <th className="py-2 px-3">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--border)]">
+                      {pricingMatrix.options?.map((option: any, idx: number) => (
+                        <tr key={idx} className={`hover:bg-[var(--panel-strong)] ${option.recommended ? 'bg-[var(--accent)]/5 font-medium' : ''}`}>
+                          <td className="py-3 px-3">{option.termMonths}m</td>
+                          <td className="py-3 px-3">{option.targetStartMonthLabel}</td>
+                          <td className="py-3 px-3 text-right font-semibold">{formatCurrency(option.monthlyRent)}</td>
+                          <td className="py-3 px-3 text-right text-xs">
+                            <span className={option.seasonalAdjustmentPercent > 0 ? 'text-green-600 font-medium' : option.seasonalAdjustmentPercent < 0 ? 'text-red-600 font-medium' : ''}>
+                              {option.seasonalAdjustmentPercent > 0 ? '+' : ''}{option.seasonalAdjustmentPercent}%
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-xs text-[var(--muted)] max-w-xs">{option.reason}</td>
+                          <td className="py-3 px-3">
+                            <button
+                              onClick={() => {
+                                setRentByLease(current => ({ ...current, [pricingMatrix.unitId]: String(option.monthlyRent) }));
+                                if (workbench && workbench.leases) {
+                                  const leaseItem = workbench.leases.find((l: any) => l.unitId === pricingMatrix.unitId);
+                                  if (leaseItem) {
+                                    setRentByLease(current => ({ ...current, [leaseItem.leaseId]: String(option.monthlyRent) }));
+                                  }
+                                }
+                                setSelectedPricingUnitId(null);
+                              }}
+                              className="rounded bg-[var(--accent)] px-2.5 py-1 text-xs text-white hover:opacity-90 font-medium"
+                            >
+                              Apply Price
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-[var(--muted)]">Failed to load data.</div>
+            )}
+          </div>
+        </div>
       )}
     </section>
   );
@@ -1597,6 +2039,7 @@ function RenewalRow({
   onNoteChange,
   onMoveOutChange,
   onAction,
+  onViewPricing,
 }: {
   item: OperatorRenewalItem;
   focused: boolean;
@@ -1608,6 +2051,7 @@ function RenewalRow({
   onNoteChange: (value: string) => void;
   onMoveOutChange: (value: string) => void;
   onAction: (action: 'offer' | 'accept' | 'decline' | 'signature' | 'refresh' | 'moveout') => void;
+  onViewPricing: () => void;
 }) {
   const focusedRef = useFocusedRowScroll(focused);
   return (
@@ -1632,9 +2076,12 @@ function RenewalRow({
       </div>
 
       <div className="space-y-2">
-        <input value={rent} onChange={(event) => onRentChange(event.target.value)} className="h-10 w-full rounded-md border border-[var(--border)] bg-[var(--panel)] px-2 text-sm" aria-label="Renewal rent amount" placeholder={`Renewal rent ${item.currentRent}`} />
-        <input type="date" value={moveOutAt} onChange={(event) => onMoveOutChange(event.target.value)} className="h-10 w-full rounded-md border border-[var(--border)] bg-[var(--panel)] px-2 text-sm" aria-label="Move-out date" />
-        <textarea value={note} onChange={(event) => onNoteChange(event.target.value)} className="min-h-20 w-full rounded-md border border-[var(--border)] bg-[var(--panel)] p-2 text-sm" aria-label="Renewal note" placeholder="Offer message, response note, or move-out reason" />
+        <div className="flex gap-2">
+          <input value={rent} onChange={(event) => onRentChange(event.target.value)} className="h-10 flex-1 rounded-md border border-[var(--border)] bg-[var(--panel)] px-2 text-sm outline-none focus:border-[var(--accent)]" aria-label="Renewal rent amount" placeholder={`Rent ${item.currentRent}`} />
+          <button onClick={onViewPricing} className="h-10 px-3 rounded-md border border-[var(--border)] bg-[var(--panel)] text-xs font-medium hover:bg-[var(--panel-strong)]" title="Optimize rent using ML metrics">Optimize</button>
+        </div>
+        <input type="date" value={moveOutAt} onChange={(event) => onMoveOutChange(event.target.value)} className="h-10 w-full rounded-md border border-[var(--border)] bg-[var(--panel)] px-2 text-sm outline-none focus:border-[var(--accent)]" aria-label="Move-out date" />
+        <textarea value={note} onChange={(event) => onNoteChange(event.target.value)} className="min-h-20 w-full rounded-md border border-[var(--border)] bg-[var(--panel)] p-2 text-sm outline-none focus:border-[var(--accent)]" aria-label="Renewal note" placeholder="Offer message, response note, or move-out reason" />
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
@@ -1668,6 +2115,40 @@ function OwnerStatementsView({
   const [month, setMonth] = useState(workbench?.month ?? new Date().toISOString().slice(0, 7));
   const [pending, setPending] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  const [subView, setSubView] = useState<'statements' | 'bi'>('statements');
+  const [analyticsData, setAnalyticsData] = useState<any | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+
+  const loadAnalytics = useCallback(async () => {
+    if (!token) return;
+    setAnalyticsLoading(true);
+    setAnalyticsError(null);
+    try {
+      const res = await fetch('/api/backend/reporting/owner-portfolio-analytics', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!res.ok) {
+        throw new Error(`Failed to load analytics: ${res.statusText}`);
+      }
+      const val = await res.json();
+      setAnalyticsData(val);
+    } catch (err: any) {
+      setAnalyticsError(err.message || 'Error fetching analytics data');
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (subView === 'bi' && !analyticsData && !analyticsLoading) {
+      void loadAnalytics();
+    }
+  }, [subView, analyticsData, analyticsLoading, loadAnalytics]);
 
   useEffect(() => {
     if (workbench?.month) setMonth(workbench.month);
@@ -1723,47 +2204,234 @@ function OwnerStatementsView({
         <MetricTile label="Close locks" value={`${formatNumber(workbench?.metrics.closeLockedProperties)}/${formatNumber((workbench?.metrics.closeLockedProperties ?? 0) + (workbench?.metrics.closeUnlockedProperties ?? 0))}`} detail="locked properties" icon={KeyRound} />
       </div>
 
-      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 id="owner-statements-title" className="text-lg font-semibold">Owner statement review</h2>
-          <p className="text-sm text-[var(--muted)]">Generate statements from posted accounting entries, review monthly-close blockers, approve, and send to owners.</p>
-        </div>
-        <div className="flex gap-2">
-          <input type="month" value={month} onChange={(event) => setMonth(event.target.value)} className="h-10 rounded-md border border-[var(--border)] bg-[var(--panel)] px-2 text-sm" aria-label="Statement month" />
-          <button disabled={pending === 'generate' || !month} onClick={() => void generate()} className="rounded-md bg-[var(--accent)] px-3 py-2 text-sm font-medium text-white disabled:opacity-50">
-            Generate
-          </button>
-        </div>
+      <div className="mb-4 flex border-b border-[var(--border)]">
+        <button
+          onClick={() => setSubView('statements')}
+          className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
+            subView === 'statements'
+              ? 'border-[var(--accent)] text-[var(--foreground)]'
+              : 'border-transparent text-[var(--muted)] hover:text-[var(--foreground)]'
+          }`}
+        >
+          Statement Queue
+        </button>
+        <button
+          onClick={() => setSubView('bi')}
+          className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+            subView === 'bi'
+              ? 'border-[var(--accent)] text-[var(--foreground)]'
+              : 'border-transparent text-[var(--muted)] hover:text-[var(--foreground)]'
+          }`}
+        >
+          <span className="flex h-1.5 w-1.5 rounded-full bg-[var(--accent)]"></span>
+          BI Portfolio Analytics
+        </button>
       </div>
 
-      {message ? <div className="mb-3 rounded-md border border-[var(--border)] bg-[var(--panel)] p-3 text-sm text-[var(--muted)]">{message}</div> : null}
-
-      {!workbench ? (
-        <div className="rounded-md border border-[var(--border)] bg-[var(--panel)] p-5 text-sm text-[var(--muted)]">
-          No owner statements workbench returned by `/api/operator-owner-statements`.
-        </div>
-      ) : (
-        <section className="rounded-md border border-[var(--border)] bg-[var(--panel)]">
-          <div className="border-b border-[var(--border)] px-4 py-3">
-            <h3 className="font-semibold">Statement queue</h3>
+      {subView === 'statements' && (
+        <>
+          <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 id="owner-statements-title" className="text-lg font-semibold">Owner statement review</h2>
+              <p className="text-sm text-[var(--muted)]">Generate statements from posted accounting entries, review monthly-close blockers, approve, and send to owners.</p>
+            </div>
+            <div className="flex gap-2">
+              <input type="month" value={month} onChange={(event) => setMonth(event.target.value)} className="h-10 rounded-md border border-[var(--border)] bg-[var(--panel)] px-2 text-sm" aria-label="Statement month" />
+              <button disabled={pending === 'generate' || !month} onClick={() => void generate()} className="rounded-md bg-[var(--accent)] px-3 py-2 text-sm font-medium text-white disabled:opacity-50">
+                Generate
+              </button>
+            </div>
           </div>
-          {workbench.statements.length === 0 ? (
-            <div className="px-4 py-4 text-sm text-[var(--muted)]">No owner statements returned for {workbench.month}.</div>
+
+          {message ? <div className="mb-3 rounded-md border border-[var(--border)] bg-[var(--panel)] p-3 text-sm text-[var(--muted)]">{message}</div> : null}
+
+          {!workbench ? (
+            <div className="rounded-md border border-[var(--border)] bg-[var(--panel)] p-5 text-sm text-[var(--muted)]">
+              No owner statements workbench returned by `/api/operator-owner-statements`.
+            </div>
           ) : (
-            <div className="divide-y divide-[var(--border)]">
-              {workbench.statements.map((statement) => (
-                <OwnerStatementRow
-                  key={statement.id}
-                  statement={statement}
-                  focused={workflowFocusMatchesEntity(workflowFocus, 'OwnerStatement', statement.id)}
-                  pending={pending?.endsWith(statement.id) ?? false}
-                  onApprove={() => void act(statement, 'approve')}
-                  onSend={() => void act(statement, 'send')}
-                />
-              ))}
+            <section className="rounded-md border border-[var(--border)] bg-[var(--panel)]">
+              <div className="border-b border-[var(--border)] px-4 py-3">
+                <h3 className="font-semibold">Statement queue</h3>
+              </div>
+              {workbench.statements.length === 0 ? (
+                <div className="px-4 py-4 text-sm text-[var(--muted)]">No owner statements returned for {workbench.month}.</div>
+              ) : (
+                <div className="divide-y divide-[var(--border)]">
+                  {workbench.statements.map((statement) => (
+                    <OwnerStatementRow
+                      key={statement.id}
+                      statement={statement}
+                      focused={workflowFocusMatchesEntity(workflowFocus, 'OwnerStatement', statement.id)}
+                      pending={pending?.endsWith(statement.id) ?? false}
+                      onApprove={() => void act(statement, 'approve')}
+                      onSend={() => void act(statement, 'send')}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+        </>
+      )}
+
+      {subView === 'bi' && (
+        <div className="space-y-6">
+          {analyticsLoading && (
+            <div className="flex items-center justify-center py-12 bg-[var(--panel)] rounded-md border border-[var(--border)]">
+              <Loader2 className="animate-spin text-[var(--accent)]" size={32} />
+              <span className="ml-3 text-sm text-[var(--muted)]">Calculating metrics and generating AI narrative...</span>
             </div>
           )}
-        </section>
+
+          {analyticsError && (
+            <div className="rounded-md border border-[var(--danger)] bg-[var(--panel)] p-4 text-sm text-[var(--danger)]">
+              {analyticsError}
+              <button onClick={() => void loadAnalytics()} className="ml-4 underline font-medium text-xs">Try again</button>
+            </div>
+          )}
+
+          {!analyticsLoading && !analyticsError && analyticsData && (
+            <>
+              {/* Custom metric tiles for BI Dashboard */}
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="rounded-md border border-[var(--border)] bg-[var(--panel)] p-5 relative overflow-hidden">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-[var(--muted)]">Capitalization Rate (Cap Rate)</span>
+                    <span className="text-[var(--accent-strong)] text-xs font-semibold px-2 py-0.5 rounded-full bg-[var(--panel-strong)]">Annualized</span>
+                  </div>
+                  <div className="mt-3 flex items-baseline gap-2">
+                    <span className="text-4xl font-bold tracking-tight text-[var(--foreground)]">{analyticsData.capRate}%</span>
+                  </div>
+                  <p className="mt-2 text-xs text-[var(--muted)]">Annualized NOI / Estimated Market Value (${formatNumber(analyticsData.portfolioValuation)})</p>
+                </div>
+
+                <div className="rounded-md border border-[var(--border)] bg-[var(--panel)] p-5 relative overflow-hidden">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-[var(--muted)]">Cash-on-Cash Yield</span>
+                    <span className="text-[var(--accent-strong)] text-xs font-semibold px-2 py-0.5 rounded-full bg-[var(--panel-strong)] font-mono">CoC</span>
+                  </div>
+                  <div className="mt-3 flex items-baseline gap-2">
+                    <span className="text-4xl font-bold tracking-tight text-[var(--foreground)]">{analyticsData.cashOnCash}%</span>
+                  </div>
+                  <p className="mt-2 text-xs text-[var(--muted)]">Annualized Net Income / Est. Cash Invested (${formatNumber(analyticsData.cashInvested)})</p>
+                </div>
+
+                <div className="rounded-md border border-[var(--border)] bg-[var(--panel)] p-5 relative overflow-hidden">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-[var(--muted)]">5-Year IRR Projection</span>
+                    <span className="text-emerald-600 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30">Target</span>
+                  </div>
+                  <div className="mt-3 flex items-baseline gap-2">
+                    <span className="text-4xl font-bold tracking-tight text-[var(--foreground)]">{analyticsData.irr}%</span>
+                  </div>
+                  <p className="mt-2 text-xs text-[var(--muted)]">Simulated Internal Rate of Return over a 5-year hold period</p>
+                </div>
+              </div>
+
+              {/* AI Narrative Explainer Card */}
+              <div className="rounded-md border border-[var(--border)] bg-[var(--panel)] p-5 bg-gradient-to-r from-[var(--panel)] via-[var(--panel)] to-[var(--panel-strong)]">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--accent)] text-white">
+                    <span className="text-xs font-bold font-mono">AI</span>
+                  </div>
+                  <h4 className="font-semibold text-sm">Portfolio Performance Insights (AI Copilot)</h4>
+                </div>
+                <p className="text-sm leading-relaxed text-[var(--foreground)] italic">
+                  &ldquo;{analyticsData.aiSummary}&rdquo;
+                </p>
+                <div className="mt-3 text-[10px] text-[var(--muted)] flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                  Real-time variance engine active · dynamic monthly ledger scan
+                </div>
+              </div>
+
+              {/* Historical Cash Flow Table & Asset Context */}
+              <div className="grid gap-6 lg:grid-cols-2">
+                <div className="rounded-md border border-[var(--border)] bg-[var(--panel)]">
+                  <div className="border-b border-[var(--border)] px-4 py-3 flex items-center justify-between">
+                    <h3 className="font-semibold text-sm">Cash Flow Comparison</h3>
+                    <span className="text-xs text-[var(--muted)]">Month-over-Month</span>
+                  </div>
+                  <div className="p-4">
+                    <table className="w-full text-left border-collapse text-sm">
+                      <thead>
+                        <tr className="border-b border-[var(--border)] text-[var(--muted)] text-xs">
+                          <th className="py-2 font-medium">Metric</th>
+                          <th className="py-2 text-right font-medium">Last Month</th>
+                          <th className="py-2 text-right font-medium">Current Month</th>
+                          <th className="py-2 text-right font-medium">Change</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--border)] text-xs sm:text-sm">
+                        <tr>
+                          <td className="py-3 font-medium">Gross Rent Income</td>
+                          <td className="py-3 text-right">{formatCurrency(analyticsData.cashFlows[1]?.income)}</td>
+                          <td className="py-3 text-right font-semibold">{formatCurrency(analyticsData.cashFlows[0]?.income)}</td>
+                          <td className={`py-3 text-right font-medium ${analyticsData.cashFlows[0]?.income >= analyticsData.cashFlows[1]?.income ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {analyticsData.cashFlows[1]?.income > 0 
+                              ? `${(((analyticsData.cashFlows[0]?.income - analyticsData.cashFlows[1]?.income) / analyticsData.cashFlows[1]?.income) * 100).toFixed(1)}%`
+                              : 'N/A'
+                            }
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="py-3 font-medium">Operating Expenses</td>
+                          <td className="py-3 text-right">{formatCurrency(analyticsData.cashFlows[1]?.expenses)}</td>
+                          <td className="py-3 text-right font-semibold">{formatCurrency(analyticsData.cashFlows[0]?.expenses)}</td>
+                          <td className={`py-3 text-right font-medium ${analyticsData.cashFlows[0]?.expenses <= analyticsData.cashFlows[1]?.expenses ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {analyticsData.cashFlows[1]?.expenses > 0 
+                              ? `${(((analyticsData.cashFlows[0]?.expenses - analyticsData.cashFlows[1]?.expenses) / analyticsData.cashFlows[1]?.expenses) * 100).toFixed(1)}%`
+                              : 'N/A'
+                            }
+                          </td>
+                        </tr>
+                        <tr className="bg-[var(--panel-strong)]/30">
+                          <td className="py-3 font-bold">Net Operating Income (NOI)</td>
+                          <td className="py-3 text-right font-medium">{formatCurrency(analyticsData.cashFlows[1]?.net)}</td>
+                          <td className="py-3 text-right font-bold text-[var(--accent-strong)]">{formatCurrency(analyticsData.cashFlows[0]?.net)}</td>
+                          <td className={`py-3 text-right font-bold ${analyticsData.cashFlows[0]?.net >= analyticsData.cashFlows[1]?.net ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {analyticsData.cashFlows[1]?.net !== 0 
+                              ? `${(((analyticsData.cashFlows[0]?.net - analyticsData.cashFlows[1]?.net) / Math.abs(analyticsData.cashFlows[1]?.net)) * 100).toFixed(1)}%`
+                              : 'N/A'
+                            }
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="rounded-md border border-[var(--border)] bg-[var(--panel)] p-5 flex flex-col justify-between">
+                  <div>
+                    <h3 className="font-semibold text-sm mb-3">Portfolio Asset Valuation & Baseline Details</h3>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex justify-between border-b border-[var(--border)] pb-2">
+                        <span className="text-[var(--muted)]">Active Portfolio Properties</span>
+                        <span className="font-semibold">{analyticsData.propertiesCount} properties</span>
+                      </div>
+                      <div className="flex justify-between border-b border-[var(--border)] pb-2">
+                        <span className="text-[var(--muted)]">Total Managed Units</span>
+                        <span className="font-semibold">{analyticsData.unitsCount} units</span>
+                      </div>
+                      <div className="flex justify-between border-b border-[var(--border)] pb-2">
+                        <span className="text-[var(--muted)]">Estimated Market Valuation</span>
+                        <span className="font-semibold">{formatCurrency(analyticsData.portfolioValuation)}</span>
+                      </div>
+                      <div className="flex justify-between pb-1">
+                        <span className="text-[var(--muted)]">Estimated Owner Equity Invested</span>
+                        <span className="font-semibold">{formatCurrency(analyticsData.cashInvested)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-4 p-3 rounded bg-[var(--panel-strong)]/50 text-xs text-[var(--muted)]">
+                    Values are estimated based on active units ($250k market value, $50k invested equity per unit baseline) for current hold simulation formulas.
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       )}
     </section>
   );

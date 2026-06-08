@@ -13,6 +13,8 @@ from app.models.schemas import (
     ModelInfo,
     PredictionRequest,
     PredictionResponse,
+    MaintenanceRULRequest,
+    MaintenanceRULResponse,
 )
 from app.services.prediction_service import PredictionService
 
@@ -152,6 +154,54 @@ async def predict_batch(payload: BatchPredictionRequest) -> BatchPredictionRespo
     ]
     results = await asyncio.gather(*tasks)
     return BatchPredictionResponse(results=results)
+
+
+@app.post("/predict/maintenance-rul", response_model=MaintenanceRULResponse)
+async def predict_maintenance_rul(payload: MaintenanceRULRequest) -> MaintenanceRULResponse:
+    category_lifetimes = {
+        "HVAC": 15.0,
+        "PLUMBING": 20.0,
+        "ELECTRICAL": 25.0,
+        "APPLIANCE": 10.0,
+        "ROOFING": 25.0
+    }
+    
+    baseline = category_lifetimes.get(payload.category.upper(), 15.0)
+    degradation = (payload.minor_repairs_count * 0.5) + (payload.run_hours / 2000.0)
+    effective_age = payload.age_years + degradation
+    
+    remaining_years = max(0.1, baseline - effective_age)
+    remaining_days = remaining_years * 365.0
+    
+    if remaining_days <= 30:
+        prob = 0.95
+    elif remaining_days <= 90:
+        prob = 0.75
+    elif remaining_days <= 180:
+        prob = 0.45
+    else:
+        prob = 1.0 / (1.0 + (remaining_days / 90.0))
+        
+    prob = min(max(prob, 0.01), 0.99)
+    
+    if prob > 0.8:
+        action = "CRITICAL: Schedule immediate replacement/overhaul. Risk of imminent failure."
+    elif prob > 0.5:
+        action = "HIGH: Schedule preventative maintenance tune-up within 14 days."
+    elif prob > 0.25:
+        action = "MEDIUM: Perform routine inspection during the next unit turnover."
+    else:
+        action = "LOW: Continue standard operating lifecycle. Asset is in healthy bounds."
+        
+    if payload.has_warranty and prob > 0.5:
+        action += " Verify warranty coverage before dispatching external vendors."
+        
+    return MaintenanceRULResponse(
+        remaining_useful_life_days=round(remaining_days, 1),
+        failure_probability_30d=round(prob, 3),
+        recommended_action=action,
+        confidence_score=0.88
+    )
 
 
 if __name__ == "__main__":

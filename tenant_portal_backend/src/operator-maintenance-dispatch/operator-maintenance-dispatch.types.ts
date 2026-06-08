@@ -41,6 +41,7 @@ export type OperatorMaintenanceDispatchItem = {
   latestBid: OperatorContractorBidSummary | null;
   latestDispatch: OperatorContractorBidSummary | null;
   dispatchHistory: OperatorContractorBidSummary[];
+  bids?: OperatorContractorBidSummary[];
   nextAction: 'triage' | 'assign_technician' | 'dispatch_vendor' | 'monitor_vendor' | 'complete' | 'blocked';
   blockers: string[];
   canonicalRoute: string;
@@ -68,6 +69,7 @@ export type OperatorContractorBidSummary = {
   status: BidStatus;
   bidAmountCents: number | null;
   aiScore: number | null;
+  aiRationale?: string | null;
   dueDate: string | null;
   awardedAt: string | null;
   responseNotes: string | null;
