@@ -277,18 +277,32 @@ export class AuthService {
       throw new BadRequestException('Email already exists');
     }
 
+    let orgId: string | undefined;
+    if (dto.organization && dto.organization.trim()) {
+      const newOrg = await this.prisma.organization.create({
+        data: {
+          name: dto.organization.trim(),
+        },
+      });
+      orgId = newOrg.id;
+    }
+
     // Password hashing is now handled by UsersService
     let user;
     try {
-      user = await this.usersService.create({
-        username: dto.username,
-        password: dto.password,
-        passwordUpdatedAt: new Date(),
-        role: dto.role ?? 'TENANT',
-        email: dto.email,
-        firstName: dto.firstName,
-lastName: dto.lastName,
-      });
+      user = await this.usersService.create(
+        {
+          username: dto.username,
+          password: dto.password,
+          passwordUpdatedAt: new Date(),
+          role: dto.role ?? 'TENANT',
+          email: dto.email,
+          firstName: dto.firstName,
+          lastName: dto.lastName,
+        },
+        undefined,
+        orgId,
+      );
     } catch (error: unknown) {
       const prismaError = error as { code?: string };
       if (prismaError?.code === 'P2002') {
