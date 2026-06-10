@@ -26,4 +26,8 @@ export class RegisterRequestDto {
   @IsString()
   @IsEmail()
   email!: string;
+
+  @IsString()
+  @IsOptional()
+  organization?: string;
 }
