@@ -33,9 +33,7 @@ export class TenantService {
         violations: { where: { isResolved: false }, orderBy: { createdAt: 'desc' as const } },
       },
     },
-    leases: {
-      orderBy: { createdAt: 'desc' as const },
-      take: 1,
+    lease: {
       include: {
         unit: { include: { property: true } },
         renewalOffers: { orderBy: { createdAt: 'desc' as const }, take: 1 },
@@ -73,12 +71,21 @@ export class TenantService {
       };
     }
 
-    if (query.propertyId) {
-      (where as any).leases = { some: { unit: { propertyId: query.propertyId } } };
-    }
+    const leaseConditions: Prisma.LeaseWhereInput = {};
 
     if (query.unitId) {
-      (where as any).leases = { some: { unitId: query.unitId } };
+      leaseConditions.unitId = query.unitId;
+    }
+
+    if (query.propertyId || orgId) {
+      const unitConditions: Prisma.UnitWhereInput = {};
+      if (query.propertyId) {
+        unitConditions.propertyId = query.propertyId;
+      }
+      if (orgId) {
+        unitConditions.property = { organizationId: orgId };
+      }
+      leaseConditions.unit = unitConditions;
     }
 
     if (query.delinquent === 'true') {
@@ -91,12 +98,8 @@ export class TenantService {
     if (query.leaseEndingSoon === 'true') {
       const ninetyDaysOut = new Date();
       ninetyDaysOut.setDate(ninetyDaysOut.getDate() + 90);
-      (where as any).leases = {
-        some: {
-          endDate: { lte: ninetyDaysOut },
-          status: { in: ['ACTIVE', 'RENEWAL_PENDING'] },
-        },
-      };
+      leaseConditions.endDate = { lte: ninetyDaysOut };
+      leaseConditions.status = { in: ['ACTIVE', 'RENEWAL_PENDING'] };
     }
 
     if (query.openMaintenance === 'true') {
@@ -110,14 +113,8 @@ export class TenantService {
       };
     }
 
-    if (orgId) {
-      (where as any).leases = {
-        some: {
-          unit: {
-            property: { organizationId: orgId },
-          },
-        },
-      };
+    if (Object.keys(leaseConditions).length > 0) {
+      where.lease = leaseConditions;
     }
 
     const [data, total] = await Promise.all([
@@ -141,7 +138,7 @@ export class TenantService {
           ? { classification: user.tenantProfile.healthClass }
           : { classification: 'STABLE' as const };
 
-        const lease = user.leases?.[0];
+        const lease = user.lease;
         const daysUntilLeaseEnd = lease
           ? Math.floor((lease.endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
           : null;
@@ -200,7 +197,7 @@ export class TenantService {
       this.getDocuments(userId),
     ]);
 
-    const lease = user.leases?.[0];
+    const lease = user.lease;
     const daysUntilLeaseEnd = lease
       ? Math.floor((lease.endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
       : null;

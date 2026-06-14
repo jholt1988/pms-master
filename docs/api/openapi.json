@@ -1349,6 +1349,57 @@
         ]
       }
     },
+    "/api/maintenance/predictive/assets": {
+      "get": {
+        "operationId": "PredictiveMaintenanceController_getPredictiveAssets",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PredictiveMaintenance"
+        ]
+      }
+    },
+    "/api/maintenance/predictive/scan": {
+      "post": {
+        "operationId": "PredictiveMaintenanceController_triggerScan",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PredictiveMaintenance"
+        ]
+      }
+    },
+    "/api/maintenance/predictive/assets/{id}/trigger-preventive": {
+      "post": {
+        "operationId": "PredictiveMaintenanceController_triggerPreventive",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PredictiveMaintenance"
+        ]
+      }
+    },
     "/api/notifications": {
       "get": {
         "operationId": "NotificationsController_getNotifications",
@@ -6646,6 +6697,20 @@
         ]
       }
     },
+    "/api/reporting/owner-portfolio-analytics": {
+      "get": {
+        "operationId": "OwnerAnalyticsController_getOwnerPortfolioAnalytics",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OwnerAnalytics"
+        ]
+      }
+    },
     "/api/inspections-legacy": {
       "post": {
         "operationId": "InspectionsController_create[0]",
@@ -7142,6 +7207,34 @@
             }
           }
         ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Inspections"
+        ]
+      }
+    },
+    "/api/inspections-legacy/sync": {
+      "post": {
+        "operationId": "InspectionsController_sync[0]",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Inspections"
+        ]
+      }
+    },
+    "/api/inspections/sync": {
+      "post": {
+        "operationId": "InspectionsController_sync[1]",
+        "parameters": [],
         "responses": {
           "201": {
             "description": ""

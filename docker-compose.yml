@@ -224,6 +224,8 @@ services:
     environment:
       BACKEND_API_ORIGIN: ${KEYRING_BACKEND_API_ORIGIN:-http://backend:3001}
       NEXT_PUBLIC_API_BASE_URL: ${KEYRING_API_BASE_URL:-http://backend:3001/api}
+      API_URL: http://backend:3001
+      OPERATOR_API_BASE_URL: http://backend:3001
     ports:
       - "3004:3000"
     networks:
