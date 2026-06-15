@@ -17,7 +17,7 @@ logger = logging.getLogger("tenant_portal.chatbot.llm")
 @dataclass
 class LLMConfig:
     provider: str = "azure-openai"
-    model: str = "gpt-4o-mini"
+    model: str = os.getenv("OPENAI_MODEL", "deepseek-ai/DeepSeek-V4-Pro-normalize")
     api_key: Optional[str] = None
     endpoint: Optional[str] = None
     max_requests_per_minute: int = 60
@@ -66,7 +66,8 @@ class LLMClient:
         if self.config.provider == "azure-openai":
             return os.getenv("AZURE_OPENAI_ENDPOINT")
         if self.config.provider == "openai":
-            return "https://api.openai.com/v1/chat/completions"
+            base_url = os.getenv("OPENAI_BASE_URL", "https://api.vultrinference.com/v1")
+            return f"{base_url.rstrip('/')}/chat/completions"
         return None
 
     def redact_sensitive_data(self, content: str) -> str:

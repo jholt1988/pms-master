@@ -64,6 +64,8 @@ export class AILeaseRenewalService {
   private rentRecommendationCache: Map<string, { recommendation: RentAdjustmentRecommendation; timestamp: number }> = new Map();
   private readonly cacheTTL: number = 24 * 60 * 60 * 1000; // 24 hours
 
+  private readonly model: string;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
@@ -74,24 +76,18 @@ export class AILeaseRenewalService {
     }
 
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+    const baseURL = this.configService.get<string>('OPENAI_BASE_URL', 'https://api.vultrinference.com/v1');
     const aiEnabled = this.configService.get<string>('AI_ENABLED', 'false') === 'true';
+    this.model = this.configService.get<string>('OPENAI_MODEL', 'deepseek-ai/DeepSeek-V4-Pro-normalize');
     this.mlServiceUrl = this.configService.get<string>('ML_SERVICE_URL', 'http://ml-service:8000');
     this.mlServiceTimeout = parseInt(this.configService.get<string>('ML_SERVICE_TIMEOUT', '5000'), 10);
     this.mlServiceMaxRetries = parseInt(this.configService.get<string>('ML_SERVICE_MAX_RETRIES', '3'), 10);
     this.mlServiceRetryDelay = parseInt(this.configService.get<string>('ML_SERVICE_RETRY_DELAY', '1000'), 10);
 
-    if (!apiKey) {
-      this.aiEnabled = false;
-      this.logger.warn(
-        'AI Lease Renewal Service initialized in mock mode (no OpenAI API key or AI disabled)',
-      );
-      return;
-    }
-
     this.aiEnabled = aiEnabled && !!apiKey;
 
     if (this.aiEnabled && apiKey) {
-      this.openai = new OpenAI({ apiKey });
+      this.openai = new OpenAI({ apiKey, baseURL });
       this.logger.log('AI Lease Renewal Service initialized with OpenAI');
     } else {
       this.logger.warn(
@@ -733,7 +729,7 @@ Incentives: ${incentives.map(i => i.description).join(', ') || 'None'}
 Keep it professional, warm, and concise (2-3 sentences). Highlight the value of staying.`;
 
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: this.model,
         messages: [
           {
             role: 'system',
