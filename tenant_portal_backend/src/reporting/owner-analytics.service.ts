@@ -8,16 +8,19 @@ export class OwnerAnalyticsService {
   private readonly logger = new Logger(OwnerAnalyticsService.name);
   private openai: OpenAI | null = null;
   private aiEnabled: boolean;
+  private readonly model: string;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
   ) {
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+    const baseURL = this.configService.get<string>('OPENAI_BASE_URL', 'https://api.vultrinference.com/v1');
     const aiEnabled = this.configService.get<string>('AI_ENABLED', 'false') === 'true';
+    this.model = this.configService.get<string>('OPENAI_MODEL', 'deepseek-ai/DeepSeek-V4-Pro-normalize');
     this.aiEnabled = aiEnabled && !!apiKey;
     if (this.aiEnabled && apiKey) {
-      this.openai = new OpenAI({ apiKey });
+      this.openai = new OpenAI({ apiKey, baseURL });
     }
   }
 
@@ -196,7 +199,7 @@ export class OwnerAnalyticsService {
 
     try {
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: this.model,
         messages: [
           {
             role: 'system',

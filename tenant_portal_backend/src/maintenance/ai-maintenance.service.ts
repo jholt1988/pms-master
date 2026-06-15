@@ -27,6 +27,7 @@ export class AIMaintenanceService {
   private readonly logger = new Logger(AIMaintenanceService.name);
   private openai: OpenAI | null = null;
   private aiEnabled: boolean;
+  private model: string;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -42,18 +43,20 @@ export class AIMaintenanceService {
 
   private refreshAiConfig(): void {
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+    const baseURL = this.configService.get<string>('OPENAI_BASE_URL', 'https://api.vultrinference.com/v1');
     const aiEnabled = this.configService.get<string>('AI_ENABLED', 'false') === 'true';
     const maintenanceAiEnabled = this.configService.get<string>(
       'AI_MAINTENANCE_ENABLED',
       'true',
     ) === 'true';
+    this.model = this.configService.get<string>('OPENAI_MODEL', 'deepseek-ai/DeepSeek-V4-Pro-normalize');
 
     this.aiEnabled = aiEnabled && maintenanceAiEnabled && !!apiKey;
 
     if (this.aiEnabled && apiKey) {
       // Only create client once even if refresh is called multiple times
       if (!this.openai) {
-        this.openai = new OpenAI({ apiKey });
+        this.openai = new OpenAI({ apiKey, baseURL });
         this.logger.log('AI Maintenance Service initialized with OpenAI');
       }
     } else {
@@ -98,7 +101,7 @@ Priority levels:
 Respond with ONLY one word: HIGH, MEDIUM, or LOW`;
 
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: this.model,
         messages: [
           {
             role: 'system',

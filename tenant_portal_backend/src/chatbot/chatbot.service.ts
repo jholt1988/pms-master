@@ -77,6 +77,7 @@ export class ChatbotService {
     private readonly configService: ConfigService,
   ) {
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+    const baseURL = this.configService.get<string>('OPENAI_BASE_URL', 'https://api.vultrinference.com/v1');
     const aiEnabled = this.configService.get<string>('AI_ENABLED', 'false') === 'true';
     const chatbotEnabled = this.configService.get<string>('AI_CHATBOT_ENABLED', 'true') === 'true';
     const orchestratorEnabled = this.configService.get<string>(
@@ -87,14 +88,14 @@ export class ChatbotService {
     const ragServiceUrl = this.configService.get<string>('AI_RAG_SERVICE_URL', 'http://localhost:9000');
     const ragTimeoutMs = Number(this.configService.get<string>('AI_RAG_TIMEOUT_MS', '2500'));
 
-    this.aiEnabled = aiEnabled && chatbotEnabled;
+    this.aiEnabled = aiEnabled && chatbotEnabled && Boolean(apiKey);
     this.propertyOpsOrchestratorEnabled = orchestratorEnabled;
     this.ragEnabled = ragEnabled;
     this.ragServiceUrl = ragServiceUrl;
     this.ragTimeoutMs = Number.isFinite(ragTimeoutMs) ? ragTimeoutMs : 2500;
 
     if (this.aiEnabled && apiKey) {
-      this.openai = new OpenAI({ apiKey });
+      this.openai = new OpenAI({ apiKey, baseURL });
       this.logger.log('Chatbot Service initialized with OpenAI');
     } else {
       this.logger.warn(

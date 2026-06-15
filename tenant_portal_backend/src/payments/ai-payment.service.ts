@@ -13,6 +13,7 @@ export class AIPaymentService {
   private readonly logger = new Logger(AIPaymentService.name);
   private openai: OpenAI | null = null;
   private readonly aiEnabled: boolean;
+  private readonly model: string;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -24,24 +25,18 @@ export class AIPaymentService {
     }
 
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+    const baseURL = this.configService.get<string>('OPENAI_BASE_URL', 'https://api.vultrinference.com/v1');
     const aiEnabled = this.configService.get<string>('AI_ENABLED', 'false') === 'true';
     const paymentAiEnabled = this.configService.get<string>(
       'AI_PAYMENT_ENABLED',
       'true',
     ) === 'true';
-
-    if (!apiKey) {
-      this.aiEnabled = false;
-      this.logger.warn(
-        'AI Payment Service initialized in mock mode (no OpenAI API key or AI disabled)',
-      );
-      return;
-    }
+    this.model = this.configService.get<string>('OPENAI_MODEL', 'deepseek-ai/DeepSeek-V4-Pro-normalize');
 
     this.aiEnabled = aiEnabled && paymentAiEnabled && !!apiKey;
 
     if (this.aiEnabled && apiKey) {
-      this.openai = new OpenAI({ apiKey });
+      this.openai = new OpenAI({ apiKey, baseURL });
       this.logger.log('AI Payment Service initialized with OpenAI');
     } else {
       this.logger.warn(
@@ -473,7 +468,7 @@ Urgency: ${urgency}
 Keep it brief (1-2 sentences), professional, and friendly. Don't be pushy.`;
 
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: this.model,
         messages: [
           {
             role: 'system',

@@ -45,9 +45,10 @@ export class AiGatewayService {
     private readonly decisions: DecisionRecordService,
   ) {
     const apiKey = this.config.get<string>('OPENAI_API_KEY');
+    const baseURL = this.config.get<string>('OPENAI_BASE_URL', 'https://api.vultrinference.com/v1');
     this.aiEnabled = this.config.get<string>('AI_ENABLED', 'false') === 'true' && Boolean(apiKey);
-    this.model = this.config.get<string>('AI_GATEWAY_MODEL', 'gpt-4o-mini');
-    this.openai = this.aiEnabled && apiKey ? new OpenAI({ apiKey }) : null;
+    this.model = this.config.get<string>('AI_GATEWAY_MODEL') || this.config.get<string>('OPENAI_MODEL', 'deepseek-ai/DeepSeek-V4-Pro-normalize');
+    this.openai = this.aiEnabled && apiKey ? new OpenAI({ apiKey, baseURL }) : null;
     if (!this.openai) {
       this.logger.warn('AI gateway initialized in deterministic mock mode.');
     }

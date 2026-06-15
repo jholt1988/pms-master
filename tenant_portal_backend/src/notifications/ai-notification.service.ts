@@ -25,6 +25,7 @@ export class AINotificationService {
   private readonly logger = new Logger(AINotificationService.name);
   private openai: OpenAI | null = null;
   private readonly aiEnabled: boolean;
+  private readonly model: string;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -32,12 +33,14 @@ export class AINotificationService {
     private readonly preferencesService: NotificationPreferencesService,
   ) {
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+    const baseURL = this.configService.get<string>('OPENAI_BASE_URL', 'https://api.vultrinference.com/v1');
     const aiEnabled = this.configService.get<string>('AI_ENABLED', 'false') === 'true';
+    this.model = this.configService.get<string>('OPENAI_MODEL', 'deepseek-ai/DeepSeek-V4-Pro-normalize');
 
-    this.aiEnabled = aiEnabled;
+    this.aiEnabled = aiEnabled && !!apiKey;
 
     if (this.aiEnabled && apiKey) {
-      this.openai = new OpenAI({ apiKey });
+      this.openai = new OpenAI({ apiKey, baseURL });
       this.logger.log('AI Notification Service initialized with OpenAI');
     } else {
       this.openai = null;
@@ -372,7 +375,7 @@ User: ${user.username}
 Keep it brief (1-2 sentences), friendly, and professional. Include relevant details.`;
 
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: this.model,
         messages: [
           {
             role: 'system',
@@ -434,7 +437,7 @@ User: ${user.username}
 Make it more personalized and engaging while keeping the same information. Keep it concise (1-2 sentences).`;
 
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: this.model,
         messages: [
           {
             role: 'system',
