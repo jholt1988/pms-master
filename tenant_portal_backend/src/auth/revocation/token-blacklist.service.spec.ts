@@ -17,8 +17,25 @@ describe('TokenBlacklistService', () => {
     get: jest.fn().mockReturnValue('redis://localhost:6379'),
   } as unknown as ConfigService;
 
+  // The service disables itself (no Redis) when NODE_ENV==='test' or
+  // DISABLE_REDIS==='true'. These tests exercise the REAL Redis path, so we
+  // force-enable it by clearing those guards for the duration of the suite.
+  const prevNodeEnv = process.env.NODE_ENV;
+  const prevDisableRedis = process.env.DISABLE_REDIS;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.NODE_ENV = 'development';
+    delete process.env.DISABLE_REDIS;
+  });
+
+  afterAll(() => {
+    process.env.NODE_ENV = prevNodeEnv;
+    if (prevDisableRedis === undefined) {
+      delete process.env.DISABLE_REDIS;
+    } else {
+      process.env.DISABLE_REDIS = prevDisableRedis;
+    }
   });
 
   it('initializes and closes redis client', async () => {
