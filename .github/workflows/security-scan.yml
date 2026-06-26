@@ -1,0 +1,44 @@
+name: Security Scan
+
+# Secret scanning + large-file guard. Added as part of the 2026-06 security review.
+on:
+  push:
+  pull_request:
+
+jobs:
+  gitleaks:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so gitleaks can scan all commits
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  large-files:
+    name: Reject files larger than 5 MB
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for oversized tracked files
+        run: |
+          # Fail the build if any tracked file exceeds 5 MB. Use Git LFS for
+          # legitimately large assets, or remove accidental commits.
+          MAX=$((5 * 1024 * 1024))
+          fail=0
+          while IFS= read -r f; do
+            [ -f "$f" ] || continue
+            size=$(wc -c < "$f")
+            if [ "$size" -gt "$MAX" ]; then
+              printf '::error file=%s::%s is %d bytes (>5 MB). Use Git LFS or remove it.\n' "$f" "$f" "$size"
+              fail=1
+            fi
+          done < <(git ls-files)
+          if [ "$fail" -ne 0 ]; then
+            echo "Oversized files detected. See annotations above."
+            exit 1
+          fi
+          echo "No tracked file exceeds 5 MB."
