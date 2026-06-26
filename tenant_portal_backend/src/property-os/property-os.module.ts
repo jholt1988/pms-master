@@ -3,11 +3,12 @@ import { PropertyOsController } from './property-os.controller';
 import { PropertyOsService } from './property-os.service';
 import { PropertyOsV16ValidationMiddleware } from '../middleware/property-os-v16.middleware';
 import { SecurityEventsModule } from '../security-events/security-events.module';
+import { RolesGuard } from '../auth/roles.guard';
 
 @Module({
   imports: [SecurityEventsModule],
   controllers: [PropertyOsController],
-  providers: [PropertyOsService],
+  providers: [PropertyOsService, RolesGuard],
   exports: [PropertyOsService],
 })
 export class PropertyOsModule implements NestModule {
