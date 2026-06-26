@@ -72,6 +72,31 @@ export class TestDataFactory {
   }
 
   /**
+   * Seed an Organization and link a user to it via UserOrganization.
+   *
+   * Org-scoped endpoints use OrgContextGuard + the @OrgId() decorator: without a
+   * UserOrganization membership, req.org is never populated and the decorator
+   * throws 403 AUTH_014 ("Organization context is required"). Non-tenant e2e
+   * users that hit org-scoped routes must be seeded with a membership.
+   *
+   * Returns the created organization (use org.id where the test needs it).
+   */
+  static async seedOrganizationFor(
+    prisma: any,
+    userId: string,
+    orgRole: 'OWNER' | 'ADMIN' | 'MEMBER' = 'OWNER',
+    overrides: any = {},
+  ) {
+    const org = await prisma.organization.create({
+      data: { name: `Test Org ${testData.getUniqueId()}`, ...overrides },
+    });
+    await prisma.userOrganization.create({
+      data: { userId, organizationId: org.id, role: orgRole },
+    });
+    return org;
+  }
+
+  /**
    * Create a test property
    */
   static createProperty(overrides: any = {}) {

@@ -37,6 +37,10 @@ describe('Leasing Agent API (e2e)', () => {
       }),
     });
 
+    // Seed org membership so OrgContextGuard populates req.org (org-scoped
+    // leasing endpoints use @OrgId() and 403 AUTH_014 without a membership).
+    await TestDataFactory.seedOrganizationFor(prisma, propertyManager.id, 'OWNER');
+
     // Create test property
     property = await prisma.property.create({
       data: TestDataFactory.createProperty(),
@@ -54,7 +58,7 @@ describe('Leasing Agent API (e2e)', () => {
         username: 'pm@test.com',
         password: 'password123',
       });
-    pmToken = pmLogin.body.access_token;
+    pmToken = pmLogin.body.accessToken;
   });
 
   afterAll(async () => {
