@@ -1,7 +1,9 @@
 import request from 'supertest';
 import { Test } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { PropertyOsModule } from '../src/property-os/property-os.module';
+import { RolesGuard } from '../src/auth/roles.guard';
 import { SecurityEventsService } from '../src/security-events/security-events.service';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -17,6 +19,14 @@ describe('Property OS v1.6 Endpoint (e2e)', () => {
     })
       .overrideProvider(SecurityEventsService)
       .useValue({ logEvent: jest.fn().mockResolvedValue(undefined) })
+      // The controller is guarded by AuthGuard('jwt') + RolesGuard. These
+      // tests exercise the handler's payload-validation logic in isolation,
+      // so allow authenticated access through stubbed guards (a real
+      // request would carry a JWT; auth itself is covered by auth.* specs).
+      .overrideGuard(AuthGuard('jwt'))
+      .useValue({ canActivate: () => true })
+      .overrideGuard(RolesGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     app = moduleFixture.createNestApplication();
