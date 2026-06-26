@@ -36,7 +36,7 @@ export class RentalApplicationService {
     private readonly auditLogService: AuditLogService,
     private readonly scheduleService: ScheduleService,
     private readonly notificationsService: NotificationsService,
-    @InjectQueue('ai-screening') private readonly aiQueue: Queue,
+    @Optional() @InjectQueue('ai-screening') private readonly aiQueue?: Queue,
     @Optional() private readonly workflowEventService?: WorkflowEventService,
     @Optional() private readonly workflowEventProcessor?: WorkflowEventProcessor,
   ) {}
@@ -89,14 +89,16 @@ export class RentalApplicationService {
         status: ApplicationStatus.PENDING_AI_REVIEW,
       },
     });
-   await this.aiQueue.add('score-application', {
-      applicationId: application.id,
-      tenantData: application,
-    }, {
-      attempts: 3,
-      backoff: { type: 'exponential', delay: 1000 },
-      removeOnComplete: true,
-    });
+    if (this.aiQueue) {
+      await this.aiQueue.add('score-application', {
+        applicationId: application.id,
+        tenantData: application,
+      }, {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 1000 },
+        removeOnComplete: true,
+      });
+    }
 
     // 3. Return 202 immediately
     

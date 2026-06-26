@@ -523,15 +523,19 @@ describe('AuthService', () => {
         lastName: mockUser.lastName,
       });
       expect(mockPasswordPolicy.validate).toHaveBeenCalledWith(registerDto.password);
-      expect(mockUsersService.create).toHaveBeenCalledWith({
-        username: registerDto.username,
-        password: registerDto.password,
-        passwordUpdatedAt: expect.any(Date),
-        role: 'TENANT',
-        email: registerDto.email,
-        firstName: registerDto.firstName,
-        lastName: registerDto.lastName,
-      });
+      expect(mockUsersService.create).toHaveBeenCalledWith(
+        {
+          username: registerDto.username,
+          password: registerDto.password,
+          passwordUpdatedAt: expect.any(Date),
+          role: 'TENANT',
+          email: registerDto.email,
+          firstName: registerDto.firstName,
+          lastName: registerDto.lastName,
+        },
+        undefined,
+        undefined,
+      );
       expect(mockSecurityEvents.logEvent).toHaveBeenCalledWith(
         expect.objectContaining({
           type: SecurityEventType.PASSWORD_CHANGED,
