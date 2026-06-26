@@ -57,31 +57,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: tenant_portal_backend/package-lock.json
+          node-version: '22'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
-
-      - name: Install local mil-client dependencies
-        run: npm install --prefix ../packages/mil-client --no-audit --no-fund
+        working-directory: .
+        run: pnpm install --frozen-lockfile
 
       - name: Prisma generate
-        run: npx prisma generate
+        run: pnpm exec prisma generate
 
       - name: Prisma migrate deploy
-        run: npx prisma migrate deploy
+        run: pnpm exec prisma migrate deploy
 
       - name: Seed robust inspection demo
-        run: npm run seed:inspection-demo:robust
+        run: pnpm run seed:inspection-demo:robust
 
       - name: Start backend
         run: |
-          npm run dev > /tmp/backend.log 2>&1 &
+          pnpm run dev > /tmp/backend.log 2>&1 &
           for i in {1..60}; do
             code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3001/api/auth/password-policy || true)
             if [ "$code" = "200" ]; then
@@ -101,4 +101,4 @@ jobs:
           VERIFY_ADMIN_PASS: Admin123!@#
           VERIFY_TENANT_USER: tenant
           VERIFY_TENANT_PASS: Tenant123!@#
-        run: npm run verify:integration
+        run: pnpm run verify:integration

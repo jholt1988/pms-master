@@ -1,8 +1,10 @@
 import { Controller, Post, Req, Res, Headers, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { Public } from '../auth/public.decorator';
 import { StripeService } from './stripe.service';
 
 @Controller('webhooks/stripe')
+@Public()
 export class StripeWebhookController {
   private readonly logger = new Logger(StripeWebhookController.name);
 

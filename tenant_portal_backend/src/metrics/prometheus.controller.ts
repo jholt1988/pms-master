@@ -1,8 +1,10 @@
 import { Controller, Get, Res } from '@nestjs/common';
 import { Response } from 'express';
+import { Public } from '../auth/public.decorator';
 import { PrometheusService } from './prometheus.service';
 
 @Controller('metrics')
+@Public()
 export class PrometheusController {
   constructor(private readonly prometheusService: PrometheusService) {}
 

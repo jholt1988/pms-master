@@ -1,9 +1,11 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { AnalyticsService } from './analytics.service';
 import { TrackDecisionEventDto } from './dto/track-decision-event.dto';
 import { TrackUiEventDto } from './dto/track-ui-event.dto';
 
 @Controller('analytics')
+@UseGuards(AuthGuard('jwt'))
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 

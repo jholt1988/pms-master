@@ -1,9 +1,11 @@
 
 import { BadRequestException, Body, Controller, Get, Post } from '@nestjs/common';
 import { AppService } from './app.service';
+import { Public } from './auth/public.decorator';
 import { assertConfidenceV16Invariants, validateConfidenceV16 } from './property-os/v16-contract';
 
 @Controller('api')
+@Public()
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
