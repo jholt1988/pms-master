@@ -1,0 +1,16 @@
+# Pre-commit hooks (added during 2026-06 security review)
+# Install: pipx install pre-commit && pre-commit install
+# Run on all files: pre-commit run --all-files
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=5120"]   # reject files >5 MB
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
