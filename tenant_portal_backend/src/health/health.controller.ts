@@ -1,8 +1,10 @@
 import { Controller, Get } from '@nestjs/common';
 import { HealthCheck, HealthCheckService, HttpHealthIndicator, MemoryHealthIndicator } from '@nestjs/terminus';
+import { Public } from '../auth/public.decorator';
 import { PrismaHealthIndicator, RedisHealthIndicator, RabbitMQHealthIndicator } from './prisma-health.indicator';
 
 @Controller('health')
+@Public()
 export class HealthController {
   constructor(
     private health: HealthCheckService,

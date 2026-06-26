@@ -1,7 +1,9 @@
 import { Controller, Post, Body, Headers, Logger, HttpCode, UnauthorizedException } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
+import { Public } from '../auth/public.decorator';
 
 @Controller('webhooks/ils')
+@Public()
 export class IlsWebhookController {
   private readonly logger = new Logger(IlsWebhookController.name);
 
