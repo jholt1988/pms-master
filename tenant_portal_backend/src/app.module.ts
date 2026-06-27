@@ -17,6 +17,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { LeaseModule } from './lease/lease.module';
 import { RentalApplicationModule } from './rental-application/rental-application.module';
+import { ScreeningModule } from './screening/screening.module';
 import { PropertyModule } from './property/property.module';
 import { ExpenseModule } from './expense/expense.module';
 import { RentEstimatorModule } from './rent-estimator/rent-estimator.module';
@@ -153,6 +154,7 @@ const rateLimitProviders = rateLimitEnabled
     MessagingModule,
     LeaseModule,
     RentalApplicationModule,
+    ScreeningModule,
     PropertyModule,
     ExpenseModule,
     RentEstimatorModule,
