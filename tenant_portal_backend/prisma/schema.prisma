@@ -1295,6 +1295,7 @@ model RentalApplication {
   ai_recommendation String?
   ai_summary        String?
   ai_reviewed_at    DateTime?
+  screeningRequests ScreeningRequest[]
 
   @@index([convertedLeaseId])
   @@index([propertyId])
@@ -1625,6 +1626,53 @@ model ApplicationLifecycleEvent {
 
   @@index([applicationId])
   @@index([createdAt])
+}
+
+// ── Screening (Phase 1A: provider integration) ──
+
+enum ScreeningStatus {
+  REQUESTED
+  IN_PROGRESS
+  COMPLETE
+  FAILED
+  EXPIRED
+}
+
+model ScreeningRequest {
+  id            String          @id @default(uuid()) @db.Uuid
+  application   RentalApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  applicationId Int
+  provider      String          @default("stub") // provider identifier: stub, transunion, experian, etc.
+  externalId    String?         // provider's reference ID (set after submission)
+  status        ScreeningStatus @default(REQUESTED)
+  requestedAt   DateTime        @default(now())
+  completedAt   DateTime?
+  errorMessage  String?
+  report        ScreeningReport?
+  metadata      Json?
+
+  @@index([applicationId])
+  @@index([status])
+  @@index([provider, externalId])
+}
+
+model ScreeningReport {
+  id              String           @id @default(uuid()) @db.Uuid
+  request         ScreeningRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  requestId       String           @db.Uuid
+  creditScore     Int?
+  incomeVerified  Boolean?
+  identityVerified Boolean?
+  backgroundClear Boolean?
+  evictionHistory  Boolean?
+  criminalHistory  Boolean?
+  recommendation  String? // RECOMMEND, REVIEW, DECLINE
+  rawReport       Json? // provider's full response (do NOT persist to audit logs)
+  riskFlags       Json? // [{code, severity, description}]
+  generatedAt     DateTime         @default(now())
+
+  @@index([requestId])
+  @@unique([requestId])
 }
 
 enum ExpenseCategory {
