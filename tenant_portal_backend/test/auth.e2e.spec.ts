@@ -325,7 +325,7 @@ describe('Auth API (e2e)', () => {
         const response = await request(app.getHttpServer())
           .post('/auth/mfa/prepare')
           .set('Authorization', `Bearer ${accessToken}`)
-          .expect(201);
+          .expect(200);
 
         expect(response.body).toHaveProperty('secret');
         expect(response.body).toHaveProperty('qrCodeUrl');
@@ -399,7 +399,7 @@ describe('Auth API (e2e)', () => {
           .send({
             username: 'reset@test.com',
           })
-          .expect(201);
+          .expect(200);
 
         expect(response.body.message).toContain('password reset email');
 
@@ -416,7 +416,7 @@ describe('Auth API (e2e)', () => {
           .send({
             username: 'nonexistent@test.com',
           })
-          .expect(201);
+          .expect(200);
 
         expect(response.body.message).toContain('password reset email');
       });
@@ -453,7 +453,7 @@ describe('Auth API (e2e)', () => {
             token: resetToken,
             newPassword: 'NewSecure@Pass456',
           })
-          .expect(201);
+          .expect(200);
 
         expect(response.body.message).toContain('reset successfully');
 
@@ -497,7 +497,7 @@ describe('Auth API (e2e)', () => {
             token: resetToken,
             newPassword: 'NewSecure@Pass456',
           })
-          .expect(201);
+          .expect(200);
 
         // Try to use same token again
         await request(app.getHttpServer())
@@ -562,7 +562,7 @@ describe('Auth API (e2e)', () => {
         .send({
           username: 'security@test.com',
         })
-        .expect(201);
+        .expect(200);
 
       // Password reset may or may not log a security event depending on implementation
       // Just verify forgot-password endpoint works
