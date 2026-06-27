@@ -114,13 +114,14 @@ export const maintenanceApi = {
   },
 
   /**
-   * Mark maintenance request as tenant-approved/signed
+   * Confirm maintenance complete (tenant approval)
+   * Backend route: POST /maintenance/:id/confirm-complete
    */
   signMaintenanceRequest: async (
     id: number,
     signature: string
   ): Promise<MaintenanceRequest> => {
-    return apiService.post<MaintenanceRequest>(`/maintenance/${id}/sign`, {
+    return apiService.post<MaintenanceRequest>(`/maintenance/${id}/confirm-complete`, {
       signature,
     });
   },
