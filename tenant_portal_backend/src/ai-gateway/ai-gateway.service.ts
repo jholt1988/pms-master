@@ -33,12 +33,6 @@ type Actor = {
   userId: string;
 };
 
-type GenerateOptions = {
-  orgId: string;
-  actor: Actor;
-  byokKey?: string;
-};
-
 @Injectable()
 export class AiGatewayService {
   private readonly logger = new Logger(AiGatewayService.name);
