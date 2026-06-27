@@ -23,7 +23,6 @@ import { wrapAiResult } from './ai-decision-envelope';
 @Injectable()
 export class AiExplainabilityInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const handler = context.getHandler();
     const request = context.switchToHttp().getRequest();
     const body = request.body ?? {};
 
