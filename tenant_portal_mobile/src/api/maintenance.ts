@@ -22,14 +22,14 @@ export const maintenanceApi = {
    * Get all maintenance requests for the current tenant
    */
   getMaintenanceRequests: async (): Promise<MaintenanceRequest[]> => {
-    return apiService.get<MaintenanceRequest[]>('/maintenance-requests');
+    return apiService.get<MaintenanceRequest[]>('/maintenance');
   },
 
   /**
    * Get a single maintenance request by ID
    */
   getMaintenanceRequest: async (id: number): Promise<MaintenanceRequest> => {
-    return apiService.get<MaintenanceRequest>(`/maintenance-requests/${id}`);
+    return apiService.get<MaintenanceRequest>(`/maintenance/${id}`);
   },
 
   /**
@@ -38,7 +38,7 @@ export const maintenanceApi = {
   createMaintenanceRequest: async (
     data: CreateMaintenanceRequest
   ): Promise<MaintenanceRequest> => {
-    return apiService.post<MaintenanceRequest>('/maintenance-requests', data);
+    return apiService.post<MaintenanceRequest>('/maintenance', data);
   },
 
   /**
@@ -48,14 +48,14 @@ export const maintenanceApi = {
     id: number,
     data: UpdateMaintenanceRequest
   ): Promise<MaintenanceRequest> => {
-    return apiService.patch<MaintenanceRequest>(`/maintenance-requests/${id}`, data);
+    return apiService.patch<MaintenanceRequest>(`/maintenance/${id}`, data);
   },
 
   /**
    * Cancel a maintenance request
    */
   cancelMaintenanceRequest: async (id: number): Promise<MaintenanceRequest> => {
-    return apiService.post<MaintenanceRequest>(`/maintenance-requests/${id}/cancel`, {});
+    return apiService.post<MaintenanceRequest>(`/maintenance/${id}/cancel`, {});
   },
 
   /**
@@ -86,7 +86,7 @@ export const maintenanceApi = {
     }
 
     return apiService.post<MaintenancePhoto>(
-      `/maintenance-requests/${requestId}/photos`,
+      `/maintenance/${requestId}/photos`,
       formData,
       {
         headers: {
@@ -103,14 +103,14 @@ export const maintenanceApi = {
     requestId: number,
     photoId: number
   ): Promise<void> => {
-    return apiService.delete(`/maintenance-requests/${requestId}/photos/${photoId}`);
+    return apiService.delete(`/maintenance/${requestId}/photos/${photoId}`);
   },
 
   /**
    * Get maintenance request summary statistics
    */
   getMaintenanceSummary: async (): Promise<MaintenanceSummary> => {
-    return apiService.get<MaintenanceSummary>('/maintenance-requests/summary');
+    return apiService.get<MaintenanceSummary>('/maintenance/summary');
   },
 
   /**
@@ -120,7 +120,7 @@ export const maintenanceApi = {
     id: number,
     signature: string
   ): Promise<MaintenanceRequest> => {
-    return apiService.post<MaintenanceRequest>(`/maintenance-requests/${id}/sign`, {
+    return apiService.post<MaintenanceRequest>(`/maintenance/${id}/sign`, {
       signature,
     });
   },

@@ -10,6 +10,7 @@ import leaseReducer from './leaseSlice';
 import notificationReducer from './notificationSlice';
 import messageReducer from './messageSlice';
 import checklistReducer from './checklistSlice';
+import offlineQueueReducer from './slices/offlineQueueSlice';
 
 // Persist configuration
 const persistConfig = {
@@ -28,6 +29,7 @@ const rootReducer = combineReducers({
   notification: notificationReducer,
   message: messageReducer,
   checklist: checklistReducer,
+  offlineQueue: offlineQueueReducer,
 });
 
 // Create persisted reducer

@@ -4,6 +4,7 @@
  */
 
 import axios from 'axios';
+import * as SecureStore from 'expo-secure-store';
 import {
   Notification,
   NotificationPreferences,
@@ -14,6 +15,20 @@ import {
 } from '../types/notification';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001/api';
+const AUTH_TOKEN_KEY='***';
+
+// Add auth token interceptor (same pattern as client.ts apiService)
+axios.interceptors.request.use(async (config) => {
+  try {
+    const token = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  } catch (_) {
+    // SecureStore unavailable (e.g., in tests)
+  }
+  return config;
+});
 
 /**
  * Get all notifications for the current user
