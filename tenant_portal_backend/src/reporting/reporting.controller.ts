@@ -6,12 +6,13 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 import { AnalyticsService } from './analytics.service';
 
 @Controller(['reports', 'reporting'])
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 export class ReportingController {
   constructor(
     private readonly prisma: PrismaService,
@@ -237,6 +238,29 @@ export class ReportingController {
   @Roles('PROPERTY_MANAGER', 'OWNER', 'ADMIN')
   async getReportHeatmap(@OrgId() orgId?: string) {
     return this.analyticsService.getPortfolioHealthHeatmap(orgId);
+  }
+
+  @Get('accounting-sync-status')
+  @Roles('PROPERTY_MANAGER', 'OWNER', 'ADMIN')
+  async getAccountingSyncStatus(@OrgId() orgId?: string) {
+    // Reports the org's accounting (QuickBooks) connection state. Mirrors
+    // QuickBooksMinimalService.getConnectionStatus without cross-module coupling.
+    const connection = orgId
+      ? await this.prisma.quickBooksConnection.findFirst({
+          where: { organizationId: orgId, isActive: true },
+        })
+      : null;
+
+    if (!connection) {
+      return { connected: false };
+    }
+
+    return {
+      connected: true,
+      companyName: connection.companyId,
+      lastSync: connection.updatedAt,
+      expiresAt: connection.tokenExpiresAt,
+    };
   }
 
   @Get('analytics/opex-anomalies')

@@ -4,7 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { TestDataFactory } from './factories';
-import { Role } from '@prisma/client';
+import { Role, LeaseStatus } from '@prisma/client';
 import { resetDatabase } from './utils/reset-database';
 
 describe('Maintenance AI Metrics API (e2e)', () => {
@@ -56,6 +56,15 @@ describe('Maintenance AI Metrics API (e2e)', () => {
     unit = await prisma.unit.create({
       data: TestDataFactory.createUnit(property.id, {
         name: 'Unit 1',
+      }),
+    });
+
+    // Tenant maintenance requests derive property/unit from the tenant's active
+    // lease (service ignores supplied propertyId/unitId for TENANT role). Without
+    // a lease the create 400s, so give the tenant an active lease on this unit.
+    await prisma.lease.create({
+      data: TestDataFactory.createLease(tenantUser.id, unit.id, {
+        status: LeaseStatus.ACTIVE,
       }),
     });
 

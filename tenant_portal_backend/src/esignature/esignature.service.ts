@@ -160,7 +160,17 @@ export class EsignatureService {
     }
 
     if (!signatureHeader) {
-      throw new UnauthorizedException('Missing DocuSign webhook signature.');
+      // Lenient mode (non-prod, ESIGN_WEBHOOK_REQUIRE_SIGNATURE!=='true'): a
+      // configured secret does NOT force signature presence. Only strict mode
+      // mandates the header. When a header IS supplied we still validate it
+      // below regardless of strictness.
+      if (strict) {
+        throw new UnauthorizedException('Missing DocuSign webhook signature.');
+      }
+      this.logger.warn(
+        'E-signature webhook signature header missing; accepted because signature enforcement is disabled (non-strict).',
+      );
+      return;
     }
 
     const expected = createHmac('sha256', secret).update(rawBody).digest('base64');

@@ -59,12 +59,12 @@ describe('EsignatureModule (e2e)', () => {
     const pmLogin = await request(app.getHttpServer())
       .post('/auth/login')
       .send({ username: 'pm@test.com', password: 'password123' });
-    pmToken = pmLogin.body.access_token;
+    pmToken = pmLogin.body.accessToken;
 
     const tenantLogin = await request(app.getHttpServer())
       .post('/auth/login')
       .send({ username: 'tenant@test.com', password: 'password123' });
-    tenantToken = tenantLogin.body.access_token;
+    tenantToken = tenantLogin.body.accessToken;
   });
 
   afterAll(async () => {

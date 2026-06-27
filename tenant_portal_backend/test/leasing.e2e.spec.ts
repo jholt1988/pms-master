@@ -11,9 +11,15 @@ describe('Leasing Agent API (e2e)', () => {
   let prisma: PrismaService;
   let pmToken: string;
   let propertyManager: any;
+  let organization: any;
   let property: any;
   let unit: any;
   let lead: any;
+
+  // Auth header helper: every leasing route is now behind the global JWT guard
+  // (GlobalJwtAuthGuard APP_GUARD, added in #36). Anonymous access returns 401,
+  // so e2e requests must present the PM's bearer token.
+  const auth = () => `Bearer ${pmToken}`;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -39,11 +45,17 @@ describe('Leasing Agent API (e2e)', () => {
 
     // Seed org membership so OrgContextGuard populates req.org (org-scoped
     // leasing endpoints use @OrgId() and 403 AUTH_014 without a membership).
-    await TestDataFactory.seedOrganizationFor(prisma, propertyManager.id, 'OWNER');
+    organization = await TestDataFactory.seedOrganizationFor(
+      prisma,
+      propertyManager.id,
+      'OWNER',
+    );
 
-    // Create test property
+    // Create test property — linked to the PM's org so org-scoped list/stats
+    // queries (which filter leads by property.organizationId via inquiries/
+    // tours/applications) can resolve this property's leads.
     property = await prisma.property.create({
-      data: TestDataFactory.createProperty(),
+      data: TestDataFactory.createProperty({ organizationId: organization.id }),
     });
 
     // Create test unit
@@ -54,6 +66,7 @@ describe('Leasing Agent API (e2e)', () => {
     // Login to get token
     const pmLogin = await request(app.getHttpServer())
       .post('/auth/login')
+      .set('Authorization', auth())
       .send({
         username: 'pm@test.com',
         password: 'password123',
@@ -70,6 +83,7 @@ describe('Leasing Agent API (e2e)', () => {
     it('should create a new lead successfully', async () => {
       const response = await request(app.getHttpServer())
         .post('/leasing/leads')
+        .set('Authorization', auth())
         .send({
           sessionId: 'test-session-123',
           name: 'John Doe',
@@ -90,6 +104,7 @@ describe('Leasing Agent API (e2e)', () => {
       // Create initial lead
       await request(app.getHttpServer())
         .post('/leasing/leads')
+        .set('Authorization', auth())
         .send({
           sessionId: 'test-session-456',
           name: 'Jane Smith',
@@ -100,6 +115,7 @@ describe('Leasing Agent API (e2e)', () => {
       // Update with same sessionId
       const response = await request(app.getHttpServer())
         .post('/leasing/leads')
+        .set('Authorization', auth())
         .send({
           sessionId: 'test-session-456',
           name: 'Jane Smith Updated',
@@ -114,6 +130,7 @@ describe('Leasing Agent API (e2e)', () => {
     it('should reject request without sessionId', async () => {
       const response = await request(app.getHttpServer())
         .post('/leasing/leads')
+        .set('Authorization', auth())
         .send({
           name: 'Test User',
           email: 'test@example.com',
@@ -129,6 +146,7 @@ describe('Leasing Agent API (e2e)', () => {
       // Create lead
       const createResponse = await request(app.getHttpServer())
         .post('/leasing/leads')
+        .set('Authorization', auth())
         .send({
           sessionId: 'test-session-789',
           name: 'Bob Johnson',
@@ -140,6 +158,7 @@ describe('Leasing Agent API (e2e)', () => {
       // Retrieve by session ID
       const response = await request(app.getHttpServer())
         .get('/leasing/leads/session/test-session-789')
+        .set('Authorization', auth())
         .expect(200);
 
       expect(response.body.id).toBe(leadId);
@@ -150,6 +169,7 @@ describe('Leasing Agent API (e2e)', () => {
     it('should return 404 for non-existent session', async () => {
       await request(app.getHttpServer())
         .get('/leasing/leads/session/non-existent-session')
+        .set('Authorization', auth())
         .expect(404);
     });
   });
@@ -159,6 +179,7 @@ describe('Leasing Agent API (e2e)', () => {
       // Create lead
       const createResponse = await request(app.getHttpServer())
         .post('/leasing/leads')
+        .set('Authorization', auth())
         .send({
           sessionId: 'test-session-abc',
           name: 'Alice Williams',
@@ -170,6 +191,7 @@ describe('Leasing Agent API (e2e)', () => {
       // Add a message
       await request(app.getHttpServer())
         .post(`/leasing/leads/${leadId}/messages`)
+        .set('Authorization', auth())
         .send({
           role: 'USER',
           content: 'Hello, I am interested in a 2-bedroom apartment',
@@ -178,6 +200,7 @@ describe('Leasing Agent API (e2e)', () => {
       // Retrieve with relations
       const response = await request(app.getHttpServer())
         .get(`/leasing/leads/${leadId}`)
+        .set('Authorization', auth())
         .expect(200);
 
       expect(response.body.id).toBe(leadId);
@@ -188,35 +211,28 @@ describe('Leasing Agent API (e2e)', () => {
     it('should return 404 for non-existent lead ID', async () => {
       await request(app.getHttpServer())
         .get('/leasing/leads/99999')
+        .set('Authorization', auth())
         .expect(404);
     });
   });
 
   describe('GET /leasing/leads', () => {
     beforeEach(async () => {
-      // Create multiple leads for filtering tests
-      await prisma.lead.createMany({
-        data: [
-          {
-            sessionId: 'session-1',
-            name: 'Lead One',
-            email: 'lead1@test.com',
-            status: 'NEW',
-          },
-          {
-            sessionId: 'session-2',
-            name: 'Lead Two',
-            email: 'lead2@test.com',
-            status: 'CONTACTED',
-          },
-          {
-            sessionId: 'session-3',
-            name: 'Lead Three',
-            email: 'lead3@test.com',
-            status: 'QUALIFIED',
-          },
-        ],
-      });
+      // Create multiple leads for filtering tests. The list endpoint is
+      // org-scoped (@OrgId()): it only returns leads with a propertyInquiry/
+      // tour/application tied to a property in the caller's org. Seed each lead
+      // with an inquiry against the org-linked test property so they resolve.
+      const seed = [
+        { sessionId: 'session-1', name: 'Lead One', email: 'lead1@test.com', status: 'NEW' as const },
+        { sessionId: 'session-2', name: 'Lead Two', email: 'lead2@test.com', status: 'CONTACTED' as const },
+        { sessionId: 'session-3', name: 'Lead Three', email: 'lead3@test.com', status: 'QUALIFIED' as const },
+      ];
+      for (const data of seed) {
+        const created = await prisma.lead.create({ data });
+        await prisma.propertyInquiry.create({
+          data: { leadId: created.id, propertyId: property.id, unitId: unit.id },
+        });
+      }
     });
 
     it('should return all leads without filters', async () => {
@@ -277,6 +293,7 @@ describe('Leasing Agent API (e2e)', () => {
     it('should add user message to conversation', async () => {
       const response = await request(app.getHttpServer())
         .post(`/leasing/leads/${lead.id}/messages`)
+        .set('Authorization', auth())
         .send({
           role: 'USER',
           content: 'I need a pet-friendly apartment',
@@ -291,6 +308,7 @@ describe('Leasing Agent API (e2e)', () => {
     it('should add assistant message with metadata', async () => {
       const response = await request(app.getHttpServer())
         .post(`/leasing/leads/${lead.id}/messages`)
+        .set('Authorization', auth())
         .send({
           role: 'ASSISTANT',
           content: 'Here are some pet-friendly options',
@@ -311,6 +329,7 @@ describe('Leasing Agent API (e2e)', () => {
     it('should reject message without role', async () => {
       const response = await request(app.getHttpServer())
         .post(`/leasing/leads/${lead.id}/messages`)
+        .set('Authorization', auth())
         .send({
           content: 'Message without role',
         })
@@ -322,6 +341,7 @@ describe('Leasing Agent API (e2e)', () => {
     it('should reject message without content', async () => {
       const response = await request(app.getHttpServer())
         .post(`/leasing/leads/${lead.id}/messages`)
+        .set('Authorization', auth())
         .send({
           role: 'USER',
         })
@@ -366,6 +386,7 @@ describe('Leasing Agent API (e2e)', () => {
     it('should return conversation history in order', async () => {
       const response = await request(app.getHttpServer())
         .get(`/leasing/leads/${lead.id}/messages`)
+        .set('Authorization', auth())
         .expect(200);
 
       expect(response.body).toHaveLength(3);
@@ -387,6 +408,7 @@ describe('Leasing Agent API (e2e)', () => {
 
       const response = await request(app.getHttpServer())
         .post(`/leasing/leads/${lead.id}/properties/search`)
+        .set('Authorization', auth())
         .send({
           bedrooms: 2,
           maxRent: 2000,
@@ -413,6 +435,7 @@ describe('Leasing Agent API (e2e)', () => {
 
       const response = await request(app.getHttpServer())
         .post(`/leasing/leads/${lead.id}/properties/search`)
+        .set('Authorization', auth())
         .send({})
         .expect(200);
 
@@ -438,6 +461,7 @@ describe('Leasing Agent API (e2e)', () => {
     it('should record property inquiry successfully', async () => {
       const response = await request(app.getHttpServer())
         .post(`/leasing/leads/${lead.id}/inquiries`)
+        .set('Authorization', auth())
         .send({
           propertyId: property.id,
           unitId: unit.id,
@@ -453,6 +477,7 @@ describe('Leasing Agent API (e2e)', () => {
     it('should record inquiry without specific unit', async () => {
       const response = await request(app.getHttpServer())
         .post(`/leasing/leads/${lead.id}/inquiries`)
+        .set('Authorization', auth())
         .send({
           propertyId: property.id,
           interestLevel: 'MEDIUM',
@@ -467,6 +492,7 @@ describe('Leasing Agent API (e2e)', () => {
     it('should reject inquiry without propertyId', async () => {
       const response = await request(app.getHttpServer())
         .post(`/leasing/leads/${lead.id}/inquiries`)
+        .set('Authorization', auth())
         .send({
           unitId: unit.id,
         })
@@ -484,6 +510,11 @@ describe('Leasing Agent API (e2e)', () => {
           name: 'Status Update User',
           status: 'NEW',
         },
+      });
+      // Status update is org-scoped (assertLeadInOrg): link the lead to the
+      // PM's org via a propertyInquiry so the lead is visible in-org.
+      await prisma.propertyInquiry.create({
+        data: { leadId: lead.id, propertyId: property.id, unitId: unit.id },
       });
     });
 
@@ -536,47 +567,26 @@ describe('Leasing Agent API (e2e)', () => {
 
   describe('GET /leasing/statistics', () => {
     beforeEach(async () => {
-      // Create leads with different statuses
-    const today = new Date();
-    const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const lastMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+      // Create leads with different statuses. Statistics is org-scoped
+      // (@OrgId()): each lead needs a propertyInquiry against the org-linked
+      // test property to be counted. Note: inquiry.createdAt is independent of
+      // lead.createdAt — the stats query filters on lead.createdAt.
+      const today = new Date();
+      const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const lastMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    await prisma.lead.create({
-      data: {
-        sessionId: 'stats-1',
-        name: 'Stats Lead 1',
-        status: 'NEW',
-        createdAt: today,
-      },
-    });
-
-    await prisma.lead.create({
-      data: {
-        sessionId: 'stats-2',
-        name: 'Stats Lead 2',
-        status: 'QUALIFIED',
-        createdAt: today,
-      },
-    });
-
-    await prisma.lead.create({
-      data: {
-        sessionId: 'stats-3',
-        name: 'Stats Lead 3',
-        status: 'CONVERTED',
-        convertedAt: lastWeek,
-        createdAt: lastWeek,
-      },
-    });
-
-    await prisma.lead.create({
-      data: {
-        sessionId: 'stats-4',
-        name: 'Stats Lead 4',
-        status: 'LOST',
-        createdAt: lastMonth,
-      },
-    });
+      const statLeads = [
+        { sessionId: 'stats-1', name: 'Stats Lead 1', status: 'NEW' as const, createdAt: today },
+        { sessionId: 'stats-2', name: 'Stats Lead 2', status: 'QUALIFIED' as const, createdAt: today },
+        { sessionId: 'stats-3', name: 'Stats Lead 3', status: 'CONVERTED' as const, convertedAt: lastWeek, createdAt: lastWeek },
+        { sessionId: 'stats-4', name: 'Stats Lead 4', status: 'LOST' as const, createdAt: lastMonth },
+      ];
+      for (const data of statLeads) {
+        const created = await prisma.lead.create({ data });
+        await prisma.propertyInquiry.create({
+          data: { leadId: created.id, propertyId: property.id, unitId: unit.id },
+        });
+      }
     });
 
     it('should return lead statistics without date filters', async () => {

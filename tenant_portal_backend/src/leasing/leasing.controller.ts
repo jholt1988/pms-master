@@ -262,21 +262,19 @@ export class LeasingController {
         throw new HttpException('propertyId is required', HttpStatus.BAD_REQUEST);
       }
 
-      const propertyIdNumber =
-        typeof normalizedPropertyId === 'string'
-          ? Number(normalizedPropertyId)
-          : normalizedPropertyId;
-      const unitIdNumber =
-        typeof unitId === 'string' && unitId !== undefined
-          ? Number(unitId)
-          : unitId === undefined
-            ? undefined
-            : (unitId as number);
+      // propertyId / unitId are UUID strings (Property.id, Unit.id are @db.Uuid).
+      // Do NOT numeric-coerce them — Number('<uuid>') is NaN and corrupts the
+      // Prisma write (500). Pass the trimmed string id through as-is. A blank
+      // unitId normalizes to undefined so the inquiry is recorded without a unit.
+      const normalizedUnitId =
+        typeof unitId === 'string'
+          ? unitId.trim() || undefined
+          : unitId ?? undefined;
 
       const inquiry = await this.leasingService.recordPropertyInquiry(
         leadId,
-        propertyIdNumber as any,
-        unitIdNumber as any,
+        normalizedPropertyId as any,
+        normalizedUnitId as any,
         (interest ?? interestLevel) as any,
       );
 
