@@ -18,9 +18,13 @@ import { ScreeningService } from './screening.service';
  *
  * Works alongside the existing ScreeningRadialController
  * (POST /screening/:id/decision) by adding the initiate + report flow.
+ *
+ * JWT auth is handled by the global GlobalJwtAuthGuard (APP_GUARD).
+ * Per-method @UseGuards(AuthGuard('jwt'), RolesGuard) + @Roles() enforce
+ * role-based access on protected endpoints.
+ * @Public() on the webhook bypasses the global JWT guard entirely.
  */
 @Controller('screening')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class ScreeningController {
   constructor(private readonly screeningService: ScreeningService) {}
 
@@ -29,6 +33,7 @@ export class ScreeningController {
    * Triggers an external provider check (stub in dev/CI).
    */
   @Post('applications/:id/request')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('PROPERTY_MANAGER', 'ADMIN')
   async requestScreening(@Param('id') id: string) {
     const applicationId = parseInt(id, 10);
@@ -45,6 +50,7 @@ export class ScreeningController {
    * Get the latest screening result for an application.
    */
   @Get('applications/:id/report')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('PROPERTY_MANAGER', 'ADMIN')
   async getReport(@Param('id') id: string) {
     const applicationId = parseInt(id, 10);

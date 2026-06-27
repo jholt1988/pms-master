@@ -2,8 +2,7 @@ import { Injectable, Logger, NotFoundException, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ScreeningProvider, ScreeningApplicant } from './screening-provider.interface';
 import { ApplicationStatus } from '@prisma/client';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { SCREENING_PROVIDER } from './screening.module';
+import { SCREENING_PROVIDER } from './screening.constants';
 
 /**
  * ScreeningService — orchestrates tenant screening requests through
@@ -12,8 +11,7 @@ import { SCREENING_PROVIDER } from './screening.module';
  * Lifecycle:
  * 1. requestScreening() → creates ScreeningRequest, sets app status to SCREENING
  * 2. Provider processes async (or stub returns sync)
- * 3. processResult() → stores ScreeningReport, updates app status to SCORED,
- *    emits application:scored event for lifecycle service
+ * 3. processResult() → stores ScreeningReport, updates app status to SCORED
  */
 @Injectable()
 export class ScreeningService {
@@ -22,7 +20,6 @@ export class ScreeningService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(SCREENING_PROVIDER) private readonly provider: ScreeningProvider,
-    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   /**
@@ -113,7 +110,7 @@ export class ScreeningService {
     result: Awaited<ReturnType<ScreeningProvider['getResult']>>,
   ): Promise<void> {
     if (!result) {
-      this.logger.warn(`No result available for externalId=${externalId} — skipping`);
+      this.logger.warn(`No result available — skipping`);
       return;
     }
 
@@ -181,17 +178,10 @@ export class ScreeningService {
         metadata: {
           requestId: request.id,
           reportId: report.id,
-          provider: this.provider.id,
+          provider: request.provider,
           recommendation: result.recommendation,
         },
       },
-    });
-
-    // Emit event for downstream services
-    this.eventEmitter.emit('application:screening.completed', {
-      applicationId: request.applicationId,
-      reportId: report.id,
-      recommendation: result.recommendation,
     });
 
     this.logger.log(

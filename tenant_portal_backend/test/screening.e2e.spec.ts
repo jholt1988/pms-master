@@ -67,6 +67,7 @@ describe('Screening API (e2e)', () => {
         phoneNumber: '555-0100',
         income: 75000,
         employmentStatus: 'FULL_TIME',
+        previousAddress: '123 Previous St',
         status: 'PENDING',
         authorizeCreditCheck: true,
         authorizeBackgroundCheck: true,
@@ -175,6 +176,7 @@ describe('Screening API (e2e)', () => {
           phoneNumber: '555-0200',
           income: 50000,
           employmentStatus: 'FULL_TIME',
+          previousAddress: '456 Other St',
           status: 'PENDING',
         },
       });
@@ -229,20 +231,21 @@ describe('Screening API (e2e)', () => {
         .set('Authorization', `Bearer ${pmToken}`)
         .expect(201);
 
-      const app = await prisma.rentalApplication.findUnique({
+      // Check application state
+      const updatedApp = await prisma.rentalApplication.findUnique({
         where: { id: application.id },
         include: { screeningRequests: { include: { report: true } } },
       });
 
-      expect(app).toBeDefined();
-      expect(app?.status).toBe('SCORED');
-      expect(app?.screeningScore).toBeGreaterThanOrEqual(680);
-      expect(app?.screeningScore).toBeLessThanOrEqual(850);
-      expect(app?.qualificationStatus).toBe('QUALIFIED');
-      expect(app?.recommendation).toBe('RECOMMEND_RENT');
+      expect(updatedApp).toBeDefined();
+      expect(updatedApp?.status).toBe('SCORED');
+      expect(updatedApp?.screeningScore).toBeGreaterThanOrEqual(680);
+      expect(updatedApp?.screeningScore).toBeLessThanOrEqual(850);
+      expect(updatedApp?.qualificationStatus).toBe('QUALIFIED');
+      expect(updatedApp?.recommendation).toBe('RECOMMEND_RENT');
 
       // Verify the ScreeningRequest → ScreeningReport chain
-      const reqs = app?.screeningRequests ?? [];
+      const reqs = updatedApp?.screeningRequests ?? [];
       expect(reqs.length).toBeGreaterThanOrEqual(1);
       const lastReq = reqs[reqs.length - 1];
       expect(lastReq.status).toBe('COMPLETE');
@@ -251,7 +254,7 @@ describe('Screening API (e2e)', () => {
     });
 
     it('should mark application NOT_QUALIFIED for failing screening', async () => {
-      // Create applicant with SSN 0000 → stub simulates failure
+      // Create applicant — stub provider is deterministic
       const failApp = await prisma.rentalApplication.create({
         data: {
           propertyId: property.id,
@@ -261,6 +264,7 @@ describe('Screening API (e2e)', () => {
           phoneNumber: '555-0300',
           income: 30000,
           employmentStatus: 'PART_TIME',
+          previousAddress: '789 Fail Ave',
           status: 'PENDING',
         },
       });
