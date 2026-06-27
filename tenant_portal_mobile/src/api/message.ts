@@ -28,7 +28,7 @@ axios.interceptors.request.use(async (config) => {
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-  } catch (_) {
+  } catch {
     // SecureStore unavailable (e.g., in tests)
   }
   return config;
