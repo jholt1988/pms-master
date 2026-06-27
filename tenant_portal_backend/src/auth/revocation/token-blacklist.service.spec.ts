@@ -23,20 +23,26 @@ describe('TokenBlacklistService', () => {
   const prevNodeEnv = process.env.NODE_ENV;
   const prevDisableRedis = process.env.DISABLE_REDIS;
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-    process.env.NODE_ENV = 'development';
-    delete process.env.DISABLE_REDIS;
-  });
-
-  afterAll(() => {
+  const restoreEnv = () => {
     process.env.NODE_ENV = prevNodeEnv;
     if (prevDisableRedis === undefined) {
       delete process.env.DISABLE_REDIS;
     } else {
       process.env.DISABLE_REDIS = prevDisableRedis;
     }
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env.NODE_ENV = 'development';
+    delete process.env.DISABLE_REDIS;
   });
+
+  // Restore after EACH test (runs even when a test throws) so a failing test
+  // can't leak the mutated NODE_ENV / DISABLE_REDIS into later suites. afterAll
+  // is kept as a final safety net.
+  afterEach(restoreEnv);
+  afterAll(restoreEnv);
 
   it('initializes and closes redis client', async () => {
     const svc = new TokenBlacklistService(config);
