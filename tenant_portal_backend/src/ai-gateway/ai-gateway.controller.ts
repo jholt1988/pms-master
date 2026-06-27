@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Post, Request, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { Role } from '@prisma/client';
@@ -45,8 +45,10 @@ export class AiGatewayController {
     @OrgId() orgId: string,
     @Request() req: AuthenticatedRequest,
     @Body() body: AiGatewayRequest,
+    @Headers('x-ai-api-key') byokKey?: string,
   ) {
-    return this.aiGateway.generate(orgId, req.user, body);
+    // Phase 2B: pass BYOK key from header — never persisted server-side
+    return this.aiGateway.generate(orgId, req.user, body, byokKey);
   }
 
   @Post('evaluate')
