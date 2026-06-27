@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
-import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScreeningController } from './screening.controller';
 import { ScreeningService } from './screening.service';
 import { StubScreeningProvider } from './stub-screening.provider';
@@ -8,7 +7,7 @@ import { StubScreeningProvider } from './stub-screening.provider';
 export const SCREENING_PROVIDER = 'SCREENING_PROVIDER';
 
 @Module({
-  imports: [PrismaModule, EventEmitterModule],
+  imports: [PrismaModule],
   controllers: [ScreeningController],
   providers: [
     ScreeningService,
