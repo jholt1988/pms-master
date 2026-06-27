@@ -25,7 +25,7 @@ export type AiGatewayRequest = {
 
 export type AiGatewayResponse = {
   id: string;
-  provider: 'mock' | 'openai';
+  provider: 'mock' | 'openai' | 'byok';
   model: string;
   task: AiGatewayTask;
   content: string;

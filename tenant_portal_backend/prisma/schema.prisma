@@ -3237,6 +3237,27 @@ model DecisionRecord {
   @@index([approvalTaskId])
 }
 
+// ── AI Usage Metrics (Phase 2B: BYOK cost meter) ──
+
+model AiUsageMetric {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  userId         String?  @db.Uuid
+  provider       String   @default("openai") // openai, anthropic, byok
+  model          String   // e.g. deepseek-ai/DeepSeek-V4-Pro
+  task           String   // MAINTENANCE_CLASSIFICATION, LEASE_SUMMARY, etc.
+  promptTokens   Int      @default(0)
+  completionTokens Int    @default(0)
+  totalTokens    Int      @default(0)
+  estimatedCostUsd Float? // estimated cost in USD (BYOK = 0 from our side)
+  byok           Boolean  @default(false) // true if user brought their own key
+  recordedAt     DateTime @default(now())
+
+  @@index([organizationId, recordedAt])
+  @@index([userId, recordedAt])
+  @@index([provider, recordedAt])
+}
+
 // This is your Materialized View for the keyring-os Co-Pilot
 model FeedItem {
   id     String @id @default(uuid())

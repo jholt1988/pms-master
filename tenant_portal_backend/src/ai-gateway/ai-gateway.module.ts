@@ -3,12 +3,13 @@ import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { DecisionsModule } from '../decisions/decisions.module';
 import { AiGatewayController } from './ai-gateway.controller';
+import { AiUsageController } from './ai-usage.controller';
 import { AiGatewayService } from './ai-gateway.service';
 import { AiExplainabilityInterceptor } from './ai-explainability.interceptor';
 
 @Module({
   imports: [ConfigModule, DecisionsModule],
-  controllers: [AiGatewayController],
+  controllers: [AiGatewayController, AiUsageController],
   providers: [
     AiGatewayService,
     {
