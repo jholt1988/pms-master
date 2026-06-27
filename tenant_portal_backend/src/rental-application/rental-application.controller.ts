@@ -10,6 +10,7 @@ import { OrgId } from '../common/org-context/org-id.decorator';
 import { SubmitApplicationDto } from './dto/submit-application.dto';
 import { AddRentalApplicationNoteDto } from './dto/add-note.dto';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt.guard';
+import { Public } from '../auth/public.decorator';
 import { RentalApplicationReviewActionDto } from './dto/review-action.dto';
 
 interface AuthenticatedRequest extends Request {
@@ -24,6 +25,7 @@ interface AuthenticatedRequest extends Request {
 export class RentalApplicationController {
   constructor(private readonly rentalApplicationService: RentalApplicationService) {}
 
+  @Public()
   @UseGuards(OptionalJwtAuthGuard)
   @Post()
   submitApplication(@Body() data: SubmitApplicationDto, @Request() req: Request) {

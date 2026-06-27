@@ -159,9 +159,9 @@ describe('Auth API (e2e)', () => {
         })
         .expect(200);
 
-      expect(response.body).toHaveProperty('access_token');
-      expect(typeof response.body.access_token).toBe('string');
-      expect(response.body.access_token.length).toBeGreaterThan(0);
+      expect(response.body).toHaveProperty('accessToken');
+      expect(typeof response.body.accessToken).toBe('string');
+      expect(response.body.accessToken.length).toBeGreaterThan(0);
     });
 
     it('should reject invalid credentials', async () => {
@@ -244,7 +244,7 @@ describe('Auth API (e2e)', () => {
     });
   });
 
-  describe('GET /auth/profile (Protected Route)', () => {
+  describe('GET /auth/me (Protected Route)', () => {
     let accessToken: string;
     let testUser: any;
 
@@ -264,12 +264,12 @@ describe('Auth API (e2e)', () => {
         })
         .expect(200);
 
-      accessToken = loginResponse.body.access_token;
+      accessToken = loginResponse.body.accessToken;
     });
 
     it('should access protected route with valid token', async () => {
       const response = await request(app.getHttpServer())
-        .get('/auth/profile')
+        .get('/auth/me')
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
@@ -279,19 +279,19 @@ describe('Auth API (e2e)', () => {
     });
 
     it('should reject access without token', async () => {
-      await request(app.getHttpServer()).get('/auth/profile').expect(401);
+      await request(app.getHttpServer()).get('/auth/me').expect(401);
     });
 
     it('should reject access with invalid token', async () => {
       await request(app.getHttpServer())
-        .get('/auth/profile')
+        .get('/auth/me')
         .set('Authorization', 'Bearer invalid_token_12345')
         .expect(401);
     });
 
     it('should reject access with malformed authorization header', async () => {
       await request(app.getHttpServer())
-        .get('/auth/profile')
+        .get('/auth/me')
         .set('Authorization', 'InvalidFormat token')
         .expect(401);
     });
@@ -317,7 +317,7 @@ describe('Auth API (e2e)', () => {
         })
         .expect(200);
 
-      accessToken = loginResponse.body.access_token;
+      accessToken = loginResponse.body.accessToken;
     });
 
     describe('POST /auth/mfa/prepare', () => {
@@ -466,7 +466,7 @@ describe('Auth API (e2e)', () => {
           })
           .expect(200);
 
-        expect(loginResponse.body).toHaveProperty('access_token');
+        expect(loginResponse.body).toHaveProperty('accessToken');
       });
 
       it('should reject weak passwords', async () => {

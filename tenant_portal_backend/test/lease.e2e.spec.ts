@@ -47,6 +47,14 @@ describe('Lease API (e2e)', () => {
       }),
     });
 
+    // Lease endpoints are org-scoped (OrgContextGuard + @OrgId()): the PM needs
+    // a UserOrganization membership or org-scoped routes 403 (AUTH_014).
+    const organization = await TestDataFactory.seedOrganizationFor(
+      prisma,
+      propertyManager.id,
+      'OWNER',
+    );
+
     // Login
     const tenantLogin = await request(app.getHttpServer())
       .post('/auth/login')
@@ -58,9 +66,10 @@ describe('Lease API (e2e)', () => {
       .send({ username: 'pm@test.com', password: 'password123' });
     propertyManagerToken = pmLogin.body.accessToken;
 
-    // Create property and unit
+    // Create property and unit — property linked to the PM's org so org-scoped
+    // lease list/read queries resolve leases for this property.
     property = await prisma.property.create({
-      data: TestDataFactory.createProperty(),
+      data: TestDataFactory.createProperty({ organizationId: organization.id }),
     });
 
     unit = await prisma.unit.create({

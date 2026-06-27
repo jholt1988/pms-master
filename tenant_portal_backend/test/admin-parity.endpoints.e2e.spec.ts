@@ -232,7 +232,7 @@ describe('Admin parity endpoints (e2e)', () => {
     const extractResponse = await request(app.getHttpServer())
       .post('/lease-abstraction/extract')
       .set('Authorization', `Bearer ${pmToken}`)
-      .send({ leaseId: lease.id, documentId: 'doc-123' })
+      .send({ leaseId: lease.id, documentId: '00000000-0000-0000-0000-0000000d0c12' })
       .expect(201);
 
     const abstractionId = extractResponse.body.id;

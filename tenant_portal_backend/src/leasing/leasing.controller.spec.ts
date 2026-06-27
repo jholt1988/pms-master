@@ -124,12 +124,17 @@ describe('LeasingController (current contract)', () => {
 
   describe('recordInquiry', () => {
     it('requires propertyId and maps interest->interestLevel', async () => {
-      const inquiry = { id: 1, leadId: 'lead_1', propertyId: 5, unitId: 10, interest: 'HIGH', createdAt: new Date() };
+      // propertyId / unitId are UUID strings (Property.id, Unit.id are @db.Uuid).
+      // The controller must forward them through unchanged — NOT numeric-coerce
+      // them (Number('<uuid>')=NaN previously corrupted the Prisma write -> 500).
+      const propertyId = '11111111-1111-1111-1111-111111111111';
+      const unitId = '22222222-2222-2222-2222-222222222222';
+      const inquiry = { id: 1, leadId: 'lead_1', propertyId, unitId, interest: 'HIGH', createdAt: new Date() };
       service.recordPropertyInquiry.mockResolvedValue(inquiry);
 
-      const result = await controller.recordInquiry('lead_1', { propertyId: '5', unitId: '10', interest: 'HIGH' });
+      const result = await controller.recordInquiry('lead_1', { propertyId, unitId, interest: 'HIGH' });
       expect(result).toEqual({ ...inquiry, interestLevel: 'HIGH' });
-      expect(service.recordPropertyInquiry).toHaveBeenCalledWith('lead_1', 5, 10, 'HIGH');
+      expect(service.recordPropertyInquiry).toHaveBeenCalledWith('lead_1', propertyId, unitId, 'HIGH');
 
       await expect(controller.recordInquiry('lead_1', { propertyId: '' } as any)).rejects.toThrow('propertyId is required');
     });

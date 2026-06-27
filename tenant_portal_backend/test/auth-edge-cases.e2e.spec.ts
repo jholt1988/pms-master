@@ -76,10 +76,10 @@ describe('Authentication Edge Cases (e2e)', () => {
 
       // Create an expired token manually (this is a simplified test)
       // In real scenario, we'd wait for token to expire or manipulate the exp claim
-      const expiredToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImV4cCI6MTYwOTQ1NjgwMCwiaWF0IjoxNjA5NDU2ODAwfQ.invalid';
+      const expiredToken = 'eyJhbG...alid';
 
       const response = await request(app.getHttpServer())
-        .get('/auth/profile')
+        .get('/auth/me')
         .set('Authorization', `Bearer ${expiredToken}`)
         .expect(HttpStatus.UNAUTHORIZED);
 
@@ -90,6 +90,9 @@ describe('Authentication Edge Cases (e2e)', () => {
       const propertyManager = await prisma.user.create({
         data: TestDataFactory.createPropertyManager({ username: 'pm1' }),
       });
+      // /leases is org-scoped (OrgContextGuard + @OrgId()): seed org membership
+      // so a valid PM token yields 200 rather than 403.
+      await TestDataFactory.seedOrganizationFor(prisma, propertyManager.id, 'OWNER');
 
       const pmLogin = await request(app.getHttpServer())
         .post('/auth/login')
@@ -102,7 +105,7 @@ describe('Authentication Edge Cases (e2e)', () => {
 
       // Use valid token for request
       const response = await request(app.getHttpServer())
-        .get('/lease')
+        .get('/leases')
         .set('Authorization', `Bearer ${pmToken}`)
         .expect((res) => {
           // Should succeed with valid token
@@ -121,6 +124,8 @@ describe('Authentication Edge Cases (e2e)', () => {
       const propertyManager = await prisma.user.create({
         data: TestDataFactory.createPropertyManager({ username: 'pm2' }),
       });
+      // Org-scoped routes (/leases, /property) need a membership for a 200.
+      await TestDataFactory.seedOrganizationFor(prisma, propertyManager.id, 'OWNER');
 
       const pmLogin = await request(app.getHttpServer())
         .post('/auth/login')
@@ -130,7 +135,7 @@ describe('Authentication Edge Cases (e2e)', () => {
       // Make multiple concurrent requests with same token
       const requests = [
         request(app.getHttpServer())
-          .get('/lease')
+          .get('/leases')
           .set('Authorization', `Bearer ${pmToken}`),
         request(app.getHttpServer())
           .get('/property')
@@ -164,7 +169,7 @@ describe('Authentication Edge Cases (e2e)', () => {
 
       for (const token of invalidTokens) {
         const response = await request(app.getHttpServer())
-          .get('/auth/profile')
+          .get('/auth/me')
           .set('Authorization', token.startsWith('Bearer') ? token : `Bearer ${token}`)
           .expect(HttpStatus.UNAUTHORIZED);
 
@@ -174,7 +179,7 @@ describe('Authentication Edge Cases (e2e)', () => {
 
     it('should reject requests without Authorization header', async () => {
       const response = await request(app.getHttpServer())
-        .get('/auth/profile')
+        .get('/auth/me')
         .expect(HttpStatus.UNAUTHORIZED);
 
       expect(response.body).toHaveProperty('message');

@@ -27,6 +27,7 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
+import { Public } from '../auth/public.decorator';
 import {
   CreatePropertyDto,
   CreateUnitDto,
@@ -86,6 +87,7 @@ export class PropertyController {
   }
 
   @Get('public')
+  @Public()
   getPublicProperties(@Query('page') page?: string, @Query('limit') limit?: string) {
     return this.propertyService.getAllProperties(undefined, Number(page) || 1, Math.min(Number(limit) || 50, 100));
   }
@@ -98,6 +100,7 @@ export class PropertyController {
   }
 
   @Get('public/search')
+  @Public()
   getPublicSearch(@Query() query: PropertySearchQueryDto) {
     return this.propertyService.searchProperties(query);
   }

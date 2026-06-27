@@ -61,6 +61,13 @@ export class RentalApplicationService {
 
     const acceptanceTimestamp = new Date();
     const unitId = String(data.unitId);
+    // When the AI screening queue is active the application enters PENDING_AI_REVIEW
+    // (the async scorer advances it). Without the queue (e.g. tests / queue disabled)
+    // there is nothing to move it out of that state, so start in PENDING — the initial
+    // state of the manual lifecycle state machine.
+    const initialStatus = this.aiQueue
+      ? ApplicationStatus.PENDING_AI_REVIEW
+      : ApplicationStatus.PENDING;
     const application = await this.prisma.rentalApplication.create({
       data: {
         property: { connect: { id: propertyId } },
@@ -86,7 +93,7 @@ export class RentalApplicationService {
         termsVersion: data.termsVersion,
         privacyAcceptedAt: acceptanceTimestamp,
         privacyVersion: data.privacyVersion,
-        status: ApplicationStatus.PENDING_AI_REVIEW,
+        status: initialStatus,
       },
     });
     if (this.aiQueue) {
@@ -114,7 +121,7 @@ export class RentalApplicationService {
           application.id,
           ApplicationLifecycleEventType.SUBMITTED,
           null,
-          ApplicationStatus.PENDING_AI_REVIEW,
+          initialStatus,
           {
           userId: applicantId,
             username: applicant.username,
@@ -157,7 +164,7 @@ export class RentalApplicationService {
       },
     });
 
-    return { id: application.id, status: 'ACCEPTED' };
+    return { id: application.id, status: application.status };
   }
 
   async getAllApplications(orgId?: string) {
