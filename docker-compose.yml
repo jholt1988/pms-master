@@ -197,22 +197,22 @@ services:
     networks:
       - pms-internal
 
-  property-pulse:
-    build:
-      context: ../property_pulse
-      dockerfile: Dockerfile
-    container_name: pms-property-pulse
-    restart: unless-stopped
-    depends_on:
-      backend:
-        condition: service_healthy
-    environment:
-      BACKEND_API_ORIGIN: ${PROPERTY_PULSE_BACKEND_API_ORIGIN:-http://backend:3001}
-      NEXT_PUBLIC_API_BASE_URL: ${PROPERTY_PULSE_API_BASE_URL:-http://backend:3001/api}
-    ports:
-      - "3002:3000"
-    networks:
-      - pms-internal
+  # property-pulse:
+  #   build:
+  #     context: ../property_pulse
+  #     dockerfile: Dockerfile
+  #   container_name: pms-property-pulse
+  #   restart: unless-stopped
+  #   depends_on:
+  #     backend:
+  #       condition: service_healthy
+  #   environment:
+  #     BACKEND_API_ORIGIN: ${PROPERTY_PULSE_BACKEND_API_ORIGIN:-http://backend:3001}
+  #     NEXT_PUBLIC_API_BASE_URL: ${PROPERTY_PULSE_API_BASE_URL:-http://backend:3001/api}
+  #   ports:
+  #     - "3002:3000"
+  #   networks:
+  #     - pms-internal
 
   keyring-os:
     image: jholt1988/keyring_os:1.0

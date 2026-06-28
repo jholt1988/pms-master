@@ -298,6 +298,7 @@ describe('PaymentsService', () => {
       mockPrismaService.ledgerTransaction.findFirst.mockResolvedValue(null);
       mockPrismaService.ledgerTransaction.create.mockResolvedValue({ id: 'ltx-1' });
       mockPrismaService.payment.create.mockResolvedValue(mockPayment);
+      mockPrismaService.$transaction.mockImplementation(async (cb: any) => cb(mockPrismaService));
       mockEmailService.sendRentPaymentConfirmation.mockResolvedValue(undefined);
 
       const result = await service.createPayment(paymentDto as any, undefined, 'org-1');
@@ -336,6 +337,7 @@ describe('PaymentsService', () => {
       mockPrismaService.ledgerTransaction.findFirst.mockResolvedValue(null);
       mockPrismaService.ledgerTransaction.create.mockResolvedValue({ id: 'ltx-1' });
       mockPrismaService.payment.create.mockResolvedValue({ id: '1', ...paymentDto });
+      mockPrismaService.$transaction.mockImplementation(async (cb: any) => cb(mockPrismaService));
 
       // Email service fails but payment should still succeed
       mockEmailService.sendRentPaymentConfirmation.mockRejectedValue(
@@ -384,6 +386,7 @@ describe('PaymentsService', () => {
       mockPrismaService.ledgerTransaction.findFirst.mockResolvedValue(null);
       mockPrismaService.ledgerTransaction.create.mockResolvedValue({ id: 'ltx-1' });
       mockPrismaService.payment.create.mockResolvedValue({ id: '1', ...paymentDto });
+      mockPrismaService.$transaction.mockImplementation(async (cb: any) => cb(mockPrismaService));
 
       const result = await service.createPayment(paymentDto as any, undefined, 'org-1');
 

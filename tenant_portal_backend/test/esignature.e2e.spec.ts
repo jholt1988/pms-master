@@ -35,7 +35,8 @@ describe('EsignatureModule (e2e)', () => {
     await prisma.property.deleteMany();
     await prisma.user.deleteMany();
 
-    await prisma.user.create({ data: TestDataFactory.createPropertyManager({ username: 'pm@test.com' }) });
+    const pmUser = await prisma.user.create({ data: TestDataFactory.createPropertyManager({ username: 'pm@test.com' }) });
+    await TestDataFactory.seedOrganizationFor(prisma, pmUser.id, 'OWNER');
     const tenant = await prisma.user.create({ data: TestDataFactory.createUser({ username: 'tenant@test.com' }) });
     const property = await prisma.property.create({ data: TestDataFactory.createProperty() });
     const unit = await prisma.unit.create({ data: TestDataFactory.createUnit(property.id) });
@@ -58,12 +59,12 @@ describe('EsignatureModule (e2e)', () => {
     const pmLogin = await request(app.getHttpServer())
       .post('/auth/login')
       .send({ username: 'pm@test.com', password: 'password123' });
-    pmToken = pmLogin.body.access_token;
+    pmToken = pmLogin.body.accessToken;
 
     const tenantLogin = await request(app.getHttpServer())
       .post('/auth/login')
       .send({ username: 'tenant@test.com', password: 'password123' });
-    tenantToken = tenantLogin.body.access_token;
+    tenantToken = tenantLogin.body.accessToken;
   });
 
   afterAll(async () => {

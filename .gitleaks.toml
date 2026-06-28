@@ -1,0 +1,15 @@
+# ---- gitleaks config (added during 2026-06 security review) ----
+# Uses gitleaks' built-in rules. Add [[rules]] here for project-specific
+# secret shapes, or [allowlist] paths for known-safe files.
+title = "gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Files that are safe to contain secret-like placeholders"
+paths = [
+  '''\.env\.example$''',
+  '''\.env\..*\.example$''',
+  '''(^|/)README\.md$''',
+]

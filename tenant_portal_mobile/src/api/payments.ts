@@ -68,28 +68,28 @@ export const paymentsApi = {
    * Get payment methods
    */
   getPaymentMethods: async (): Promise<PaymentMethod[]> => {
-    return apiService.get<PaymentMethod[]>('/payment-methods');
+    return apiService.get<PaymentMethod[]>('/payments/payment-methods');
   },
 
   /**
    * Add new payment method
    */
   addPaymentMethod: async (data: CreatePaymentMethodRequest): Promise<PaymentMethod> => {
-    return apiService.post<PaymentMethod>('/payment-methods', data);
+    return apiService.post<PaymentMethod>('/payments/payment-methods', data);
   },
 
   /**
    * Delete payment method
    */
   deletePaymentMethod: async (id: number): Promise<void> => {
-    return apiService.delete(`/payment-methods/${id}`);
+    return apiService.delete(`/payments/payment-methods/${id}`);
   },
 
   /**
    * Set default payment method
    */
   setDefaultPaymentMethod: async (id: number): Promise<PaymentMethod> => {
-    return apiService.patch<PaymentMethod>(`/payment-methods/${id}/set-default`);
+    return apiService.patch<PaymentMethod>(`/payments/payment-methods/${id}/set-default`);
   },
 
   /**
@@ -146,6 +146,6 @@ export const paymentsApi = {
    * Get Stripe publishable key
    */
   getStripeConfig: async (): Promise<{ publishableKey: string }> => {
-    return apiService.get('/payments/stripe/config');
+    return apiService.get('/payments/stripe/checkout-session');
   },
 };

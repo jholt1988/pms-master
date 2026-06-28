@@ -19,7 +19,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
-import { OrgId } from '../common/org-context/org-id.decorator';
+import { OrgId, OptionalOrgId } from '../common/org-context/org-id.decorator';
 import { InspectionType, InspectionStatus, Role } from '@prisma/client';
 import { InspectionsService } from './inspections.service';
 import { CreateInspectionDto } from './dto/create-inspection.dto';
@@ -64,7 +64,7 @@ export class InspectionsController {
   async create(
     @Body() dto: CreateInspectionDto,
     @Req() req: AuthenticatedRequest,
-    @OrgId() orgId?: string,
+    @OptionalOrgId() orgId?: string,
   ) {
     return this.inspectionsService.create(
       {
@@ -87,9 +87,12 @@ export class InspectionsController {
     @Query('endDate') endDate?: string,
     @Query('skip') skip?: string,
     @Query('take') take?: string,
-    @OrgId() orgId?: string,
+    @OptionalOrgId() orgId?: string,
   ) {
-    return this.inspectionsService.findAll({
+    const skipNum = skip ? parseInt(skip, 10) : undefined;
+    const takeNum = take ? parseInt(take, 10) : undefined;
+
+    const result = await this.inspectionsService.findAll({
       userId: req.user.sub,
       userRole: req.user.role,
       unitId: this.parseOptionalUuid(unitId, 'unitId'),
@@ -98,14 +101,30 @@ export class InspectionsController {
       type,
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
-      skip: skip ? parseInt(skip, 10) : undefined,
-      take: take ? parseInt(take, 10) : undefined,
+      skip: skipNum,
+      take: takeNum,
       orgId,
     });
+
+    // Normalized list contract: expose the rows under inspections/data/items
+    // (aliases) plus a pagination meta envelope. Consumers rely on this shape.
+    const rows = result.data ?? [];
+    const total = result.total ?? rows.length;
+    const limit = takeNum && takeNum > 0 ? takeNum : total || rows.length;
+    const page = limit > 0 ? Math.floor((skipNum ?? 0) / limit) + 1 : 1;
+    const totalPages = limit > 0 ? Math.ceil(total / limit) : 1;
+
+    return {
+      inspections: rows,
+      data: rows,
+      items: rows,
+      total,
+      meta: { total, page, limit, totalPages },
+    };
   }
 
   @Get(':id')
-  async findOne(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest, @OrgId() orgId?: string) {
+  async findOne(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest, @OptionalOrgId() orgId?: string) {
     return this.inspectionsService.findOne(id, req.user.sub, req.user.role, orgId);
   }
 
@@ -115,7 +134,7 @@ export class InspectionsController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateInspectionDto,
     @Req() req: AuthenticatedRequest,
-    @OrgId() orgId?: string,
+    @OptionalOrgId() orgId?: string,
   ) {
     return this.inspectionsService.update(
       id,
@@ -130,7 +149,7 @@ export class InspectionsController {
 
   @Post('start')
   @Roles('PROPERTY_MANAGER', 'ADMIN', 'OWNER', 'TENANT')
-  async start(@Body('inspectionId', ParseIntPipe) inspectionId: number, @Req() req: AuthenticatedRequest, @OrgId() orgId?: string) {
+  async start(@Body('inspectionId', ParseIntPipe) inspectionId: number, @Req() req: AuthenticatedRequest, @OptionalOrgId() orgId?: string) {
     return this.inspectionsService.update(
       inspectionId,
       { status: InspectionStatus.IN_PROGRESS },
@@ -145,7 +164,7 @@ export class InspectionsController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: CompleteInspectionDto,
     @Req() req: AuthenticatedRequest,
-    @OrgId() orgId?: string,
+    @OptionalOrgId() orgId?: string,
   ) {
     return this.inspectionsService.complete(id, dto, req.user.sub, orgId);
   }
@@ -189,7 +208,7 @@ export class InspectionsController {
     @UploadedFile() file: Express.Multer.File,
     @Body('caption') caption: string,
     @Req() req: AuthenticatedRequest,
-    @OrgId() orgId?: string,
+    @OptionalOrgId() orgId?: string,
   ) {
     if (!file) {
       throw new BadRequestException('No file provided');
@@ -210,7 +229,7 @@ export class InspectionsController {
   async sync(
     @Body('actions') actions: any[],
     @Req() req: AuthenticatedRequest,
-    @OrgId() orgId?: string,
+    @OptionalOrgId() orgId?: string,
   ) {
     if (!Array.isArray(actions)) {
       throw new BadRequestException('Actions queue must be an array');

@@ -335,32 +335,42 @@ export class PaymentsService {
       }
     }
 
-    const payment = await this.prisma.payment.create({
-      data: {
-        amount: dto.amount,
-        status: resolvedStatus,
-        paymentDate: dto.paymentDate ? new Date(dto.paymentDate) : new Date(),
-        invoice: dto.invoiceId ? { connect: { id: dto.invoiceId } } : undefined,
-        lease: { connect: { id: leaseId } },
-        user: { connect: { id: lease.tenantId } },
-        externalId,
-        paymentMethod: dto.paymentMethodId ? { connect: { id: dto.paymentMethodId } } : undefined,
-      },
-      include: {
-        invoice: true,
-        lease: { include: { tenant: true, unit: { include: { property: true } } } },
-        paymentMethod: true,
-      },
+    const payment = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.payment.create({
+        data: {
+          amount: dto.amount,
+          status: resolvedStatus,
+          paymentDate: dto.paymentDate ? new Date(dto.paymentDate) : new Date(),
+          invoice: dto.invoiceId ? { connect: { id: dto.invoiceId } } : undefined,
+          lease: { connect: { id: leaseId } },
+          user: { connect: { id: lease.tenantId } },
+          externalId,
+          paymentMethod: dto.paymentMethodId ? { connect: { id: dto.paymentMethodId } } : undefined,
+        },
+        include: {
+          invoice: true,
+          lease: { include: { tenant: true, unit: { include: { property: true } } } },
+          paymentMethod: true,
+        },
+      });
+
+      if (created.invoiceId && created.status === PaymentStatus.COMPLETED) {
+        await tx.invoice.update({
+          where: { id: created.invoiceId },
+          data: { status: 'PAID' },
+        });
+      }
+
+      // if payment failed, mark invoice as unpaid
+      if (created.status === PaymentStatus.FAILED) {
+        await tx.invoice.update({
+          where: { id: created.invoiceId },
+          data: { status: 'UNPAID' },
+        });
+      }
+
+      return created;
     });
-
-    if (payment.invoiceId && payment.status === PaymentStatus.COMPLETED) {
-      await this.markInvoicePaid(payment.invoiceId);
-    }
-
-    // if payment failed, mark invoice as unpaid
-    if (payment.status === PaymentStatus.FAILED) {
-      await this.markInvoiceUnpaid(payment.invoiceId);
-    }
 
     const ledgerAccount = await this.ensureLedgerAccountForLease(lease.id, lease.unit?.property?.organizationId);
     await this.createLedgerTransactionIfMissing(this.prisma, {
@@ -376,6 +386,36 @@ export class PaymentsService {
       description: `Payment #${payment.id}`,
       createdById: authUser?.userId,
     });
+
+    // Send confirmation email for successful payments, but do not block on failures
+    if ((payment.status ?? PaymentStatus.COMPLETED) !== PaymentStatus.FAILED) {
+      try {
+        const tenant = payment.lease?.tenant ?? lease.tenant;
+        const tenantEmail = tenant?.username ?? tenant?.email ?? '';
+        await this.emailService.sendRentPaymentConfirmation(
+          tenantEmail,
+          Number(payment.amount),
+          payment.paymentDate ?? new Date(),
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Failed to send payment confirmation for payment ${payment.id}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+    // if payment failed, mark payment failed
+    if (payment.status === PaymentStatus.FAILED) {
+      const tenant = payment.lease?.tenant ?? lease.tenant;
+      const tenantId = tenant?.id ?? lease.tenantId;
+      await this.markPaymentFailed(payment.id, tenantId, Number(payment.amount));
+    }
+
+    // if payment failed, mark invoice as unpaid
+    if (payment.status === PaymentStatus.FAILED) {
+      await this.markInvoiceUnpaid(payment.invoiceId);
+    }
+
+   
 
     // Send confirmation email for successful payments, but do not block on failures
     if ((payment.status ?? PaymentStatus.COMPLETED) !== PaymentStatus.FAILED) {

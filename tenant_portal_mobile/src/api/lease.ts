@@ -17,7 +17,7 @@ import {
  * Get current/active lease for tenant
  */
 export const getCurrentLease = async (): Promise<Lease> => {
-  const response = await api.get('/leases/current');
+  const response = await api.get('/leases/my-lease');
   return response.data;
 };
 
@@ -33,7 +33,7 @@ export const getLeaseById = async (leaseId: number): Promise<Lease> => {
  * Get all leases for tenant (including past leases)
  */
 export const getAllLeases = async (): Promise<Lease[]> => {
-  const response = await api.get('/leases');
+  const response = await api.get('/leases/my-lease');
   return response.data;
 };
 
@@ -80,7 +80,7 @@ export const downloadDocument = async (documentId: number): Promise<string> => {
 export const requestLeaseRenewal = async (
   request: LeaseRenewalRequest
 ): Promise<Lease> => {
-  const response = await api.post('/leases/renewal', request);
+  const response = await api.post(`/leases/${request.leaseId}/renewal-offers`, request);
   return response.data;
 };
 
@@ -90,7 +90,7 @@ export const requestLeaseRenewal = async (
 export const submitMoveOutNotice = async (
   notice: CreateMoveOutNotice
 ): Promise<MoveOutNotice> => {
-  const response = await api.post('/leases/move-out-notice', notice);
+  const response = await api.post(`/leases/${notice.leaseId}/tenant-notices`, notice);
   return response.data;
 };
 

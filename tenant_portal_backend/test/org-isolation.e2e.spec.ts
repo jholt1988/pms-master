@@ -85,7 +85,7 @@ describe('Org Isolation (e2e)', () => {
       .set('Authorization', `Bearer ${orgAToken}`)
       .expect(200);
 
-    const names = response.body.map((item: { name: string }) => item.name);
+    const names = response.body.data.map((item: { name: string }) => item.name);
     expect(names).toContain('Org A Property');
     expect(names).not.toContain('Org B Property');
   });
