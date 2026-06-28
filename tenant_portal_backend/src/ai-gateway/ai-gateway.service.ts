@@ -62,7 +62,7 @@ export class AiGatewayService {
    */
   private getClient(byokKey?: string): OpenAI | null {
     if (byokKey) {
-      return new OpenAI({ ['api' + 'Key']: *** baseURL: this.baseURL });
+      return new OpenAI({ ['api' + 'Key']: byokKey, baseURL: this.baseURL });
     }
     // Return null to signal "use aiProvider" — BYOK path vs. server path
     return null;
