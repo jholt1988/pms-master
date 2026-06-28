@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import OpenAI from 'openai';
 import axios from 'axios';
 import { randomUUID } from 'crypto';
 import {
@@ -18,6 +17,7 @@ import {
   type ToolContext,
   type ToolRole,
 } from './tools/tool-context';
+import { AIProviderService } from '../ai-provider';
 
 export interface ChatbotMessage {
   role: 'user' | 'assistant' | 'system';
@@ -64,7 +64,6 @@ export interface ChatbotResponse {
 @Injectable()
 export class ChatbotService {
   private readonly logger = new Logger(ChatbotService.name);
-  private openai: OpenAI | null = null;
   private readonly aiEnabled: boolean;
   private readonly propertyOpsOrchestratorEnabled: boolean;
   private readonly ragEnabled: boolean;
@@ -75,9 +74,8 @@ export class ChatbotService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly aiProvider: AIProviderService,
   ) {
-    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
-    const baseURL = this.configService.get<string>('OPENAI_BASE_URL', 'https://api.vultrinference.com/v1');
     const aiEnabled = this.configService.get<string>('AI_ENABLED', 'false') === 'true';
     const chatbotEnabled = this.configService.get<string>('AI_CHATBOT_ENABLED', 'true') === 'true';
     const orchestratorEnabled = this.configService.get<string>(
@@ -88,18 +86,17 @@ export class ChatbotService {
     const ragServiceUrl = this.configService.get<string>('AI_RAG_SERVICE_URL', 'http://localhost:9000');
     const ragTimeoutMs = Number(this.configService.get<string>('AI_RAG_TIMEOUT_MS', '2500'));
 
-    this.aiEnabled = aiEnabled && chatbotEnabled && Boolean(apiKey);
+    this.aiEnabled = aiEnabled && chatbotEnabled && this.aiProvider.isEnabled();
     this.propertyOpsOrchestratorEnabled = orchestratorEnabled;
     this.ragEnabled = ragEnabled;
     this.ragServiceUrl = ragServiceUrl;
     this.ragTimeoutMs = Number.isFinite(ragTimeoutMs) ? ragTimeoutMs : 2500;
 
-    if (this.aiEnabled && apiKey) {
-      this.openai = new OpenAI({ apiKey, baseURL });
-      this.logger.log('Chatbot Service initialized with OpenAI');
+    if (this.aiEnabled) {
+      this.logger.log(`Chatbot Service initialized with ${this.aiProvider.getProvider()} (model: ${this.aiProvider.getModel()})`);
     } else {
       this.logger.warn(
-        'Chatbot Service initialized in mock mode (no OpenAI API key or AI disabled)',
+        'Chatbot Service initialized in mock mode (no AI API key or AI disabled)',
       );
     }
 
@@ -169,7 +166,7 @@ export class ChatbotService {
       let orchestratorRun: OrchestratorTerminal | undefined;
       const traceId = this.generateTraceId();
 
-      if (this.openai && this.aiEnabled) {
+      if (this.aiEnabled) {
         const response = await this.generateAIResponse(
           session,
           message,
@@ -294,8 +291,8 @@ export class ChatbotService {
     userContext?: any,
     ragContext?: string,
   ): Promise<{ content: string; intent?: string; confidence?: number }> {
-    if (!this.openai) {
-      throw new Error('OpenAI client not initialized');
+    if (!this.aiEnabled) {
+      throw new Error('AI provider not available');
     }
 
     // Get user context from database (reuse if provided).
@@ -341,12 +338,7 @@ Be friendly, professional, and concise. Provide actionable information when poss
 
     // Build conversation history (last 10 messages for context)
     const recentMessages = session.messages.slice(-10);
-    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-      {
-        role: 'system',
-        content: systemPrompt,
-      },
-    ];
+    const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
 
     // Add conversation history
     for (const msg of recentMessages) {
@@ -364,15 +356,15 @@ Be friendly, professional, and concise. Provide actionable information when poss
       content: userMessage,
     });
 
-    // Call OpenAI API
-    const response = await this.openai.chat.completions.create({
-      model: this.configService.get<string>('OPENAI_MODEL', 'gpt-4o-mini'),
+    // Call AI via provider
+    const response = await this.aiProvider.complete({
+      systemPrompt,
       messages,
       temperature: this.configService.get<number>('OPENAI_TEMPERATURE', 0.7),
-      max_tokens: this.configService.get<number>('OPENAI_MAX_TOKENS', 500),
+      maxTokens: this.configService.get<number>('OPENAI_MAX_TOKENS', 500),
     });
 
-    const content = response.choices[0]?.message?.content || 'I apologize, but I could not generate a response.';
+    const content = response.content || 'I apologize, but I could not generate a response.';
 
     // Try to extract intent from response (simple keyword matching for now)
     const intent = this.detectIntent(userMessage);
@@ -380,7 +372,7 @@ Be friendly, professional, and concise. Provide actionable information when poss
     return {
       content,
       intent,
-      confidence: 0.9, // High confidence for AI responses
+      confidence: 0.9,
     };
   }
 

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-import OpenAI from 'openai';
+import { AIProviderService } from '../ai-provider';
 import {
   MaintenancePriority,
   MaintenanceRequest,
@@ -25,44 +25,37 @@ interface SLABreachPrediction {
 @Injectable()
 export class AIMaintenanceService {
   private readonly logger = new Logger(AIMaintenanceService.name);
-  private openai: OpenAI | null = null;
   private aiEnabled: boolean;
   private model: string;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly aiProvider: AIProviderService,
   ) {
     // Reset OpenAI mock call history in tests to avoid leakage between specs
-    if (process.env.NODE_ENV === 'test' && (OpenAI as any).mockClear) {
-      (OpenAI as any).mockClear();
+    if (process.env.NODE_ENV === 'test') {
+      try { require('openai'); } catch {}
     }
 
     this.refreshAiConfig();
   }
 
   private refreshAiConfig(): void {
-    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
-    const baseURL = this.configService.get<string>('OPENAI_BASE_URL', 'https://api.vultrinference.com/v1');
     const aiEnabled = this.configService.get<string>('AI_ENABLED', 'false') === 'true';
     const maintenanceAiEnabled = this.configService.get<string>(
       'AI_MAINTENANCE_ENABLED',
       'true',
     ) === 'true';
-    this.model = this.configService.get<string>('OPENAI_MODEL', 'deepseek-ai/DeepSeek-V4-Pro-normalize');
+    this.model = this.aiProvider.getModel();
 
-    this.aiEnabled = aiEnabled && maintenanceAiEnabled && !!apiKey;
+    this.aiEnabled = aiEnabled && maintenanceAiEnabled && this.aiProvider.isEnabled();
 
-    if (this.aiEnabled && apiKey) {
-      // Only create client once even if refresh is called multiple times
-      if (!this.openai) {
-        this.openai = new OpenAI({ apiKey, baseURL });
-        this.logger.log('AI Maintenance Service initialized with OpenAI');
-      }
+    if (this.aiEnabled) {
+      this.logger.log(`AI Maintenance Service initialized with ${this.aiProvider.getProvider()} (model: ${this.model})`);
     } else {
-      this.openai = null;
       this.logger.warn(
-        'AI Maintenance Service initialized in mock mode (no OpenAI API key or AI disabled)',
+        'AI Maintenance Service initialized in mock mode (no AI API key or AI disabled)',
       );
     }
   }
@@ -76,7 +69,7 @@ export class AIMaintenanceService {
   ): Promise<MaintenancePriority> {
     this.refreshAiConfig();
 
-    if (!this.openai || !this.aiEnabled) {
+    if (!this.aiEnabled) {
       // Fallback to keyword-based priority assignment
       this.logger.log('AI priority assignment skipped, using fallback', {
         service: 'AIMaintenanceService',
@@ -100,24 +93,15 @@ Priority levels:
 
 Respond with ONLY one word: HIGH, MEDIUM, or LOW`;
 
-      const response = await this.openai.chat.completions.create({
-        model: this.model,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are a property management assistant. Analyze maintenance requests and assign priority levels. Respond with only the priority level (HIGH, MEDIUM, or LOW).',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
+      const response = await this.aiProvider.complete({
+        systemPrompt:
+          'You are a property management assistant. Analyze maintenance requests and assign priority levels. Respond with only the priority level (HIGH, MEDIUM, or LOW).',
+        messages: [{ role: 'user' as const, content: prompt }],
         temperature: 0.3,
-        max_tokens: 10,
+        maxTokens: 10,
       });
 
-      const priorityText = response.choices[0]?.message?.content?.trim().toUpperCase();
+      const priorityText = response.content.trim().toUpperCase();
       const responseTime = Date.now() - startTime;
       
       let priority: MaintenancePriority;

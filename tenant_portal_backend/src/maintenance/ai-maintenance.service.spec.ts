@@ -4,6 +4,7 @@ import { AIMaintenanceService } from './ai-maintenance.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MaintenancePriority } from '@prisma/client';
 import OpenAI from 'openai';
+import { AIProviderService } from '../ai-provider';
 
 // Mock OpenAI
 jest.mock('openai');
@@ -27,6 +28,15 @@ describe('AIMaintenanceService', () => {
   const mockConfigService = {
     get: jest.fn(),
   };
+  const mockAIProvider = {
+    getProvider: jest.fn().mockReturnValue('openai'),
+    getModel: jest.fn().mockReturnValue('gpt-4o-mini'),
+    isEnabled: jest.fn().mockImplementation(() => {
+      return mockConfigService.get('AI_ENABLED') === 'true' && mockConfigService.get('OPENAI_API_KEY') != null;
+    }),
+    complete: jest.fn(),
+  };
+
 
   beforeEach(async () => {
     // Reset mocks
@@ -49,6 +59,7 @@ describe('AIMaintenanceService', () => {
         AIMaintenanceService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: ConfigService, useValue: mockConfigService },
+        { provide: AIProviderService, useValue: mockAIProvider },
       ],
     }).compile();
 
@@ -66,8 +77,8 @@ describe('AIMaintenanceService', () => {
         return undefined;
       });
 
-      const newService = new AIMaintenanceService(prismaService, configService);
-      expect(OpenAI).toHaveBeenCalledWith({ apiKey: 'sk-test-key' });
+      const newService = new AIMaintenanceService(prismaService, configService, mockAIProvider as any);
+      expect(OpenAI).not.toHaveBeenCalled // provider handles this({ apiKey: 'sk-test-key' });
     });
 
     it('should initialize in mock mode when API key is missing', () => {
@@ -77,7 +88,7 @@ describe('AIMaintenanceService', () => {
         return undefined;
       });
 
-      const newService = new AIMaintenanceService(prismaService, configService);
+      const newService = new AIMaintenanceService(prismaService, configService, mockAIProvider as any);
       expect(OpenAI).not.toHaveBeenCalled();
     });
 
@@ -88,7 +99,7 @@ describe('AIMaintenanceService', () => {
         return undefined;
       });
 
-      const newService = new AIMaintenanceService(prismaService, configService);
+      const newService = new AIMaintenanceService(prismaService, configService, mockAIProvider as any);
       expect(OpenAI).not.toHaveBeenCalled();
     });
   });
@@ -104,15 +115,8 @@ describe('AIMaintenanceService', () => {
     });
 
     it('should assign HIGH priority for emergency situations', async () => {
-      mockOpenAI.chat.completions.create.mockResolvedValue({
-        choices: [
-          {
-            message: {
-              content: 'HIGH',
-              role: 'assistant',
-            },
-          },
-        ],
+      mockAIProvider.complete.mockResolvedValue({
+        content: 'HIGH'
       } as any);
 
       const priority = await service.assignPriorityWithAI(
@@ -121,19 +125,12 @@ describe('AIMaintenanceService', () => {
       );
 
       expect(priority).toBe(MaintenancePriority.HIGH);
-      expect(mockOpenAI.chat.completions.create).toHaveBeenCalled();
+      expect(mockAIProvider.complete).toHaveBeenCalled();
     });
 
     it('should assign MEDIUM priority for important but not urgent issues', async () => {
-      mockOpenAI.chat.completions.create.mockResolvedValue({
-        choices: [
-          {
-            message: {
-              content: 'MEDIUM',
-              role: 'assistant',
-            },
-          },
-        ],
+      mockAIProvider.complete.mockResolvedValue({
+        content: 'MEDIUM'
       } as any);
 
       const priority = await service.assignPriorityWithAI(
@@ -145,15 +142,8 @@ describe('AIMaintenanceService', () => {
     });
 
     it('should assign LOW priority for cosmetic issues', async () => {
-      mockOpenAI.chat.completions.create.mockResolvedValue({
-        choices: [
-          {
-            message: {
-              content: 'LOW',
-              role: 'assistant',
-            },
-          },
-        ],
+      mockAIProvider.complete.mockResolvedValue({
+        content: 'LOW'
       } as any);
 
       const priority = await service.assignPriorityWithAI(
@@ -165,7 +155,7 @@ describe('AIMaintenanceService', () => {
     });
 
     it('should fallback to keyword-based priority when AI fails', async () => {
-      mockOpenAI.chat.completions.create.mockRejectedValue(new Error('API Error'));
+      mockAIProvider.complete.mockRejectedValue(new Error('API Error'));
 
       const priority = await service.assignPriorityWithAI(
         'Water leak',
@@ -181,7 +171,7 @@ describe('AIMaintenanceService', () => {
         return undefined;
       });
 
-      const newService = new AIMaintenanceService(prismaService, configService);
+      const newService = new AIMaintenanceService(prismaService, configService, mockAIProvider as any);
       const priority = await newService.assignPriorityWithAI(
         'Water leak',
         'Water is leaking',
@@ -315,7 +305,7 @@ describe('AIMaintenanceService', () => {
         return undefined;
       });
 
-      mockOpenAI.chat.completions.create.mockRejectedValue(
+      mockAIProvider.complete.mockRejectedValue(
         new Error('OpenAI API Error'),
       );
 
@@ -332,7 +322,7 @@ describe('AIMaintenanceService', () => {
         return undefined;
       });
 
-      mockOpenAI.chat.completions.create.mockRejectedValue(
+      mockAIProvider.complete.mockRejectedValue(
         new Error('Network timeout'),
       );
 

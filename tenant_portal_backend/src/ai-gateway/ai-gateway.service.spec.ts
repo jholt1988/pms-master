@@ -12,13 +12,22 @@ describe('AiGatewayService', () => {
   const decisions = {
     create: jest.fn().mockResolvedValue({ id: 'decision-record-1' }),
   };
+  const aiProvider = {
+    getProvider: jest.fn().mockReturnValue('mock'),
+    getModel: jest.fn().mockReturnValue('mock-deterministic-v1'),
+    isEnabled: jest.fn().mockReturnValue(false),
+    complete: jest.fn(),
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
+    aiProvider.getProvider.mockReturnValue('mock');
+    aiProvider.getModel.mockReturnValue('mock-deterministic-v1');
+    aiProvider.isEnabled.mockReturnValue(false);
   });
 
   it('exposes a capability manifest for operator workflow wiring', () => {
-    const service = new AiGatewayService(config as any, auditLog as any, decisions as any);
+    const service = new AiGatewayService(config as any, auditLog as any, decisions as any, aiProvider as any);
 
     const result = service.getCapabilityManifest();
 
@@ -44,7 +53,7 @@ describe('AiGatewayService', () => {
   });
 
   it('generates deterministic mock output and records audit', async () => {
-    const service = new AiGatewayService(config as any, auditLog as any, decisions as any);
+    const service = new AiGatewayService(config as any, auditLog as any, decisions as any, aiProvider as any);
 
     const result = await service.generate(
       'org-1',
@@ -71,7 +80,7 @@ describe('AiGatewayService', () => {
   });
 
   it('persists decision records for decision recommendations', async () => {
-    const service = new AiGatewayService(config as any, auditLog as any, decisions as any);
+    const service = new AiGatewayService(config as any, auditLog as any, decisions as any, aiProvider as any);
 
     const result = await service.generate(
       'org-1',
@@ -98,7 +107,7 @@ describe('AiGatewayService', () => {
   });
 
   it('evaluates gateway output with deterministic checks', async () => {
-    const service = new AiGatewayService(config as any, auditLog as any, decisions as any);
+    const service = new AiGatewayService(config as any, auditLog as any, decisions as any, aiProvider as any);
 
     const result = await service.evaluate(
       'org-1',
@@ -119,7 +128,7 @@ describe('AiGatewayService', () => {
   });
 
   it('classifies emergency maintenance with habitability and approval flags', async () => {
-    const service = new AiGatewayService(config as any, auditLog as any, decisions as any);
+    const service = new AiGatewayService(config as any, auditLog as any, decisions as any, aiProvider as any);
 
     const result = await service.classifyMaintenance(
       'org-1',
@@ -149,7 +158,7 @@ describe('AiGatewayService', () => {
   });
 
   it('drafts external maintenance acknowledgements while blocking auto-send', async () => {
-    const service = new AiGatewayService(config as any, auditLog as any, decisions as any);
+    const service = new AiGatewayService(config as any, auditLog as any, decisions as any, aiProvider as any);
 
     const result = await service.draftCommunication(
       'org-1',
@@ -172,7 +181,7 @@ describe('AiGatewayService', () => {
   });
 
   it('flags adverse action and fair housing communications for approval', async () => {
-    const service = new AiGatewayService(config as any, auditLog as any, decisions as any);
+    const service = new AiGatewayService(config as any, auditLog as any, decisions as any, aiProvider as any);
 
     const result = await service.draftCommunication(
       'org-1',
@@ -195,7 +204,7 @@ describe('AiGatewayService', () => {
   });
 
   it('summarizes application review facts with objective policy signals', async () => {
-    const service = new AiGatewayService(config as any, auditLog as any, decisions as any);
+    const service = new AiGatewayService(config as any, auditLog as any, decisions as any, aiProvider as any);
 
     const result = await service.summarizeApplicationReview(
       'org-1',
@@ -222,7 +231,7 @@ describe('AiGatewayService', () => {
   });
 
   it('routes incomplete or adverse application summaries to guarded review', async () => {
-    const service = new AiGatewayService(config as any, auditLog as any, decisions as any);
+    const service = new AiGatewayService(config as any, auditLog as any, decisions as any, aiProvider as any);
 
     const result = await service.summarizeApplicationReview(
       'org-1',
@@ -246,7 +255,7 @@ describe('AiGatewayService', () => {
   });
 
   it('summarizes Kansas lease terms while blocking auto decision', async () => {
-    const service = new AiGatewayService(config as any, auditLog as any, decisions as any);
+    const service = new AiGatewayService(config as any, auditLog as any, decisions as any, aiProvider as any);
 
     const result = await service.summarizeLeaseRisk(
       'org-1',
@@ -275,7 +284,7 @@ describe('AiGatewayService', () => {
   });
 
   it('flags Kansas deposit cap and prohibited clause risk for lease review', async () => {
-    const service = new AiGatewayService(config as any, auditLog as any, decisions as any);
+    const service = new AiGatewayService(config as any, auditLog as any, decisions as any, aiProvider as any);
 
     const result = await service.summarizeLeaseRisk(
       'org-1',
@@ -302,7 +311,7 @@ describe('AiGatewayService', () => {
   });
 
   it('drafts a low-risk repair estimate with line item costs', async () => {
-    const service = new AiGatewayService(config as any, auditLog as any, decisions as any);
+    const service = new AiGatewayService(config as any, auditLog as any, decisions as any, aiProvider as any);
 
     const result = await service.draftRepairEstimate(
       'org-1',
@@ -328,7 +337,7 @@ describe('AiGatewayService', () => {
   });
 
   it('flags high-risk repair estimates for approval before execution', async () => {
-    const service = new AiGatewayService(config as any, auditLog as any, decisions as any);
+    const service = new AiGatewayService(config as any, auditLog as any, decisions as any, aiProvider as any);
 
     const result = await service.draftRepairEstimate(
       'org-1',
@@ -354,7 +363,7 @@ describe('AiGatewayService', () => {
   });
 
   it('suggests maintenance expense categorization with accounting review controls', async () => {
-    const service = new AiGatewayService(config as any, auditLog as any, decisions as any);
+    const service = new AiGatewayService(config as any, auditLog as any, decisions as any, aiProvider as any);
 
     const result = await service.categorizeBookkeepingTransaction(
       'org-1',
@@ -378,7 +387,7 @@ describe('AiGatewayService', () => {
   });
 
   it('flags uncategorized or high-risk bookkeeping transactions before close/export', async () => {
-    const service = new AiGatewayService(config as any, auditLog as any, decisions as any);
+    const service = new AiGatewayService(config as any, auditLog as any, decisions as any, aiProvider as any);
 
     const result = await service.categorizeBookkeepingTransaction(
       'org-1',
@@ -399,7 +408,7 @@ describe('AiGatewayService', () => {
   });
 
   it('recommends decisions with blockers and persisted decision linkage', async () => {
-    const service = new AiGatewayService(config as any, auditLog as any, decisions as any);
+    const service = new AiGatewayService(config as any, auditLog as any, decisions as any, aiProvider as any);
 
     const result = await service.recommendDecision(
       'org-1',
@@ -432,7 +441,7 @@ describe('AiGatewayService', () => {
   });
 
   it('rejects empty prompts', async () => {
-    const service = new AiGatewayService(config as any, auditLog as any, decisions as any);
+    const service = new AiGatewayService(config as any, auditLog as any, decisions as any, aiProvider as any);
 
     await expect(
       service.generate('org-1', { userId: 'actor-1' }, { task: 'LEASE_SUMMARY', prompt: '' }),

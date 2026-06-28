@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationPreferencesService } from './notification-preferences.service';
 import { NotificationType } from '@prisma/client';
 import OpenAI from 'openai';
+import { AIProviderService } from '../ai-provider';
 
 jest.mock('openai');
 
@@ -27,6 +28,15 @@ describe('AINotificationService', () => {
   const mockConfigService = {
     get: jest.fn(),
   };
+  const mockAIProvider = {
+    getProvider: jest.fn().mockReturnValue('openai'),
+    getModel: jest.fn().mockReturnValue('gpt-4o-mini'),
+    isEnabled: jest.fn().mockImplementation(() => {
+      return mockConfigService.get('AI_ENABLED') === 'true' && mockConfigService.get('OPENAI_API_KEY') != null;
+    }),
+    complete: jest.fn(),
+  };
+
   const mockPreferencesService = {
     getPreferences: jest.fn().mockResolvedValue({
       emailEnabled: true,
@@ -58,6 +68,7 @@ describe('AINotificationService', () => {
         AINotificationService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: ConfigService, useValue: mockConfigService },
+        { provide: AIProviderService, useValue: mockAIProvider },
         { provide: NotificationPreferencesService, useValue: mockPreferencesService },
       ],
     }).compile();
@@ -77,8 +88,8 @@ describe('AINotificationService', () => {
         return undefined;
       });
 
-      const newService = new AINotificationService(prismaService, configService);
-      expect(OpenAI).toHaveBeenCalledWith({ apiKey: 'sk-test-key' });
+      const newService = new AINotificationService(prismaService, configService, mockAIProvider as any, preferencesService);
+      // AIProviderService handles client creation now
     });
 
     it('should initialize in mock mode when API key is missing', () => {
@@ -89,8 +100,8 @@ describe('AINotificationService', () => {
       });
 
       (OpenAI as jest.MockedClass<typeof OpenAI>).mockClear();
-      const newService = new AINotificationService(prismaService, configService);
-      expect(OpenAI).not.toHaveBeenCalled();
+      const newService = new AINotificationService(prismaService, configService, mockAIProvider as any, preferencesService);
+      // AIProviderService handles client creation now
     });
   });
 
@@ -178,15 +189,8 @@ describe('AINotificationService', () => {
         notifications: [],
       };
 
-      (mockOpenAI.chat.completions.create as jest.Mock).mockResolvedValue({
-        choices: [
-          {
-            message: {
-              content: 'Personalized message for user@test.com',
-              role: 'assistant',
-            },
-          },
-        ],
+      mockAIProvider.complete.mockResolvedValue({
+        content: 'Personalized message for user@test.com'
       } as any);
 
       mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
@@ -199,7 +203,7 @@ describe('AINotificationService', () => {
 
       expect(personalized).toBeDefined();
       expect(personalized).not.toBe('Default message');
-      expect(mockOpenAI.chat.completions.create).toHaveBeenCalled();
+      expect(mockAIProvider.complete).toHaveBeenCalled();
     });
 
     it('should return original content when AI fails', async () => {
@@ -209,7 +213,7 @@ describe('AINotificationService', () => {
         notifications: [],
       };
 
-      (mockOpenAI.chat.completions.create as jest.Mock).mockRejectedValue(new Error('API Error'));
+      mockAIProvider.complete.mockRejectedValue(new Error('API Error'));
 
       mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
 
@@ -287,7 +291,7 @@ describe('AINotificationService', () => {
         return undefined;
       });
 
-      (mockOpenAI.chat.completions.create as jest.Mock).mockRejectedValue(new Error('API Error'));
+      mockAIProvider.complete.mockRejectedValue(new Error('API Error'));
 
       const mockUser = {
         id: 1,

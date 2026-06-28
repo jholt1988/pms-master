@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationPreferencesService } from './notification-preferences.service';
-import OpenAI from 'openai';
+import { AIProviderService } from '../ai-provider';
 import { NotificationType, User } from '@prisma/client';
 
 interface OptimalNotificationTiming {
@@ -23,28 +23,24 @@ interface NotificationPreference {
 @Injectable()
 export class AINotificationService {
   private readonly logger = new Logger(AINotificationService.name);
-  private openai: OpenAI | null = null;
   private readonly aiEnabled: boolean;
   private readonly model: string;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly aiProvider: AIProviderService,
     private readonly preferencesService: NotificationPreferencesService,
   ) {
-    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
-    const baseURL = this.configService.get<string>('OPENAI_BASE_URL', 'https://api.vultrinference.com/v1');
     const aiEnabled = this.configService.get<string>('AI_ENABLED', 'false') === 'true';
-    this.model = this.configService.get<string>('OPENAI_MODEL', 'deepseek-ai/DeepSeek-V4-Pro-normalize');
+    this.model = this.aiProvider.getModel();
 
-    this.aiEnabled = aiEnabled && !!apiKey;
+    this.aiEnabled = aiEnabled && this.aiProvider.isEnabled();
 
-    if (this.aiEnabled && apiKey) {
-      this.openai = new OpenAI({ apiKey, baseURL });
-      this.logger.log('AI Notification Service initialized with OpenAI');
+    if (this.aiEnabled) {
+      this.logger.log(`AI Notification Service initialized with ${this.aiProvider.getProvider()} (model: ${this.model})`);
     } else {
-      this.openai = null;
-      // Silence noise in tests when API key is absent
+      // Silence noise in tests when AI is disabled
     }
   }
 
@@ -99,7 +95,7 @@ export class AINotificationService {
 
     // Generate personalized content if AI is enabled
     let personalizedContent: string | undefined;
-    if (this.openai && this.aiEnabled && urgency === 'HIGH') {
+    if (this.aiEnabled && urgency === 'HIGH') {
       try {
         personalizedContent = await this.generatePersonalizedContent(userIdStr, notificationType);
       } catch (error) {
@@ -353,7 +349,7 @@ export class AINotificationService {
     userId: string | number,
     notificationType: NotificationType,
   ): Promise<string> {
-    if (!this.openai || !this.aiEnabled) {
+    if (!this.aiEnabled) {
       return '';
     }
 
@@ -374,24 +370,15 @@ User: ${user.username}
 
 Keep it brief (1-2 sentences), friendly, and professional. Include relevant details.`;
 
-      const response = await this.openai.chat.completions.create({
-        model: this.model,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are a property management assistant. Generate friendly, concise notification messages.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
+      const response = await this.aiProvider.complete({
+        systemPrompt:
+          'You are a property management assistant. Generate friendly, concise notification messages.',
+        messages: [{ role: 'user' as const, content: prompt }],
         temperature: 0.7,
-        max_tokens: 100,
+        maxTokens: 100,
       });
 
-      const content = response?.choices?.[0]?.message?.content?.trim();
+      const content = response.content.trim();
       return content || '';
     } catch (error) {
       // Avoid noisy logging in tests, just fall back
@@ -407,7 +394,7 @@ Keep it brief (1-2 sentences), friendly, and professional. Include relevant deta
     notificationType: NotificationType,
     defaultContent: string,
   ): Promise<string> {
-    if (!this.openai || !this.aiEnabled) {
+    if (!this.aiEnabled) {
       return defaultContent;
     }
 
@@ -436,24 +423,15 @@ User: ${user.username}
 
 Make it more personalized and engaging while keeping the same information. Keep it concise (1-2 sentences).`;
 
-      const response = await this.openai.chat.completions.create({
-        model: this.model,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are a property management assistant. Customize notification messages to be more personalized.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
+      const response = await this.aiProvider.complete({
+        systemPrompt:
+          'You are a property management assistant. Customize notification messages to be more personalized.',
+        messages: [{ role: 'user' as const, content: prompt }],
         temperature: 0.7,
-        max_tokens: 150,
+        maxTokens: 150,
       });
 
-      const content = response?.choices?.[0]?.message?.content?.trim();
+      const content = response.content.trim();
       return content || defaultContent;
     } catch (error) {
       // Avoid noisy logging in tests, just fall back
