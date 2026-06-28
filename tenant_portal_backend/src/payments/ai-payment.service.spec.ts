@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { AIPaymentService } from './ai-payment.service';
 import { PrismaService } from '../prisma/prisma.service';
 import OpenAI from 'openai';
+import { AIProviderService } from '../ai-provider';
 
 jest.mock('openai');
 
@@ -37,6 +38,15 @@ describe('AIPaymentService', () => {
   const mockConfigService = {
     get: jest.fn(),
   };
+  const mockAIProvider = {
+    getProvider: jest.fn().mockReturnValue('openai'),
+    getModel: jest.fn().mockReturnValue('gpt-4o-mini'),
+    isEnabled: jest.fn().mockImplementation(() => {
+      return mockConfigService.get('AI_ENABLED') === 'true' && mockConfigService.get('OPENAI_API_KEY') != null;
+    }),
+    complete: jest.fn(),
+  };
+
 
   const tenantId = '00000000-0000-0000-0000-tenant-uuid';
   const invoiceId = 1;
@@ -69,6 +79,7 @@ describe('AIPaymentService', () => {
         AIPaymentService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: ConfigService, useValue: mockConfigService },
+        { provide: AIProviderService, useValue: mockAIProvider },
       ],
     }).compile();
 
@@ -86,8 +97,8 @@ describe('AIPaymentService', () => {
         return undefined;
       });
 
-      const newService = new AIPaymentService(prismaService, configService);
-      expect(OpenAI).toHaveBeenCalledWith({ apiKey: 'sk-test-key' });
+      const newService = new AIPaymentService(prismaService, configService, mockAIProvider as any);
+      expect(OpenAI).not.toHaveBeenCalled // provider handles this({ apiKey: 'sk-test-key' });
     });
 
     it('should initialize in mock mode when API key is missing', () => {
@@ -97,7 +108,7 @@ describe('AIPaymentService', () => {
         return undefined;
       });
 
-      const newService = new AIPaymentService(prismaService, configService);
+      const newService = new AIPaymentService(prismaService, configService, mockAIProvider as any);
       expect(OpenAI).not.toHaveBeenCalled();
     });
   });
@@ -260,7 +271,7 @@ describe('AIPaymentService', () => {
         return undefined;
       });
 
-      mockOpenAI.chat.completions.create.mockRejectedValue(new Error('API Error'));
+      mockAIProvider.complete.mockRejectedValue(new Error('API Error'));
 
       mockPrismaService.user.findUnique.mockResolvedValue({ id: tenantId });
       mockPrismaService.lease.findUnique.mockResolvedValue({ id: 1, tenantId });

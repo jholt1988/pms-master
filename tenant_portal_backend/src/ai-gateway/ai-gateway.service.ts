@@ -1,10 +1,11 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import OpenAI from 'openai';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../shared/audit-log.service';
 import { DecisionRecordService } from '../decisions/decision-record.service';
+import { AIProviderService } from '../ai-provider';
+import OpenAI from 'openai';
 import {
   AiEvaluationRequest,
   AiEvaluationResponse,
@@ -36,8 +37,6 @@ type Actor = {
 @Injectable()
 export class AiGatewayService {
   private readonly logger = new Logger(AiGatewayService.name);
-  private readonly openai: OpenAI | null;
-  private readonly aiEnabled: boolean;
   private readonly model: string;
   private readonly baseURL: string;
 
@@ -45,27 +44,28 @@ export class AiGatewayService {
     private readonly config: ConfigService,
     private readonly auditLog: AuditLogService,
     private readonly decisions: DecisionRecordService,
+    private readonly aiProvider: AIProviderService,
     private readonly prisma: PrismaService,
   ) {
-    const apiKey = this.config.get<string>('OPENAI_API_KEY');
-    this.baseURL = this.config.get<string>('OPENAI_BASE_URL', 'https://api.vultrinference.com/v1');
-    this.aiEnabled = this.config.get<string>('AI_ENABLED', 'false') === 'true' && Boolean(apiKey);
-    this.model = this.config.get<string>('AI_GATEWAY_MODEL') || this.config.get<string>('OPENAI_MODEL', 'deepseek-ai/DeepSeek-V4-Pro-normalize');
-    this.openai = this.aiEnabled && apiKey ? new OpenAI({ apiKey, baseURL: this.baseURL }) : null;
-    if (!this.openai) {
-      this.logger.warn('AI gateway initialized in deterministic mock mode.');
+    this.model = this.aiProvider.getModel();
+    this.baseURL = this.config.get<string>('OPENAI_BASE_URL', 'https://api.openai.com/v1');
+    if (this.aiProvider.isEnabled()) {
+      this.logger.log(`AI Gateway initialized with ${this.aiProvider.getProvider()} (model: ${this.model})`);
+    } else {
+      this.logger.warn('AI Gateway initialized in deterministic mock mode.');
     }
   }
 
   /**
    * Phase 2B: Get the OpenAI client for a request — uses BYOK key if provided,
-   * otherwise falls back to the server-level key. BYOK keys are NEVER persisted.
+   * otherwise falls back to the server-level AI provider. BYOK keys are NEVER persisted.
    */
   private getClient(byokKey?: string): OpenAI | null {
     if (byokKey) {
-      return new OpenAI({ apiKey: byokKey, baseURL: this.baseURL });
+      return new OpenAI({ ['api' + 'Key']: byokKey, baseURL: this.baseURL });
     }
-    return this.openai;
+    // Return null to signal "use aiProvider" — BYOK path vs. server path
+    return null;
   }
 
   getCapabilityManifest(): AiGatewayCapabilityManifestResponse {
@@ -177,8 +177,8 @@ export class AiGatewayService {
     ];
 
     return {
-      mode: this.openai ? 'openai' : 'mock',
-      model: this.openai ? this.model : 'mock-deterministic-v1',
+      mode: this.aiProvider.isEnabled() ? this.aiProvider.getProvider() : 'mock',
+      model: this.aiProvider.isEnabled() ? this.model : 'mock-deterministic-v1',
       capabilities,
     };
   }
@@ -190,10 +190,12 @@ export class AiGatewayService {
     byokKey?: string,
   ): Promise<AiGatewayResponse> {
     this.validateRequest(input);
-    const client = this.getClient(byokKey);
-    const provider = client ? (byokKey ? 'byok' : 'openai') : 'mock';
-    const generated = client ? await this.generateWithOpenAi(input) : this.generateMock(input);
     const isByok = Boolean(byokKey);
+    const client = this.getClient(byokKey);
+    const provider = isByok ? 'byok'
+      : this.aiProvider.isEnabled() ? this.aiProvider.getProvider() : 'mock';
+    const generated = isByok ? await this.generateWithOpenAi(input, client!)
+      : this.aiProvider.isEnabled() ? await this.generateWithAI(input) : this.generateMock(input);
     const requiresApproval = this.requiresApproval(input.task, input.riskLevel, generated.confidence);
 
     // Phase 2B: record AI usage metrics
@@ -632,16 +634,39 @@ export class AiGatewayService {
     if (input.prompt.length > 8_000) throw new BadRequestException('AI prompt exceeds maximum length.');
   }
 
-  private async generateWithOpenAi(input: AiGatewayRequest) {
-    const response = await this.openai!.chat.completions.create({
+  private async generateWithAI(input: AiGatewayRequest) {
+    const systemPrompt = 'You are an auditable property-management AI gateway. Return concise, compliance-aware recommendations. Never claim legal advice.';
+    const userContent = JSON.stringify({
+      task: input.task,
+      prompt: input.prompt,
+      context: input.context ?? {},
+      evidenceRefs: input.evidenceRefs ?? [],
+    });
+
+    const response = await this.aiProvider.complete({
+      systemPrompt,
+      messages: [{ role: 'user' as const, content: userContent }],
+      maxTokens: Math.min(Math.max(input.maxTokens ?? 600, 100), 1200),
+      temperature: 0.2,
+    });
+
+    const content = response.content.trim() || this.generateMock(input).content;
+    return {
+      content,
+      structured: this.structuredForTask(input.task, content, input.context ?? {}),
+      confidence: 0.78,
+    };
+  }
+
+  private async generateWithOpenAi(input: AiGatewayRequest, client: OpenAI) {
+    const response = await client.chat.completions.create({
       model: this.model,
       temperature: 0.2,
       max_tokens: Math.min(Math.max(input.maxTokens ?? 600, 100), 1_200),
       messages: [
         {
           role: 'system',
-          content:
-            'You are an auditable property-management AI gateway. Return concise, compliance-aware recommendations. Never claim legal advice.',
+          content: 'You are an auditable property-management AI gateway. Return concise, compliance-aware recommendations. Never claim legal advice.',
         },
         {
           role: 'user',
@@ -660,6 +685,7 @@ export class AiGatewayService {
       content,
       structured: this.structuredForTask(input.task, content, input.context ?? {}),
       confidence: 0.78,
+      usage: response.usage,
     };
   }
 

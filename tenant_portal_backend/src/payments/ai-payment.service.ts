@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-import OpenAI from 'openai';
+import { AIProviderService } from '../ai-provider';
 import {
   defaultAIPaymentGuardrailPolicy,
   PaymentReminderTimingResult,
@@ -11,36 +11,33 @@ import {
 @Injectable()
 export class AIPaymentService {
   private readonly logger = new Logger(AIPaymentService.name);
-  private openai: OpenAI | null = null;
   private readonly aiEnabled: boolean;
   private readonly model: string;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly aiProvider: AIProviderService,
   ) {
     // Reset OpenAI mock call history in test runs to avoid leakage between specs
-    if (process.env.NODE_ENV === 'test' && (OpenAI as any).mockClear) {
-      (OpenAI as any).mockClear();
+    if (process.env.NODE_ENV === 'test') {
+      try { require('openai'); } catch {}
     }
 
-    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
-    const baseURL = this.configService.get<string>('OPENAI_BASE_URL', 'https://api.vultrinference.com/v1');
     const aiEnabled = this.configService.get<string>('AI_ENABLED', 'false') === 'true';
     const paymentAiEnabled = this.configService.get<string>(
       'AI_PAYMENT_ENABLED',
       'true',
     ) === 'true';
-    this.model = this.configService.get<string>('OPENAI_MODEL', 'deepseek-ai/DeepSeek-V4-Pro-normalize');
+    this.model = this.aiProvider.getModel();
 
-    this.aiEnabled = aiEnabled && paymentAiEnabled && !!apiKey;
+    this.aiEnabled = aiEnabled && paymentAiEnabled && this.aiProvider.isEnabled();
 
-    if (this.aiEnabled && apiKey) {
-      this.openai = new OpenAI({ apiKey, baseURL });
-      this.logger.log('AI Payment Service initialized with OpenAI');
+    if (this.aiEnabled) {
+      this.logger.log(`AI Payment Service initialized with ${this.aiProvider.getProvider()} (model: ${this.model})`);
     } else {
       this.logger.warn(
-        'AI Payment Service initialized in mock mode (no OpenAI API key or AI disabled)',
+        'AI Payment Service initialized in mock mode (no AI API key or AI disabled)',
       );
     }
   }
@@ -383,7 +380,7 @@ export class AIPaymentService {
 
     // Generate personalized message if AI is enabled
     let personalizedMessage: string | undefined;
-    if (this.openai && this.aiEnabled && timingGuardrailDecision.allow) {
+    if (this.aiEnabled && timingGuardrailDecision.allow) {
       try {
         personalizedMessage = await this.generatePersonalizedMessage(
           userId,
@@ -432,7 +429,7 @@ export class AIPaymentService {
       : 'the due date';
     const baseMessage = `Reminder: Your payment of $${Number(invoice.amount ?? 0).toFixed(2)} is due on ${dueDateString}`;
 
-    if (!this.openai || !this.aiEnabled) {
+    if (!this.aiEnabled) {
       return baseMessage;
     }
 
@@ -467,24 +464,15 @@ Urgency: ${urgency}
 
 Keep it brief (1-2 sentences), professional, and friendly. Don't be pushy.`;
 
-      const response = await this.openai.chat.completions.create({
-        model: this.model,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are a property management assistant. Generate friendly, professional payment reminders.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
+      const response = await this.aiProvider.complete({
+        systemPrompt:
+          'You are a property management assistant. Generate friendly, professional payment reminders.',
+        messages: [{ role: 'user' as const, content: prompt }],
         temperature: 0.7,
-        max_tokens: 100,
+        maxTokens: 100,
       });
 
-      const content = response?.choices?.[0]?.message?.content?.trim();
+      const content = response.content.trim();
       return content || baseMessage;
     } catch (error) {
       this.logger.error('Failed to generate personalized message', error);

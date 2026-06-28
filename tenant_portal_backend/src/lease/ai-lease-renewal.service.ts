@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/commo
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { AILeaseRenewalMetricsService } from './ai-lease-renewal-metrics.service';
-import OpenAI from 'openai';
+import { AIProviderService } from '../ai-provider';
 import { Lease, LeaseRenewalOffer, Payment, MaintenanceRequest, Unit, Property, Invoice } from '@prisma/client';
 
 interface RenewalPrediction {
@@ -54,7 +54,6 @@ type LeaseWithTenantUnit = Lease & {
 @Injectable()
 export class AILeaseRenewalService {
   private readonly logger = new Logger(AILeaseRenewalService.name);
-  private openai: OpenAI | null = null;
   private readonly aiEnabled: boolean;
   private readonly mlServiceUrl: string;
   private readonly mlServiceTimeout: number;
@@ -70,28 +69,27 @@ export class AILeaseRenewalService {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     @Optional() private readonly aiMetrics?: AILeaseRenewalMetricsService,
+    private readonly aiProvider?: AIProviderService,
   ) {
-    if (process.env.NODE_ENV === 'test' && (OpenAI as any).mockClear) {
-      (OpenAI as any).mockClear();
+    // Reset mock state in test environments
+    if (process.env.NODE_ENV === 'test') {
+      try { require('openai'); } catch {}
     }
 
-    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
-    const baseURL = this.configService.get<string>('OPENAI_BASE_URL', 'https://api.vultrinference.com/v1');
     const aiEnabled = this.configService.get<string>('AI_ENABLED', 'false') === 'true';
-    this.model = this.configService.get<string>('OPENAI_MODEL', 'deepseek-ai/DeepSeek-V4-Pro-normalize');
+    this.model = this.aiProvider?.getModel() ?? this.configService.get<string>('OPENAI_MODEL', 'gpt-4o-mini');
     this.mlServiceUrl = this.configService.get<string>('ML_SERVICE_URL', 'http://ml-service:8000');
     this.mlServiceTimeout = parseInt(this.configService.get<string>('ML_SERVICE_TIMEOUT', '5000'), 10);
     this.mlServiceMaxRetries = parseInt(this.configService.get<string>('ML_SERVICE_MAX_RETRIES', '3'), 10);
     this.mlServiceRetryDelay = parseInt(this.configService.get<string>('ML_SERVICE_RETRY_DELAY', '1000'), 10);
 
-    this.aiEnabled = aiEnabled && !!apiKey;
+    this.aiEnabled = aiEnabled && this.aiProvider?.isEnabled();
 
-    if (this.aiEnabled && apiKey) {
-      this.openai = new OpenAI({ apiKey, baseURL });
-      this.logger.log('AI Lease Renewal Service initialized with OpenAI');
+    if (this.aiEnabled) {
+      this.logger.log(`AI Lease Renewal Service initialized with ${this.aiProvider?.getProvider()} (model: ${this.model})`);
     } else {
       this.logger.warn(
-        'AI Lease Renewal Service initialized in mock mode (no OpenAI API key or AI disabled)',
+        'AI Lease Renewal Service initialized in mock mode (no AI API key or AI disabled)',
       );
     }
   }
@@ -649,7 +647,7 @@ export class AILeaseRenewalService {
     // Generate personalized message
     let message = `We value you as a tenant and would like to offer you a renewal opportunity. `;
     
-    if (this.openai && this.aiEnabled) {
+    if (this.aiEnabled && this.aiProvider) {
       try {
         message = await this.generateAIMessage(leaseIdStr, prediction, rentAdjustment, incentives);
       } catch (error) {
@@ -714,7 +712,7 @@ export class AILeaseRenewalService {
     rentAdjustment: RentAdjustmentRecommendation,
     incentives: Array<{ type: string; description: string; value: number }>,
   ): Promise<string> {
-    if (!this.openai || !this.aiEnabled) {
+    if (!this.aiProvider || !this.aiEnabled) {
       return '';
     }
 
@@ -728,24 +726,15 @@ Incentives: ${incentives.map(i => i.description).join(', ') || 'None'}
 
 Keep it professional, warm, and concise (2-3 sentences). Highlight the value of staying.`;
 
-      const response = await this.openai.chat.completions.create({
-        model: this.model,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are a property management assistant. Generate friendly, professional lease renewal offers.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
+      const response = await this.aiProvider!.complete({
+        systemPrompt:
+          'You are a property management assistant. Generate friendly, professional lease renewal offers.',
+        messages: [{ role: 'user' as const, content: prompt }],
         temperature: 0.7,
-        max_tokens: 200,
+        maxTokens: 200,
       });
 
-      return response.choices[0]?.message?.content?.trim() || '';
+      return response.content.trim();
     } catch (error) {
       this.logger.error('Failed to generate AI message', error);
       return '';

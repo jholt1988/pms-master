@@ -1,27 +1,21 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-import OpenAI from 'openai';
+import { AIProviderService } from '../ai-provider';
 
 @Injectable()
 export class OwnerAnalyticsService {
   private readonly logger = new Logger(OwnerAnalyticsService.name);
-  private openai: OpenAI | null = null;
-  private aiEnabled: boolean;
+  private readonly aiEnabled: boolean;
   private readonly model: string;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly aiProvider: AIProviderService,
   ) {
-    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
-    const baseURL = this.configService.get<string>('OPENAI_BASE_URL', 'https://api.vultrinference.com/v1');
-    const aiEnabled = this.configService.get<string>('AI_ENABLED', 'false') === 'true';
-    this.model = this.configService.get<string>('OPENAI_MODEL', 'deepseek-ai/DeepSeek-V4-Pro-normalize');
-    this.aiEnabled = aiEnabled && !!apiKey;
-    if (this.aiEnabled && apiKey) {
-      this.openai = new OpenAI({ apiKey, baseURL });
-    }
+    this.aiEnabled = this.aiProvider.isEnabled();
+    this.model = this.aiProvider.getModel();
   }
 
   async getOwnerPortfolioAnalytics(orgId: string) {
@@ -190,7 +184,7 @@ export class OwnerAnalyticsService {
 
     const baseStatsText = `Current Month Income: $${currIncome}, Expenses: $${currExpense}, NOI: $${currNOI}. Previous Month Income: $${prevIncome}, Expenses: $${prevExpense}, NOI: $${prevNOI}. NOI changed by ${noiChangePercent.toFixed(1)}%.`;
 
-    if (!this.aiEnabled || !this.openai) {
+    if (!this.aiEnabled) {
       // Rule-based fallback summary
       const direction = noiChangePercent >= 0 ? 'increased' : 'decreased';
       const changeAbs = Math.abs(noiChangePercent).toFixed(1);
@@ -198,23 +192,14 @@ export class OwnerAnalyticsService {
     }
 
     try {
-      const response = await this.openai.chat.completions.create({
-        model: this.model,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a professional real estate asset manager. Analyze monthly portfolio performance metrics and write a concise, one-paragraph overview explaining financial changes and what they mean to the owner.',
-          },
-          {
-            role: 'user',
-            content: `Write a narrative explanation for these stats: ${baseStatsText}`,
-          },
-        ],
+      const response = await this.aiProvider.complete({
+        systemPrompt: 'You are a professional real estate asset manager. Analyze monthly portfolio performance metrics and write a concise, one-paragraph overview explaining financial changes and what they mean to the owner.',
+        messages: [{ role: 'user' as const, content: `Write a narrative explanation for these stats: ${baseStatsText}` }],
         temperature: 0.5,
-        max_tokens: 150,
+        maxTokens: 150,
       });
 
-      return response.choices[0]?.message?.content?.trim() || 'No description generated.';
+      return response.content.trim() || 'No description generated.';
     } catch (error) {
       this.logger.error(`Error generating narrative from OpenAI: ${error}`);
       return `Portfolio Net Operating Income shifted by ${noiChangePercent.toFixed(1)}%. Check expense bills and tenant receipt ledger for specific invoice allocations.`;

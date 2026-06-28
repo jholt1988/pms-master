@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { AILeaseRenewalService } from './ai-lease-renewal.service';
 import { PrismaService } from '../prisma/prisma.service';
 import OpenAI from 'openai';
+import { AIProviderService } from '../ai-provider';
 
 jest.mock('openai');
 
@@ -27,6 +28,15 @@ describe('AILeaseRenewalService', () => {
   const mockConfigService = {
     get: jest.fn(),
   };
+  const mockAIProvider = {
+    getProvider: jest.fn().mockReturnValue('openai'),
+    getModel: jest.fn().mockReturnValue('gpt-4o-mini'),
+    isEnabled: jest.fn().mockImplementation(() => {
+      return mockConfigService.get('AI_ENABLED') === 'true' && mockConfigService.get('OPENAI_API_KEY') != null;
+    }),
+    complete: jest.fn(),
+  };
+
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -47,6 +57,7 @@ describe('AILeaseRenewalService', () => {
         AILeaseRenewalService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: ConfigService, useValue: mockConfigService },
+        { provide: AIProviderService, useValue: mockAIProvider },
       ],
     }).compile();
 
@@ -65,8 +76,8 @@ describe('AILeaseRenewalService', () => {
         return undefined;
       });
 
-      const newService = new AILeaseRenewalService(prismaService, configService);
-      expect(OpenAI).toHaveBeenCalledWith({ apiKey: 'sk-test-key' });
+      const newService = new AILeaseRenewalService(prismaService, configService, undefined, mockAIProvider as any);
+      expect(mockAIProvider.getProvider).toHaveBeenCalled();
     });
 
     it('should initialize in mock mode when API key is missing', () => {
@@ -76,8 +87,8 @@ describe('AILeaseRenewalService', () => {
         return undefined;
       });
 
-      const newService = new AILeaseRenewalService(prismaService, configService);
-      expect(OpenAI).not.toHaveBeenCalled();
+      const newService = new AILeaseRenewalService(prismaService, configService, undefined, mockAIProvider as any);
+      expect(mockAIProvider.isEnabled).toHaveBeenCalled();
     });
   });
 
@@ -277,7 +288,7 @@ describe('AILeaseRenewalService', () => {
         return undefined;
       });
 
-      mockOpenAI.chat.completions.create.mockRejectedValue(new Error('API Error'));
+      mockAIProvider.complete.mockRejectedValue(new Error('API Error'));
 
       const mockLease = {
         id: 1,

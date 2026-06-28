@@ -30,11 +30,18 @@ const envSchema = z.object({
 
   // AI Services
   AI_ENABLED: z.coerce.boolean().default(false),
+  AI_PROVIDER: z.enum(['openai', 'anthropic', 'lightning']).default('openai'),
   AI_CHATBOT_ENABLED: z.coerce.boolean().default(false),
   AI_PROPERTY_OPS_ORCHESTRATOR_ENABLED: z.coerce.boolean().default(false),
   OPENAI_API_KEY: z.string().optional(),
+  OPENAI_BASE_URL: z.string().default('https://api.openai.com/v1'),
   OPENAI_MODEL: z.string().default('gpt-4o-mini'),
   OPENAI_MAX_TOKENS: z.coerce.number().default(4000),
+  OPENAI_TEMPERATURE: z.coerce.number().default(0.7),
+  ANTHROPIC_API_KEY: z.string().optional(),
+  ANTHROPIC_MODEL: z.string().default('claude-sonnet-4-20250514'),
+  LIGHTNING_API_KEY: z.string().optional(),
+  LIGHTNING_MODEL: z.string().default('lightning-ai/DeepSeek-V4-Pro-normalize'),
 
   // Stripe
   STRIPE_SECRET_KEY: z.string().optional(),
@@ -94,7 +101,7 @@ export function validateEnv(config: Record<string, unknown>): EnvConfig {
     const warnings: string[] = [];
     if (!result.data.SENTRY_DSN) warnings.push('SENTRY_DSN not set - error tracking disabled');
     if (!result.data.STRIPE_SECRET_KEY) warnings.push('STRIPE_SECRET_KEY not set - payments disabled');
-    if (!result.data.OPENAI_API_KEY) warnings.push('OPENAI_API_KEY not set - AI features disabled');
+    if (!result.data.OPENAI_API_KEY && !result.data.ANTHROPIC_API_KEY) warnings.push('No AI API key set (OPENAI_API_KEY or ANTHROPIC_API_KEY) - AI features disabled');
     if (result.data.JWT_SECRET.length < 32) warnings.push('JWT_SECRET should be at least 32 characters in production');
 
     warnings.forEach((w) => logger.warn(w));
