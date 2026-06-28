@@ -1,6 +1,7 @@
 import { Controller, Post, Body, UseGuards, Get, Req, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from './roles.guard';
+import { Public } from './public.decorator';
 import { AuthService } from './auth.service';
 import { LoginRequestDto } from './dto/login-request.dto';
 import { RegisterRequestDto } from './dto/register-request.dto';
@@ -21,6 +22,7 @@ function getIpAddress(req: any): string {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Public()
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   async register(@Body() dto: RegisterRequestDto) {
@@ -28,6 +30,7 @@ export class AuthController {
     return { user };
   }
 
+  @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(
@@ -40,6 +43,7 @@ export class AuthController {
     return this.authService.login(dto, context);
   }
 
+  @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(@Body() dto: RefreshRequestDto) {
@@ -57,6 +61,7 @@ export class AuthController {
     return { success: true };
   }
 
+  @Public()
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   async forgotPassword(
@@ -70,6 +75,7 @@ export class AuthController {
     return { message: 'If a matching account was found, a password reset email has been sent.' };
   }
 
+  @Public()
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   async resetPassword(
@@ -134,6 +140,7 @@ export class AuthController {
     };
   }
 
+  @Public()
   @Get('password-policy')
   getPasswordPolicy() {
     return this.authService.getPasswordPolicy();

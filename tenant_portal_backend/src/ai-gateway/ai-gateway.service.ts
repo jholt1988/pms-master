@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 import { randomUUID } from 'crypto';
+import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../shared/audit-log.service';
 import { DecisionRecordService } from '../decisions/decision-record.service';
 import {
@@ -38,20 +39,33 @@ export class AiGatewayService {
   private readonly openai: OpenAI | null;
   private readonly aiEnabled: boolean;
   private readonly model: string;
+  private readonly baseURL: string;
 
   constructor(
     private readonly config: ConfigService,
     private readonly auditLog: AuditLogService,
     private readonly decisions: DecisionRecordService,
+    private readonly prisma: PrismaService,
   ) {
     const apiKey = this.config.get<string>('OPENAI_API_KEY');
-    const baseURL = this.config.get<string>('OPENAI_BASE_URL', 'https://api.vultrinference.com/v1');
+    this.baseURL = this.config.get<string>('OPENAI_BASE_URL', 'https://api.vultrinference.com/v1');
     this.aiEnabled = this.config.get<string>('AI_ENABLED', 'false') === 'true' && Boolean(apiKey);
     this.model = this.config.get<string>('AI_GATEWAY_MODEL') || this.config.get<string>('OPENAI_MODEL', 'deepseek-ai/DeepSeek-V4-Pro-normalize');
-    this.openai = this.aiEnabled && apiKey ? new OpenAI({ apiKey, baseURL }) : null;
+    this.openai = this.aiEnabled && apiKey ? new OpenAI({ apiKey, baseURL: this.baseURL }) : null;
     if (!this.openai) {
       this.logger.warn('AI gateway initialized in deterministic mock mode.');
     }
+  }
+
+  /**
+   * Phase 2B: Get the OpenAI client for a request — uses BYOK key if provided,
+   * otherwise falls back to the server-level key. BYOK keys are NEVER persisted.
+   */
+  private getClient(byokKey?: string): OpenAI | null {
+    if (byokKey) {
+      return new OpenAI({ apiKey: byokKey, baseURL: this.baseURL });
+    }
+    return this.openai;
   }
 
   getCapabilityManifest(): AiGatewayCapabilityManifestResponse {
@@ -169,11 +183,39 @@ export class AiGatewayService {
     };
   }
 
-  async generate(orgId: string, actor: Actor, input: AiGatewayRequest): Promise<AiGatewayResponse> {
+  async generate(
+    orgId: string,
+    actor: Actor,
+    input: AiGatewayRequest,
+    byokKey?: string,
+  ): Promise<AiGatewayResponse> {
     this.validateRequest(input);
-    const provider = this.openai ? 'openai' : 'mock';
-    const generated = this.openai ? await this.generateWithOpenAi(input) : this.generateMock(input);
+    const client = this.getClient(byokKey);
+    const provider = client ? (byokKey ? 'byok' : 'openai') : 'mock';
+    const generated = client ? await this.generateWithOpenAi(input) : this.generateMock(input);
+    const isByok = Boolean(byokKey);
     const requiresApproval = this.requiresApproval(input.task, input.riskLevel, generated.confidence);
+
+    // Phase 2B: record AI usage metrics
+    const usage = (generated as any).usage;
+    const promptTokens = usage?.prompt_tokens ?? 0;
+    const completionTokens = usage?.completion_tokens ?? 0;
+    const totalTokens = usage?.total_tokens ?? 0;
+    await this.prisma.aiUsageMetric.create({
+      data: {
+        organizationId: orgId,
+        userId: actor.userId,
+        provider,
+        model: byokKey ? 'user-provided-model' : this.model,
+        task: input.task,
+        promptTokens,
+        completionTokens,
+        totalTokens,
+        byok: isByok,
+      },
+    }).catch((err) => {
+      this.logger.warn(`Failed to record AI usage metric: ${err.message}`);
+    });
 
     let decisionRecordId: string | null = null;
     if (input.task === 'DECISION_RECOMMENDATION' && input.entity) {

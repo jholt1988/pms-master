@@ -335,26 +335,160 @@ export class PaymentsService {
       }
     }
 
-    const payment = await this.prisma.payment.create({
-      data: {
-        amount: dto.amount,
-        status: resolvedStatus,
-        paymentDate: dto.paymentDate ? new Date(dto.paymentDate) : new Date(),
-        invoice: dto.invoiceId ? { connect: { id: dto.invoiceId } } : undefined,
-        lease: { connect: { id: leaseId } },
-        user: { connect: { id: lease.tenantId } },
-        externalId,
-        paymentMethod: dto.paymentMethodId ? { connect: { id: dto.paymentMethodId } } : undefined,
-      },
-      include: {
-        invoice: true,
-        lease: { include: { tenant: true, unit: { include: { property: true } } } },
-        paymentMethod: true,
-      },
+    let externalId = dto['externalId'] as string | undefined;
+    const requestedStatus = dto.status?.toUpperCase() as PaymentStatus | undefined;
+    if (requestedStatus && !Object.values(PaymentStatus).includes(requestedStatus)) {
+      throw new BadRequestException(`Unsupported payment status: ${dto.status}`);
+    }
+    let resolvedStatus: PaymentStatus = requestedStatus ?? PaymentStatus.COMPLETED;
+
+    if (dto.paymentMethodId) {
+      const method = await this.prisma.paymentMethod.findUnique({ where: { id: dto.paymentMethodId } });
+      if (!method || method.userId !== lease.tenantId) {
+        throw new BadRequestException('Payment method is invalid for this lease tenant');
+      }
+
+      if (method.provider === 'STRIPE' && method.providerCustomerId && method.providerPaymentMethodId) {
+        const orgIdForLease = lease.unit?.property?.organizationId;
+        let connectedAccountId: string | undefined;
+        let applicationFeeAmountCents: number | undefined;
+        let tierSnapshot: Record<string, unknown> | undefined;
+
+        if (orgIdForLease) {
+          const org = await this.prisma.organization.findUnique({
+            where: { id: orgIdForLease },
+            select: { stripeConnectedAccountId: true },
+          });
+          connectedAccountId = org?.stripeConnectedAccountId ?? undefined;
+
+          const activeCycle = await this.prisma.orgPlanCycle.findFirst({
+            where: { organizationId: orgIdForLease, status: 'ACTIVE' },
+            include: { activeFeeSchedule: true },
+            orderBy: { startsAt: 'desc' },
+          });
+
+          if (activeCycle?.activeFeeSchedule?.feeConfig) {
+            const feeConfig = activeCycle.activeFeeSchedule.feeConfig as Record<string, any>;
+            const tiers = Array.isArray(feeConfig.tiers) ? feeConfig.tiers : undefined;
+            const flatPercent = typeof feeConfig.baseManagementFeePct === 'number'
+              ? feeConfig.baseManagementFeePct
+              : typeof feeConfig.percent === 'number'
+              ? feeConfig.percent
+              : 0;
+            const minimumFee = typeof feeConfig.minimumFee === 'number' ? feeConfig.minimumFee : 0;
+
+            const fee = calculateFee({
+              amount: dto.amount,
+              tiers,
+              flatPercent,
+              minimumFee,
+              enforceFeeLessThanAmount: true,
+            });
+            applicationFeeAmountCents = Math.max(0, Math.round(fee.finalFee * 100));
+            tierSnapshot = {
+              tiers: tiers ?? null,
+              flatPercent,
+              minimumFee,
+              computed: fee,
+            };
+          }
+        }
+
+        const intent = await this.stripeService.processPayment({
+          amount: dto.amount,
+          customerId: method.providerCustomerId,
+          paymentMethodId: method.providerPaymentMethodId,
+          description: `Lease payment ${leaseId}`,
+          metadata: {
+            leaseId,
+            tenantId: lease.tenantId,
+            ...(orgIdForLease ? { organizationId: orgIdForLease } : {}),
+            ...(typeof applicationFeeAmountCents === 'number' ? { platform_fee_minor: String(applicationFeeAmountCents) } : {}),
+            ...(tierSnapshot ? { tier_snapshot: JSON.stringify(tierSnapshot) } : {}),
+            ...(dto.invoiceId ? { invoiceId: String(dto.invoiceId) } : {}),
+          },
+          connectedAccountId,
+          applicationFeeAmountCents,
+        });
+
+        externalId = intent.id;
+        resolvedStatus = intent.status === 'succeeded' ? PaymentStatus.COMPLETED : PaymentStatus.PENDING;
+      }
+    }
+
+    const payment = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.payment.create({
+        data: {
+          amount: dto.amount,
+          status: resolvedStatus,
+          paymentDate: dto.paymentDate ? new Date(dto.paymentDate) : new Date(),
+          invoice: dto.invoiceId ? { connect: { id: dto.invoiceId } } : undefined,
+          lease: { connect: { id: leaseId } },
+          user: { connect: { id: lease.tenantId } },
+          externalId,
+          paymentMethod: dto.paymentMethodId ? { connect: { id: dto.paymentMethodId } } : undefined,
+        },
+        include: {
+          invoice: true,
+          lease: { include: { tenant: true, unit: { include: { property: true } } } },
+          paymentMethod: true,
+        },
+      });
+
+      if (created.invoiceId && created.status === PaymentStatus.COMPLETED) {
+        await tx.invoice.update({
+          where: { id: created.invoiceId },
+          data: { status: 'PAID' },
+        });
+      }
+
+      // if payment failed, mark invoice as unpaid
+      if (created.status === PaymentStatus.FAILED) {
+        await tx.invoice.update({
+          where: { id: created.invoiceId },
+          data: { status: 'UNPAID' },
+        });
+      }
+
+      return created;
     });
 
-    if (payment.invoiceId && payment.status === PaymentStatus.COMPLETED) {
-      await this.markInvoicePaid(payment.invoiceId);
+    const ledgerAccount = await this.ensureLedgerAccountForLease(lease.id, lease.unit?.property?.organizationId);
+    await this.createLedgerTransactionIfMissing(this.prisma, {
+      accountId: ledgerAccount.id,
+      paymentId: payment.id,
+      entryType: 'PAYMENT',
+      direction: 'CREDIT',
+      amountCents: Math.round(Number(payment.amount) * 100),
+      effectiveDate: payment.paymentDate ?? new Date(),
+      categoryCode: 'rent_payment',
+      sourceType: 'payment',
+      sourceId: String(payment.id),
+      description: `Payment #${payment.id}`,
+      createdById: authUser?.userId,
+    });
+
+    // Send confirmation email for successful payments, but do not block on failures
+    if ((payment.status ?? PaymentStatus.COMPLETED) !== PaymentStatus.FAILED) {
+      try {
+        const tenant = payment.lease?.tenant ?? lease.tenant;
+        const tenantEmail = tenant?.username ?? tenant?.email ?? '';
+        await this.emailService.sendRentPaymentConfirmation(
+          tenantEmail,
+          Number(payment.amount),
+          payment.paymentDate ?? new Date(),
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Failed to send payment confirmation for payment ${payment.id}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+    // if payment failed, mark payment failed
+    if (payment.status === PaymentStatus.FAILED) {
+      const tenant = payment.lease?.tenant ?? lease.tenant;
+      const tenantId = tenant?.id ?? lease.tenantId;
+      await this.markPaymentFailed(payment.id, tenantId, Number(payment.amount));
     }
 
     // if payment failed, mark invoice as unpaid

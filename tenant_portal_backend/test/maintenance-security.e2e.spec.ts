@@ -151,7 +151,9 @@ describe('Maintenance security boundaries (e2e)', () => {
   });
 
   it('PM cannot assign technician for request in a different org (org boundary)', async () => {
-    const techInB = await prisma.technician.create({ data: { name: 'Tech B' } });
+    const techInB = await prisma.technician.create({
+      data: { name: 'Tech B', organization: { connect: { id: orgB.id } } },
+    });
 
     await request(app.getHttpServer())
       .patch(`/maintenance/${requestB.id}/assign`)

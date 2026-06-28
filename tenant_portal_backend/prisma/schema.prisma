@@ -1295,6 +1295,7 @@ model RentalApplication {
   ai_recommendation String?
   ai_summary        String?
   ai_reviewed_at    DateTime?
+  screeningRequests ScreeningRequest[]
 
   @@index([convertedLeaseId])
   @@index([propertyId])
@@ -1625,6 +1626,53 @@ model ApplicationLifecycleEvent {
 
   @@index([applicationId])
   @@index([createdAt])
+}
+
+// ── Screening (Phase 1A: provider integration) ──
+
+enum ScreeningStatus {
+  REQUESTED
+  IN_PROGRESS
+  COMPLETE
+  FAILED
+  EXPIRED
+}
+
+model ScreeningRequest {
+  id            String          @id @default(uuid()) @db.Uuid
+  application   RentalApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  applicationId Int
+  provider      String          @default("stub") // provider identifier: stub, transunion, experian, etc.
+  externalId    String?         // provider's reference ID (set after submission)
+  status        ScreeningStatus @default(REQUESTED)
+  requestedAt   DateTime        @default(now())
+  completedAt   DateTime?
+  errorMessage  String?
+  report        ScreeningReport?
+  metadata      Json?
+
+  @@index([applicationId])
+  @@index([status])
+  @@index([provider, externalId])
+}
+
+model ScreeningReport {
+  id              String           @id @default(uuid()) @db.Uuid
+  request         ScreeningRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  requestId       String           @db.Uuid
+  creditScore     Int?
+  incomeVerified  Boolean?
+  identityVerified Boolean?
+  backgroundClear Boolean?
+  evictionHistory  Boolean?
+  criminalHistory  Boolean?
+  recommendation  String? // RECOMMEND, REVIEW, DECLINE
+  rawReport       Json? // provider's full response (do NOT persist to audit logs)
+  riskFlags       Json? // [{code, severity, description}]
+  generatedAt     DateTime         @default(now())
+
+  @@index([requestId])
+  @@unique([requestId])
 }
 
 enum ExpenseCategory {
@@ -3187,6 +3235,27 @@ model DecisionRecord {
   @@index([organizationId, workflowId, createdAt])
   @@index([entityType, entityId])
   @@index([approvalTaskId])
+}
+
+// ── AI Usage Metrics (Phase 2B: BYOK cost meter) ──
+
+model AiUsageMetric {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  userId         String?  @db.Uuid
+  provider       String   @default("openai") // openai, anthropic, byok
+  model          String   // e.g. deepseek-ai/DeepSeek-V4-Pro
+  task           String   // MAINTENANCE_CLASSIFICATION, LEASE_SUMMARY, etc.
+  promptTokens   Int      @default(0)
+  completionTokens Int    @default(0)
+  totalTokens    Int      @default(0)
+  estimatedCostUsd Float? // estimated cost in USD (BYOK = 0 from our side)
+  byok           Boolean  @default(false) // true if user brought their own key
+  recordedAt     DateTime @default(now())
+
+  @@index([organizationId, recordedAt])
+  @@index([userId, recordedAt])
+  @@index([provider, recordedAt])
 }
 
 // This is your Materialized View for the keyring-os Co-Pilot

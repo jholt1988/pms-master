@@ -21,6 +21,7 @@ describe('PaymentsService direct charge fee derivation', () => {
     ledgerAccount: { upsert: jest.fn() },
     paymentLedgerEntry: { create: jest.fn(), updateMany: jest.fn() },
     ledgerTransaction: { findFirst: jest.fn(), create: jest.fn() },
+    $transaction: jest.fn(async (cb: any) => cb(prisma)),
   };
 
 

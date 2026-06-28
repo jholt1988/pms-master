@@ -1,9 +1,11 @@
 import { Body, Controller, Headers, HttpCode, Post, Req, UsePipes, ValidationPipe } from '@nestjs/common';
 import { Request } from 'express';
+import { Public } from '../auth/public.decorator';
 import { ProviderWebhookDto } from './dto/provider-webhook.dto';
 import { EsignatureService } from './esignature.service';
 
 @Controller('webhooks/esignature')
+@Public()
 export class EsignatureWebhookController {
   constructor(private readonly esignatureService: EsignatureService) {}
 

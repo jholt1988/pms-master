@@ -94,7 +94,8 @@ describe('Property API (e2e)', () => {
         .set('Authorization', `Bearer ${propertyManagerToken}`)
         .expect(200);
 
-      expect(Array.isArray(response.body)).toBe(true);
+      // GET /property is paginated: returns { data: [...], meta: {...} }.
+      expect(Array.isArray(response.body.data)).toBe(true);
     });
   });
 
@@ -113,7 +114,8 @@ describe('Property API (e2e)', () => {
         .get('/property/public')
         .expect(200);
 
-      expect(Array.isArray(response.body)).toBe(true);
+      // Public listing is also paginated: { data: [...], meta: {...} }.
+      expect(Array.isArray(response.body.data)).toBe(true);
     });
   });
 });

@@ -119,7 +119,24 @@ if (shouldApplyMigrations) {
       console.error('Primary DB error details:', primaryError);
     }
 
-    execSync('npx prisma migrate deploy', {
+    // Sync the (possibly pre-seeded) isolated test schema to the Prisma
+    // schema. We intentionally use `db push` rather than `migrate deploy`:
+    // the block above manually creates a few tables (e.g. RefreshToken) in
+    // the test schema, so `migrate deploy` fails with P3005 ("schema is not
+    // empty") because there is no _prisma_migrations history to baseline
+    // against. `db push` reconciles the live schema to schema.prisma without
+    // needing migration history — the correct tool for ephemeral CI/e2e
+    // databases. --accept-data-loss is safe here: it's a throwaway test DB.
+    //
+    // Defense-in-depth: --accept-data-loss is destructive, so refuse to run it
+    // against a production database under any circumstance.
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'Refusing to run `prisma db push --accept-data-loss` with NODE_ENV=production. ' +
+          'E2E setup must target an ephemeral test database.',
+      );
+    }
+    execSync('npx prisma db push --skip-generate --accept-data-loss', {
       stdio: 'inherit',
       env: { ...process.env },
     });

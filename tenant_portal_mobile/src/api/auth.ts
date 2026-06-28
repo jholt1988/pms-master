@@ -82,10 +82,10 @@ export const authApi = {
   },
 
   /**
-   * Get current user profile
+   * Get current user profile (maps to backend /auth/me)
    */
-  getProfile: async (): Promise<UserProfile> => {
-    return apiService.get<UserProfile>('/auth/profile');
+  async getProfile(): Promise<UserProfile> {
+    return apiService.get<UserProfile>('/auth/me');
   },
 
   /**

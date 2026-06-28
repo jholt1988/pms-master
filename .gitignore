@@ -22,6 +22,7 @@ build/
 .env.test
 .env.production
 .env.prod
+.env.prod
 # Note: .env.example files should be tracked
 
 # IDE
@@ -52,3 +53,37 @@ ops/.env.prod
 # Backend runtime logs
 tenant_portal_backend/logs/
 repomix-output*.xml
+
+# ---- hardened ignore rules (added during 2026-06 security review) ----
+# Secrets: never commit real env files (keep *.example templates)
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.p12
+*_private_key*
+*.keystore
+
+# Build artifacts & test output
+dist/
+build/
+coverage/
+test-results/
+playwright-report/
+*.tsbuildinfo
+
+# Logs & noise
+*.log
+debug-storybook.log
+
+# Source dumps (repomix etc.)
+repomix-output*.xml
+
+# Python venvs (if any)
+venv/
+.venv/
+
+# OS / editor
+.DS_Store

@@ -1,8 +1,10 @@
 import { BadRequestException, Controller, Headers, HttpCode, Logger, Post, Req } from '@nestjs/common';
 import { Request } from 'express';
+import { Public } from '../auth/public.decorator';
 import { QuickBooksMinimalService } from './quickbooks-minimal.service';
 
 @Controller('webhooks/quickbooks')
+@Public()
 export class QuickBooksWebhookController {
   private readonly logger = new Logger(QuickBooksWebhookController.name);
 

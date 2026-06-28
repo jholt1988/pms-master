@@ -287,11 +287,10 @@ describe('QuickBooksMinimalService', () => {
   });
 
   describe('handleWebhook', () => {
-  function signedPayload(payload: any, secret: string) {
-  const raw = Buffer.from(JSON.stringify(payload));
-  const signature = createHmac('sha256', secret).update(raw).digest('base64');
-  return { raw, signature };
-}
+    function signedPayload(payload: any, secret: string) {
+      const raw = Buffer.from(JSON.stringify(payload));
+      const signature = createHmac('sha256', secret).update(raw).digest('base64');
+      return { raw, signature };
     }
 
     const webhookPayload = {

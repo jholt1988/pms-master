@@ -6,16 +6,21 @@ export interface InspectionListResponse {
   total: number;
 }
 
+// Backend routes: GET /inspections, GET /inspections/:id, PUT /inspections/:id,
+// POST /inspections/:id/photos, PUT /inspections/:id/complete
+
 export const inspectionsApi = {
   list: async (): Promise<InspectionSummary[]> => {
     const response = await apiService.get<{ inspections: InspectionSummary[] }>('/inspections?limit=25');
     return response.inspections ?? [];
   },
-  get: async (id: number): Promise<InspectionDetail> => apiService.get<InspectionDetail>(`/inspections/${id}`),
-  updateChecklistItem: async (roomId: number, items: ({ itemId: number } & Partial<InspectionChecklistItem>)[]) => {
-    return apiService.patch<InspectionChecklistItem[]>(`/inspections/rooms/${roomId}/items`, { items });
+  get: async (id: number): Promise<InspectionDetail> => 
+    apiService.get<InspectionDetail>(`/inspections/${id}`),
+  updateChecklistItem: async (inspectionId: number, items: ({ itemId: number } & Partial<InspectionChecklistItem>)[]) => {
+    // PUT /inspections/:id with the updated items
+    return apiService.put<InspectionChecklistItem[]>(`/inspections/${inspectionId}`, { items });
   },
-  uploadChecklistPhoto: async (itemId: number, file: { uri: string; name?: string; type?: string }, caption?: string) => {
+  uploadChecklistPhoto: async (inspectionId: number, file: { uri: string; name?: string; type?: string }, caption?: string) => {
     const formData = new FormData();
     const filePart = {
       uri: file.uri,
@@ -26,7 +31,7 @@ export const inspectionsApi = {
     if (caption) {
       formData.append('caption', caption);
     }
-    const response = await apiClient.post(`/inspections/items/${itemId}/photos/upload`, formData, {
+    const response = await apiClient.post(`/inspections/${inspectionId}/photos`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     return response.data;

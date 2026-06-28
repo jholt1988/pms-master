@@ -7,6 +7,7 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { WinstonModule } from 'nest-winston';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { TenantThrottlerGuard } from './middleware/tenant-throttler.guard';
+import { GlobalJwtAuthGuard } from './auth/global-jwt-auth.guard';
 import { winstonConfig } from './config/winston.config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -16,6 +17,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { LeaseModule } from './lease/lease.module';
 import { RentalApplicationModule } from './rental-application/rental-application.module';
+import { ScreeningModule } from './screening/screening.module';
 import { PropertyModule } from './property/property.module';
 import { ExpenseModule } from './expense/expense.module';
 import { RentEstimatorModule } from './rent-estimator/rent-estimator.module';
@@ -152,6 +154,7 @@ const rateLimitProviders = rateLimitEnabled
     MessagingModule,
     LeaseModule,
     RentalApplicationModule,
+    ScreeningModule,
     PropertyModule,
     ExpenseModule,
     RentEstimatorModule,
@@ -217,6 +220,13 @@ const rateLimitProviders = rateLimitEnabled
     AppService,
     // Global rate limiting guard (disabled in test environment)
     ...rateLimitProviders,
+    // Global JWT auth guard: every route requires a valid JWT unless the
+    // handler/controller is annotated with @Public(). Additive to the
+    // ThrottlerGuard APP_GUARD above; RolesGuard usage is unchanged.
+    {
+      provide: APP_GUARD,
+      useClass: GlobalJwtAuthGuard,
+    },
     {
       provide: APP_INTERCEPTOR,
       useClass: SuccessEnvelopeInterceptor,
