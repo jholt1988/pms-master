@@ -14,6 +14,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { EventScheduleModule } from '../schedule/schedule.module';
 import { PredictiveMaintenanceService } from './predictive-maintenance.service';
 import { PredictiveMaintenanceController } from './predictive-maintenance.controller';
+import { AIProviderService } from '../ai-provider';
 
 const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
 
@@ -31,6 +32,7 @@ const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
     MaintenanceFeatureExtractionService,
     MaintenanceDataQualityService,
     PredictiveMaintenanceService,
+    AIProviderService,  
   ],
   exports: [
     MaintenanceService,

@@ -15,6 +15,7 @@ import { PaymentStrategyRegistry } from './ai/payment-strategy.registry';
 import { MilModule } from '../mil/mil.module';
 import { PolicyModule } from '../policy/policy.module';
 import { BookkeepingModule } from '../bookkeeping/bookkeeping.module';
+import { AIProviderService } from '../ai-provider';
 
 @Module({
   imports: [PrismaModule, ConfigModule, EmailModule, MilModule, PolicyModule, BookkeepingModule],
@@ -28,6 +29,7 @@ import { BookkeepingModule } from '../bookkeeping/bookkeeping.module';
     RentReminderService,
     OrgContextGuard,
     PaymentStrategyRegistry,
+    AIProviderService,    
   ],
   exports: [
     PaymentsService,

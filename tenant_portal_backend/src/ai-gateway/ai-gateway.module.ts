@@ -6,6 +6,7 @@ import { AiGatewayController } from './ai-gateway.controller';
 import { AiUsageController } from './ai-usage.controller';
 import { AiGatewayService } from './ai-gateway.service';
 import { AiExplainabilityInterceptor } from './ai-explainability.interceptor';
+import { AIProviderService } from '../ai-provider';
 
 @Module({
   imports: [ConfigModule, DecisionsModule],
@@ -16,6 +17,7 @@ import { AiExplainabilityInterceptor } from './ai-explainability.interceptor';
       provide: APP_INTERCEPTOR,
       useClass: AiExplainabilityInterceptor,
     },
+    AIProviderService,  
   ],
   exports: [AiGatewayService],
 })
