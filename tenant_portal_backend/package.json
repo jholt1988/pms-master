@@ -15,6 +15,7 @@
     "seed:load-test": "ts-node scripts/load-test-events.ts",
     "seed:inspection-demo": "ts-node scripts/dev-seed-inspection-demo.ts",
     "seed:inspection-demo:robust": "node scripts/seed-inspection-demo-robust.js",
+    "seed:demo": "node scripts/seed-demo-dataset.js",
     "seed:verify:demo": "ts-node scripts/verify-demo-seed.ts",
     "seed:verify:phase1": "ts-node scripts/verify-phase1-seed.ts",
     "ml:readiness": "ts-node scripts/ml-data-readiness-audit.ts",
