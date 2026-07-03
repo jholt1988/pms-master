@@ -1,4 +1,4 @@
-/* eslint-disable no-console */
+/* eslint-disable no-console, @typescript-eslint/no-var-requires */
 // Realistic, scenario-rich demo dataset for a hands-on trial of the
 // property-management OS. Idempotent: safe to re-run.
 //
