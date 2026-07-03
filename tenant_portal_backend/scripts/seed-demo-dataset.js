@@ -335,6 +335,52 @@ async function main() {
     inspectionCount++;
   }
 
+  // ---- Decision feed items (persisted; the operator feed reads these) ----
+  await prisma.feedItem.deleteMany({ where: { propertyId: { in: properties.map((p) => p.id) } } });
+  const PM_ROLES = ['PROPERTY_MANAGER', 'property_manager', 'ADMIN'];
+  const delinquent = leases.filter((l) => l.scn === 'delinquent');
+  const renewal = leases.find((l) => l.scn === 'renewal');
+  const notice = leases.find((l) => l.scn === 'notice');
+  const feedSpecs = [
+    ...delinquent.map(({ lease, tenant, unit }) => ({
+      domain: 'payments', type: 'rent_delinquent', priorityScore: 95,
+      title: `Overdue rent — ${tenant.firstName} ${tenant.lastName}`,
+      summary: `$${lease.rentAmount.toFixed(2)} is 30+ days overdue on ${unit.name}.`,
+      evidence: { amount: lease.rentAmount, daysOverdue: 33, unit: unit.name },
+      actions: [{ label: 'Send notice', intent: 'send_delinquency_notice' }, { label: 'Start plan', intent: 'payment_plan' }],
+      propertyId: unit.propertyId,
+    })),
+    ...(renewal ? [{
+      domain: 'leasing', type: 'lease_expiring', priorityScore: 78,
+      title: `Renewal due — ${renewal.tenant.firstName} ${renewal.tenant.lastName}`,
+      summary: `Lease on ${renewal.unit.name} expires soon; send a renewal offer.`,
+      evidence: { daysUntilExpiry: 35, unit: renewal.unit.name },
+      actions: [{ label: 'Send renewal offer', intent: 'offer_renewal' }],
+      propertyId: renewal.unit.propertyId,
+    }] : []),
+    ...(notice ? [{
+      domain: 'leasing', type: 'move_out_scheduled', priorityScore: 70,
+      title: `Move-out scheduled — ${notice.tenant.firstName} ${notice.tenant.lastName}`,
+      summary: `${notice.unit.name} turns over in ~25 days; schedule the move-out inspection.`,
+      evidence: { daysUntilMoveOut: 25, unit: notice.unit.name },
+      actions: [{ label: 'Schedule inspection', intent: 'schedule_inspection' }],
+      propertyId: notice.unit.propertyId,
+    }] : []),
+    {
+      domain: 'maintenance', type: 'maintenance_emergency', priorityScore: 99,
+      title: 'Emergency: no heat in a unit',
+      summary: 'A tenant reported no heat — SLA breach risk, dispatch now.',
+      evidence: { priority: 'EMERGENCY' },
+      actions: [{ label: 'Dispatch technician', intent: 'dispatch_maintenance' }],
+      propertyId: properties[0].id,
+    },
+  ];
+  let feedCount = 0;
+  for (const f of feedSpecs) {
+    await prisma.feedItem.create({ data: { ...f, roleAccess: PM_ROLES } });
+    feedCount++;
+  }
+
   console.log('✅ Scenario-rich demo dataset seeded.');
   console.log(`   Org:          ${org.name}`);
   console.log(`   Properties:   ${properties.length} (${allUnits.length} units total)`);
@@ -343,6 +389,7 @@ async function main() {
   console.log(`   Applications: ${appCount} across pipeline (pending/screening/approved/rejected)`);
   console.log(`   Maintenance:  ${mSpecs.length} across every priority + status`);
   console.log(`   Inspections:  ${inspectionCount} (move-in/routine/annual/move-out, w/ rooms & checklists)`);
+  console.log(`   Feed items:   ${feedCount} (delinquency, renewal, move-out, emergency)`);
   console.log('');
   console.log('   Operator:  manager / Manager123!@#     Owner: owner / Owner123!@#');
   console.log('   Tenants:   jamie (current), liam (delinquent), ava (renewal-due),');
