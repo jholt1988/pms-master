@@ -279,6 +279,62 @@ async function main() {
     });
   }
 
+  // ---- Inspections: varied types + statuses, with rooms & checklist items ----
+  await prisma.unitInspection.deleteMany({ where: { propertyId: { in: properties.map((p) => p.id) } } });
+  const roomsGood = [
+    { name: 'Kitchen', roomType: 'KITCHEN', items: [
+      { category: 'Appliances', itemName: 'Refrigerator', condition: 'GOOD', requiresAction: false },
+      { category: 'Plumbing', itemName: 'Sink & faucet', condition: 'EXCELLENT', requiresAction: false },
+    ] },
+    { name: 'Living Room', roomType: 'LIVING_ROOM', items: [
+      { category: 'Flooring', itemName: 'Carpet', condition: 'GOOD', requiresAction: false },
+      { category: 'Walls', itemName: 'Paint', condition: 'EXCELLENT', requiresAction: false },
+    ] },
+  ];
+  const roomsDamaged = [
+    { name: 'Kitchen', roomType: 'KITCHEN', items: [
+      { category: 'Plumbing', itemName: 'Kitchen faucet', condition: 'DAMAGED', requiresAction: true, notes: 'Leak under the sink.' },
+      { category: 'Appliances', itemName: 'Dishwasher', condition: 'NON_FUNCTIONAL', requiresAction: true, notes: 'Does not drain.' },
+    ] },
+    { name: 'Bathroom', roomType: 'BATHROOM', items: [
+      { category: 'Electrical', itemName: 'GFCI outlet', condition: 'DAMAGED', requiresAction: true, notes: 'Trips frequently.' },
+      { category: 'Plumbing', itemName: 'Toilet', condition: 'FAIR', requiresAction: true, notes: 'Runs intermittently.' },
+    ] },
+    { name: 'Living Room', roomType: 'LIVING_ROOM', items: [
+      { category: 'Flooring', itemName: 'Carpet seam', condition: 'POOR', requiresAction: true, notes: 'Separating near entry.' },
+    ] },
+  ];
+
+  // scenario tenants: jamie(0) current, ava(4) renewal, ethan(5) notice.
+  const inspectionSpecs = [
+    { li: 0, type: 'MOVE_IN', status: 'COMPLETED', rooms: roomsGood, note: 'Move-in walkthrough — unit in good shape.', daysOffset: -60 },
+    { li: 1, type: 'ROUTINE', status: 'SCHEDULED', rooms: null, note: 'Quarterly routine inspection.', daysOffset: 7 },
+    { li: 4, type: 'ANNUAL', status: 'IN_PROGRESS', rooms: roomsDamaged, note: 'Annual inspection — several items need repair.', daysOffset: 0 },
+    { li: 5, type: 'MOVE_OUT', status: 'SCHEDULED', rooms: null, note: 'Move-out inspection ahead of tenant departure.', daysOffset: 20 },
+  ];
+  let inspectionCount = 0;
+  for (const s of inspectionSpecs) {
+    const { lease, tenant, unit } = leases[s.li];
+    await prisma.unitInspection.create({
+      data: {
+        unitId: unit.id, propertyId: unit.propertyId, leaseId: lease.id,
+        type: s.type, status: s.status,
+        scheduledDate: daysFromNow(s.daysOffset),
+        completedDate: s.status === 'COMPLETED' ? daysFromNow(s.daysOffset) : null,
+        inspectorId: manager.id, tenantId: tenant.id, createdById: manager.id,
+        notes: s.note, generalNotes: s.note,
+        reportGenerated: s.status === 'COMPLETED',
+        ...(s.rooms
+          ? { rooms: { create: s.rooms.map((r) => ({
+              name: r.name, roomType: r.roomType,
+              checklistItems: { create: r.items },
+            })) } }
+          : {}),
+      },
+    });
+    inspectionCount++;
+  }
+
   console.log('✅ Scenario-rich demo dataset seeded.');
   console.log(`   Org:          ${org.name}`);
   console.log(`   Properties:   ${properties.length} (${allUnits.length} units total)`);
@@ -286,6 +342,7 @@ async function main() {
   console.log(`   Payments:     ${paidCount} completed + current/overdue invoices`);
   console.log(`   Applications: ${appCount} across pipeline (pending/screening/approved/rejected)`);
   console.log(`   Maintenance:  ${mSpecs.length} across every priority + status`);
+  console.log(`   Inspections:  ${inspectionCount} (move-in/routine/annual/move-out, w/ rooms & checklists)`);
   console.log('');
   console.log('   Operator:  manager / Manager123!@#     Owner: owner / Owner123!@#');
   console.log('   Tenants:   jamie (current), liam (delinquent), ava (renewal-due),');
