@@ -415,31 +415,6 @@ export class PaymentsService {
       await this.markInvoiceUnpaid(payment.invoiceId);
     }
 
-   
-
-    // Send confirmation email for successful payments, but do not block on failures
-    if ((payment.status ?? PaymentStatus.COMPLETED) !== PaymentStatus.FAILED) {
-      try {
-        const tenant = payment.lease?.tenant ?? lease.tenant;
-        const tenantEmail = tenant?.username ?? tenant?.email ?? '';
-        await this.emailService.sendRentPaymentConfirmation(
-          tenantEmail,
-          Number(payment.amount),
-          payment.paymentDate ?? new Date(),
-        );
-      } catch (error) {
-        this.logger.warn(
-          `Failed to send payment confirmation for payment ${payment.id}: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
-    }
-    // if payment failed, mark payment failed
-    if (payment.status === PaymentStatus.FAILED) {
-      const tenant = payment.lease?.tenant ?? lease.tenant;
-      const tenantId = tenant?.id ?? lease.tenantId;
-      await this.markPaymentFailed(payment.id, tenantId, Number(payment.amount));
-    }
-
     return payment;
   }
 

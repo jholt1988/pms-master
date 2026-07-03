@@ -18,7 +18,9 @@ import {
 import { ToursService } from './tours.service';
 import { isUUID } from 'class-validator';
 
-@Controller(['api/tours', 'tours'])
+// Global prefix 'api' is applied at bootstrap; declare only the resource segment
+// here. (Previously mounted 'api/tours' too, which double-prefixed to /api/api/tours.)
+@Controller('tours')
 export class ToursController {
   constructor(private readonly toursService: ToursService) {}
 
