@@ -4,11 +4,13 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOkResponse } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
+import { UseApiEnvelope } from '../common/envelope/envelope.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 
 /**
@@ -19,12 +21,15 @@ import { PrismaService } from '../prisma/prisma.service';
  * BYOK usage (user brought their own key) shows $0 cost on our side.
  */
 @Controller('ai-gateway')
+@ApiBearerAuth('JWT-auth')
 @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseApiEnvelope()
 export class AiUsageController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get('usage')
   @Roles('PROPERTY_MANAGER', 'ADMIN')
+  @ApiOkResponse({ schema: envelopeSchema('AI usage / cost meter summary') })
   async getUsage(
     @OrgId() orgId: string,
     @Query('days') days?: string,
@@ -86,4 +91,17 @@ export class AiUsageController {
       breakdown,
     };
   }
+}
+
+function envelopeSchema(description: string) {
+  return {
+    type: 'object',
+    description,
+    required: ['data', 'meta', 'errors'],
+    properties: {
+      data: { type: 'object', additionalProperties: true },
+      meta: { type: 'object', additionalProperties: true },
+      errors: { type: 'array', items: { type: 'object', additionalProperties: true } },
+    },
+  };
 }
