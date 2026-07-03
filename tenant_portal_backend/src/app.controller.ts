@@ -4,7 +4,9 @@ import { AppService } from './app.service';
 import { Public } from './auth/public.decorator';
 import { assertConfidenceV16Invariants, validateConfidenceV16 } from './property-os/v16-contract';
 
-@Controller('api')
+// Global prefix 'api' is applied at bootstrap; this root controller declares no
+// extra segment so its routes resolve to /api, /api/health, etc.
+@Controller()
 @Public()
 export class AppController {
   constructor(private readonly appService: AppService) {}

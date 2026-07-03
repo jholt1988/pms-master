@@ -15,7 +15,9 @@ interface AuthenticatedRequest {
   };
 }
 
-@Controller('api')
+// Global prefix 'api' is applied at bootstrap; declare no extra segment so routes
+// resolve to /api/maintenance-requests, /api/users/technicians, etc.
+@Controller()
 @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 @Roles('PROPERTY_MANAGER')
 export class MaintenanceLegacyController {

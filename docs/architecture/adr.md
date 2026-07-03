@@ -312,6 +312,64 @@ features/maintenance/
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: January 2025  
-**Next Review**: April 2025
+---
+
+## ADR-005: API Prefix Standardization (single `/api`, no double-prefix)
+
+**Date**: 2026-07 (implemented)
+**Status**: Accepted
+**Relates to**: ADR-001 (prefix/auth standardization) in the workspace root; keyring-os frontend proxy work
+
+### Context
+A contract probe found frontend/backend route mismatches. Root cause on the
+backend: the app applies a single global prefix `api`
+(`app.setGlobalPrefix('api')`), but several controllers *also* declared an
+`api/...` path in their `@Controller()` decorator, resolving to `/api/api/...`.
+Examples found and fixed: `feed-aggregator` (`api/v2/feed`), `dev.controller`
+(`api/dev/seed`), `app.controller` (`api`), the two `legacy` controllers
+(`api/leads`, `api`), and `tours` (array form `['api/tours','tours']`).
+
+A second, related issue: the OpenAPI generator
+(`scripts/generate-openapi.ts`) used a *different, shorter* prefix-exclude list
+than the runtime bootstrap (`src/index.ts`), so the generated schema did not
+match the routes the server actually serves (it showed phantom `/api/api/...`
+entries for the excluded `leasing`/`esignature` mounts).
+
+### Decision
+1. **Canonical prefix is `api`, declared once at the edge.** Controllers must
+   declare only their bare resource segment (`@Controller('feed')`), never the
+   global prefix. The versioned `/api/v2` surface lives only on the frontend
+   Next proxy, which rewrites to the backend's `/api/*`; the backend is not
+   moved to `api/v2` (no functional benefit, much larger blast radius).
+2. **Single source of truth for the prefix + exclude list.** Both the runtime
+   and the OpenAPI generator import `GLOBAL_API_PREFIX` and
+   `GLOBAL_PREFIX_EXCLUDE` from `src/config/global-prefix.ts`. This prevents the
+   schema from drifting away from the live routes.
+3. **Deliberate unprefixed dual-mounts are preserved.** `leasing` and
+   `esignature` intentionally serve unprefixed paths for external integrations
+   and remain in the exclude list; their `api/<resource>` array mounts are the
+   only allowed `api/...` declarations, and the regression test allowlists
+   exactly those (derived from `GLOBAL_PREFIX_EXCLUDE`).
+
+### Enforcement
+`test/api-prefix-hygiene.spec.ts` statically scans every `*.controller.ts` and
+fails if any `@Controller()` (string **or** array form) declares an `api`
+segment that is not an allowed excluded dual-mount. DB-free; runs in the `unit`
+project.
+
+### Consequences
+- **Positive**: `/api/api/*` eliminated (verified: 0 such keys in the
+  regenerated `docs/api/openapi.json`); the generated schema matches runtime;
+  the frontend feed call (`/api/feed`) now resolves; regressions are caught in CI.
+- **Cost**: the frontend operator client's generated `schema.ts` must be
+  regenerated from the new `openapi.json` (tracked as a follow-up), and any
+  external caller relying on a `/api/api/...` URL (none known) would break.
+- **Follow-up (not in this change)**: whether to retire the `leasing`/
+  `esignature` unprefixed dual-mounts is a separate backward-compat decision
+  requiring coordination with external integrations.
+
+---
+
+**Document Version**: 1.1
+**Last Updated**: 2026-07
+**Next Review**: 2026-10

@@ -10,6 +10,7 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import { GlobalExceptionFilter } from './global-exception.filter';
+import { GLOBAL_API_PREFIX, GLOBAL_PREFIX_EXCLUDE } from './config/global-prefix';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger } from '@nestjs/common';
 import compression from 'compression';
@@ -58,25 +59,9 @@ async function bootstrap() {
   }));
   app.use(express.urlencoded({ limit: '1mb', extended: true }));
 
-  const globalPrefix = 'api';
+  const globalPrefix = GLOBAL_API_PREFIX;
   app.setGlobalPrefix(globalPrefix, {
-    exclude: [
-      'leasing',
-      'leasing/(.*)',
-      'api/leasing',
-      'api/leasing/(.*)',
-      'esignature',
-      'esignature/(.*)',
-      'api/esignature',
-      'api/esignature/(.*)',
-      // Webhooks are excluded to match external service expectations
-      'webhooks/esignature',
-      'webhooks/stripe',
-      'webhooks/quickbooks',
-      // Prometheus scrape endpoint (commonly expected at /metrics)
-      'metrics',
-      'metrics/(.*)',
-    ],
+    exclude: GLOBAL_PREFIX_EXCLUDE,
   });
 
   // Enhanced validation with sanitization
