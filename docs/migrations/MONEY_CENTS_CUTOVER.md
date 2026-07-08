@@ -51,7 +51,7 @@ Already integer cents — **do NOT touch**: `ManualPayment/ManualCharge.amountCe
 - [x] `currentBalance` mutations (payments; see landmines). _(PR #57)_
 - [x] `getLedgerForLease` fallback (payments). _(PR #57)_
 - [x] owner-analytics NOI/IRR. _(PR #57)_
-- [ ] `assessPaymentRisk` (ai-payment) / `getRentAdjustmentRecommendation` (ai-lease-renewal) — **not audited/flipped; verify.**
+- [x] `assessPaymentRisk` (ai-payment) / `getRentAdjustmentRecommendation` (ai-lease-renewal) — audited: no drift risk (advisory heuristics), reads flipped to prefer `*Cents` for Stage-B survival. _(PR #57 — 766ae53)_
 ### DTO / validation / API types
 - [x] Add optional `*Cents` (`@IsInt()`/`@Min(0)`) to create/update DTOs for dual-send: CreateInvoice/CreatePayment/CreatePaymentPlan/CreateLease/CreateExpense + `CreateRenewalOfferDto.proposedRentCents`. _(PR #57)_
 - [x] `@ApiProperty` on money DTO fields so OpenAPI carries `amount` + `*Cents` (payments + lease; manual payment/charge; stripe-checkout). _(PR #57 — 4d4a103, b3ac964)_
@@ -87,7 +87,7 @@ Already integer cents — **do NOT touch**: `ManualPayment/ManualCharge.amountCe
 | #29 | keyring-os | canonical rename in lease-form/tenant-form/tenant-list | main |
 
 ## Remaining
-- **`assessPaymentRisk` / `getRentAdjustmentRecommendation`** — audit + flip to cents.
+- **`lease/ai-lease-renewal.service.ts`** has 3 more `Number(lease.rentAmount)` reads (lines 218, 589, 603) in OTHER methods (not the two audited functions) — same Stage-B read issue; flip to prefer `rentAmountCents`.
 - **Regenerate keyring-os `schema.ts`** via `openapi-typescript` against the running API.
 - **`seed.js`** — regenerate from `seed.ts`.
 - **Mocks/fixtures + money-path tests** — add cents-aware coverage.
