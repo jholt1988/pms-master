@@ -327,6 +327,7 @@ export class LeaseService {
       data: {
         leaseId,
         proposedRent,
+        proposedRentCents: toCents(proposedRent),
         proposedStart,
         proposedEnd,
         escalationPercent: dto.escalationPercent,
@@ -490,6 +491,7 @@ export class LeaseService {
       leaseUpdate.startDate = offer.proposedStart;
       leaseUpdate.endDate = offer.proposedEnd;
       leaseUpdate.rentAmount = offer.proposedRent;
+      leaseUpdate.rentAmountCents = toCents(offer.proposedRent);
       leaseUpdate.rentEscalationPercent = offer.escalationPercent ?? lease.rentEscalationPercent;
       leaseUpdate.rentEscalationEffectiveAt = offer.proposedStart;
       leaseUpdate.renewalDueAt = null;
@@ -712,7 +714,9 @@ export class LeaseService {
         toStatus: data.toStatus,
         note: data.note,
         rentAmount: data.rentAmount,
+        rentAmountCents: data.rentAmount != null ? toCents(data.rentAmount) : undefined,
         depositAmount: data.depositAmount,
+        depositAmountCents: data.depositAmount != null ? toCents(data.depositAmount) : undefined,
         metadata: data.metadata,
       },
     });
