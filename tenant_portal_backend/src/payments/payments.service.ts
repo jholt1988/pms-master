@@ -1702,7 +1702,7 @@ export class PaymentsService {
       const dueDays = Math.max(1, Math.floor((today.getTime() - invoice.dueDate.getTime()) / 86400000));
       const bucket: '1_7' | '8_30' | '31_plus' = dueDays <= 7 ? '1_7' : dueDays <= 30 ? '8_30' : '31_plus';
       const existing = grouped.get(key);
-      const amountCents = Math.round(Number(invoice.amount) * 100);
+      const amountCents = invoice.amountCents ?? Math.round(Number(invoice.amount) * 100);
 
       if (!existing) {
         grouped.set(key, {
@@ -2184,7 +2184,7 @@ export class PaymentsService {
       throw new BadRequestException('No overdue balance exists for this lease');
     }
 
-    const amountDueCents = overdueInvoices.reduce((sum, invoice) => sum + Math.round(Number(invoice.amount) * 100), 0);
+    const amountDueCents = overdueInvoices.reduce((sum, invoice) => sum + (invoice.amountCents ?? Math.round(Number(invoice.amount) * 100)), 0);
     const oldestDueDate = overdueInvoices[0]?.dueDate;
     const message =
       dto.message?.trim() ||
@@ -2365,7 +2365,7 @@ export class PaymentsService {
       },
     });
 
-    const outstandingDueCents = overdueInvoices.reduce((sum, invoice) => sum + Math.round(Number(invoice.amount) * 100), 0);
+    const outstandingDueCents = overdueInvoices.reduce((sum, invoice) => sum + (invoice.amountCents ?? Math.round(Number(invoice.amount) * 100)), 0);
     const activePlanExists = overdueInvoices.some((invoice) =>
       invoice.paymentPlan && ['ACTIVE', 'PENDING', 'COMPLETED'].includes((invoice.paymentPlan.status || '').toUpperCase()),
     );
@@ -2518,7 +2518,7 @@ export class PaymentsService {
       throw new BadRequestException('No overdue balance exists for this lease');
     }
 
-    const amountDueCents = overdueInvoices.reduce((sum, invoice) => sum + Math.round(Number(invoice.amount) * 100), 0);
+    const amountDueCents = overdueInvoices.reduce((sum, invoice) => sum + (invoice.amountCents ?? Math.round(Number(invoice.amount) * 100)), 0);
     const latestNotice = await this.prisma.leaseNotice.findFirst({
       where: { leaseId: lease.id },
       orderBy: { sentAt: 'desc' },
@@ -2788,7 +2788,7 @@ export class PaymentsService {
       }),
     ]);
 
-    const amountDueCents = overdueInvoices.reduce((sum, invoice) => sum + Math.round(Number(invoice.amount) * 100), 0);
+    const amountDueCents = overdueInvoices.reduce((sum, invoice) => sum + (invoice.amountCents ?? Math.round(Number(invoice.amount) * 100)), 0);
     const attorneyReferrals = communications.filter((entry: any) => entry.metadata?.workflow === 'DELINQUENCY_ATTORNEY_REFERRAL');
     const courtEntries = history.filter((entry: any) => entry.metadata?.legalStage === 'COURT_SCHEDULED');
 
