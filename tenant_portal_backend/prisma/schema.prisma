@@ -550,15 +550,13 @@ model Lease {
   version                   Int                       @default(0)
   startDate                 DateTime
   endDate                   DateTime
-  rentAmount                Float
-  rentAmountCents Int?
+  rentAmountCents Int
   status                    LeaseStatus               @default(DRAFT)
   noticePeriodDays          Int                       @default(30)
   moveInAt                  DateTime?
   moveOutAt                 DateTime?
   autoRenew                 Boolean                   @default(false)
   autoRenewLeadDays         Int?
-  depositAmount             Float                     @default(0)
   depositAmountCents Int @default(0)
   depositHeldAt             DateTime?
   depositReturnedAt         DateTime?
@@ -572,7 +570,6 @@ model Lease {
   rentEscalationPercent     Float?
   rentEscalationEffectiveAt DateTime?
   billingAlignment          BillingAlignment          @default(FULL_CYCLE)
-  currentBalance            Float                     @default(0)
   currentBalanceCents Int @default(0)
   tenant                    User                      @relation(fields: [tenantId], references: [id])
   tenantId                  String                    @unique @db.Uuid // A user can only have one lease
@@ -931,8 +928,7 @@ model LeaseNotice {
 model Invoice {
   id              Int                       @id @default(autoincrement())
   description     String
-  amount          Float
-  amountCents Int?
+  amountCents Int
   dueDate         DateTime
   status          String                    @default("UNPAID") // UNPAID, PAID, OVERDUE
   lease           Lease                     @relation(fields: [leaseId], references: [id])
@@ -953,9 +949,8 @@ model Invoice {
 }
 
 model Payment {
-  id                  Int                  @id @default(autoincrement())
-  amount              Float
-  amountCents Int?
+  id String @id @default(uuid()) @db.Uuid
+  amountCents Int
   paymentDate         DateTime             @default(now())
   status              PaymentStatus        @default(PENDING)
   invoice             Invoice?             @relation(fields: [invoiceId], references: [id])
@@ -1026,7 +1021,7 @@ model LedgerTransaction {
   id              String          @id @default(uuid()) @db.Uuid
   accountId       String          @db.Uuid
   account         LedgerAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  paymentId       Int?
+  paymentId String? @db.Uuid
   payment         Payment?        @relation(fields: [paymentId], references: [id], onDelete: SetNull)
   entryType       LedgerEntryType
   direction       LedgerDirection
@@ -1054,7 +1049,7 @@ model LedgerTransaction {
 model PaymentLedgerEntry {
   id               String        @id @default(uuid()) @db.Uuid
   payment          Payment       @relation(fields: [paymentId], references: [id])
-  paymentId        Int
+  paymentId String @db.Uuid
   organization     Organization? @relation(fields: [organizationId], references: [id])
   organizationId   String?       @db.Uuid
   leaseId          String?       @db.Uuid
@@ -1468,8 +1463,7 @@ model Expense {
   unit         Unit?           @relation(fields: [unitId], references: [id])
   unitId       String?         @db.Uuid
   description  String
-  amount       Float
-  amountCents Int?
+  amountCents Int
   date         DateTime
   category     ExpenseCategory
   recordedBy   User            @relation("RecordedExpenses", fields: [recordedById], references: [id])
@@ -1754,15 +1748,13 @@ model RecurringInvoiceSchedule {
   id               Int              @id @default(autoincrement())
   lease            Lease            @relation(fields: [leaseId], references: [id])
   leaseId          String           @unique @db.Uuid
-  amount           Float
-  amountCents Int?
+  amountCents Int
   description      String           @default("Monthly Rent")
   frequency        BillingFrequency @default(MONTHLY)
   dayOfMonth       Int? // required for monthly
   dayOfWeek        Int? // optional for weekly
   nextRun          DateTime
-  lateFeeAmount    Float? // flat fee
-  lateFeeAmountCents Int?
+  lateFeeAmountCents Int? // flat fee (minor units)
   lateFeeAfterDays Int? // number of days after due date
   active           Boolean          @default(true)
   createdAt        DateTime         @default(now())
@@ -1779,8 +1771,7 @@ model LateFee {
   id         Int      @id @default(autoincrement())
   invoice    Invoice  @relation(fields: [invoiceId], references: [id])
   invoiceId  Int
-  amount     Float
-  amountCents Int?
+  amountCents Int
   assessedAt DateTime @default(now())
   waived     Boolean  @default(false)
 
@@ -1792,10 +1783,8 @@ model PaymentPlan {
   invoice              Invoice              @relation(fields: [invoiceId], references: [id])
   invoiceId            Int                  @unique
   installments         Int
-  amountPerInstallment Float
-  amountPerInstallmentCents Int?
-  totalAmount          Float
-  totalAmountCents Int?
+  amountPerInstallmentCents Int
+  totalAmountCents Int
   status               String               @default("PENDING") // PENDING, ACTIVE, COMPLETED, CANCELLED
   acceptedAt           DateTime?
   completedAt          DateTime?
@@ -1824,7 +1813,7 @@ model PaymentPlanPayment {
   paymentPlan       PaymentPlan @relation(fields: [paymentPlanId], references: [id], onDelete: Cascade)
   paymentPlanId     Int
   payment           Payment     @relation("PaymentPlanPayment", fields: [paymentId], references: [id], onDelete: Cascade)
-  paymentId         Int         @unique
+  paymentId String @unique @db.Uuid
   installmentNumber Int
   dueDate           DateTime
   paidAt            DateTime?
@@ -3716,7 +3705,7 @@ model Decision {
 
 model Notice {
   id         Int      @id @default(autoincrement())
-  paymentId  Int      @map("payment_id")
+  paymentId String @map("payment_id") @db.Uuid
   noticeType String   @map("notice_type") @db.VarChar(50)
   message    String
   sentAt     DateTime @default(now()) @map("sent_at")
