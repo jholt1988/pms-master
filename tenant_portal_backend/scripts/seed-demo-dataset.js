@@ -10,6 +10,7 @@
 // notice-given), payment histories incl. a delinquent tenant, maintenance
 // across every priority+status, and rental applications across the pipeline.
 
+require('dotenv').config();
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
 
@@ -163,9 +164,18 @@ async function main() {
     });
     const priorIds = priorLeases.map((l) => l.id);
     if (priorIds.length) {
+      await prisma.maintenanceRequest.deleteMany({ where: { leaseId: { in: priorIds } } });
       await prisma.payment.deleteMany({ where: { leaseId: { in: priorIds } } });
       await prisma.invoice.deleteMany({ where: { leaseId: { in: priorIds } } });
-      await prisma.maintenanceRequest.deleteMany({ where: { leaseId: { in: priorIds } } });
+      await prisma.autopayEnrollment.deleteMany({ where: { leaseId: { in: priorIds } } });
+      await prisma.esignEnvelope.deleteMany({ where: { leaseId: { in: priorIds } } });
+      await prisma.leaseAbstraction.deleteMany({ where: { leaseId: { in: priorIds } } });
+      await prisma.leaseDocument.deleteMany({ where: { leaseId: { in: priorIds } } });
+      await prisma.leaseNotice.deleteMany({ where: { leaseId: { in: priorIds } } });
+      await prisma.leaseRenewalOffer.deleteMany({ where: { leaseId: { in: priorIds } } });
+      await prisma.recurringInvoiceSchedule.deleteMany({ where: { leaseId: { in: priorIds } } });
+      await prisma.tenantInsurancePolicy.deleteMany({ where: { leaseId: { in: priorIds } } });
+      await prisma.leaseHistory.deleteMany({ where: { leaseId: { in: priorIds } } });
       await prisma.lease.deleteMany({ where: { id: { in: priorIds } } });
     }
 
@@ -279,6 +289,108 @@ async function main() {
     });
   }
 
+  // ---- Inspections: varied types + statuses, with rooms & checklist items ----
+  await prisma.unitInspection.deleteMany({ where: { propertyId: { in: properties.map((p) => p.id) } } });
+  const roomsGood = [
+    { name: 'Kitchen', roomType: 'KITCHEN', items: [
+      { category: 'Appliances', itemName: 'Refrigerator', condition: 'GOOD', requiresAction: false },
+      { category: 'Plumbing', itemName: 'Sink & faucet', condition: 'EXCELLENT', requiresAction: false },
+    ] },
+    { name: 'Living Room', roomType: 'LIVING_ROOM', items: [
+      { category: 'Flooring', itemName: 'Carpet', condition: 'GOOD', requiresAction: false },
+      { category: 'Walls', itemName: 'Paint', condition: 'EXCELLENT', requiresAction: false },
+    ] },
+  ];
+  const roomsDamaged = [
+    { name: 'Kitchen', roomType: 'KITCHEN', items: [
+      { category: 'Plumbing', itemName: 'Kitchen faucet', condition: 'DAMAGED', requiresAction: true, notes: 'Leak under the sink.' },
+      { category: 'Appliances', itemName: 'Dishwasher', condition: 'NON_FUNCTIONAL', requiresAction: true, notes: 'Does not drain.' },
+    ] },
+    { name: 'Bathroom', roomType: 'BATHROOM', items: [
+      { category: 'Electrical', itemName: 'GFCI outlet', condition: 'DAMAGED', requiresAction: true, notes: 'Trips frequently.' },
+      { category: 'Plumbing', itemName: 'Toilet', condition: 'FAIR', requiresAction: true, notes: 'Runs intermittently.' },
+    ] },
+    { name: 'Living Room', roomType: 'LIVING_ROOM', items: [
+      { category: 'Flooring', itemName: 'Carpet seam', condition: 'POOR', requiresAction: true, notes: 'Separating near entry.' },
+    ] },
+  ];
+
+  // scenario tenants: jamie(0) current, ava(4) renewal, ethan(5) notice.
+  const inspectionSpecs = [
+    { li: 0, type: 'MOVE_IN', status: 'COMPLETED', rooms: roomsGood, note: 'Move-in walkthrough — unit in good shape.', daysOffset: -60 },
+    { li: 1, type: 'ROUTINE', status: 'SCHEDULED', rooms: null, note: 'Quarterly routine inspection.', daysOffset: 7 },
+    { li: 4, type: 'ANNUAL', status: 'IN_PROGRESS', rooms: roomsDamaged, note: 'Annual inspection — several items need repair.', daysOffset: 0 },
+    { li: 5, type: 'MOVE_OUT', status: 'SCHEDULED', rooms: null, note: 'Move-out inspection ahead of tenant departure.', daysOffset: 20 },
+  ];
+  let inspectionCount = 0;
+  for (const s of inspectionSpecs) {
+    const { lease, tenant, unit } = leases[s.li];
+    await prisma.unitInspection.create({
+      data: {
+        unitId: unit.id, propertyId: unit.propertyId, leaseId: lease.id,
+        type: s.type, status: s.status,
+        scheduledDate: daysFromNow(s.daysOffset),
+        completedDate: s.status === 'COMPLETED' ? daysFromNow(s.daysOffset) : null,
+        inspectorId: manager.id, tenantId: tenant.id, createdById: manager.id,
+        notes: s.note, generalNotes: s.note,
+        reportGenerated: s.status === 'COMPLETED',
+        ...(s.rooms
+          ? { rooms: { create: s.rooms.map((r) => ({
+              name: r.name, roomType: r.roomType,
+              checklistItems: { create: r.items },
+            })) } }
+          : {}),
+      },
+    });
+    inspectionCount++;
+  }
+
+  // ---- Decision feed items (persisted; the operator feed reads these) ----
+  await prisma.feedItem.deleteMany({ where: { propertyId: { in: properties.map((p) => p.id) } } });
+  const PM_ROLES = ['PROPERTY_MANAGER', 'property_manager', 'ADMIN'];
+  const delinquent = leases.filter((l) => l.scn === 'delinquent');
+  const renewal = leases.find((l) => l.scn === 'renewal');
+  const notice = leases.find((l) => l.scn === 'notice');
+  const feedSpecs = [
+    ...delinquent.map(({ lease, tenant, unit }) => ({
+      domain: 'payments', type: 'rent_delinquent', priorityScore: 95,
+      title: `Overdue rent — ${tenant.firstName} ${tenant.lastName}`,
+      summary: `$${lease.rentAmount.toFixed(2)} is 30+ days overdue on ${unit.name}.`,
+      evidence: { amount: lease.rentAmount, daysOverdue: 33, unit: unit.name },
+      actions: [{ label: 'Send notice', intent: 'send_delinquency_notice' }, { label: 'Start plan', intent: 'payment_plan' }],
+      propertyId: unit.propertyId,
+    })),
+    ...(renewal ? [{
+      domain: 'leasing', type: 'lease_expiring', priorityScore: 78,
+      title: `Renewal due — ${renewal.tenant.firstName} ${renewal.tenant.lastName}`,
+      summary: `Lease on ${renewal.unit.name} expires soon; send a renewal offer.`,
+      evidence: { daysUntilExpiry: 35, unit: renewal.unit.name },
+      actions: [{ label: 'Send renewal offer', intent: 'offer_renewal' }],
+      propertyId: renewal.unit.propertyId,
+    }] : []),
+    ...(notice ? [{
+      domain: 'leasing', type: 'move_out_scheduled', priorityScore: 70,
+      title: `Move-out scheduled — ${notice.tenant.firstName} ${notice.tenant.lastName}`,
+      summary: `${notice.unit.name} turns over in ~25 days; schedule the move-out inspection.`,
+      evidence: { daysUntilMoveOut: 25, unit: notice.unit.name },
+      actions: [{ label: 'Schedule inspection', intent: 'schedule_inspection' }],
+      propertyId: notice.unit.propertyId,
+    }] : []),
+    {
+      domain: 'maintenance', type: 'maintenance_emergency', priorityScore: 99,
+      title: 'Emergency: no heat in a unit',
+      summary: 'A tenant reported no heat — SLA breach risk, dispatch now.',
+      evidence: { priority: 'EMERGENCY' },
+      actions: [{ label: 'Dispatch technician', intent: 'dispatch_maintenance' }],
+      propertyId: properties[0].id,
+    },
+  ];
+  let feedCount = 0;
+  for (const f of feedSpecs) {
+    await prisma.feedItem.create({ data: { ...f, roleAccess: PM_ROLES } });
+    feedCount++;
+  }
+
   console.log('✅ Scenario-rich demo dataset seeded.');
   console.log(`   Org:          ${org.name}`);
   console.log(`   Properties:   ${properties.length} (${allUnits.length} units total)`);
@@ -286,6 +398,8 @@ async function main() {
   console.log(`   Payments:     ${paidCount} completed + current/overdue invoices`);
   console.log(`   Applications: ${appCount} across pipeline (pending/screening/approved/rejected)`);
   console.log(`   Maintenance:  ${mSpecs.length} across every priority + status`);
+  console.log(`   Inspections:  ${inspectionCount} (move-in/routine/annual/move-out, w/ rooms & checklists)`);
+  console.log(`   Feed items:   ${feedCount} (delinquency, renewal, move-out, emergency)`);
   console.log('');
   console.log('   Operator:  manager / Manager123!@#     Owner: owner / Owner123!@#');
   console.log('   Tenants:   jamie (current), liam (delinquent), ava (renewal-due),');
