@@ -87,7 +87,7 @@ Already integer cents — **do NOT touch**: `ManualPayment/ManualCharge.amountCe
 | #29 | keyring-os | canonical rename in lease-form/tenant-form/tenant-list | main |
 
 ## Remaining
-- **`lease/ai-lease-renewal.service.ts`** has 3 more `Number(lease.rentAmount)` reads (lines 218, 589, 603) in OTHER methods (not the two audited functions) — same Stage-B read issue; flip to prefer `rentAmountCents`.
+> All backend money reads/writes/arithmetic are now cents-clean (no bare Float money reads remain in the app layer). What's left is ops/housekeeping:
 - **Regenerate keyring-os `schema.ts`** via `openapi-typescript` against the running API.
 - **`seed.js`** — regenerate from `seed.ts`.
 - **Mocks/fixtures + money-path tests** — add cents-aware coverage.
