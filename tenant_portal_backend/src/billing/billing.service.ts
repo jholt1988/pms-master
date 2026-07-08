@@ -9,7 +9,7 @@ import { UpsertScheduleDto } from './dto/upsert-schedule.dto';
 import { ConfigureAutopayDto } from './dto/configure-autopay.dto';
 import { SecurityEventsService } from '../security-events/security-events.service';
 import { StripeService } from '../payments/stripe.service';
-import { toCents } from '../utils/money';
+import { toCents, fromCents } from '../utils/money';
 
 @Injectable()
 export class BillingService {
@@ -207,21 +207,26 @@ export class BillingService {
       const hasLateFee = invoice.lateFees.some((fee) => !fee.waived);
 
       if (assessDate <= now && !hasLateFee) {
+        // Integer-cents math sourced from the *Cents columns (Float mirrored for back-compat).
+        const lateFeeCents =
+          invoice.schedule!.lateFeeAmountCents ?? toCents(invoice.schedule!.lateFeeAmount!);
+        const newInvoiceAmountCents =
+          (invoice.amountCents ?? toCents(invoice.amount)) + lateFeeCents;
         try {
           await this.prisma.$transaction(async (tx) => {
             await tx.lateFee.create({
               data: {
                 invoice: { connect: { id: invoice.id } },
-                amount: invoice.schedule!.lateFeeAmount!,
-                amountCents: toCents(invoice.schedule!.lateFeeAmount!),
+                amount: fromCents(lateFeeCents),
+                amountCents: lateFeeCents,
               },
             });
 
             await tx.invoice.update({
               where: { id: invoice.id },
               data: {
-                amount: invoice.amount + invoice.schedule!.lateFeeAmount!,
-                amountCents: toCents(invoice.amount + invoice.schedule!.lateFeeAmount!),
+                amount: fromCents(newInvoiceAmountCents),
+                amountCents: newInvoiceAmountCents,
               },
             });
           });

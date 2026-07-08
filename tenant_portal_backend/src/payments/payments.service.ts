@@ -1525,7 +1525,7 @@ export class PaymentsService {
           kind: 'charge' as const,
           source: 'invoice' as const,
           occurredAt: i.dueDate,
-          amountCents: Math.round(Number(i.amount) * 100),
+          amountCents: i.amountCents ?? Math.round(Number(i.amount) * 100),
           description: i.description || `Invoice #${i.id}`,
         })),
         ...manualCharges
@@ -1545,7 +1545,7 @@ export class PaymentsService {
             kind: 'payment' as const,
             source: 'payment' as const,
             occurredAt: p.paymentDate,
-            amountCents: Math.round(Number(p.amount) * 100),
+            amountCents: p.amountCents ?? Math.round(Number(p.amount) * 100),
             description: `Payment #${p.id}`,
           })),
         ...manualPayments
