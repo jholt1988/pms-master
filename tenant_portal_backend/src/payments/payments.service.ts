@@ -201,6 +201,7 @@ export class PaymentsService {
     const description = invoice.description || `Invoice #${invoice.id}`;
     const { checkoutUrl, sessionId } = await this.stripeService.createCheckoutSession({
       amount: Number(invoice.amount),
+      amountCents: invoice.amountCents ?? undefined,
       customerId,
       successUrl: dto.successUrl,
       cancelUrl: dto.cancelUrl,
