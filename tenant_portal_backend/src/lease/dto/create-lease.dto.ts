@@ -50,4 +50,15 @@ export class CreateLeaseDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   depositAmount?: number;
+
+  // Stage-A dual-send: optional integer cents. Preferred over the dollar fields when provided.
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  rentAmountCents?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  depositAmountCents?: number;
 }

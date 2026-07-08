@@ -92,7 +92,7 @@ export class LeaseService {
           startDate,
           endDate,
           rentAmount: dto.rentAmount,
-          rentAmountCents: toCents(dto.rentAmount),
+          rentAmountCents: dto.rentAmountCents ?? toCents(dto.rentAmount),
           status: dto.status ?? LeaseStatus.ACTIVE,
           moveInAt: this.optionalDate(dto.moveInAt) ?? startDate,
           moveOutAt: this.optionalDate(dto.moveOutAt),
@@ -100,7 +100,7 @@ export class LeaseService {
           autoRenew: dto.autoRenew ?? false,
           autoRenewLeadDays: dto.autoRenewLeadDays,
           depositAmount: dto.depositAmount ?? 0,
-          depositAmountCents: toCents(dto.depositAmount ?? 0),
+          depositAmountCents: dto.depositAmountCents ?? toCents(dto.depositAmount ?? 0),
         },
         include: this.leaseInclude,
       });

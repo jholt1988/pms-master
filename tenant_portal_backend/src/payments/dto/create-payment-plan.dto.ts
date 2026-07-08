@@ -1,4 +1,4 @@
-import { IsNumber, Min, Max } from 'class-validator';
+import { IsInt, IsNumber, IsOptional, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 
 /**
@@ -25,5 +25,18 @@ export class CreatePaymentPlanDto {
   @Min(0.01, { message: 'Total amount must be greater than 0' })
   @Type(() => Number)
   totalAmount!: number;
+
+  // Stage-A dual-send: optional integer cents. Preferred over the dollar fields when provided.
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  amountPerInstallmentCents?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  totalAmountCents?: number;
 }
 

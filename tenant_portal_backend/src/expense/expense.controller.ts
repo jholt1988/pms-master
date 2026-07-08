@@ -24,7 +24,7 @@ export class ExpenseController {
   @Post()
   createExpense(
     @Request() req: AuthenticatedRequest,
-    @Body() data: { propertyId: string; unitId?: string; description: string; amount: number; date: Date; category: ExpenseCategory },
+    @Body() data: { propertyId: string; unitId?: string; description: string; amount: number; amountCents?: number; date: Date; category: ExpenseCategory },
     @OrgId() orgId: string,
   ) {
     return this.expenseService.createExpense(req.user.userId, data, orgId);
@@ -48,7 +48,7 @@ export class ExpenseController {
   @Put(':id')
   updateExpense(
     @Param('id', ParseIntPipe) id: number,
-    @Body() data: { propertyId?: string; unitId?: string; description?: string; amount?: number; date?: Date; category?: ExpenseCategory },
+    @Body() data: { propertyId?: string; unitId?: string; description?: string; amount?: number; amountCents?: number; date?: Date; category?: ExpenseCategory },
     @OrgId() orgId: string,
   ) {
     return this.expenseService.updateExpense(id, data, orgId);

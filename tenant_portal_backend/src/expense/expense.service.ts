@@ -16,6 +16,7 @@ export class ExpenseService {
       unitId?: string;
       description: string;
       amount: number;
+      amountCents?: number;
       date: Date;
       category: ExpenseCategory;
     },
@@ -40,7 +41,7 @@ export class ExpenseService {
         unit: unitId ? { connect: { id: unitId } } : undefined,
         description: data.description,
         amount: data.amount,
-        amountCents: toCents(data.amount),
+        amountCents: data.amountCents ?? toCents(data.amount),
         date: data.date,
         category: data.category,
       },
@@ -82,6 +83,7 @@ export class ExpenseService {
       unitId?: string;
       description?: string;
       amount?: number;
+      amountCents?: number;
       date?: Date;
       category?: ExpenseCategory;
     },
@@ -99,7 +101,7 @@ export class ExpenseService {
     if (data.unitId) {
       updateData.unitId = this.parseUuidId(data.unitId, 'unit');
     }
-    if (data.amount !== undefined) {
+    if (data.amountCents === undefined && data.amount !== undefined) {
       updateData.amountCents = toCents(data.amount);
     }
     return this.prisma.expense.update({ where: { id }, data: updateData });

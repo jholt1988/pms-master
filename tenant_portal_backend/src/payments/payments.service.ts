@@ -88,7 +88,7 @@ export class PaymentsService {
       data: {
         description: dto.description,
         amount: dto.amount,
-        amountCents: toCents(dto.amount),
+        amountCents: dto.amountCents ?? toCents(dto.amount),
         dueDate: new Date(dto.dueDate),
         lease: { connect: { id: leaseId } },
       },
@@ -341,7 +341,7 @@ export class PaymentsService {
       const created = await tx.payment.create({
         data: {
           amount: dto.amount,
-          amountCents: toCents(dto.amount),
+          amountCents: dto.amountCents ?? toCents(dto.amount),
           status: resolvedStatus,
           paymentDate: dto.paymentDate ? new Date(dto.paymentDate) : new Date(),
           invoice: dto.invoiceId ? { connect: { id: dto.invoiceId } } : undefined,
@@ -1152,6 +1152,8 @@ export class PaymentsService {
       installments: number;
       amountPerInstallment: number;
       totalAmount: number;
+      amountPerInstallmentCents?: number;
+      totalAmountCents?: number;
     },
     orgId?: string,
   ): Promise<{ id: number; status: string }> {
@@ -1198,7 +1200,7 @@ export class PaymentsService {
     }
 
     // Exact-sum installment amounts in integer cents (no lost/gained cent).
-    const totalAmountCents = toCents(plan.totalAmount);
+    const totalAmountCents = plan.totalAmountCents ?? toCents(plan.totalAmount);
     const installmentScheduleCents =
       plan.installments > 0 ? splitCents(totalAmountCents, plan.installments) : [];
 
@@ -1208,7 +1210,7 @@ export class PaymentsService {
         invoice: { connect: { id: invoiceId } },
         installments: plan.installments,
         amountPerInstallment: plan.amountPerInstallment,
-        amountPerInstallmentCents: toCents(plan.amountPerInstallment),
+        amountPerInstallmentCents: plan.amountPerInstallmentCents ?? toCents(plan.amountPerInstallment),
         totalAmount: plan.totalAmount,
         totalAmountCents,
         status: 'PENDING',

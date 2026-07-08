@@ -1,5 +1,5 @@
 import { Transform, Type } from 'class-transformer';
-import { IsDateString, IsNotEmpty, IsNumber, IsPositive, IsString } from 'class-validator';
+import { IsDateString, IsInt, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, Min } from 'class-validator';
 
 export class CreateInvoiceDto {
   @IsNotEmpty()
@@ -9,6 +9,13 @@ export class CreateInvoiceDto {
   @IsNumber()
   @IsPositive()
   amount!: number;
+
+  // Stage-A dual-send: optional integer cents. Preferred over `amount` when provided.
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  amountCents?: number;
 
   @IsDateString()
   dueDate!: string;
