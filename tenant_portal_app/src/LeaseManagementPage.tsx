@@ -29,7 +29,9 @@ interface LeaseHistoryEntry {
   toStatus?: LeaseStatus | null;
   note?: string | null;
   rentAmount?: number | null;
+  rentAmountCents?: number | null;
   depositAmount?: number | null;
+  depositAmountCents?: number | null;
   actor?: { id: number; username: string } | null;
   metadata?: Record<string, unknown> | null;
 }
@@ -37,6 +39,7 @@ interface LeaseHistoryEntry {
 interface LeaseRenewalOffer {
   id: number;
   proposedRent: number;
+  proposedRentCents?: number | null;
   proposedStart: string;
   proposedEnd: string;
   escalationPercent?: number | null;
@@ -72,6 +75,7 @@ interface AutopayEnrollment {
 interface RecurringInvoiceSchedule {
   id: number;
   amount: number;
+  amountCents?: number | null;
   description: string;
   frequency: BillingFrequency;
   dayOfMonth?: number | null;
@@ -112,7 +116,9 @@ interface Lease {
   startDate: string;
   endDate: string;
   rentAmount: number;
+  rentAmountCents?: number | null;
   depositAmount: number;
+  depositAmountCents?: number | null;
   depositHeldAt?: string | null;
   depositReturnedAt?: string | null;
   depositDisposition?: DepositDisposition | null;
@@ -132,6 +138,7 @@ interface Lease {
   rentEscalationEffectiveAt?: string | null;
   billingAlignment?: 'FULL_CYCLE' | 'PRORATE';
   currentBalance?: number | null;
+  currentBalanceCents?: number | null;
   history?: LeaseHistoryEntry[];
   renewalOffers?: LeaseRenewalOffer[];
   notices?: LeaseNotice[];
@@ -315,6 +322,11 @@ const formatCurrency = (value?: number | null): string => {
   return currencyFormatter.format(value);
 };
 
+// Prefer integer cents when the API provides them; fall back to the legacy dollar Float.
+// Reuses formatCurrency so both paths render identically (no visual change during cutover).
+const formatMoney = (dollars?: number | null, cents?: number | null): string =>
+  cents != null ? formatCurrency(cents / 100) : formatCurrency(dollars);
+
 const toIsoString = (value: string): string | undefined => {
   if (!value) {
     return undefined;
@@ -358,9 +370,11 @@ const createStatusFormState = (lease: Lease): StatusFormState => ({
       : '',
   rentEscalationEffectiveAt: formatDateForInput(lease.rentEscalationEffectiveAt),
   currentBalance:
-    lease.currentBalance !== null && lease.currentBalance !== undefined
-      ? lease.currentBalance.toFixed(2)
-      : '',
+    lease.currentBalanceCents !== null && lease.currentBalanceCents !== undefined
+      ? (lease.currentBalanceCents / 100).toFixed(2)
+      : lease.currentBalance !== null && lease.currentBalance !== undefined
+        ? lease.currentBalance.toFixed(2)
+        : '',
   autoRenew: Boolean(lease.autoRenew),
 });
 
@@ -372,7 +386,7 @@ const createRenewalFormState = (lease: Lease): RenewalFormState => {
   proposedEnd.setFullYear(proposedEnd.getFullYear() + 1);
 
   return {
-    proposedRent: lease.rentAmount.toFixed(2),
+    proposedRent: (lease.rentAmountCents != null ? lease.rentAmountCents / 100 : lease.rentAmount).toFixed(2),
     proposedStart: formatDateForInput(start),
     proposedEnd: formatDateForInput(proposedEnd),
     escalationPercent:
@@ -1155,7 +1169,7 @@ function LeaseManagementPage(): React.ReactElement {
           </div>
           <div>
             <p className="font-medium text-gray-700">Rent</p>
-            <p>{formatCurrency(lease.rentAmount)}</p>
+            <p>{formatMoney(lease.rentAmount, lease.rentAmountCents)}</p>
             {lease.rentEscalationPercent && (
               <p className="mt-1 text-[11px] text-gray-500">
                 Escalation {lease.rentEscalationPercent}% on {formatDate(lease.rentEscalationEffectiveAt)}
@@ -1165,7 +1179,7 @@ function LeaseManagementPage(): React.ReactElement {
           <div>
             <p className="font-medium text-gray-700">Deposit</p>
             <p>
-              {formatCurrency(lease.depositAmount)}{' '}
+              {formatMoney(lease.depositAmount, lease.depositAmountCents)}{' '}
               {lease.depositDisposition ? `· ${lease.depositDisposition.replace('_', ' ')}` : ''}
             </p>
             <p className="mt-1 text-[11px] text-gray-500">
@@ -1197,7 +1211,7 @@ function LeaseManagementPage(): React.ReactElement {
           </div>
           <div>
             <p className="font-medium text-gray-700">Balance Snapshot</p>
-            <p>{formatCurrency(lease.currentBalance)}</p>
+            <p>{formatMoney(lease.currentBalance, lease.currentBalanceCents)}</p>
             {lease.terminationReason && (
               <p className="mt-1 text-[11px] text-gray-500">Termination reason: {lease.terminationReason}</p>
             )}
@@ -1213,7 +1227,7 @@ function LeaseManagementPage(): React.ReactElement {
               </span>
             </div>
             <p className="mt-1">
-              {formatCurrency(schedule.amount)} {schedule.frequency.toLowerCase()}
+              {formatMoney(schedule.amount, schedule.amountCents)} {schedule.frequency.toLowerCase()}
             </p>
             <p className="mt-1 text-[11px]">
               Next run {formatDate(schedule.nextRun)}
@@ -1495,7 +1509,7 @@ function LeaseManagementPage(): React.ReactElement {
                           <span className="text-[11px] text-gray-500">{formatDateTime(offer.createdAt)}</span>
                         </div>
                         <p className="mt-1">
-                          {formatCurrency(offer.proposedRent)} · {formatDate(offer.proposedStart)} →{' '}
+                          {formatMoney(offer.proposedRent, offer.proposedRentCents)} · {formatDate(offer.proposedStart)} →{' '}
                           {formatDate(offer.proposedEnd)}
                         </p>
                         <p className="mt-1 text-[11px] text-gray-500">
@@ -1806,9 +1820,11 @@ function LeaseManagementPage(): React.ReactElement {
                       </div>
                       {entry.note && <p className="mt-1 text-[11px] text-gray-600">{entry.note}</p>}
                       <div className="mt-1 text-[11px] text-gray-500">
-                        {entry.rentAmount != null && <span className="mr-2">Rent {formatCurrency(entry.rentAmount)}</span>}
-                        {entry.depositAmount != null && (
-                          <span className="mr-2">Deposit {formatCurrency(entry.depositAmount)}</span>
+                        {(entry.rentAmount != null || entry.rentAmountCents != null) && (
+                          <span className="mr-2">Rent {formatMoney(entry.rentAmount, entry.rentAmountCents)}</span>
+                        )}
+                        {(entry.depositAmount != null || entry.depositAmountCents != null) && (
+                          <span className="mr-2">Deposit {formatMoney(entry.depositAmount, entry.depositAmountCents)}</span>
                         )}
                         {entry.actor && <span>By {entry.actor.username}</span>}
                       </div>
