@@ -509,8 +509,8 @@ model RentRecommendation {
   unitId                 String                   @db.Uuid
   currentRentCents Int
   recommendedRentCents Int
-  confidenceIntervalLow  Float
-  confidenceIntervalHigh Float
+  confidenceIntervalLowCents Int
+  confidenceIntervalHighCents Int
   factors                Json
   marketComparables      Json
   modelVersion           String?
