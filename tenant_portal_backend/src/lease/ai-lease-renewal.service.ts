@@ -215,7 +215,7 @@ export class AILeaseRenewalService {
     // Factor 4: Rent amount vs market
     // This would ideally use the rent optimization ML service
     // For now, we'll use a simple heuristic
-    const currentRent = Number(lease.rentAmount);
+    const currentRent = lease.rentAmountCents != null ? lease.rentAmountCents / 100 : Number(lease.rentAmount);
     // Assume market rent is similar (in real implementation, call ML service)
     const marketRent = currentRent * 1.05; // 5% higher
     const rentDifference = ((marketRent - currentRent) / currentRent) * 100;
@@ -586,7 +586,7 @@ export class AILeaseRenewalService {
 
     if (!lease.tenant) {
       return {
-        baseRent: Number(lease.rentAmount),
+        baseRent: lease.rentAmountCents != null ? lease.rentAmountCents / 100 : Number(lease.rentAmount),
         incentives: [],
         totalValue: 0,
         message: 'Renewal offer: continue your lease with the same terms.',
@@ -600,7 +600,7 @@ export class AILeaseRenewalService {
       // Get rent adjustment recommendation
       const rentAdjustment = await this.getRentAdjustmentRecommendation(leaseIdStr);
 
-    const currentRent = Number(lease.rentAmount);
+    const currentRent = lease.rentAmountCents != null ? lease.rentAmountCents / 100 : Number(lease.rentAmount);
     let baseRent = rentAdjustment.recommendedRent;
     const incentives: Array<{
       type: 'RENT_DISCOUNT' | 'FREE_MONTH' | 'UPGRADE' | 'CASH_BACK';
