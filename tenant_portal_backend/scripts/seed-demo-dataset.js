@@ -10,6 +10,7 @@
 // notice-given), payment histories incl. a delinquent tenant, maintenance
 // across every priority+status, and rental applications across the pipeline.
 
+require('dotenv').config();
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
 
@@ -163,9 +164,18 @@ async function main() {
     });
     const priorIds = priorLeases.map((l) => l.id);
     if (priorIds.length) {
+      await prisma.maintenanceRequest.deleteMany({ where: { leaseId: { in: priorIds } } });
       await prisma.payment.deleteMany({ where: { leaseId: { in: priorIds } } });
       await prisma.invoice.deleteMany({ where: { leaseId: { in: priorIds } } });
-      await prisma.maintenanceRequest.deleteMany({ where: { leaseId: { in: priorIds } } });
+      await prisma.autopayEnrollment.deleteMany({ where: { leaseId: { in: priorIds } } });
+      await prisma.esignEnvelope.deleteMany({ where: { leaseId: { in: priorIds } } });
+      await prisma.leaseAbstraction.deleteMany({ where: { leaseId: { in: priorIds } } });
+      await prisma.leaseDocument.deleteMany({ where: { leaseId: { in: priorIds } } });
+      await prisma.leaseNotice.deleteMany({ where: { leaseId: { in: priorIds } } });
+      await prisma.leaseRenewalOffer.deleteMany({ where: { leaseId: { in: priorIds } } });
+      await prisma.recurringInvoiceSchedule.deleteMany({ where: { leaseId: { in: priorIds } } });
+      await prisma.tenantInsurancePolicy.deleteMany({ where: { leaseId: { in: priorIds } } });
+      await prisma.leaseHistory.deleteMany({ where: { leaseId: { in: priorIds } } });
       await prisma.lease.deleteMany({ where: { id: { in: priorIds } } });
     }
 
