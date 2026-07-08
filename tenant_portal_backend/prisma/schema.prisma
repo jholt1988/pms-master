@@ -512,7 +512,9 @@ model RentRecommendation {
   recommendedRent        Float
   recommendedRentCents Int?
   confidenceIntervalLow  Float
+  confidenceIntervalLowCents Int?
   confidenceIntervalHigh Float
+  confidenceIntervalHighCents Int?
   factors                Json
   marketComparables      Json
   modelVersion           String?
