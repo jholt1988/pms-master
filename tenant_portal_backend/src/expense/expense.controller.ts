@@ -2,6 +2,8 @@
 import { Controller, Get, Post, Body, UseGuards, Request, Param, Put, Delete, Query, ParseIntPipe, HttpCode } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ExpenseService } from './expense.service';
+import { CreateExpenseDto } from './dto/create-expense.dto';
+import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { Roles } from '../auth/roles.decorator';
 import { ExpenseCategory, Role } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
@@ -24,7 +26,7 @@ export class ExpenseController {
   @Post()
   createExpense(
     @Request() req: AuthenticatedRequest,
-    @Body() data: { propertyId: string; unitId?: string; description: string; amount: number; amountCents?: number; date: Date; category: ExpenseCategory },
+    @Body() data: CreateExpenseDto,
     @OrgId() orgId: string,
   ) {
     return this.expenseService.createExpense(req.user.userId, data, orgId);
@@ -48,7 +50,7 @@ export class ExpenseController {
   @Put(':id')
   updateExpense(
     @Param('id', ParseIntPipe) id: number,
-    @Body() data: { propertyId?: string; unitId?: string; description?: string; amount?: number; amountCents?: number; date?: Date; category?: ExpenseCategory },
+    @Body() data: UpdateExpenseDto,
     @OrgId() orgId: string,
   ) {
     return this.expenseService.updateExpense(id, data, orgId);
