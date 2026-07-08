@@ -926,7 +926,7 @@ model LeaseNotice {
 }
 
 model Invoice {
-  id              Int                       @id @default(autoincrement())
+  id String @id @default(uuid()) @db.Uuid
   description     String
   amount          Float
   dueDate         DateTime
@@ -954,7 +954,7 @@ model Payment {
   paymentDate         DateTime             @default(now())
   status              PaymentStatus        @default(PENDING)
   invoice             Invoice?             @relation(fields: [invoiceId], references: [id])
-  invoiceId           Int?
+  invoiceId String? @db.Uuid
   user                User                 @relation(fields: [userId], references: [id])
   userId              String               @db.Uuid
   lease               Lease?               @relation(fields: [leaseId], references: [id])
@@ -1770,7 +1770,7 @@ enum BillingFrequency {
 model LateFee {
   id         Int      @id @default(autoincrement())
   invoice    Invoice  @relation(fields: [invoiceId], references: [id])
-  invoiceId  Int
+  invoiceId String @db.Uuid
   amount     Float
   assessedAt DateTime @default(now())
   waived     Boolean  @default(false)
@@ -1781,7 +1781,7 @@ model LateFee {
 model PaymentPlan {
   id                   Int                  @id @default(autoincrement())
   invoice              Invoice              @relation(fields: [invoiceId], references: [id])
-  invoiceId            Int                  @unique
+  invoiceId String @unique @db.Uuid
   installments         Int
   amountPerInstallment Float
   totalAmount          Float
@@ -1839,7 +1839,7 @@ model PaymentAttempt {
   autopayEnrollment   AutopayEnrollment    @relation(fields: [autopayEnrollmentId], references: [id])
   autopayEnrollmentId Int
   invoice             Invoice              @relation(fields: [invoiceId], references: [id])
-  invoiceId           Int
+  invoiceId String @db.Uuid
   status              PaymentAttemptStatus @default(SCHEDULED)
   failureReason       String?
   externalAttemptId   String?
