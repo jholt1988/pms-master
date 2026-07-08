@@ -390,7 +390,7 @@ export class AILeaseRenewalService {
         throw new Error(`Lease ${leaseId} not found`);
       }
 
-      const currentRent = Number(lease.rentAmount);
+      const currentRent = lease.rentAmountCents != null ? lease.rentAmountCents / 100 : Number(lease.rentAmount);
 
       // Try to get recommendation from ML service with retry logic
       let recommendedRent = currentRent;
