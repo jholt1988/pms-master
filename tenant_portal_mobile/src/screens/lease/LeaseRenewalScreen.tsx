@@ -166,14 +166,14 @@ export default function LeaseRenewalScreen() {
                 <View style={styles.infoItem}>
                   <Text style={styles.infoLabel}>Current Monthly Rent</Text>
                   <Text style={[styles.infoValue, styles.rentText]}>
-                    {formatCurrency(currentLease.rentAmount)}
+                    {formatCurrency(currentLease.rentAmountCents != null ? currentLease.rentAmountCents / 100 : currentLease.rentAmount)}
                   </Text>
                 </View>
                 {currentLease.proposedRent && (
                   <View style={styles.infoItem}>
                     <Text style={styles.infoLabel}>Offered Renewal Rent</Text>
                     <Text style={[styles.infoValue, styles.rentText]}>
-                      {formatCurrency(currentLease.proposedRent)}
+                      {formatCurrency(currentLease.proposedRentCents != null ? currentLease.proposedRentCents / 100 : currentLease.proposedRent)}
                     </Text>
                   </View>
                 )}
@@ -257,10 +257,10 @@ export default function LeaseRenewalScreen() {
                   <Text style={styles.errorText}>{errors.counterOfferRent}</Text>
                 )}
                 <Text style={styles.helperText}>
-                  Current rent: {formatCurrency(currentLease.rentAmount)}
+                  Current rent: {formatCurrency(currentLease.rentAmountCents != null ? currentLease.rentAmountCents / 100 : currentLease.rentAmount)}
                   {currentLease.proposedRent && (
                     <Text>
-                      {'\n'}Offered rent: {formatCurrency(currentLease.proposedRent)}
+                      {'\n'}Offered rent: {formatCurrency(currentLease.proposedRentCents != null ? currentLease.proposedRentCents / 100 : currentLease.proposedRent)}
                     </Text>
                   )}
                 </Text>

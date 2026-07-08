@@ -256,7 +256,7 @@ export default function LeaseScreen() {
                 <View style={styles.infoItem}>
                   <Text style={styles.infoLabel}>Monthly Rent</Text>
                   <Text style={[styles.infoValue, styles.amountText]}>
-                    {formatCurrency(currentLease.rentAmount)}
+                    {formatCurrency(currentLease.rentAmountCents != null ? currentLease.rentAmountCents / 100 : currentLease.rentAmount)}
                   </Text>
                 </View>
                 <View style={styles.infoItem}>
@@ -270,7 +270,7 @@ export default function LeaseScreen() {
               <View style={styles.infoItem}>
                 <Text style={styles.infoLabel}>Security Deposit</Text>
                 <Text style={styles.infoValue}>
-                  {formatCurrency(currentLease.depositAmount)}
+                  {formatCurrency(currentLease.depositAmountCents != null ? currentLease.depositAmountCents / 100 : currentLease.depositAmount)}
                 </Text>
               </View>
 
@@ -327,7 +327,7 @@ export default function LeaseScreen() {
                   <View style={styles.infoItem}>
                     <Text style={styles.infoLabel}>Offered Renewal Rent</Text>
                     <Text style={[styles.infoValue, styles.amountText]}>
-                      {formatCurrency(currentLease.proposedRent)}/month
+                      {formatCurrency(currentLease.proposedRentCents != null ? currentLease.proposedRentCents / 100 : currentLease.proposedRent)}/month
                     </Text>
                   </View>
                 )}
