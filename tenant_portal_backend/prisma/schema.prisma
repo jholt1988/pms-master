@@ -507,8 +507,8 @@ model RentRecommendation {
   id                     String                   @id
   unit                   Unit                     @relation(fields: [unitId], references: [id])
   unitId                 String                   @db.Uuid
-  currentRent            Float
-  recommendedRent        Float
+  currentRentCents Int
+  recommendedRentCents Int
   confidenceIntervalLow  Float
   confidenceIntervalHigh Float
   factors                Json
@@ -763,8 +763,8 @@ model LeaseHistory {
   fromStatus    LeaseStatus?
   toStatus      LeaseStatus?
   note          String?
-  rentAmount    Float?
-  depositAmount Float?
+  rentAmountCents Int?
+  depositAmountCents Int?
   metadata      Json?
   createdAt     DateTime     @default(now())
 
@@ -893,7 +893,7 @@ model LeaseRenewalOffer {
   id                Int                @id @default(autoincrement())
   lease             Lease              @relation(fields: [leaseId], references: [id])
   leaseId           String             @db.Uuid
-  proposedRent      Float
+  proposedRentCents Int
   proposedStart     DateTime
   proposedEnd       DateTime
   escalationPercent Float?
@@ -1754,7 +1754,7 @@ model RecurringInvoiceSchedule {
   dayOfMonth       Int? // required for monthly
   dayOfWeek        Int? // optional for weekly
   nextRun          DateTime
-  lateFeeAmountCents Int? // flat fee (minor units)
+  lateFeeAmountCents Int?
   lateFeeAfterDays Int? // number of days after due date
   active           Boolean          @default(true)
   createdAt        DateTime         @default(now())
