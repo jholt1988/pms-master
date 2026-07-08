@@ -2366,8 +2366,8 @@ function OwnerStatementsView({
                       <tbody className="divide-y divide-[var(--border)] text-xs sm:text-sm">
                         <tr>
                           <td className="py-3 font-medium">Gross Rent Income</td>
-                          <td className="py-3 text-right">{formatCurrency(analyticsData.cashFlows[1]?.income)}</td>
-                          <td className="py-3 text-right font-semibold">{formatCurrency(analyticsData.cashFlows[0]?.income)}</td>
+                          <td className="py-3 text-right">{cents(analyticsData.cashFlows[1]?.incomeCents) ?? formatCurrency(analyticsData.cashFlows[1]?.income)}</td>
+                          <td className="py-3 text-right font-semibold">{cents(analyticsData.cashFlows[0]?.incomeCents) ?? formatCurrency(analyticsData.cashFlows[0]?.income)}</td>
                           <td className={`py-3 text-right font-medium ${analyticsData.cashFlows[0]?.income >= analyticsData.cashFlows[1]?.income ? 'text-emerald-600' : 'text-rose-600'}`}>
                             {analyticsData.cashFlows[1]?.income > 0 
                               ? `${(((analyticsData.cashFlows[0]?.income - analyticsData.cashFlows[1]?.income) / analyticsData.cashFlows[1]?.income) * 100).toFixed(1)}%`
@@ -2377,8 +2377,8 @@ function OwnerStatementsView({
                         </tr>
                         <tr>
                           <td className="py-3 font-medium">Operating Expenses</td>
-                          <td className="py-3 text-right">{formatCurrency(analyticsData.cashFlows[1]?.expenses)}</td>
-                          <td className="py-3 text-right font-semibold">{formatCurrency(analyticsData.cashFlows[0]?.expenses)}</td>
+                          <td className="py-3 text-right">{cents(analyticsData.cashFlows[1]?.expensesCents) ?? formatCurrency(analyticsData.cashFlows[1]?.expenses)}</td>
+                          <td className="py-3 text-right font-semibold">{cents(analyticsData.cashFlows[0]?.expensesCents) ?? formatCurrency(analyticsData.cashFlows[0]?.expenses)}</td>
                           <td className={`py-3 text-right font-medium ${analyticsData.cashFlows[0]?.expenses <= analyticsData.cashFlows[1]?.expenses ? 'text-emerald-600' : 'text-rose-600'}`}>
                             {analyticsData.cashFlows[1]?.expenses > 0 
                               ? `${(((analyticsData.cashFlows[0]?.expenses - analyticsData.cashFlows[1]?.expenses) / analyticsData.cashFlows[1]?.expenses) * 100).toFixed(1)}%`
@@ -2388,8 +2388,8 @@ function OwnerStatementsView({
                         </tr>
                         <tr className="bg-[var(--panel-strong)]/30">
                           <td className="py-3 font-bold">Net Operating Income (NOI)</td>
-                          <td className="py-3 text-right font-medium">{formatCurrency(analyticsData.cashFlows[1]?.net)}</td>
-                          <td className="py-3 text-right font-bold text-[var(--accent-strong)]">{formatCurrency(analyticsData.cashFlows[0]?.net)}</td>
+                          <td className="py-3 text-right font-medium">{cents(analyticsData.cashFlows[1]?.netCents) ?? formatCurrency(analyticsData.cashFlows[1]?.net)}</td>
+                          <td className="py-3 text-right font-bold text-[var(--accent-strong)]">{cents(analyticsData.cashFlows[0]?.netCents) ?? formatCurrency(analyticsData.cashFlows[0]?.net)}</td>
                           <td className={`py-3 text-right font-bold ${analyticsData.cashFlows[0]?.net >= analyticsData.cashFlows[1]?.net ? 'text-emerald-600' : 'text-rose-600'}`}>
                             {analyticsData.cashFlows[1]?.net !== 0 
                               ? `${(((analyticsData.cashFlows[0]?.net - analyticsData.cashFlows[1]?.net) / Math.abs(analyticsData.cashFlows[1]?.net)) * 100).toFixed(1)}%`
