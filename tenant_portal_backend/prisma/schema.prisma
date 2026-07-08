@@ -508,7 +508,9 @@ model RentRecommendation {
   unit                   Unit                     @relation(fields: [unitId], references: [id])
   unitId                 String                   @db.Uuid
   currentRent            Float
+  currentRentCents Int?
   recommendedRent        Float
+  recommendedRentCents Int?
   confidenceIntervalLow  Float
   confidenceIntervalHigh Float
   factors                Json
@@ -767,7 +769,9 @@ model LeaseHistory {
   toStatus      LeaseStatus?
   note          String?
   rentAmount    Float?
+  rentAmountCents Int?
   depositAmount Float?
+  depositAmountCents Int?
   metadata      Json?
   createdAt     DateTime     @default(now())
 
@@ -897,6 +901,7 @@ model LeaseRenewalOffer {
   lease             Lease              @relation(fields: [leaseId], references: [id])
   leaseId           String             @db.Uuid
   proposedRent      Float
+  proposedRentCents Int?
   proposedStart     DateTime
   proposedEnd       DateTime
   escalationPercent Float?

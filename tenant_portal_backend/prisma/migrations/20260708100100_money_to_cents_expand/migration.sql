@@ -1,4 +1,4 @@
--- MIG-2 + MIG-4 (EXPAND) · add integer-cents columns and backfill from Float; KEEP the Float columns.
+-- MIG-2 + MIG-4 (EXPAND) · add integer-cents columns + backfill from Float; KEEP the Float columns.
 -- Safe to deploy now. Ship the dual-write / read-cents application release BEFORE the contract migration.
 -- Rounding via ::numeric avoids binary-float error.
 
@@ -31,16 +31,25 @@ UPDATE "Lease"                    SET "rentAmountCents"           = ROUND("rentA
 UPDATE "Lease"                    SET "depositAmountCents"        = ROUND("depositAmount"::numeric * 100)::int;
 UPDATE "Lease"                    SET "currentBalanceCents"       = ROUND("currentBalance"::numeric * 100)::int;
 
+-- ---- Entangled rent/deposit copies (ratified 2026-07-08: migrate in the same wave) ----
+ALTER TABLE "LeaseHistory"       ADD COLUMN "rentAmountCents"      INTEGER;   -- nullable (source Float?)
+ALTER TABLE "LeaseHistory"       ADD COLUMN "depositAmountCents"   INTEGER;   -- nullable (source Float?)
+ALTER TABLE "LeaseRenewalOffer"  ADD COLUMN "proposedRentCents"    INTEGER;
+ALTER TABLE "RentRecommendation" ADD COLUMN "currentRentCents"     INTEGER;
+ALTER TABLE "RentRecommendation" ADD COLUMN "recommendedRentCents" INTEGER;
+
+UPDATE "LeaseHistory"       SET "rentAmountCents"      = ROUND("rentAmount"::numeric * 100)::int    WHERE "rentAmount" IS NOT NULL;
+UPDATE "LeaseHistory"       SET "depositAmountCents"   = ROUND("depositAmount"::numeric * 100)::int WHERE "depositAmount" IS NOT NULL;
+UPDATE "LeaseRenewalOffer"  SET "proposedRentCents"    = ROUND("proposedRent"::numeric * 100)::int;
+UPDATE "RentRecommendation" SET "currentRentCents"     = ROUND("currentRent"::numeric * 100)::int;
+UPDATE "RentRecommendation" SET "recommendedRentCents" = ROUND("recommendedRent"::numeric * 100)::int;
+
 COMMIT;
 
--- Parity check (run manually before the contract migration; every row must return 0):
--- SELECT 'Payment'    t, count(*) FROM "Payment"                  WHERE "amountCents"               <> ROUND("amount"::numeric*100)::int
--- UNION ALL SELECT 'Invoice',    count(*) FROM "Invoice"                  WHERE "amountCents"               <> ROUND("amount"::numeric*100)::int
--- UNION ALL SELECT 'LateFee',    count(*) FROM "LateFee"                  WHERE "amountCents"               <> ROUND("amount"::numeric*100)::int
--- UNION ALL SELECT 'Expense',    count(*) FROM "Expense"                  WHERE "amountCents"               <> ROUND("amount"::numeric*100)::int
--- UNION ALL SELECT 'RIS',        count(*) FROM "RecurringInvoiceSchedule" WHERE "amountCents"               <> ROUND("amount"::numeric*100)::int
--- UNION ALL SELECT 'PP.install', count(*) FROM "PaymentPlan"              WHERE "amountPerInstallmentCents" <> ROUND("amountPerInstallment"::numeric*100)::int
--- UNION ALL SELECT 'PP.total',   count(*) FROM "PaymentPlan"              WHERE "totalAmountCents"          <> ROUND("totalAmount"::numeric*100)::int
--- UNION ALL SELECT 'Lease.rent', count(*) FROM "Lease"                    WHERE "rentAmountCents"           <> ROUND("rentAmount"::numeric*100)::int
--- UNION ALL SELECT 'Lease.dep',  count(*) FROM "Lease"                    WHERE "depositAmountCents"        <> ROUND("depositAmount"::numeric*100)::int
--- UNION ALL SELECT 'Lease.bal',  count(*) FROM "Lease"                    WHERE "currentBalanceCents"       <> ROUND("currentBalance"::numeric*100)::int;
+-- Parity check before the contract migration (every row must return 0). Money cluster + entangled:
+-- SELECT 'Lease.rent' t, count(*) FROM "Lease" WHERE "rentAmountCents" <> ROUND("rentAmount"::numeric*100)::int
+-- UNION ALL SELECT 'LRO.proposed', count(*) FROM "LeaseRenewalOffer"  WHERE "proposedRentCents"    <> ROUND("proposedRent"::numeric*100)::int
+-- UNION ALL SELECT 'RR.current',   count(*) FROM "RentRecommendation" WHERE "currentRentCents"     <> ROUND("currentRent"::numeric*100)::int
+-- UNION ALL SELECT 'RR.recommend', count(*) FROM "RentRecommendation" WHERE "recommendedRentCents" <> ROUND("recommendedRent"::numeric*100)::int
+-- UNION ALL SELECT 'LH.rent',      count(*) FROM "LeaseHistory" WHERE "rentAmount" IS NOT NULL AND "rentAmountCents" <> ROUND("rentAmount"::numeric*100)::int;
+-- NOTE (not in this wave): RentRecommendation.confidenceIntervalLow/High are still Float (rent-range bounds) — convert later if desired.
