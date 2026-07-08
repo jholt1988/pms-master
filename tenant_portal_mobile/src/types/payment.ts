@@ -91,6 +91,7 @@ export interface Payment {
   leaseId: number;
   tenantId: number;
   amount: number;
+  amountCents?: number | null;
   paymentMethodId?: number;
   status: PaymentStatus;
   paymentDate: string; // ISO date string
@@ -181,6 +182,7 @@ export interface AutoPayConfig {
  */
 export interface PaymentSummary {
   currentBalance: number;
+  currentBalanceCents?: number | null;
   nextPaymentDue: string; // ISO date string
   nextPaymentAmount: number;
   upcomingPayments: Payment[];
