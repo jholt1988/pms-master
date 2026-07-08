@@ -46,8 +46,8 @@ export interface Lease {
   unitId: number;
   startDate: string; // ISO date string
   endDate: string; // ISO date string
-  monthlyRent: number;
-  securityDeposit: number;
+  rentAmount: number;
+  depositAmount: number;
   status: LeaseStatus;
   paymentDueDay: number; // Day of month (1-31)
   autoPayEnabled: boolean;

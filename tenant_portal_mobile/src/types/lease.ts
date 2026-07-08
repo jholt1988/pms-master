@@ -51,8 +51,8 @@ export interface Lease {
   // Lease terms
   startDate: string; // ISO date string
   endDate: string; // ISO date string
-  monthlyRent: number;
-  securityDeposit: number;
+  rentAmount: number;
+  depositAmount: number;
   
   // Property info
   propertyName: string;
@@ -75,7 +75,7 @@ export interface Lease {
   // Renewal info
   renewalEligible: boolean;
   renewalStatus?: RenewalStatus;
-  renewalOfferedRent?: number;
+  proposedRent?: number;
   
   // Timestamps
   signedAt?: string;

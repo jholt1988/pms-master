@@ -4,7 +4,6 @@ export interface TenantDashboardLease {
   id: string;
   rentAmount?: number;
   rentAmountCents?: number | null;
-  monthlyRent?: number;
   startDate: string;
   endDate: string;
   status?: string;
