@@ -89,7 +89,7 @@ Already integer cents — **do NOT touch**: `ManualPayment/ManualCharge.amountCe
 ## Remaining
 > All backend money reads/writes/arithmetic are now cents-clean (no bare Float money reads remain in the app layer). What's left is ops/housekeeping:
 - **Regenerate keyring-os `schema.ts`** via `openapi-typescript` against the running API.
-- **`seed.js`** — regenerate from `seed.ts`.
+- ~~`seed.js` — regenerate from `seed.ts`~~ → **deleted** (orphaned stale artifact; backend seeds via `ts-node prisma/seed.ts`). _(PR #57 — c7da6ca)_
 - **Mocks/fixtures + money-path tests** — add cents-aware coverage.
 - **Stage B contract migration** — drop Float columns only after all of the above ships and deploys.
 
