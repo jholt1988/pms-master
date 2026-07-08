@@ -36,7 +36,7 @@ Already integer cents — **do NOT touch**: `ManualPayment/ManualCharge.amountCe
 
 ## Backend — by category
 ### Prisma writes → dual-write Float + *Cents
-- [ ] `dashboard/dashboard.service.ts` (91, 116): AI/demo `lease.update({ rentAmount })` — **still Float-only, no `rentAmountCents` dual-write. OUTSTANDING.**
+- [x] `dashboard/dashboard.service.ts` (AI_ABSTRACTION_REVIEW + RENEWAL_PRICING_GENERATED handlers): guarded `rentAmountCents` dual-write. _(PR #57 — f673bf9)_
 - [x] `expense/expense.service.ts`: Expense create/update via `CreateExpenseDto`/`UpdateExpenseDto` (`@IsInt` cents) + `data.amountCents ?? toCents(...)`. _(PR #57)_
 - [x] `policy/rule-action-dispatcher.service.ts` (182): `lateFee.create` writes `amountCents`. _(PR #57)_
 - [x] rent-optimization / lease-renewal writes to `Lease.rentAmount`, `LeaseRenewalOffer.proposedRent`, `RentRecommendation.*` (incl. `confidenceIntervalLow/High`). _(PR #54 expand + PR #57)_
@@ -87,7 +87,6 @@ Already integer cents — **do NOT touch**: `ManualPayment/ManualCharge.amountCe
 | #29 | keyring-os | canonical rename in lease-form/tenant-form/tenant-list | main |
 
 ## Remaining
-- **`dashboard/dashboard.service.ts`** AI/demo lease updates — add `rentAmountCents` dual-write.
 - **`assessPaymentRisk` / `getRentAdjustmentRecommendation`** — audit + flip to cents.
 - **Regenerate keyring-os `schema.ts`** via `openapi-typescript` against the running API.
 - **`seed.js`** — regenerate from `seed.ts`.
