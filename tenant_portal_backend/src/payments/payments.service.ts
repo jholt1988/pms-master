@@ -17,7 +17,7 @@ import { WorkflowEventService } from '../policy/workflow-event.service';
 import { WorkflowEventProcessor } from '../policy/workflow-event-processor.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { BookkeepingService } from '../bookkeeping/bookkeeping.service';
-import { toCents } from '../utils/money';
+import { toCents, fromCents, splitCents } from '../utils/money';
 
 
 type CreateManualPaymentInput = {
@@ -1197,28 +1197,39 @@ export class PaymentsService {
       installmentDueDates.push(dueDate);
     }
 
+    // Exact-sum installment amounts in integer cents (no lost/gained cent).
+    const totalAmountCents = toCents(plan.totalAmount);
+    const installmentScheduleCents =
+      plan.installments > 0 ? splitCents(totalAmountCents, plan.installments) : [];
+
     // Create payment plan
     const paymentPlan = await this.prisma.paymentPlan.create({
       data: {
         invoice: { connect: { id: invoiceId } },
         installments: plan.installments,
         amountPerInstallment: plan.amountPerInstallment,
+        amountPerInstallmentCents: toCents(plan.amountPerInstallment),
         totalAmount: plan.totalAmount,
+        totalAmountCents,
         status: 'PENDING',
         paymentPlanPayments: {
-          create: installmentDueDates.map((dueDate, index) => ({
-            installmentNumber: index + 1,
-            dueDate,
-            payment: {
-              create: {
-                amount: plan.amountPerInstallment,
-                paymentDate: dueDate,
-                status: 'PENDING',
-                user: { connect: { id: invoice.lease.tenantId } },
-                lease: { connect: { id: invoice.leaseId } },
+          create: installmentDueDates.map((dueDate, index) => {
+            const installmentCents = installmentScheduleCents[index];
+            return {
+              installmentNumber: index + 1,
+              dueDate,
+              payment: {
+                create: {
+                  amount: fromCents(installmentCents),
+                  amountCents: installmentCents,
+                  paymentDate: dueDate,
+                  status: 'PENDING',
+                  user: { connect: { id: invoice.lease.tenantId } },
+                  lease: { connect: { id: invoice.leaseId } },
+                },
               },
-            },
-          })),
+            };
+          }),
         },
       },
     });

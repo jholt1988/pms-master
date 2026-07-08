@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { toCents, fromCents, splitCents } from '../utils/money';
 import { AIProviderService } from '../ai-provider';
 import {
   defaultAIPaymentGuardrailPolicy,
@@ -260,7 +261,10 @@ export class AIPaymentService {
   ): {
     installments: number;
     amountPerInstallment: number;
+    amountPerInstallmentCents: number;
     totalAmount: number;
+    totalAmountCents: number;
+    installmentScheduleCents: number[];
   } {
     const totalAmount = invoiceAmount + totalOutstanding;
     let installments = 3;
@@ -271,12 +275,19 @@ export class AIPaymentService {
       installments = 4;
     }
 
-    const amountPerInstallment = totalAmount / installments;
+    // Compute in integer cents so the installments sum EXACTLY to the total
+    // (replaces Math.ceil, which over-collected and did not sum back).
+    const totalAmountCents = toCents(totalAmount);
+    const installmentScheduleCents = splitCents(totalAmountCents, installments);
+    const amountPerInstallmentCents = installmentScheduleCents[0];
 
     return {
       installments,
-      amountPerInstallment: Math.ceil(amountPerInstallment),
+      amountPerInstallment: fromCents(amountPerInstallmentCents),
+      amountPerInstallmentCents,
       totalAmount,
+      totalAmountCents,
+      installmentScheduleCents,
     };
   }
 
