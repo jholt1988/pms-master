@@ -9,6 +9,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { toCents } from '../utils/money';
 import { CreateLeaseDto } from './dto/create-lease.dto';
 import { UpdateLeaseDto } from './dto/update-lease.dto';
 import { UpdateLeaseStatusDto } from './dto/update-lease-status.dto';
@@ -91,6 +92,7 @@ export class LeaseService {
           startDate,
           endDate,
           rentAmount: dto.rentAmount,
+          rentAmountCents: toCents(dto.rentAmount),
           status: dto.status ?? LeaseStatus.ACTIVE,
           moveInAt: this.optionalDate(dto.moveInAt) ?? startDate,
           moveOutAt: this.optionalDate(dto.moveOutAt),
@@ -98,6 +100,7 @@ export class LeaseService {
           autoRenew: dto.autoRenew ?? false,
           autoRenewLeadDays: dto.autoRenewLeadDays,
           depositAmount: dto.depositAmount ?? 0,
+          depositAmountCents: toCents(dto.depositAmount ?? 0),
         },
         include: this.leaseInclude,
       });

@@ -9,6 +9,7 @@ import { UpsertScheduleDto } from './dto/upsert-schedule.dto';
 import { ConfigureAutopayDto } from './dto/configure-autopay.dto';
 import { SecurityEventsService } from '../security-events/security-events.service';
 import { StripeService } from '../payments/stripe.service';
+import { toCents } from '../utils/money';
 
 @Injectable()
 export class BillingService {
@@ -163,6 +164,7 @@ export class BillingService {
             data: {
               description: schedule.description,
               amount: schedule.amount,
+              amountCents: toCents(schedule.amount),
               dueDate: schedule.nextRun,
               lease: { connect: { id: schedule.leaseId } },
               schedule: { connect: { id: schedule.id } },
@@ -211,12 +213,16 @@ export class BillingService {
               data: {
                 invoice: { connect: { id: invoice.id } },
                 amount: invoice.schedule!.lateFeeAmount!,
+                amountCents: toCents(invoice.schedule!.lateFeeAmount!),
               },
             });
 
             await tx.invoice.update({
               where: { id: invoice.id },
-              data: { amount: invoice.amount + invoice.schedule!.lateFeeAmount! },
+              data: {
+                amount: invoice.amount + invoice.schedule!.lateFeeAmount!,
+                amountCents: toCents(invoice.amount + invoice.schedule!.lateFeeAmount!),
+              },
             });
           });
 

@@ -17,6 +17,7 @@ import { WorkflowEventService } from '../policy/workflow-event.service';
 import { WorkflowEventProcessor } from '../policy/workflow-event-processor.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { BookkeepingService } from '../bookkeeping/bookkeeping.service';
+import { toCents } from '../utils/money';
 
 
 type CreateManualPaymentInput = {
@@ -87,6 +88,7 @@ export class PaymentsService {
       data: {
         description: dto.description,
         amount: dto.amount,
+        amountCents: toCents(dto.amount),
         dueDate: new Date(dto.dueDate),
         lease: { connect: { id: leaseId } },
       },
@@ -339,6 +341,7 @@ export class PaymentsService {
       const created = await tx.payment.create({
         data: {
           amount: dto.amount,
+          amountCents: toCents(dto.amount),
           status: resolvedStatus,
           paymentDate: dto.paymentDate ? new Date(dto.paymentDate) : new Date(),
           invoice: dto.invoiceId ? { connect: { id: dto.invoiceId } } : undefined,
@@ -504,7 +507,7 @@ export class PaymentsService {
 
       await tx.lease.update({
         where: { id: lease.id },
-        data: { currentBalance: { decrement: amount } },
+        data: { currentBalance: { decrement: amount }, currentBalanceCents: { decrement: input.amountCents } },
       });
 
       return payment;
@@ -535,7 +538,7 @@ export class PaymentsService {
     return this.prisma.$transaction(async (tx) => {
       await tx.lease.update({
         where: { id: payment.leaseId },
-        data: { currentBalance: { increment: amount } },
+        data: { currentBalance: { increment: amount }, currentBalanceCents: { increment: payment.amountCents } },
       });
 
       const existingPaymentEntry = await tx.ledgerTransaction.findFirst({
@@ -659,7 +662,7 @@ export class PaymentsService {
 
       await tx.lease.update({
         where: { id: lease.id },
-        data: { currentBalance: { increment: amount } },
+        data: { currentBalance: { increment: amount }, currentBalanceCents: { increment: input.amountCents } },
       });
 
       return charge;
@@ -690,7 +693,7 @@ export class PaymentsService {
     return this.prisma.$transaction(async (tx) => {
       await tx.lease.update({
         where: { id: charge.leaseId },
-        data: { currentBalance: { decrement: amount } },
+        data: { currentBalance: { decrement: amount }, currentBalanceCents: { decrement: charge.amountCents } },
       });
 
       const existingChargeEntry = await tx.ledgerTransaction.findFirst({
@@ -773,6 +776,7 @@ export class PaymentsService {
     const payment = await this.prisma.payment.create({
       data: {
         amount: params.amount,
+        amountCents: toCents(params.amount),
         status: 'COMPLETED',
         paymentDate: new Date(),
         invoice: { connect: { id: params.invoiceId } },
