@@ -18,6 +18,9 @@ on:
       - 'docs/api/openapi.json'
       - '.github/workflows/api-contracts-ci.yml'
 
+permissions:
+  contents: read
+
 concurrency:
   group: api-contracts-ci-${{ github.ref }}
   cancel-in-progress: true
