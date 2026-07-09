@@ -10,21 +10,14 @@ import {
 } from '../../../../services/EsignatureApi';
 import { apiFetch, getApiBase } from '../../../../services/apiClient';
 import { DegradedStateCard } from '../../../../components/ui/DegradedStateCard';
+import type {
+  LeaseStatus,
+  LeaseRenewalStatus,
+  LeaseNoticeType,
+  LeaseNoticeDeliveryMethod,
+} from '@propertyos/api-contracts';
 
-type LeaseStatus =
-  | 'DRAFT'
-  | 'PENDING_APPROVAL'
-  | 'ACTIVE'
-  | 'RENEWAL_PENDING'
-  | 'NOTICE_GIVEN'
-  | 'TERMINATING'
-  | 'TERMINATED'
-  | 'HOLDOVER'
-  | 'CLOSED';
-
-type LeaseRenewalStatus = 'OFFERED' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED' | 'WITHDRAWN';
-type LeaseNoticeType = 'MOVE_OUT' | 'RENT_INCREASE' | 'OTHER';
-type LeaseNoticeDeliveryMethod = 'EMAIL' | 'SMS' | 'PORTAL' | 'PRINT' | 'OTHER';
+// Lease enum unions are sourced from @propertyos/api-contracts (imported above).
 
 interface PaymentMethodSummary {
   provider: string;
