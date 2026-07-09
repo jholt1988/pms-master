@@ -300,3 +300,54 @@ jobs:
       - name: Verify build output
         working-directory: ./tenant_portal_backend
         run: test -d dist && echo "Build output verified"
+
+  schema-drift:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    needs: lint
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: u
+          POSTGRES_PASSWORD: p
+          POSTGRES_DB: property_management_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          DATABASE_URL: postgresql://u:p@localhost:5432/property_management_test
+
+      - name: Apply migrations to a clean database
+        working-directory: ./tenant_portal_backend
+        env:
+          DATABASE_URL: postgresql://u:p@localhost:5432/property_management_test
+        run: pnpm exec prisma migrate deploy
+
+      - name: Fail if schema.prisma has drifted from migrations
+        working-directory: ./tenant_portal_backend
+        env:
+          DATABASE_URL: postgresql://u:p@localhost:5432/property_management_test
+        run: pnpm run db:check-drift

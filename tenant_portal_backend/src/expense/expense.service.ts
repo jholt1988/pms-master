@@ -3,6 +3,9 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ExpenseCategory } from '@prisma/client';
 import { isUUID } from 'class-validator';
+import { toCents } from '../utils/money';
+import { CreateExpenseDto } from './dto/create-expense.dto';
+import { UpdateExpenseDto } from './dto/update-expense.dto';
 
 @Injectable()
 export class ExpenseService {
@@ -10,14 +13,7 @@ export class ExpenseService {
 
   async createExpense(
     recordedById: string,
-    data: {
-      propertyId: string;
-      unitId?: string;
-      description: string;
-      amount: number;
-      date: Date;
-      category: ExpenseCategory;
-    },
+    data: CreateExpenseDto,
     orgId: string,
   ) {
     const propertyId = data.propertyId;
@@ -39,6 +35,7 @@ export class ExpenseService {
         unit: unitId ? { connect: { id: unitId } } : undefined,
         description: data.description,
         amount: data.amount,
+        amountCents: data.amountCents ?? toCents(data.amount),
         date: data.date,
         category: data.category,
       },
@@ -75,14 +72,7 @@ export class ExpenseService {
 
   async updateExpense(
     id: number,
-    data: {
-      propertyId?: string;
-      unitId?: string;
-      description?: string;
-      amount?: number;
-      date?: Date;
-      category?: ExpenseCategory;
-    },
+    data: UpdateExpenseDto,
     orgId: string,
   ) {
     const existing = await this.prisma.expense.findFirst({
@@ -96,6 +86,9 @@ export class ExpenseService {
     const updateData: any = { ...data };
     if (data.unitId) {
       updateData.unitId = this.parseUuidId(data.unitId, 'unit');
+    }
+    if (data.amountCents === undefined && data.amount !== undefined) {
+      updateData.amountCents = toCents(data.amount);
     }
     return this.prisma.expense.update({ where: { id }, data: updateData });
   }

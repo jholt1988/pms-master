@@ -46,7 +46,7 @@ interface AuthenticatedRequest extends ExpressRequest {
   };
 }
 
-@Controller(['properties', 'property'])
+@Controller('properties')
 @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
 export class PropertyController {
   constructor(

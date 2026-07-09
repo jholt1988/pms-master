@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { toCents } from '../utils/money';
 import { RentRecommendationStatus } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import axios from 'axios';
@@ -119,9 +120,13 @@ export class RentOptimizationService {
         id: `${unitIdLabel}-${Date.now().toString()}`,
         unit: { connect: { id: unitId } },
         currentRent: unit.lease?.rentAmount || 0,
+        currentRentCents: toCents(unit.lease?.rentAmount || 0),
         recommendedRent: recommended_rent,
+        recommendedRentCents: toCents(recommended_rent),
         confidenceIntervalLow: confidence_interval_low,
+        confidenceIntervalLowCents: toCents(confidence_interval_low),
         confidenceIntervalHigh: confidence_interval_high,
+        confidenceIntervalHighCents: toCents(confidence_interval_high),
         factors: factors as any,
         marketComparables: market_comparables as any,
         modelVersion: model_version,
