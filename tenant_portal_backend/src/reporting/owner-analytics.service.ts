@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { AIProviderService } from '../ai-provider';
+import { fromCents } from '../utils/money';
 
 @Injectable()
 export class OwnerAnalyticsService {
@@ -50,7 +51,7 @@ export class OwnerAnalyticsService {
         status: 'COMPLETED',
         lease: { unit: { property: { organizationId: orgId } } },
       },
-      _sum: { amount: true },
+      _sum: { amountCents: true },
     });
 
     const currentExpense = await this.prisma.expense.aggregate({
@@ -58,7 +59,7 @@ export class OwnerAnalyticsService {
         date: { gte: currentMonthStart },
         property: { organizationId: orgId },
       },
-      _sum: { amount: true },
+      _sum: { amountCents: true },
     });
 
     // Get last month stats
@@ -68,7 +69,7 @@ export class OwnerAnalyticsService {
         status: 'COMPLETED',
         lease: { unit: { property: { organizationId: orgId } } },
       },
-      _sum: { amount: true },
+      _sum: { amountCents: true },
     });
 
     const lastMonthExpense = await this.prisma.expense.aggregate({
@@ -76,16 +77,16 @@ export class OwnerAnalyticsService {
         date: { gte: lastMonthStart, lte: lastMonthEnd },
         property: { organizationId: orgId },
       },
-      _sum: { amount: true },
+      _sum: { amountCents: true },
     });
 
-    const currentIncomeAmount = currentIncome._sum.amount ?? 0;
-    const currentExpenseAmount = currentExpense._sum.amount ?? 0;
-    const currentNOI = currentIncomeAmount - currentExpenseAmount;
+    const currentIncomeCents = currentIncome._sum.amountCents ?? 0;
+    const currentExpenseCents = currentExpense._sum.amountCents ?? 0;
+    const currentNOICents = currentIncomeCents - currentExpenseCents;
 
-    const lastMonthIncomeAmount = lastMonthIncome._sum.amount ?? 0;
-    const lastMonthExpenseAmount = lastMonthExpense._sum.amount ?? 0;
-    const lastMonthNOI = lastMonthIncomeAmount - lastMonthExpenseAmount;
+    const lastMonthIncomeCents = lastMonthIncome._sum.amountCents ?? 0;
+    const lastMonthExpenseCents = lastMonthExpense._sum.amountCents ?? 0;
+    const lastMonthNOICents = lastMonthIncomeCents - lastMonthExpenseCents;
 
     // Financial Projections
     // Estimate baseline market valuation: $250k per unit
@@ -94,26 +95,29 @@ export class OwnerAnalyticsService {
     
     // Total cash invested estimate: $50k per unit
     const cashInvested = totalUnits > 0 ? totalUnits * 50000 : 60000;
+    // Same figures in integer cents for unit-consistent ratio math.
+    const portfolioValuationCents = portfolioValuation * 100;
+    const cashInvestedCents = cashInvested * 100;
 
-    // Annualized NOI based on current performance
-    const annualizedNOI = currentNOI * 12;
+    // Annualized NOI based on current performance (integer cents)
+    const annualizedNOICents = currentNOICents * 12;
 
-    // Calculations
-    const capRate = portfolioValuation > 0 ? (annualizedNOI / portfolioValuation) * 100 : 0;
-    const cashOnCash = cashInvested > 0 ? (annualizedNOI / cashInvested) * 100 : 0;
+    // Calculations (ratios are scale-invariant; computed in cents)
+    const capRate = portfolioValuationCents > 0 ? (annualizedNOICents / portfolioValuationCents) * 100 : 0;
+    const cashOnCash = cashInvestedCents > 0 ? (annualizedNOICents / cashInvestedCents) * 100 : 0;
 
     // Simulated 5-Year IRR
     // Cash outflows: -CashInvested at Year 0
     // Year 1 to 4: Annualized NOI (growing at 3% per year)
     // Year 5: Annualized NOI + Resale Value (deemed at 1.15x initial valuation)
-    const irrVal = this.calculateSimulatedIRR(cashInvested, annualizedNOI, portfolioValuation);
+    const irrVal = this.calculateSimulatedIRR(cashInvestedCents, annualizedNOICents, portfolioValuationCents);
 
     // AI Narrative Generation
     const aiSummary = await this.generateNarrative(
-      currentIncomeAmount,
-      currentExpenseAmount,
-      lastMonthIncomeAmount,
-      lastMonthExpenseAmount,
+      fromCents(currentIncomeCents),
+      fromCents(currentExpenseCents),
+      fromCents(lastMonthIncomeCents),
+      fromCents(lastMonthExpenseCents),
     );
 
     return {
@@ -121,14 +125,16 @@ export class OwnerAnalyticsService {
       unitsCount: totalUnits,
       portfolioValuation,
       cashInvested,
-      currentMonthNOI: currentNOI,
-      lastMonthNOI,
+      currentMonthNOI: fromCents(currentNOICents),
+      currentMonthNOICents: currentNOICents,
+      lastMonthNOI: fromCents(lastMonthNOICents),
+      lastMonthNOICents,
       capRate: Number(capRate.toFixed(2)),
       cashOnCash: Number(cashOnCash.toFixed(2)),
       irr: Number(irrVal.toFixed(2)),
       cashFlows: [
-        { month: 'Current Month', income: currentIncomeAmount, expenses: currentExpenseAmount, net: currentNOI },
-        { month: 'Last Month', income: lastMonthIncomeAmount, expenses: lastMonthExpenseAmount, net: lastMonthNOI },
+        { month: 'Current Month', income: fromCents(currentIncomeCents), expenses: fromCents(currentExpenseCents), net: fromCents(currentNOICents), incomeCents: currentIncomeCents, expensesCents: currentExpenseCents, netCents: currentNOICents },
+        { month: 'Last Month', income: fromCents(lastMonthIncomeCents), expenses: fromCents(lastMonthExpenseCents), net: fromCents(lastMonthNOICents), incomeCents: lastMonthIncomeCents, expensesCents: lastMonthExpenseCents, netCents: lastMonthNOICents },
       ],
       aiSummary,
     };

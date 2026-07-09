@@ -300,7 +300,9 @@ async function main() {
         endDate: oneYearFromNow,
         moveInAt: sixMonthsAgo,
         rentAmount: 1800,
+        rentAmountCents: 180000,
         depositAmount: 1800,
+        depositAmountCents: 180000,
         status: LeaseStatus.ACTIVE,
         noticePeriodDays: 30,
         autoRenew: true,
@@ -319,7 +321,9 @@ async function main() {
         endDate: oneYearFromNow,
         moveInAt: sixMonthsAgo,
         rentAmount: 2100,
+        rentAmountCents: 210000,
         depositAmount: 2100,
+        depositAmountCents: 210000,
         status: LeaseStatus.ACTIVE,
         noticePeriodDays: 30,
         autoRenew: false,
@@ -338,7 +342,9 @@ async function main() {
         endDate: oneYearFromNow,
         moveInAt: sixMonthsAgo,
         rentAmount: 1950,
+        rentAmountCents: 195000,
         depositAmount: 1950,
+        depositAmountCents: 195000,
         status: LeaseStatus.ACTIVE,
         noticePeriodDays: 30,
         autoRenew: true,
@@ -446,6 +452,7 @@ async function main() {
     data: {
       userId: tenant1.id,
       amount: 1800,
+      amountCents: 180000,
       paymentDate: twoMonthsAgo,
       status: 'COMPLETED',
     },
@@ -455,6 +462,7 @@ async function main() {
     data: {
       userId: tenant1.id,
       amount: 1800,
+      amountCents: 180000,
       paymentDate: lastMonth,
       status: 'COMPLETED',
     },
@@ -464,6 +472,7 @@ async function main() {
     data: {
       userId: tenant1.id,
       amount: 1800,
+      amountCents: 180000,
       paymentDate: currentMonth,
       status: 'PENDING',
     },
@@ -474,6 +483,7 @@ async function main() {
     data: {
       userId: tenant2.id,
       amount: 2100,
+      amountCents: 210000,
       paymentDate: twoMonthsAgo,
       status: 'COMPLETED',
     },
@@ -483,6 +493,7 @@ async function main() {
     data: {
       userId: tenant2.id,
       amount: 2100,
+      amountCents: 210000,
       paymentDate: lastMonth,
       status: 'COMPLETED',
     },
@@ -492,6 +503,7 @@ async function main() {
     data: {
       userId: tenant2.id,
       amount: 2100,
+      amountCents: 210000,
       paymentDate: currentMonth,
       status: 'PENDING',
     },
@@ -550,6 +562,7 @@ async function main() {
     data: {
       description: 'HVAC System Maintenance',
       amount: 850,
+      amountCents: 85000,
       date: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
       category: ExpenseCategory.MAINTENANCE,
       propertyId: property.id,
@@ -561,6 +574,7 @@ async function main() {
     data: {
       description: 'Landscaping Services',
       amount: 300,
+      amountCents: 30000,
       date: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
       category: ExpenseCategory.OTHER,
       propertyId: property.id,
@@ -572,6 +586,7 @@ async function main() {
     data: {
       description: 'Property Insurance',
       amount: 1200,
+      amountCents: 120000,
       date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
       category: ExpenseCategory.INSURANCE,
       propertyId: property.id,
