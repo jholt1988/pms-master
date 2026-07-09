@@ -302,6 +302,8 @@ jobs:
         run: test -d dist && echo "Build output verified"
 
   schema-drift:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     needs: lint
 
