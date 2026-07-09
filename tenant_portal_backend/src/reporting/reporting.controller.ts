@@ -11,7 +11,7 @@ import { OrgId } from '../common/org-context/org-id.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 import { AnalyticsService } from './analytics.service';
 
-@Controller(['reports', 'reporting'])
+@Controller('reporting')
 @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 export class ReportingController {
   constructor(

@@ -5,6 +5,7 @@ export interface Payment {
   id: number;
   leaseId: number;
   amount: number;
+  amountCents?: number | null;
   paymentDate: string;
   status: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
   paymentMethod: string;

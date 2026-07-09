@@ -13,6 +13,7 @@ export interface CreateStripeCustomerDto {
 
 export interface ProcessPaymentDto {
   amount: number; // in dollars
+  amountCents?: number; // integer cents; preferred over `amount` when provided
   currency?: string;
   customerId: string;
   paymentMethodId: string;
@@ -29,6 +30,7 @@ export interface SetupPaymentMethodDto {
 
 export interface CreateCheckoutSessionDto {
   amount: number;
+  amountCents?: number; // integer cents; preferred over `amount` when provided
   customerId: string;
   successUrl: string;
   cancelUrl: string;
@@ -164,7 +166,7 @@ export class StripeService {
       return {
         id: `mock_pi_${dto.customerId}`,
         object: 'payment_intent',
-        amount: Math.round(dto.amount * 100),
+        amount: dto.amountCents ?? Math.round(dto.amount * 100),
         currency: dto.currency || 'usd',
         customer: dto.customerId,
         payment_method: dto.paymentMethodId,
@@ -177,7 +179,7 @@ export class StripeService {
 
     try {
       const paymentIntent = await this.stripe!.paymentIntents.create({
-        amount: Math.round(dto.amount * 100), // Convert to cents
+        amount: dto.amountCents ?? Math.round(dto.amount * 100), // Convert to cents
         currency: dto.currency || 'usd',
         customer: dto.customerId,
         payment_method: dto.paymentMethodId,
@@ -212,7 +214,7 @@ export class StripeService {
   }
 
   async createCheckoutSession(dto: CreateCheckoutSessionDto): Promise<{ checkoutUrl: string; sessionId: string }> {
-    const amountCents = Math.max(50, Math.round(dto.amount * 100));
+    const amountCents = Math.max(50, dto.amountCents ?? Math.round(dto.amount * 100));
 
     if (this.isStripeDisabled) {
       const sessionId = `mock_cs_${Date.now()}`;
@@ -649,12 +651,12 @@ export class StripeService {
   /**
    * Refund a payment
    */
-  async refundPayment(paymentIntentId: string, amount?: number): Promise<Stripe.Refund> {
+  async refundPayment(paymentIntentId: string, amount?: number, amountCents?: number): Promise<Stripe.Refund> {
     if (this.isStripeDisabled) {
       return {
         id: `mock_refund_${paymentIntentId}`,
         object: 'refund',
-        amount: amount ? Math.round(amount * 100) : undefined,
+        amount: amountCents ?? (amount ? Math.round(amount * 100) : undefined),
         currency: 'usd',
         payment_intent: paymentIntentId,
         status: 'succeeded',
@@ -664,7 +666,7 @@ export class StripeService {
     try {
       const refund = await this.stripe!.refunds.create({
         payment_intent: paymentIntentId,
-        amount: amount ? Math.round(amount * 100) : undefined, // Convert to cents if specified
+        amount: amountCents ?? (amount ? Math.round(amount * 100) : undefined), // Convert to cents if specified
       });
 
       this.logger.log(`Created refund ${refund.id} for payment ${paymentIntentId}`);
