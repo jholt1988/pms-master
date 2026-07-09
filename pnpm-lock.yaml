@@ -656,6 +656,9 @@ importers:
       '@types/node':
         specifier: ^24.10.1
         version: 24.12.2
+      '@types/opossum':
+        specifier: ^8.1.9
+        version: 8.1.9
       '@types/passport-jwt':
         specifier: ^4.0.1
         version: 4.0.1
@@ -9907,6 +9910,12 @@ packages:
     dependencies:
       '@types/node': 24.12.2
     dev: false
+
+  /@types/opossum@8.1.9:
+    resolution: {integrity: sha512-Jm/tYxuJFefiwRYs+/EOsUP3ktk0c8siMgAHPLnA4PXF4wKghzcjqf88dY+Xii5jId5Txw4JV0FMKTpjbd7KJA==}
+    dependencies:
+      '@types/node': 24.12.2
+    dev: true
 
   /@types/passport-jwt@4.0.1:
     resolution: {integrity: sha512-Y0Ykz6nWP4jpxgEUYq8NoVZeCQPo1ZndJLfapI249g1jHChvRfZRO/LS3tqu26YgAS/laI1qx98sYGz0IalRXQ==}

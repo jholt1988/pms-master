@@ -187,6 +187,7 @@
     "@types/jwt-decode": "^2.2.1",
     "@types/multer": "^2.0.0",
     "@types/node": "^24.10.1",
+    "@types/opossum": "^8.1.9",
     "@types/passport-jwt": "^4.0.1",
     "@types/uuid": "^9.0.8",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
