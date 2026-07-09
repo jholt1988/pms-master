@@ -400,6 +400,7 @@ export class MockSeedFactory {
 
   private async createLease(unitId: string, tenantId: string, unitIndex: number) {
     const rentAmount = faker.number.int({ min: 975, max: 2200 });
+    const currentBalance = faker.number.int({ min: 0, max: 350 });
     const lease = await this.prisma.lease.create({
       data: {
         unitId,
@@ -408,14 +409,17 @@ export class MockSeedFactory {
         endDate: this.daysFromNow(240 - unitIndex * 3),
         moveInAt: this.daysAgo(118 + unitIndex * 5),
         rentAmount,
+        rentAmountCents: Math.round(rentAmount * 100),
         depositAmount: rentAmount,
+        depositAmountCents: Math.round(rentAmount * 100),
         depositHeldAt: this.daysAgo(119 + unitIndex * 5),
         status: LeaseStatus.ACTIVE,
         noticePeriodDays: 30,
         autoRenew: faker.datatype.boolean(),
         autoRenewLeadDays: 90,
         billingAlignment: BillingAlignment.FULL_CYCLE,
-        currentBalance: faker.number.int({ min: 0, max: 350 }),
+        currentBalance,
+        currentBalanceCents: Math.round(currentBalance * 100),
       },
     });
     this.counts.leases += 1;
@@ -442,14 +446,19 @@ export class MockSeedFactory {
   }
 
   private async createRentRecommendation(unitId: string, currentRent: number) {
+    const recommendedRent = currentRent + faker.number.int({ min: 25, max: 125 });
     await this.prisma.rentRecommendation.create({
       data: {
         id: randomUUID(),
         unitId,
         currentRent,
-        recommendedRent: currentRent + faker.number.int({ min: 25, max: 125 }),
+        currentRentCents: Math.round(currentRent * 100),
+        recommendedRent,
+        recommendedRentCents: Math.round(recommendedRent * 100),
         confidenceIntervalLow: currentRent - 50,
+        confidenceIntervalLowCents: Math.round((currentRent - 50) * 100),
         confidenceIntervalHigh: currentRent + 175,
+        confidenceIntervalHighCents: Math.round((currentRent + 175) * 100),
         factors: {
           demand: 'steady',
           seasonality: 'spring',
@@ -487,15 +496,19 @@ export class MockSeedFactory {
       },
     });
 
+    const scheduleAmount = faker.number.int({ min: 975, max: 2200 });
+    const scheduleAmountCents = Math.round(scheduleAmount * 100);
     const recurringSchedule = await this.prisma.recurringInvoiceSchedule.create({
       data: {
         leaseId: input.leaseId,
-        amount: faker.number.int({ min: 975, max: 2200 }),
+        amount: scheduleAmount,
+        amountCents: scheduleAmountCents,
         description: 'Monthly Rent',
         frequency: BillingFrequency.MONTHLY,
         dayOfMonth: 1,
         nextRun: this.daysFromNow(14),
         lateFeeAmount: 75,
+        lateFeeAmountCents: 7500,
         lateFeeAfterDays: 5,
         active: true,
       },
@@ -504,7 +517,8 @@ export class MockSeedFactory {
     const currentInvoice = await this.prisma.invoice.create({
       data: {
         leaseId: input.leaseId,
-        amount: recurringSchedule.amount,
+        amount: scheduleAmount,
+        amountCents: scheduleAmountCents,
         description: 'Rent - Current Month',
         dueDate: this.daysFromNow(14),
         issuedAt: this.daysAgo(16),
@@ -518,7 +532,8 @@ export class MockSeedFactory {
     const paidInvoice = await this.prisma.invoice.create({
       data: {
         leaseId: input.leaseId,
-        amount: recurringSchedule.amount,
+        amount: scheduleAmount,
+        amountCents: scheduleAmountCents,
         description: 'Rent - Prior Month',
         dueDate: this.daysAgo(18),
         issuedAt: this.daysAgo(32),
@@ -534,13 +549,14 @@ export class MockSeedFactory {
         leaseId: input.leaseId,
         paymentMethodId: paymentMethod.id,
         active: true,
-        maxAmount: recurringSchedule.amount + 150,
+        maxAmount: scheduleAmount + 150,
       },
     });
 
     const payment = await this.prisma.payment.create({
       data: {
-        amount: paidInvoice.amount,
+        amount: scheduleAmount,
+        amountCents: scheduleAmountCents,
         paymentDate: this.daysAgo(14),
         status: PaymentStatus.COMPLETED,
         invoiceId: paidInvoice.id,
@@ -571,7 +587,7 @@ export class MockSeedFactory {
           accountId: ledgerAccount.id,
           entryType: 'CHARGE',
           direction: 'DEBIT',
-          amountCents: Math.round(paidInvoice.amount * 100),
+          amountCents: scheduleAmountCents,
           effectiveDate: paidInvoice.dueDate,
           sourceType: 'INVOICE',
           sourceId: String(paidInvoice.id),
@@ -584,7 +600,7 @@ export class MockSeedFactory {
           paymentId: payment.id,
           entryType: 'PAYMENT',
           direction: 'CREDIT',
-          amountCents: Math.round(payment.amount * 100),
+          amountCents: scheduleAmountCents,
           effectiveDate: payment.paymentDate,
           sourceType: 'PAYMENT',
           sourceId: String(payment.id),
@@ -596,7 +612,7 @@ export class MockSeedFactory {
           accountId: ledgerAccount.id,
           entryType: 'CHARGE',
           direction: 'DEBIT',
-          amountCents: Math.round(currentInvoice.amount * 100),
+          amountCents: scheduleAmountCents,
           effectiveDate: currentInvoice.dueDate,
           sourceType: 'INVOICE',
           sourceId: String(currentInvoice.id),
@@ -613,10 +629,10 @@ export class MockSeedFactory {
         organizationId: input.organizationId,
         leaseId: input.leaseId,
         sourceEventId: `evt_${this.runLabel}_${faker.string.alphanumeric(12)}`,
-        currency: 'usd',
-        grossAmountMinor: Math.round(payment.amount * 100),
-        platformFeeMinor: Math.round(payment.amount * 100 * 0.029),
-        netAmountMinor: Math.round(payment.amount * 100 * 0.971),
+        currency: 'USD',
+        grossAmountMinor: scheduleAmountCents,
+        platformFeeMinor: Math.round(scheduleAmountCents * 0.029),
+        netAmountMinor: Math.round(scheduleAmountCents * 0.971),
         tierSnapshot: { plan: 'growth', doors: 12 },
       },
     });
@@ -662,6 +678,7 @@ export class MockSeedFactory {
       data: {
         invoiceId: currentInvoice.id,
         amount: 75,
+        amountCents: 7500,
         assessedAt: this.daysFromNow(20),
         waived: false,
       },
