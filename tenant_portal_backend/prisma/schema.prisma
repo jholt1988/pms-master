@@ -507,10 +507,14 @@ model RentRecommendation {
   id                     String                   @id
   unit                   Unit                     @relation(fields: [unitId], references: [id])
   unitId                 String                   @db.Uuid
-  currentRentCents Int
-  recommendedRentCents Int
-  confidenceIntervalLowCents Int
-  confidenceIntervalHighCents Int
+  currentRent            Float
+  currentRentCents Int?
+  recommendedRent        Float
+  recommendedRentCents Int?
+  confidenceIntervalLow  Float
+  confidenceIntervalLowCents Int?
+  confidenceIntervalHigh Float
+  confidenceIntervalHighCents Int?
   factors                Json
   marketComparables      Json
   modelVersion           String?
@@ -550,13 +554,15 @@ model Lease {
   version                   Int                       @default(0)
   startDate                 DateTime
   endDate                   DateTime
-  rentAmountCents Int
+  rentAmount                Float
+  rentAmountCents Int?
   status                    LeaseStatus               @default(DRAFT)
   noticePeriodDays          Int                       @default(30)
   moveInAt                  DateTime?
   moveOutAt                 DateTime?
   autoRenew                 Boolean                   @default(false)
   autoRenewLeadDays         Int?
+  depositAmount             Float                     @default(0)
   depositAmountCents Int @default(0)
   depositHeldAt             DateTime?
   depositReturnedAt         DateTime?
@@ -570,6 +576,7 @@ model Lease {
   rentEscalationPercent     Float?
   rentEscalationEffectiveAt DateTime?
   billingAlignment          BillingAlignment          @default(FULL_CYCLE)
+  currentBalance            Float                     @default(0)
   currentBalanceCents Int @default(0)
   tenant                    User                      @relation(fields: [tenantId], references: [id])
   tenantId                  String                    @unique @db.Uuid // A user can only have one lease
@@ -763,7 +770,9 @@ model LeaseHistory {
   fromStatus    LeaseStatus?
   toStatus      LeaseStatus?
   note          String?
+  rentAmount    Float?
   rentAmountCents Int?
+  depositAmount Float?
   depositAmountCents Int?
   metadata      Json?
   createdAt     DateTime     @default(now())
@@ -893,7 +902,8 @@ model LeaseRenewalOffer {
   id                Int                @id @default(autoincrement())
   lease             Lease              @relation(fields: [leaseId], references: [id])
   leaseId           String             @db.Uuid
-  proposedRentCents Int
+  proposedRent      Float
+  proposedRentCents Int?
   proposedStart     DateTime
   proposedEnd       DateTime
   escalationPercent Float?
@@ -926,9 +936,10 @@ model LeaseNotice {
 }
 
 model Invoice {
-  id              Int                       @id @default(autoincrement())
+  id String @id @default(uuid()) @db.Uuid
   description     String
-  amountCents Int
+  amount          Float
+  amountCents Int?
   dueDate         DateTime
   status          String                    @default("UNPAID") // UNPAID, PAID, OVERDUE
   lease           Lease                     @relation(fields: [leaseId], references: [id])
@@ -949,12 +960,13 @@ model Invoice {
 }
 
 model Payment {
-  id String @id @default(uuid()) @db.Uuid
-  amountCents Int
+  id                  Int                  @id @default(autoincrement())
+  amount              Float
+  amountCents Int?
   paymentDate         DateTime             @default(now())
   status              PaymentStatus        @default(PENDING)
   invoice             Invoice?             @relation(fields: [invoiceId], references: [id])
-  invoiceId           Int?
+  invoiceId String? @db.Uuid
   user                User                 @relation(fields: [userId], references: [id])
   userId              String               @db.Uuid
   lease               Lease?               @relation(fields: [leaseId], references: [id])
@@ -1463,7 +1475,8 @@ model Expense {
   unit         Unit?           @relation(fields: [unitId], references: [id])
   unitId       String?         @db.Uuid
   description  String
-  amountCents Int
+  amount       Float
+  amountCents Int?
   date         DateTime
   category     ExpenseCategory
   recordedBy   User            @relation("RecordedExpenses", fields: [recordedById], references: [id])
@@ -1748,12 +1761,14 @@ model RecurringInvoiceSchedule {
   id               Int              @id @default(autoincrement())
   lease            Lease            @relation(fields: [leaseId], references: [id])
   leaseId          String           @unique @db.Uuid
-  amountCents Int
+  amount           Float
+  amountCents Int?
   description      String           @default("Monthly Rent")
   frequency        BillingFrequency @default(MONTHLY)
   dayOfMonth       Int? // required for monthly
   dayOfWeek        Int? // optional for weekly
   nextRun          DateTime
+  lateFeeAmount    Float? // flat fee
   lateFeeAmountCents Int?
   lateFeeAfterDays Int? // number of days after due date
   active           Boolean          @default(true)
@@ -1770,8 +1785,9 @@ enum BillingFrequency {
 model LateFee {
   id         Int      @id @default(autoincrement())
   invoice    Invoice  @relation(fields: [invoiceId], references: [id])
-  invoiceId  Int
-  amountCents Int
+  invoiceId String @db.Uuid
+  amount     Float
+  amountCents Int?
   assessedAt DateTime @default(now())
   waived     Boolean  @default(false)
 
@@ -1781,10 +1797,12 @@ model LateFee {
 model PaymentPlan {
   id                   Int                  @id @default(autoincrement())
   invoice              Invoice              @relation(fields: [invoiceId], references: [id])
-  invoiceId            Int                  @unique
+  invoiceId String @unique @db.Uuid
   installments         Int
-  amountPerInstallmentCents Int
-  totalAmountCents Int
+  amountPerInstallment Float
+  amountPerInstallmentCents Int?
+  totalAmount          Float
+  totalAmountCents Int?
   status               String               @default("PENDING") // PENDING, ACTIVE, COMPLETED, CANCELLED
   acceptedAt           DateTime?
   completedAt          DateTime?
@@ -1839,7 +1857,7 @@ model PaymentAttempt {
   autopayEnrollment   AutopayEnrollment    @relation(fields: [autopayEnrollmentId], references: [id])
   autopayEnrollmentId Int
   invoice             Invoice              @relation(fields: [invoiceId], references: [id])
-  invoiceId           Int
+  invoiceId String @db.Uuid
   status              PaymentAttemptStatus @default(SCHEDULED)
   failureReason       String?
   externalAttemptId   String?
