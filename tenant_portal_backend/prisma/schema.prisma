@@ -154,6 +154,13 @@ model Organization {
   stripeLastOnboardingCheckAt DateTime?
   delinquencyDaysWeight       Float?
   delinquencyAmountWeight     Float?
+  currency                    String?                @default("USD")
+  dateFormat                  String?                @default("MM/DD/YYYY")
+  timezone                    String?                @default("America/New_York")
+  lateFeeEnabled              Boolean                @default(false)
+  lateFeeAmount               Float?                 @default(0)
+  lateFeeGraceDays            Int?                   @default(5)
+  quickbooksConnected         Boolean                @default(false)
   createdAt                   DateTime               @default(now())
   updatedAt                   DateTime               @updatedAt
 
@@ -579,9 +586,9 @@ model Lease {
   currentBalance            Float                     @default(0)
   currentBalanceCents Int @default(0)
   tenant                    User                      @relation(fields: [tenantId], references: [id])
-  tenantId                  String                    @unique @db.Uuid // A user can only have one lease
+  tenantId                  String                    @db.Uuid
   unit                      Unit                      @relation(fields: [unitId], references: [id])
-  unitId                    String                    @unique @db.Uuid // A unit can only have one lease
+  unitId                    String                    @db.Uuid
   payments                  Payment[]
   manualPayments            ManualPayment[]
   manualCharges             ManualCharge[]
