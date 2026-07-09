@@ -1,4 +1,8 @@
 // tenant_portal_app/src/services/apiClient.ts
+// Canonical envelope types come from the shared @propertyos/api-contracts package
+// (the single source of truth) and are re-exported here for convenience.
+export type { ApiEnvelope, ApiError, ApiMeta } from '@propertyos/api-contracts';
+
 export const getApiBase = () => (import.meta.env.VITE_API_URL ?? '/api');
 
 export const SESSION_EXPIRED_MESSAGE = 'Your session has expired. Please sign in again to continue.';

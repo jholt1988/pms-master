@@ -87,3 +87,8 @@ venv/
 
 # OS / editor
 .DS_Store
+
+# ---- P0 secret cleanup (#33): stop tracking debug logs with real identifiers ----
+tenant_portal_backend/jwt-test-*.txt
+tenant_portal_backend/envelope-debug-*.txt
+ops/.env.supabase

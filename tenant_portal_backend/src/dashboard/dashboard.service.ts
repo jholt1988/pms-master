@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LeadApplicationStatus, MaintenancePriority, Status } from '@prisma/client';
 import { AuditLogService } from '../shared/audit-log.service';
 import { AppCacheService } from '../cache/cache.service';
+import { toCents } from '../utils/money';
 
 @Injectable()
 export class DashboardService {
@@ -89,6 +90,10 @@ export class DashboardService {
             where: { id: leaseId },
             data: {
               rentAmount: extractedFields.monthlyRent,
+              // Dual-write integer cents (guarded: skip when the extracted value isn't a finite number).
+              rentAmountCents: Number.isFinite(Number(extractedFields.monthlyRent))
+                ? toCents(Number(extractedFields.monthlyRent))
+                : undefined,
               startDate: new Date(extractedFields.startDate),
               endDate: new Date(extractedFields.endDate),
               // We could store the rest as JSON or map to actual schema
@@ -114,6 +119,10 @@ export class DashboardService {
             data: {
               status: 'RENEWAL_PENDING',
               rentAmount: recommendedRent, // Updating the rent directly to represent the accepted offer for demo
+              // Dual-write integer cents (guarded: skip when recommendedRent isn't a finite number).
+              rentAmountCents: Number.isFinite(Number(recommendedRent))
+                ? toCents(Number(recommendedRent))
+                : undefined,
             }
           });
           this.logger.log(`Lease ${leaseId} dynamically adjusted to Yield Price of ${recommendedRent}`);

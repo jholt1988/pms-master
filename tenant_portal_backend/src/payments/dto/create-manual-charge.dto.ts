@@ -1,5 +1,6 @@
 import { IsDateString, IsEnum, IsInt, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 import { ManualChargeType } from '@prisma/client';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateManualChargeDto {
   @IsUUID()
@@ -18,6 +19,7 @@ export class CreateManualChargeDto {
   @IsEnum(ManualChargeType)
   chargeType!: ManualChargeType;
 
+  @ApiProperty({ type: Number, description: 'Amount in integer cents.' })
   @IsInt()
   @Min(1)
   amountCents!: number;
