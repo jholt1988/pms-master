@@ -186,7 +186,7 @@ export default function PaymentConfirmationScreen() {
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Monthly Rent</Text>
             <Text style={styles.detailValue}>
-              ${currentLease.monthlyRent.toFixed(2)}
+              ${currentLease.rentAmount.toFixed(2)}
             </Text>
           </View>
         </View>

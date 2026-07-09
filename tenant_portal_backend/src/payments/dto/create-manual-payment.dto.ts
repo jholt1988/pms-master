@@ -1,5 +1,6 @@
 import { IsDateString, IsEnum, IsInt, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 import { ManualPaymentAppliedTo, ManualPaymentMethod } from '@prisma/client';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateManualPaymentDto {
   @IsUUID()
@@ -15,6 +16,7 @@ export class CreateManualPaymentDto {
   @IsUUID()
   tenantId!: string;
 
+  @ApiProperty({ type: Number, description: 'Amount in integer cents.' })
   @IsInt()
   @Min(1)
   amountCents!: number;

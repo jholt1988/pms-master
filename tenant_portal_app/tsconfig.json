@@ -18,7 +18,13 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@propertyos/api-contracts": ["../packages/api-contracts/src/index.ts"],
+      "@propertyos/api-contracts/schemas": ["../packages/api-contracts/src/schemas.ts"],
+      "@propertyos/api-contracts/generated": ["../packages/api-contracts/src/generated/schema.ts"]
+    }
   },
   "include": [
     "src"

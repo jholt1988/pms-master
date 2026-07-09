@@ -535,6 +535,8 @@ export class PaymentsController {
       installments: dto.installments,
       amountPerInstallment: dto.amountPerInstallment,
       totalAmount: dto.totalAmount,
+      amountPerInstallmentCents: dto.amountPerInstallmentCents,
+      totalAmountCents: dto.totalAmountCents,
     }, orgId);
     await this.auditLogService.record({
       orgId,

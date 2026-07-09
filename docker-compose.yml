@@ -96,7 +96,7 @@ services:
       SHADOW_DATABASE_URL: ${SHADOW_DATABASE_URL:-postgresql://pms:pms@postgres:5432/pms_shadow?schema=public}
       DIRECT_URL: ${DIRECT_URL:-}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://admin.localhost:3000,http://localhost:8080,http://localhost:3003,http://localhost:8000,http://localhost:3002}
-      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me-32-bytes-minimum}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set (see ops/.env.*.example)}
       MIL_SERVICE_URL: ${MIL_SERVICE_URL:-http://mil:3010}
       MIL_WRAPPER_ENABLED: ${MIL_WRAPPER_ENABLED:-true}
       MIL_ENCRYPT_AT_REST_ENABLED: ${MIL_ENCRYPT_AT_REST_ENABLED:-false}
@@ -107,7 +107,7 @@ services:
       MONITORING_ENABLED: ${MONITORING_ENABLED:-false}
       DISABLE_STRIPE: ${DISABLE_STRIPE:-true}
       ALLOW_DISABLED_STRIPE_IN_PRODUCTION: ${ALLOW_DISABLED_STRIPE_IN_PRODUCTION:-true}
-      LIGHTNING_API_KEY: ${LIGHTNING_API_KEY:-sk-lit-ad8857f5-afd2-4401-a8c9-97a95665f803}
+      LIGHTNING_API_KEY: ${LIGHTNING_API_KEY:?LIGHTNING_API_KEY must be set (see ops/.env.*.example)}
       LIGHTNING_MODEL: ${LIGHTNING_MODEL:-lightning-ai/gpt-oss-120b}
       AI_ENABLED: ${AI_ENABLED:-true}
       AI_CHATBOT_ENABLED: ${AI_CHATBOT_ENABLED:-true}
@@ -264,7 +264,7 @@ services:
     profiles: ["monitoring"]
     environment:
       GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:?GF_SECURITY_ADMIN_PASSWORD must be set}
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - grafana_data:/var/lib/grafana

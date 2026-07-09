@@ -12,7 +12,10 @@ export interface PaymentRiskAssessmentResult {
   paymentPlanSuggestion?: {
     installments: number;
     amountPerInstallment: number;
+    amountPerInstallmentCents: number;
     totalAmount: number;
+    totalAmountCents: number;
+    installmentScheduleCents: number[];
   };
 }
 

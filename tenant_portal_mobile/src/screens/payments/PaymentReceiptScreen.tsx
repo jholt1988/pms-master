@@ -63,7 +63,7 @@ export default function PaymentReceiptScreen() {
   const handleShareReceipt = async () => {
     try {
       await Share.share({
-        message: `Payment Receipt\nAmount: $${selectedPayment?.amount.toFixed(2)}\nDate: ${
+        message: `Payment Receipt\nAmount: $${(selectedPayment?.amountCents != null ? selectedPayment.amountCents / 100 : selectedPayment?.amount)?.toFixed(2)}\nDate: ${
           selectedPayment?.paymentDate
             ? new Date(selectedPayment.paymentDate).toLocaleDateString()
             : ''
@@ -114,7 +114,7 @@ export default function PaymentReceiptScreen() {
         <View style={styles.amountCard}>
           <Text style={styles.amountLabel}>Amount Paid</Text>
           <Text style={styles.amountValue}>
-            ${selectedPayment.amount.toFixed(2)}
+            ${(selectedPayment.amountCents != null ? selectedPayment.amountCents / 100 : selectedPayment.amount).toFixed(2)}
           </Text>
         </View>
 
