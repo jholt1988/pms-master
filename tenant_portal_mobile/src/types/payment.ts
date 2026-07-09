@@ -46,8 +46,8 @@ export interface Lease {
   unitId: number;
   startDate: string; // ISO date string
   endDate: string; // ISO date string
-  monthlyRent: number;
-  securityDeposit: number;
+  rentAmount: number;
+  depositAmount: number;
   status: LeaseStatus;
   paymentDueDay: number; // Day of month (1-31)
   autoPayEnabled: boolean;
@@ -91,6 +91,7 @@ export interface Payment {
   leaseId: number;
   tenantId: number;
   amount: number;
+  amountCents?: number | null;
   paymentMethodId?: number;
   status: PaymentStatus;
   paymentDate: string; // ISO date string
@@ -181,6 +182,7 @@ export interface AutoPayConfig {
  */
 export interface PaymentSummary {
   currentBalance: number;
+  currentBalanceCents?: number | null;
   nextPaymentDue: string; // ISO date string
   nextPaymentAmount: number;
   upcomingPayments: Payment[];

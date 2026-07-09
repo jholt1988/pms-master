@@ -1,0 +1,58 @@
+name: API Contracts CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'packages/api-contracts/**'
+      - 'docs/api/openapi.json'
+      - '.github/workflows/api-contracts-ci.yml'
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'packages/api-contracts/**'
+      - 'docs/api/openapi.json'
+      - '.github/workflows/api-contracts-ci.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-contracts-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          DATABASE_URL: postgresql://stub:stub@localhost:5432/stub
+
+      # Drift gate: the committed generated types MUST match a fresh generation
+      # from the committed OpenAPI spec, so the source of truth cannot silently
+      # diverge from what clients compile against.
+      - name: Check generated types are in sync with the spec
+        working-directory: ./packages/api-contracts
+        run: pnpm run check:drift
+
+      - name: Type-check the contracts package
+        working-directory: ./packages/api-contracts
+        run: pnpm run type-check

@@ -138,7 +138,7 @@ export default function PaymentsScreen() {
           <View style={styles.summaryCard}>
             <Text style={styles.summaryTitle}>Current Balance</Text>
             <Text style={styles.summaryAmount}>
-              ${paymentSummary.currentBalance || currentLease?.monthlyRent || 0}
+              ${paymentSummary.currentBalanceCents != null ? paymentSummary.currentBalanceCents / 100 : (paymentSummary.currentBalance || currentLease?.rentAmount || 0)}
             </Text>
             {paymentSummary.nextPaymentDue && (
               <Text style={styles.summaryDue}>
@@ -276,7 +276,7 @@ export default function PaymentsScreen() {
                       {payment.status}
                     </Text>
                   </View>
-                  <Text style={styles.paymentAmount}>${payment.amount}</Text>
+                  <Text style={styles.paymentAmount}>${payment.amountCents != null ? payment.amountCents / 100 : payment.amount}</Text>
                 </View>
 
                 <View style={styles.paymentDetails}>
