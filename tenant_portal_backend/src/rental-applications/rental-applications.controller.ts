@@ -84,6 +84,7 @@ export class RentalApplicationsController {
    * Gap: Issue 5 - High-Risk Applicant Reasoning (P0)
    */
   @Get(':id/screening-reasoning')
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles('PROPERTY_MANAGER', 'ADMIN', 'OWNER')
   @HttpCode(200)
   async getScreeningReasoning(
