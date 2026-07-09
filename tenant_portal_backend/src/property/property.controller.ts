@@ -208,6 +208,7 @@ export class PropertyController {
    * Gap: Issue 4 - Move-in Readiness State Machine (P0)
    */
   @Post('units/:unitId/start-onboarding')
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles('PROPERTY_MANAGER', 'ADMIN')
   @HttpCode(201)
   async startOnboarding(
@@ -222,6 +223,7 @@ export class PropertyController {
    * Gap: Issue 4 - Move-in Readiness State Machine (P0)
    */
   @Post('units/:unitId/complete-move-in')
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles('PROPERTY_MANAGER', 'ADMIN')
   @HttpCode(200)
   async completeMoveIn(
