@@ -1,9 +1,18 @@
-import { IsDateString, IsNumber, IsOptional, IsPositive, IsString, IsUUID } from 'class-validator';
+import { IsDateString, IsInt, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Min } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreatePaymentDto {
+  @ApiProperty({ type: Number, description: 'Dollar amount (legacy). Prefer amountCents.' })
   @IsNumber()
   @IsPositive()
   amount!: number;
+
+  // Stage-A dual-send: optional integer cents. Preferred over `amount` when provided.
+  @ApiPropertyOptional({ type: Number, description: 'Integer cents (preferred).' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  amountCents?: number;
 
   @IsOptional()
   @IsNumber()

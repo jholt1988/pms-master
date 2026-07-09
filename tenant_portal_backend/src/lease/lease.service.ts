@@ -9,6 +9,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { toCents } from '../utils/money';
 import { CreateLeaseDto } from './dto/create-lease.dto';
 import { UpdateLeaseDto } from './dto/update-lease.dto';
 import { UpdateLeaseStatusDto } from './dto/update-lease-status.dto';
@@ -91,6 +92,7 @@ export class LeaseService {
           startDate,
           endDate,
           rentAmount: dto.rentAmount,
+          rentAmountCents: dto.rentAmountCents ?? toCents(dto.rentAmount),
           status: dto.status ?? LeaseStatus.ACTIVE,
           moveInAt: this.optionalDate(dto.moveInAt) ?? startDate,
           moveOutAt: this.optionalDate(dto.moveOutAt),
@@ -98,6 +100,7 @@ export class LeaseService {
           autoRenew: dto.autoRenew ?? false,
           autoRenewLeadDays: dto.autoRenewLeadDays,
           depositAmount: dto.depositAmount ?? 0,
+          depositAmountCents: dto.depositAmountCents ?? toCents(dto.depositAmount ?? 0),
         },
         include: this.leaseInclude,
       });
@@ -324,6 +327,7 @@ export class LeaseService {
       data: {
         leaseId,
         proposedRent,
+        proposedRentCents: toCents(proposedRent),
         proposedStart,
         proposedEnd,
         escalationPercent: dto.escalationPercent,
@@ -487,6 +491,7 @@ export class LeaseService {
       leaseUpdate.startDate = offer.proposedStart;
       leaseUpdate.endDate = offer.proposedEnd;
       leaseUpdate.rentAmount = offer.proposedRent;
+      leaseUpdate.rentAmountCents = toCents(offer.proposedRent);
       leaseUpdate.rentEscalationPercent = offer.escalationPercent ?? lease.rentEscalationPercent;
       leaseUpdate.rentEscalationEffectiveAt = offer.proposedStart;
       leaseUpdate.renewalDueAt = null;
@@ -709,7 +714,9 @@ export class LeaseService {
         toStatus: data.toStatus,
         note: data.note,
         rentAmount: data.rentAmount,
+        rentAmountCents: data.rentAmount != null ? toCents(data.rentAmount) : undefined,
         depositAmount: data.depositAmount,
+        depositAmountCents: data.depositAmount != null ? toCents(data.depositAmount) : undefined,
         metadata: data.metadata,
       },
     });
