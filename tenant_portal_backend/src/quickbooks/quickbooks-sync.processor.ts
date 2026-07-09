@@ -17,7 +17,10 @@ interface SyncLedgerJobData {
 @Processor('quickbooks-sync')
 export class QuickBooksSyncProcessor {
   private readonly logger = new Logger(QuickBooksSyncProcessor.name);
-  private circuitBreaker: Opossum<[string, string], any>;
+  // opossum ships no types and @types/opossum is not installed, so the default
+  // import resolves to a value; using it in type position triggered TS2749.
+  // Typed as any here to restore tsc; add @types/opossum for real typing (#75).
+  private circuitBreaker: any;
 
   constructor(
     private readonly qbService: AbstractQuickBooksService,
