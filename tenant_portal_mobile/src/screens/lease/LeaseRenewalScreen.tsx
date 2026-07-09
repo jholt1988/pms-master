@@ -60,9 +60,9 @@ export default function LeaseRenewalScreen() {
       const amount = parseFloat(counterOfferRent);
       if (isNaN(amount) || amount <= 0) {
         newErrors.counterOfferRent = 'Please enter a valid amount';
-      } else if (currentLease && amount > currentLease.monthlyRent * 1.5) {
+      } else if (currentLease && amount > currentLease.rentAmount * 1.5) {
         newErrors.counterOfferRent = 'Counter-offer seems unusually high';
-      } else if (currentLease && amount < currentLease.monthlyRent * 0.5) {
+      } else if (currentLease && amount < currentLease.rentAmount * 0.5) {
         newErrors.counterOfferRent = 'Counter-offer seems unusually low';
       }
     }
@@ -166,14 +166,14 @@ export default function LeaseRenewalScreen() {
                 <View style={styles.infoItem}>
                   <Text style={styles.infoLabel}>Current Monthly Rent</Text>
                   <Text style={[styles.infoValue, styles.rentText]}>
-                    {formatCurrency(currentLease.monthlyRent)}
+                    {formatCurrency(currentLease.rentAmount)}
                   </Text>
                 </View>
-                {currentLease.renewalOfferedRent && (
+                {currentLease.proposedRent && (
                   <View style={styles.infoItem}>
                     <Text style={styles.infoLabel}>Offered Renewal Rent</Text>
                     <Text style={[styles.infoValue, styles.rentText]}>
-                      {formatCurrency(currentLease.renewalOfferedRent)}
+                      {formatCurrency(currentLease.proposedRent)}
                     </Text>
                   </View>
                 )}
@@ -257,10 +257,10 @@ export default function LeaseRenewalScreen() {
                   <Text style={styles.errorText}>{errors.counterOfferRent}</Text>
                 )}
                 <Text style={styles.helperText}>
-                  Current rent: {formatCurrency(currentLease.monthlyRent)}
-                  {currentLease.renewalOfferedRent && (
+                  Current rent: {formatCurrency(currentLease.rentAmount)}
+                  {currentLease.proposedRent && (
                     <Text>
-                      {'\n'}Offered rent: {formatCurrency(currentLease.renewalOfferedRent)}
+                      {'\n'}Offered rent: {formatCurrency(currentLease.proposedRent)}
                     </Text>
                   )}
                 </Text>
