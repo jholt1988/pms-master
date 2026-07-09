@@ -1,16 +1,19 @@
 import { Transform, Type } from 'class-transformer';
 import { IsDateString, IsInt, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, Min } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateInvoiceDto {
   @IsNotEmpty()
   description!: string;
 
+  @ApiProperty({ type: Number, description: 'Dollar amount (legacy). Prefer amountCents.' })
   @Type(() => Number)
   @IsNumber()
   @IsPositive()
   amount!: number;
 
   // Stage-A dual-send: optional integer cents. Preferred over `amount` when provided.
+  @ApiPropertyOptional({ type: Number, description: 'Integer cents (preferred).' })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

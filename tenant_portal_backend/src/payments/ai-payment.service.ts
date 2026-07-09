@@ -111,6 +111,11 @@ export class AIPaymentService {
     const factors: string[] = [];
     let riskScore = 0;
 
+    // Prefer integer cents when present; fall back to the legacy Float dollar column.
+    // Keeps this heuristic's math/display in dollars but survives Stage B (Float column drop).
+    const amt = (m: { amount: unknown; amountCents?: number | null }): number =>
+      m.amountCents != null ? fromCents(m.amountCents) : Number(m.amount);
+
     // Factor 1: Payment history (on-time payment rate)
     const totalPayments = payments.length;
     const onTimePayments = payments.filter((p) => {
@@ -152,9 +157,9 @@ export class AIPaymentService {
     const outstandingInvoices = invoices.filter(
       (inv) => inv.status === 'PENDING' && inv.id !== invoiceId,
     );
-    const totalOutstanding = outstandingInvoices.reduce((sum, inv) => sum + Number(inv.amount), 0);
+    const totalOutstanding = outstandingInvoices.reduce((sum, inv) => sum + amt(inv), 0);
 
-    if (totalOutstanding > Number(invoice.amount) * 2) {
+    if (totalOutstanding > amt(invoice) * 2) {
       riskScore += 25;
       factors.push(`High outstanding balance: $${totalOutstanding.toFixed(2)}`);
     } else if (totalOutstanding > 0) {
@@ -165,13 +170,13 @@ export class AIPaymentService {
     // Factor 4: Payment amount relative to history
     const avgPaymentAmount =
       payments.length > 0
-        ? payments.reduce((sum, p) => sum + Number(p.amount), 0) / payments.length
-        : Number(invoice.amount);
+        ? payments.reduce((sum, p) => sum + amt(p), 0) / payments.length
+        : amt(invoice);
 
-    if (Number(invoice.amount) > avgPaymentAmount * 1.5) {
+    if (amt(invoice) > avgPaymentAmount * 1.5) {
       riskScore += 15;
       factors.push(
-        `Invoice amount ($${Number(invoice.amount).toFixed(2)}) is significantly higher than average ($${avgPaymentAmount.toFixed(2)})`,
+        `Invoice amount ($${amt(invoice).toFixed(2)}) is significantly higher than average ($${avgPaymentAmount.toFixed(2)})`,
       );
     }
 
@@ -219,12 +224,12 @@ export class AIPaymentService {
 
     // Determine if payment plan should be suggested
     const suggestPaymentPlan =
-      riskLevel === 'CRITICAL' || riskLevel === 'HIGH' || totalOutstanding > Number(invoice.amount);
+      riskLevel === 'CRITICAL' || riskLevel === 'HIGH' || totalOutstanding > amt(invoice);
 
     let paymentPlanSuggestion;
     if (suggestPaymentPlan) {
       paymentPlanSuggestion = this.generatePaymentPlanSuggestion(
-        Number(invoice.amount),
+        amt(invoice),
         totalOutstanding,
       );
     }
