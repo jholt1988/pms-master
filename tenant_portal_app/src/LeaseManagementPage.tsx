@@ -3,23 +3,16 @@ import { useAuth } from './AuthContext';
 import { apiFetch } from './services/apiClient';
 import { normalizeApiList } from './utils/normalizeApiList';
 import { EmptyState, LoadingState, FeedbackBanner } from './components/ui';
+import type {
+  LeaseStatus,
+  LeaseRenewalStatus,
+  LeaseNoticeType,
+  LeaseNoticeDeliveryMethod,
+  LeaseTerminationParty,
+  DepositDisposition,
+} from '@propertyos/api-contracts';
 
-type LeaseStatus =
-  | 'DRAFT'
-  | 'PENDING_APPROVAL'
-  | 'ACTIVE'
-  | 'RENEWAL_PENDING'
-  | 'NOTICE_GIVEN'
-  | 'TERMINATING'
-  | 'TERMINATED'
-  | 'HOLDOVER'
-  | 'CLOSED';
-
-type LeaseRenewalStatus = 'OFFERED' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED' | 'WITHDRAWN';
-type LeaseNoticeType = 'MOVE_OUT' | 'RENT_INCREASE' | 'OTHER';
-type LeaseNoticeDeliveryMethod = 'EMAIL' | 'SMS' | 'PORTAL' | 'PRINT' | 'OTHER';
-type LeaseTerminationParty = 'MANAGER' | 'TENANT' | 'SYSTEM';
-type DepositDisposition = 'HELD' | 'PARTIAL_RETURN' | 'RETURNED' | 'FORFEITED';
+// Lease enum unions are sourced from @propertyos/api-contracts (imported above).
 type BillingFrequency = 'MONTHLY' | 'WEEKLY';
 
 interface LeaseHistoryEntry {
