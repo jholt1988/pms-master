@@ -321,7 +321,7 @@ export default function AutoPaySetupScreen() {
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Monthly Rent:</Text>
                 <Text style={styles.summaryValue}>
-                  ${currentLease?.monthlyRent?.toFixed(2) ?? 'N/A'}
+                  ${currentLease?.rentAmount?.toFixed(2) ?? 'N/A'}
                 </Text>
               </View>
               <View style={styles.summaryRow}>

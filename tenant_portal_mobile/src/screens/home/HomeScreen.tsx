@@ -215,7 +215,7 @@ function buildHeroData(lease?: TenantDashboardLease) {
     };
   }
 
-  const rentAmount = lease.rentAmount ?? lease.monthlyRent ?? 0;
+  const rentAmount = lease.rentAmountCents != null ? lease.rentAmountCents / 100 : (lease.rentAmount ?? lease.monthlyRent ?? 0);
   const nextDueDate = getNextDueDate(lease);
   const amountLabel = formatCurrency(rentAmount);
   const dueLabel = nextDueDate ? `Due ${format(nextDueDate, 'MMM d')}` : 'Due soon';

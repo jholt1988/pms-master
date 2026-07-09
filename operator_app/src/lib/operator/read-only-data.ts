@@ -375,7 +375,9 @@ export type OperatorLeaseSigningItem = {
   startDate: string;
   endDate: string;
   rentAmount: number;
+  rentAmountCents?: number | null;
   depositAmount: number;
+  depositAmountCents?: number | null;
   documentCount: number;
   latestEnvelope: {
     id: number;
@@ -553,12 +555,14 @@ export type OperatorRenewalItem = {
   unitId: string;
   unitLabel: string | null;
   currentRent: number;
+  currentRentCents?: number | null;
   endDate: string;
   renewalDueAt: string | null;
   moveOutAt: string | null;
   latestOffer: {
     id: number;
     proposedRent: number;
+    proposedRentCents?: number | null;
     proposedStart: string;
     proposedEnd: string;
     status: string;
