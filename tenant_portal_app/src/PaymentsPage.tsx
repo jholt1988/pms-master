@@ -5,6 +5,7 @@ import { apiFetch } from './services/apiClient';
 interface Invoice {
   id: number;
   amount: number;
+  amountCents?: number | null;
   dueDate: string;
   status: string;
 }
@@ -12,6 +13,7 @@ interface Invoice {
 interface Payment {
   id: number;
   amount: number;
+  amountCents?: number | null;
   paymentDate: string;
   status: string;
 }
@@ -67,6 +69,11 @@ const formatCurrency = (value?: number | null): string => {
   }
   return currencyFormatter.format(value);
 };
+
+// Prefer integer cents when the API provides them; fall back to the legacy dollar Float.
+// Reuses formatCurrency so both paths render identically (no visual change during cutover).
+const formatMoney = (dollars?: number | null, cents?: number | null): string =>
+  cents != null ? formatCurrency(cents / 100) : formatCurrency(dollars);
 
 const formatDate = (value?: string | null): string => {
   if (!value) {
@@ -371,9 +378,14 @@ export default function PaymentsPage(): React.ReactElement {
     [invoices],
   );
 
-  const totalDue = useMemo(
+  // Sum in integer cents (exact), preferring the cents field per-term; divide once at display.
+  const totalDueCents = useMemo(
     () =>
-      openInvoices.reduce((sum, invoice) => sum + (Number.isFinite(invoice.amount) ? invoice.amount : 0), 0),
+      openInvoices.reduce(
+        (sum, invoice) =>
+          sum + (invoice.amountCents ?? Math.round((Number.isFinite(invoice.amount) ? invoice.amount : 0) * 100)),
+        0,
+      ),
     [openInvoices],
   );
 
@@ -431,7 +443,7 @@ export default function PaymentsPage(): React.ReactElement {
       <section className="grid gap-4 sm:grid-cols-3">
         <article className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
           <p className="text-sm font-medium text-gray-500">Balance due</p>
-          <p className="mt-2 text-2xl font-semibold text-gray-900">{formatCurrency(totalDue)}</p>
+          <p className="mt-2 text-2xl font-semibold text-gray-900">{formatCurrency(totalDueCents / 100)}</p>
           <p className="mt-1 text-xs text-gray-500">
             {openInvoices.length} open invoice{openInvoices.length === 1 ? '' : 's'}
           </p>
@@ -442,13 +454,13 @@ export default function PaymentsPage(): React.ReactElement {
             {nextInvoice ? formatDate(nextInvoice.dueDate) : '—'}
           </p>
           <p className="mt-1 text-xs text-gray-500">
-            {nextInvoice ? `Amount ${formatCurrency(nextInvoice.amount)}` : 'No upcoming invoices'}
+            {nextInvoice ? `Amount ${formatMoney(nextInvoice.amount, nextInvoice.amountCents)}` : 'No upcoming invoices'}
           </p>
         </article>
         <article className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
           <p className="text-sm font-medium text-gray-500">Last payment</p>
           <p className="mt-2 text-2xl font-semibold text-emerald-600">
-            {lastPayment ? formatCurrency(lastPayment.amount) : '—'}
+            {lastPayment ? formatMoney(lastPayment.amount, lastPayment.amountCents) : '—'}
           </p>
           <p className="mt-1 text-xs text-gray-500">
             {lastPayment ? `Paid ${formatDate(lastPayment.paymentDate)}` : 'No payment history yet'}
@@ -485,7 +497,7 @@ export default function PaymentsPage(): React.ReactElement {
                       <tr key={invoice.id}>
                         <td className="px-4 py-3 text-gray-600">#{invoice.id}</td>
                         <td className="px-4 py-3 text-gray-600">{formatDate(invoice.dueDate)}</td>
-                        <td className="px-4 py-3 text-gray-900 font-medium">{formatCurrency(invoice.amount)}</td>
+                        <td className="px-4 py-3 text-gray-900 font-medium">{formatMoney(invoice.amount, invoice.amountCents)}</td>
                         <td className="px-4 py-3">
                           <span
                             className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${invoiceStatusBadge(invoice.status)}`}
@@ -528,7 +540,7 @@ export default function PaymentsPage(): React.ReactElement {
                       <tr key={payment.id}>
                         <td className="px-4 py-3 text-gray-600">#{payment.id}</td>
                         <td className="px-4 py-3 text-gray-600">{formatDate(payment.paymentDate)}</td>
-                        <td className="px-4 py-3 font-medium text-gray-900">{formatCurrency(payment.amount)}</td>
+                        <td className="px-4 py-3 font-medium text-gray-900">{formatMoney(payment.amount, payment.amountCents)}</td>
                         <td className="px-4 py-3">
                           <span
                             className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${paymentStatusBadge(payment.status)}`}
