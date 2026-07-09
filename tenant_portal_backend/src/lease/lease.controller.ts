@@ -16,6 +16,8 @@ import { RespondRenewalOfferDto } from './dto/respond-renewal-offer.dto';
 import { TenantSubmitNoticeDto } from './dto/tenant-submit-notice.dto';
 import { AuditLogService } from '../shared/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ApiTags, ApiOkResponse, ApiExtraModels } from '@nestjs/swagger';
+import { LeaseResponseDto } from './dto/lease-response.dto';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -24,6 +26,8 @@ interface AuthenticatedRequest extends Request {
   };
 }
 
+@ApiTags('leases')
+@ApiExtraModels(LeaseResponseDto)
 @Controller('leases')
 @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 export class LeaseController {
@@ -49,12 +53,14 @@ export class LeaseController {
 
   @Get()
   @Roles('PROPERTY_MANAGER')
+  @ApiOkResponse({ type: LeaseResponseDto, isArray: true })
   getAllLeases(@OrgId() orgId?: string) {
     return this.leaseService.getAllLeases(orgId);
   }
 
   @Get('my-lease')
   @Roles('TENANT')
+  @ApiOkResponse({ type: LeaseResponseDto })
   async getMyLease(@Request() req: AuthenticatedRequest) {
     // Verify user is authenticated and has TENANT role
     // The RolesGuard should handle this, but we add an extra check for safety
@@ -81,6 +87,7 @@ export class LeaseController {
 
   @Get(':id')
   @Roles('PROPERTY_MANAGER')
+  @ApiOkResponse({ type: LeaseResponseDto })
   getLeaseById(@Param('id') id: string, @OrgId() orgId?: string) {
     return this.leaseService.getLeaseById(id, orgId);
   }
