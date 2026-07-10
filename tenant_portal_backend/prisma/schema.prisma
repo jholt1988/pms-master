@@ -7,7 +7,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = "postgresql://pms:pms@127.0.0.1:5432/pms"
 }
 // --- Multi-tenant foundation (PM company / landlord account) ---
 
@@ -586,9 +586,9 @@ model Lease {
   currentBalance            Float                     @default(0)
   currentBalanceCents Int @default(0)
   tenant                    User                      @relation(fields: [tenantId], references: [id])
-  tenantId                  String                    @db.Uuid
+  tenantId                  String                    @db.Uuid @unique
   unit                      Unit                      @relation(fields: [unitId], references: [id])
-  unitId                    String                    @db.Uuid
+  unitId                    String                    @db.Uuid @unique
   payments                  Payment[]
   manualPayments            ManualPayment[]
   manualCharges             ManualCharge[]
@@ -967,7 +967,7 @@ model Invoice {
 }
 
 model Payment {
-  id                  Int                  @id @default(autoincrement())
+  id                  String                  @id  @db.Uuid
   amount              Float
   amountCents Int?
   paymentDate         DateTime             @default(now())
