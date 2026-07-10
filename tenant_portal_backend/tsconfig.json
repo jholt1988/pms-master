@@ -39,6 +39,7 @@
     "node_modules",
     "src/**/*.spec.ts",
     "test/**",
-    "src/copilot/decision-engine.controller.ts"
+    "src/copilot/decision-engine.controller.ts",
+    "src/settings/organization-settings.controller.ts"
   ]
 }
