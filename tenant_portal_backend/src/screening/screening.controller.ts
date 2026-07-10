@@ -6,12 +6,14 @@ import {
   Body,
   UseGuards,
   NotFoundException,
+  Request,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Public } from '../auth/public.decorator';
 import { ScreeningService } from './screening.service';
+import { ScreeningDecisionDto } from './dto/screening-decision.dto';
 
 /**
  * Screening API — tenant screening endpoints.
@@ -64,6 +66,31 @@ export class ScreeningController {
     }
 
     return result;
+  }
+
+  /**
+   * Record a manager/admin screening decision for an application.
+   * APPROVE / DENY / CONDITIONAL. Persists an auditable decision record and
+   * updates the application status. A reason or reasonCode is required for
+   * DENY and CONDITIONAL decisions (adverse action / fair housing).
+   */
+  @Post(':id/decision')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async decide(
+    @Param('id') id: string,
+    @Body() dto: ScreeningDecisionDto,
+    @Request() req: any,
+  ) {
+    const applicationId = parseInt(id, 10);
+    if (isNaN(applicationId)) {
+      throw new NotFoundException('Invalid application ID');
+    }
+    return this.screeningService.recordDecision(
+      applicationId,
+      dto,
+      req.user?.id,
+    );
   }
 
   /**
