@@ -8,6 +8,7 @@ import { ConfigModule } from '@nestjs/config';
 import { PaymentMethodsController } from './payment-methods.controller';
 import { PaymentMethodsService } from './payment-methods.service';
 import { StripeService } from './stripe.service';
+import { StripeWebhookController } from './stripe-webhook.controller';
 import { RentReminderService } from './rent-reminder.service';
 import { EmailModule } from '../email/email.module';
 import { OrgContextGuard } from '../common/org-context/org-context.guard';
@@ -19,7 +20,7 @@ import { AIProviderService } from '../ai-provider';
 
 @Module({
   imports: [PrismaModule, ConfigModule, EmailModule, MilModule, PolicyModule, BookkeepingModule],
-  controllers: [PaymentMethodsController, PaymentsController],
+  controllers: [PaymentMethodsController, PaymentsController, StripeWebhookController],
   providers: [
     PaymentsService,
     PaymentMethodsService,
