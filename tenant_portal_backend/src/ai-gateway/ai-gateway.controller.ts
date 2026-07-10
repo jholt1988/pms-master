@@ -5,7 +5,6 @@ import { Role } from '@prisma/client';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { UseApiEnvelope } from '../common/envelope/envelope.decorator';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { AiGatewayService } from './ai-gateway.service';
 import {
@@ -26,7 +25,7 @@ type AuthenticatedRequest = Request & {
 
 @Controller('ai-gateway')
 @ApiBearerAuth('JWT-auth')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 @UseApiEnvelope()
 export class AiGatewayController {
   constructor(private readonly aiGateway: AiGatewayService) {}

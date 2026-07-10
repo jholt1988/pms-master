@@ -2,7 +2,6 @@ import { Body, Controller, Get, Param, Post, Request, UseGuards } from '@nestjs/
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { PredictiveMaintenanceService } from './predictive-maintenance.service';
 import { Role } from '@prisma/client';
@@ -16,7 +15,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('maintenance/predictive')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 @Roles('PROPERTY_MANAGER', 'ADMIN')
 export class PredictiveMaintenanceController {
   constructor(private readonly predictiveService: PredictiveMaintenanceService) {}

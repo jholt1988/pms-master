@@ -3,7 +3,6 @@ import { AuthGuard } from '@nestjs/passport';
 import { EstimateStatus } from '@prisma/client';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -42,7 +41,7 @@ type CreateEstimateBody = {
 };
 
 @Controller('estimates')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class EstimatesController {
   constructor(private readonly prisma: PrismaService) {}
 

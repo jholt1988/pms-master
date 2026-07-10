@@ -4,7 +4,6 @@ import { NotificationsService } from './notifications.service';
 import { NotificationPreferencesService, NotificationPreferencesDto } from './notification-preferences.service';
 import { NotificationType } from '@prisma/client';
 import { Request } from 'express';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -15,7 +14,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('notifications')
-@UseGuards(AuthGuard('jwt'), OrgContextGuard)
+@UseGuards(AuthGuard('jwt'))
 export class NotificationsController {
   constructor(
     private readonly notificationsService: NotificationsService,

@@ -3,7 +3,6 @@ import { AuthGuard } from '@nestjs/passport';
 import { Role } from '@prisma/client';
 import { MaintenanceService } from '../maintenance/maintenance.service';
 import { RolesGuard } from '../auth/roles.guard';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { Roles } from '../auth/roles.decorator';
 
 import { AssignTechnicianDto } from '../maintenance/dto/assign-technician.dto';
@@ -18,7 +17,7 @@ interface AuthenticatedRequest {
 // Global prefix 'api' is applied at bootstrap; declare no extra segment so routes
 // resolve to /api/maintenance-requests, /api/users/technicians, etc.
 @Controller()
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 @Roles('PROPERTY_MANAGER')
 export class MaintenanceLegacyController {
   constructor(private readonly maintenanceService: MaintenanceService) {}

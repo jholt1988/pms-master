@@ -19,7 +19,6 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { ListUsersDto } from './dto/list-users.dto';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { Request } from 'express';
 
@@ -32,7 +31,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('users')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 

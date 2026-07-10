@@ -1,7 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { PaymentMethodsService } from './payment-methods.service';
 import { CreatePaymentMethodDto } from './dto/create-payment-method.dto';
 import { Request } from 'express';
@@ -14,7 +13,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('payments/payment-methods')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class PaymentMethodsController {
   constructor(
     private readonly paymentMethodsService: PaymentMethodsService,

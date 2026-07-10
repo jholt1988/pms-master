@@ -14,13 +14,12 @@ import { AuthGuard } from '@nestjs/passport';
 import { Inject } from '@nestjs/common';
 import { QuickBooksMinimalService } from './quickbooks-minimal.service';
 import { AbstractQuickBooksService } from './quickbooks.types';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { AccountingAnomalyService } from './accounting-anomaly.service';
 
 @ApiTags('QuickBooks Integration')
 @ApiBearerAuth()
 @Controller('quickbooks')
-@UseGuards(AuthGuard('jwt'), OrgContextGuard)
+@UseGuards(AuthGuard('jwt'))
 export class QuickBooksController {
   private readonly logger = new Logger(QuickBooksController.name);
 

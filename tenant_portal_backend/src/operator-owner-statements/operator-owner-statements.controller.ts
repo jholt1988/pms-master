@@ -5,7 +5,6 @@ import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagge
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { UseApiEnvelope } from '../common/envelope/envelope.decorator';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { GenerateOwnerStatementsPayload } from './operator-owner-statements.types';
 import { OperatorOwnerStatementsService } from './operator-owner-statements.service';
@@ -14,7 +13,7 @@ type AuthenticatedRequest = Request & { user: { userId: string; username?: strin
 
 @Controller('operator-owner-statements')
 @ApiBearerAuth('JWT-auth')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 @UseApiEnvelope()
 export class OperatorOwnerStatementsController {
   constructor(private readonly ownerStatementsService: OperatorOwnerStatementsService) {}

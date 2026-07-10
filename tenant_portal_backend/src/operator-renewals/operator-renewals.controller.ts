@@ -5,7 +5,6 @@ import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagge
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { UseApiEnvelope } from '../common/envelope/envelope.decorator';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import {
   CreateRenewalOfferPayload,
@@ -19,7 +18,7 @@ type AuthenticatedRequest = Request & { user: { userId: string; username?: strin
 
 @Controller('operator-renewals')
 @ApiBearerAuth('JWT-auth')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 @UseApiEnvelope()
 export class OperatorRenewalsController {
   constructor(private readonly renewalsService: OperatorRenewalsService) {}
