@@ -1,6 +1,14 @@
 /**
  * Tours Controller
  * API endpoints for property tour management
+ *
+ * Security: the whole controller sits behind JWT auth (also enforced globally
+ * by GlobalJwtAuthGuard) plus RolesGuard and OrgContextGuard. Management
+ * endpoints are restricted to PROPERTY_MANAGER/ADMIN and org-scoped via
+ * @OrgId(): a caller can only read/mutate tours whose property belongs to their
+ * organization. The `schedule` intake endpoint is left open to any
+ * authenticated caller (it creates a tour against a specific property on a
+ * lead's behalf).
  */
 
 import {
@@ -14,13 +22,23 @@ import {
   HttpStatus,
   Patch,
   BadRequestException,
+  UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { ToursService } from './tours.service';
 import { isUUID } from 'class-validator';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { OrgContextGuard } from '../common/org-context/org-context.guard';
+import { OrgId } from '../common/org-context/org-id.decorator';
+import { UpdateTourStatusDto } from './dto/update-tour-status.dto';
+import { AssignTourDto } from './dto/assign-tour.dto';
+import { RescheduleTourDto } from './dto/reschedule-tour.dto';
 
 // Global prefix 'api' is applied at bootstrap; declare only the resource segment
 // here. (Previously mounted 'api/tours' too, which double-prefixed to /api/api/tours.)
 @Controller('tours')
+@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 export class ToursController {
   constructor(private readonly toursService: ToursService) {}
 
@@ -70,6 +88,9 @@ export class ToursController {
         tour,
       };
     } catch (error: any) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         error.message || 'Failed to schedule tour',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -78,13 +99,14 @@ export class ToursController {
   }
 
   /**
-   * Get tour by ID
+   * Get tour by ID (org-scoped)
    * GET /api/tours/:id
    */
   @Get(':id')
-  async getTourById(@Param('id') id: string) {
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async getTourById(@Param('id') id: string, @OrgId() orgId: string) {
     try {
-      const tour = await this.toursService.getTourById(id);
+      const tour = await this.toursService.getTourById(id, orgId);
 
       if (!tour) {
         throw new HttpException('Tour not found', HttpStatus.NOT_FOUND);
@@ -95,6 +117,9 @@ export class ToursController {
         tour,
       };
     } catch (error: any) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         error.message || 'Failed to fetch tour',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -103,13 +128,17 @@ export class ToursController {
   }
 
   /**
-   * Get tours for a lead
+   * Get tours for a lead (org-scoped)
    * GET /api/tours/lead/:leadId
    */
   @Get('lead/:leadId')
-  async getToursForLead(@Param('leadId') leadId: string) {
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async getToursForLead(
+    @Param('leadId') leadId: string,
+    @OrgId() orgId: string,
+  ) {
     try {
-      const tours = await this.toursService.getToursForLead(leadId);
+      const tours = await this.toursService.getToursForLead(leadId, orgId);
 
       return {
         success: true,
@@ -124,11 +153,13 @@ export class ToursController {
   }
 
   /**
-   * Get all tours with filtering
+   * Get all tours with filtering (org-scoped)
    * GET /api/tours?propertyId=1&status=SCHEDULED&dateFrom=2025-01-01
    */
   @Get()
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
   async getTours(
+    @OrgId() orgId: string,
     @Query('propertyId') propertyId?: string,
     @Query('status') status?: string,
     @Query('dateFrom') dateFrom?: string,
@@ -151,13 +182,16 @@ export class ToursController {
       if (limit) filters.limit = parseInt(limit, 10);
       if (offset) filters.offset = parseInt(offset, 10);
 
-      const result = await this.toursService.getTours(filters);
+      const result = await this.toursService.getTours(filters, orgId);
 
       return {
         success: true,
         ...result,
       };
     } catch (error: any) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         error.message || 'Failed to fetch tours',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -166,28 +200,34 @@ export class ToursController {
   }
 
   /**
-   * Update tour status
+   * Update tour status (org-scoped)
    * PATCH /api/tours/:id/status
    */
   @Patch(':id/status')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
   async updateStatus(
     @Param('id') id: string,
-    @Body() body: { status: string; feedback?: string },
+    @Body() body: UpdateTourStatusDto,
+    @OrgId() orgId: string,
   ) {
     try {
       const { status, feedback } = body;
 
-      if (!status) {
-        throw new HttpException('Status is required', HttpStatus.BAD_REQUEST);
-      }
-
-      const tour = await this.toursService.updateTourStatus(id, status, feedback);
+      const tour = await this.toursService.updateTourStatus(
+        id,
+        status,
+        feedback,
+        orgId,
+      );
 
       return {
         success: true,
         tour,
       };
     } catch (error: any) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         error.message || 'Failed to update tour status',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -196,31 +236,29 @@ export class ToursController {
   }
 
   /**
-   * Assign tour to property manager
+   * Assign tour to property manager (org-scoped)
    * PATCH /api/tours/:id/assign
    */
   @Patch(':id/assign')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
   async assignTour(
     @Param('id') id: string,
-    @Body() body: { userId: string },
+    @Body() body: AssignTourDto,
+    @OrgId() orgId: string,
   ) {
     try {
       const { userId } = body;
 
-      if (!userId) {
-        throw new HttpException('User ID is required', HttpStatus.BAD_REQUEST);
-      }
-      if (!isUUID(userId)) {
-        throw new HttpException('Invalid userId', HttpStatus.BAD_REQUEST);
-      }
-
-      const tour = await this.toursService.assignTour(id, userId);
+      const tour = await this.toursService.assignTour(id, userId, orgId);
 
       return {
         success: true,
         tour,
       };
     } catch (error: any) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         error.message || 'Failed to assign tour',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -229,28 +267,24 @@ export class ToursController {
   }
 
   /**
-   * Reschedule tour
+   * Reschedule tour (org-scoped)
    * PATCH /api/tours/:id/reschedule
    */
   @Patch(':id/reschedule')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
   async rescheduleTour(
     @Param('id') id: string,
-    @Body() body: { scheduledDate: string; scheduledTime: string },
+    @Body() body: RescheduleTourDto,
+    @OrgId() orgId: string,
   ) {
     try {
       const { scheduledDate, scheduledTime } = body;
-
-      if (!scheduledDate || !scheduledTime) {
-        throw new HttpException(
-          'Date and time are required',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
 
       const tour = await this.toursService.rescheduleTour(
         id,
         new Date(scheduledDate),
         scheduledTime,
+        orgId,
       );
 
       return {
@@ -259,6 +293,9 @@ export class ToursController {
         message: 'Tour rescheduled successfully',
       };
     } catch (error: any) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         error.message || 'Failed to reschedule tour',
         HttpStatus.INTERNAL_SERVER_ERROR,
