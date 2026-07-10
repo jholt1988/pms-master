@@ -2,8 +2,8 @@
  * Tours Controller
  * API endpoints for property tour management
  *
- * Security: the whole controller sits behind JWT auth (also enforced globally
- * by GlobalJwtAuthGuard) plus RolesGuard and OrgContextGuard. Management
+ * Security: JWT auth and single-org context are enforced application-wide by the
+ * global auth and org-context guards; this controller adds RolesGuard. Management
  * endpoints are restricted to PROPERTY_MANAGER/ADMIN and org-scoped via
  * @OrgId(): a caller can only read/mutate tours whose property belongs to their
  * organization. The `schedule` intake endpoint is left open to any
@@ -29,7 +29,6 @@ import { ToursService } from './tours.service';
 import { isUUID } from 'class-validator';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { UpdateTourStatusDto } from './dto/update-tour-status.dto';
 import { AssignTourDto } from './dto/assign-tour.dto';
@@ -38,7 +37,7 @@ import { RescheduleTourDto } from './dto/reschedule-tour.dto';
 // Global prefix 'api' is applied at bootstrap; declare only the resource segment
 // here. (Previously mounted 'api/tours' too, which double-prefixed to /api/api/tours.)
 @Controller('tours')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class ToursController {
   constructor(private readonly toursService: ToursService) {}
 
