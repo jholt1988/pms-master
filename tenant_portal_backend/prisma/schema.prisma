@@ -1219,6 +1219,10 @@ model BulkMessageBatch {
   completedAt       DateTime?
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
+
+  // Index unindexed FK / hot-filter columns for list queries.
+  @@index([status])
+  @@index([creatorId])
 }
 
 model BulkMessageRecipient {
@@ -1238,6 +1242,11 @@ model BulkMessageRecipient {
   mergeVariables  Json?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
+
+  // Index unindexed FK / hot-filter columns for list queries.
+  @@index([batchId])
+  @@index([userId])
+  @@index([status])
 }
 
 enum BulkMessageStatus {
@@ -1372,6 +1381,9 @@ model Lead {
   propertyInquiries      PropertyInquiry[]
   tours                  Tour[]
   applications           LeadApplication[]
+
+  // Index unindexed FK / hot-filter columns for list queries.
+  @@index([status])
 }
 
 model LeadMessage {
@@ -1720,6 +1732,9 @@ model PaymentMethod {
   updatedAt               DateTime            @updatedAt
   autopayEnrollments      AutopayEnrollment[]
   payments                Payment[]
+
+  // Index unindexed FK / hot-filter columns for list queries.
+  @@index([userId])
 }
 
 enum PaymentMethodType {
@@ -1782,6 +1797,9 @@ model RecurringInvoiceSchedule {
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   invoices         Invoice[]
+
+  // Index unindexed FK / hot-filter columns for list queries.
+  @@index([nextRun])
 }
 
 enum BillingFrequency {
@@ -1817,6 +1835,9 @@ model PaymentPlan {
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
   paymentPlanPayments  PaymentPlanPayment[]
+
+  // Index unindexed FK / hot-filter columns for list queries.
+  @@index([status])
 }
 
 model StripeWebhookEvent {
@@ -1857,6 +1878,9 @@ model AutopayEnrollment {
   attempts        PaymentAttempt[]
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+
+  // Index unindexed FK / hot-filter columns for list queries.
+  @@index([paymentMethodId])
 }
 
 model PaymentAttempt {
