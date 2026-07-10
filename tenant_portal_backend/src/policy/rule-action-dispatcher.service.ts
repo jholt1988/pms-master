@@ -190,11 +190,12 @@ export class RuleActionDispatcher {
           },
         });
 
-        const invoiceId = Number(action.metadata?.rentChargeId);
-        if (Number.isInteger(invoiceId) && invoiceId > 0) {
+        const invoiceIdRaw = action.metadata?.rentChargeId;
+        if (invoiceIdRaw) {
+          const invoiceIdStr = String(invoiceIdRaw);
           const existingLateFee = await this.prisma.lateFee.findFirst({
             where: {
-              invoiceId,
+              invoiceId: invoiceIdStr,
               waived: false,
             },
           });
@@ -202,7 +203,7 @@ export class RuleActionDispatcher {
           if (!existingLateFee) {
             await this.prisma.lateFee.create({
               data: {
-                invoiceId,
+                invoiceId: invoiceIdStr,
                 amount: action.amount,
               },
             });

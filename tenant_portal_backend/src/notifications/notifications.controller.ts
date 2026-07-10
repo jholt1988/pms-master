@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Query, Delete, UseGuards, Req, ParseIntPipe, Put, Body } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Delete, UseGuards, Req, ParseUUIDPipe, Put, Body } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { NotificationsService } from './notifications.service';
 import { NotificationPreferencesService, NotificationPreferencesDto } from './notification-preferences.service';
@@ -52,7 +52,7 @@ export class NotificationsController {
   }
 
   @Put(':id/read')
-  async markAsRead(@Req() req: AuthenticatedRequest, @Param('id', ParseIntPipe) id: number) {
+  async markAsRead(@Req() req: AuthenticatedRequest, @Param('id', ParseUUIDPipe) id: number) {
     const userId = req.user.sub;
     const orgId = (req as any).org?.orgId as string | undefined;
     const notification = await this.notificationsService.markAsRead(userId, id, orgId);
@@ -68,7 +68,7 @@ export class NotificationsController {
   }
 
   @Delete(':id')
-  async deleteNotification(@Req() req: AuthenticatedRequest, @Param('id', ParseIntPipe) id: number) {
+  async deleteNotification(@Req() req: AuthenticatedRequest, @Param('id', ParseUUIDPipe) id: number) {
     const userId = req.user.sub;
     const orgId = (req as any).org?.orgId as string | undefined;
     await this.notificationsService.delete(userId, id, orgId);

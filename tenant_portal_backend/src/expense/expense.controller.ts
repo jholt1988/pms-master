@@ -1,5 +1,5 @@
 
-import { Controller, Get, Post, Body, UseGuards, Request, Param, Put, Delete, Query, ParseIntPipe, HttpCode } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Request, Param, Put, Delete, Query, ParseUUIDPipe, HttpCode } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ExpenseService } from './expense.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
@@ -43,13 +43,13 @@ export class ExpenseController {
   }
 
   @Get(':id')
-  getExpenseById(@Param('id', ParseIntPipe) id: number, @OrgId() orgId?: string) {
+  getExpenseById(@Param('id', ParseUUIDPipe) id: number, @OrgId() orgId?: string) {
     return this.expenseService.getExpenseById(id, orgId);
   }
 
   @Put(':id')
   updateExpense(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: number,
     @Body() data: UpdateExpenseDto,
     @OrgId() orgId: string,
   ) {
@@ -57,7 +57,7 @@ export class ExpenseController {
   }
 
   @Delete(':id')
-  deleteExpense(@Param('id', ParseIntPipe) id: number, @OrgId() orgId: string) {
+  deleteExpense(@Param('id', ParseUUIDPipe) id: number, @OrgId() orgId: string) {
     return this.expenseService.deleteExpense(id, orgId);
   }
 
@@ -71,7 +71,7 @@ export class ExpenseController {
   @Roles('PROPERTY_MANAGER', 'ADMIN')
   @HttpCode(200)
   async getAnomalyDetails(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: number,
     @OrgId() orgId: string,
   ) {
     return this.expenseService.getAnomalyDetails(id, orgId);

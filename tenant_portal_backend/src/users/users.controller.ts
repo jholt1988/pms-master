@@ -9,7 +9,7 @@ import {
   Query,
   UseGuards,
   Req,
-  ParseIntPipe,
+  ParseUUIDPipe,
   BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';

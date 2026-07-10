@@ -10,7 +10,7 @@ import {
   Req,
   UseInterceptors,
   UploadedFile,
-  ParseIntPipe,
+  ParseUUIDPipe,
   Res,
   BadRequestException,
 } from '@nestjs/common';
@@ -94,7 +94,7 @@ export class DocumentsController {
 
   @Get(':id/download')
   async downloadFile(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: number,
     @Req() req: AuthenticatedRequest,
     @Res() res: Response,
     @OrgId() orgId?: string,
@@ -107,7 +107,7 @@ export class DocumentsController {
 
   @Post(':id/share')
   async shareDocument(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: number,
     @Req() req: AuthenticatedRequest,
     @Body('userIds') userIds: string[],
     @OrgId() orgId?: string,
@@ -116,7 +116,7 @@ export class DocumentsController {
   }
 
   @Delete(':id')
-  async deleteDocument(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest, @OrgId() orgId?: string) {
+  async deleteDocument(@Param('id', ParseUUIDPipe) id: number, @Req() req: AuthenticatedRequest, @OrgId() orgId?: string) {
     return this.documentsService.deleteDocument(id, req.user.sub, orgId);
   }
 }

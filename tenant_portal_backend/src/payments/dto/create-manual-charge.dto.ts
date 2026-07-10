@@ -20,7 +20,7 @@ export class CreateManualChargeDto {
   chargeType!: ManualChargeType;
 
   @ApiProperty({ type: Number, description: 'Amount in integer cents.' })
-  @IsInt()
+  @IsString()
   @Min(1)
   amountCents!: number;
 

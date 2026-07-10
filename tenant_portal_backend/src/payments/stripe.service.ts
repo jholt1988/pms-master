@@ -493,7 +493,7 @@ export class StripeService {
         }
 
         this.logger.log(`Updated payment ${payment.id} to COMPLETED`);
-        this.eventsService.emitPaymentSuccess(payment.id, leaseId || '', Number(payment.amount));
+        this.eventsService.emitPaymentSuccess(String(payment.id), leaseId || '', Number(payment.amount));
         
         // Broadcast identically across microservices (Property OS Phase 1)
         await this.rabbitMQService.publishIntent('ledger.updated', {
@@ -741,7 +741,7 @@ export class StripeService {
   private async recordYieldSweepAllocation(
     orgId: string,
     leaseId: string,
-    paymentId: number,
+    paymentId: string,
     amountCents: number,
   ) {
     const allocation = await this.computeYieldSweepAllocation(orgId, amountCents);

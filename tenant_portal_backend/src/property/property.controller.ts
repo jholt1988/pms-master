@@ -7,7 +7,6 @@ import {
   UseGuards,
   Request,
   Param,
-  ParseIntPipe,
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
@@ -123,7 +122,7 @@ export class PropertyController {
   @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles('PROPERTY_MANAGER')
   @HttpCode(HttpStatus.NO_CONTENT)
-  deleteFilter(@Param('id', ParseIntPipe) id: number, @Request() req: AuthenticatedRequest) {
+  deleteFilter(@Param('id', ParseUUIDPipe) id: number, @Request() req: AuthenticatedRequest) {
     return this.propertyService.deleteSavedFilter(req.user.userId, id);
   }
 

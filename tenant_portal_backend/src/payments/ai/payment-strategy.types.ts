@@ -28,13 +28,13 @@ export interface PaymentReminderTimingResult {
 
 export interface PaymentRiskStrategy {
   readonly name: string;
-  assessPaymentRisk(userId: string, invoiceId: number): Promise<PaymentRiskAssessmentResult>;
+  assessPaymentRisk(userId: string, invoiceId: string): Promise<PaymentRiskAssessmentResult>;
 }
 
 export interface PaymentReminderStrategy {
   readonly name: string;
   determineReminderTiming(
     userId: string,
-    invoiceId: number,
+    invoiceId: string,
   ): Promise<PaymentReminderTimingResult>;
 }

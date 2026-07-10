@@ -7,7 +7,7 @@ import {
   Request,
   Param,
   Query,
-  ParseIntPipe,
+  ParseUUIDPipe,
   HttpCode,
   HttpStatus,
   Req,
@@ -174,7 +174,7 @@ export class MessagingController {
 
   @Get('conversations/:id')
   async getConversation(
-    @Param('id', ParseIntPipe) conversationId: number,
+    @Param('id', ParseUUIDPipe) conversationId: number,
     @Request() req: AuthenticatedRequest,
     @OrgIdOptional() orgId?: string,
   ) {
@@ -187,7 +187,7 @@ export class MessagingController {
    */
   @Get('conversations/:id/messages')
   async getConversationMessages(
-    @Param('id', ParseIntPipe) conversationId: number,
+    @Param('id', ParseUUIDPipe) conversationId: number,
     @Request() req: AuthenticatedRequest,
     @Query() query: GetMessagesQueryDto,
     @OrgIdOptional() orgId?: string,
@@ -207,7 +207,7 @@ export class MessagingController {
   @Post('conversations/:id/messages')
   @HttpCode(HttpStatus.CREATED)
   async sendConversationMessage(
-    @Param('id', ParseIntPipe) conversationId: number,
+    @Param('id', ParseUUIDPipe) conversationId: number,
     @Request() req: AuthenticatedRequest,
     @Body() dto: CreateMessageDto,
     @OrgIdOptional() orgId?: string,
@@ -348,7 +348,7 @@ export class MessagingController {
   @Get('bulk/:id')
   @UseGuards(RolesGuard)
   @Roles('PROPERTY_MANAGER')
-  async getBulkBatch(@Param('id', ParseIntPipe) id: number, @OrgIdOptional() orgId?: string) {
+  async getBulkBatch(@Param('id', ParseUUIDPipe) id: number, @OrgIdOptional() orgId?: string) {
     return this.bulkMessagingService.getBatchById(id, orgId);
   }
 
@@ -358,7 +358,7 @@ export class MessagingController {
   @Get('bulk/:id/recipients')
   @UseGuards(RolesGuard)
   @Roles('PROPERTY_MANAGER')
-  async getBulkRecipients(@Param('id', ParseIntPipe) id: number, @OrgIdOptional() orgId?: string) {
+  async getBulkRecipients(@Param('id', ParseUUIDPipe) id: number, @OrgIdOptional() orgId?: string) {
     return this.bulkMessagingService.getRecipientStatuses(id, orgId);
   }
 
@@ -368,7 +368,7 @@ export class MessagingController {
   @Get('bulk/:id/report')
   @UseGuards(RolesGuard)
   @Roles('PROPERTY_MANAGER')
-  async getBulkReport(@Param('id', ParseIntPipe) id: number, @OrgIdOptional() orgId?: string) {
+  async getBulkReport(@Param('id', ParseUUIDPipe) id: number, @OrgIdOptional() orgId?: string) {
     return this.bulkMessagingService.getDeliveryReport(id, orgId);
   }
 
