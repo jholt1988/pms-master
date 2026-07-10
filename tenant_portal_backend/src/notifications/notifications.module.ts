@@ -10,7 +10,6 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { ConfigModule } from '@nestjs/config';
 import { PaymentsModule } from '../payments/payments.module';
 import { EmailService } from '../email/email.service';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { AIProviderService } from '../ai-provider';
 
 @Module({
@@ -24,7 +23,6 @@ import { AIProviderService } from '../ai-provider';
     PushService,
     NotificationPreferencesService,
     EmailService,
-    OrgContextGuard,
     AIProviderService,
   ],
   exports: [NotificationsService, AINotificationService, NotificationPreferencesService],
