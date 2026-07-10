@@ -16,8 +16,7 @@ import { ScreeningService } from './screening.service';
 /**
  * Screening API — tenant screening endpoints.
  *
- * Works alongside the existing ScreeningRadialController
- * (POST /screening/:id/decision) by adding the initiate + report flow.
+ * Provides the tenant-screening initiate + report flow.
  *
  * JWT auth is handled by the global GlobalJwtAuthGuard (APP_GUARD).
  * Per-method @UseGuards(AuthGuard('jwt'), RolesGuard) + @Roles() enforce
