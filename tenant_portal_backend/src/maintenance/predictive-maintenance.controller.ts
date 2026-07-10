@@ -39,6 +39,15 @@ export class PredictiveMaintenanceController {
   }
 
   /**
+   * Latest risk snapshot for a single asset — risk level, drivers, confidence,
+   * and data-quality flags for the "why this score" UI (#12/#13/#14).
+   */
+  @Get('assets/:id/risk')
+  async getAssetRisk(@Param('id') id: string, @OrgId() orgId?: string) {
+    return this.predictiveService.getAssetRisk(Number(id), orgId);
+  }
+
+  /**
    * Manual endpoint to trigger scan and generate ActionIntents for high risk assets
    */
   @Post('scan')

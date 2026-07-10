@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { MaintenanceRiskLevel } from '@prisma/client';
@@ -10,6 +10,8 @@ interface RiskSnapshotLike {
   riskLevel: string;
   category: string;
   drivers?: unknown;
+  confidence?: number | null;
+  dataQualityFlags?: unknown;
 }
 
 @Injectable()
@@ -257,6 +259,27 @@ export class PredictiveMaintenanceService {
   }
 
   /**
+   * #13/#14 — latest risk snapshot for a single asset (org-scoped), including
+   * confidence, drivers, and data-quality flags for the "why this score" UI.
+   */
+  async getAssetRisk(assetId: number, orgId?: string) {
+    if (!orgId) {
+      throw new BadRequestException('Organization context is required');
+    }
+    if (Number.isNaN(assetId)) {
+      throw new NotFoundException('Invalid asset ID');
+    }
+    const snapshot = await this.prisma.maintenanceRiskSnapshot.findFirst({
+      where: { assetId, organizationId: orgId },
+      orderBy: { scannedAt: 'desc' },
+    });
+    if (!snapshot) {
+      throw new NotFoundException(`No risk snapshot found for asset #${assetId}`);
+    }
+    return snapshot;
+  }
+
+  /**
    * #9 — aggregate the latest per-asset risk snapshots for an org into a summary:
    * counts by level, top categories, top drivers, and a 30-day trend delta.
    */
@@ -302,6 +325,10 @@ export class PredictiveMaintenanceService {
     const byLevel: Record<string, number> = { LOW: 0, MEDIUM: 0, HIGH: 0 };
     const categories: Record<string, { category: string; count: number; high: number }> = {};
     const driverCounts: Record<string, number> = {};
+    const flagCounts: Record<string, number> = {};
+    let confidenceSum = 0;
+    let confidenceCount = 0;
+    let lowConfidenceCount = 0;
 
     for (const s of latest) {
       byLevel[s.riskLevel] = (byLevel[s.riskLevel] ?? 0) + 1;
@@ -313,8 +340,20 @@ export class PredictiveMaintenanceService {
         const code = d && typeof d === 'object' ? (d as { code?: string }).code : undefined;
         if (code) driverCounts[code] = (driverCounts[code] ?? 0) + 1;
       }
+      if (typeof s.confidence === 'number') {
+        confidenceSum += s.confidence;
+        confidenceCount += 1;
+        if (s.confidence < 0.6) lowConfidenceCount += 1;
+      }
+      const flags = Array.isArray(s.dataQualityFlags) ? s.dataQualityFlags : [];
+      for (const f of flags) {
+        if (typeof f === 'string') flagCounts[f] = (flagCounts[f] ?? 0) + 1;
+      }
     }
 
+    const averageConfidence = confidenceCount
+      ? Number((confidenceSum / confidenceCount).toFixed(2))
+      : null;
     const topCategories = Object.values(categories)
       .sort((a, b) => b.high - a.high || b.count - a.count)
       .slice(0, 5);
@@ -332,6 +371,9 @@ export class PredictiveMaintenanceService {
       highRiskCount: highRiskNow,
       topCategories,
       topDrivers,
+      averageConfidence,
+      lowConfidenceCount,
+      dataQualityFlagCounts: flagCounts,
       trend30d: {
         highRiskNow,
         highRisk30dAgo,
