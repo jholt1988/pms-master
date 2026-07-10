@@ -61,16 +61,13 @@ export class OrgContextGuard implements CanActivate {
     });
 
     if (memberships.length === 0) {
-      // In development, allow mock users through without org context.
-      // Controllers that require orgId will receive undefined and should handle it gracefully.
-      if (process.env.NODE_ENV !== 'production') {
-        return true;
-      }
-      throw ApiException.forbidden(
-        ErrorCode.AUTH_FORBIDDEN,
-        'User is not a member of any organization',
-        { userId: user.userId },
-      );
+      // Permissive by design: a user with no organization is allowed through
+      // WITHOUT an org context (req.org stays unset), in every environment.
+      // Endpoints that require an organization enforce it via the @OrgId() param
+      // decorator (which throws when req.org is missing); endpoints that don't
+      // (onboarding, org creation, accept-invite) keep working. This keeps the
+      // global guard from 403-ing legitimate 0-org flows in production.
+      return true;
     }
 
     if (memberships.length > 1) {

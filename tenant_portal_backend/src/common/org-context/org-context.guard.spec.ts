@@ -89,12 +89,19 @@ describe('OrgContextGuard', () => {
     ).rejects.toBeDefined();
   });
 
-  it('allows a non-tenant with no memberships outside production (dev/test)', async () => {
+  it('allows a non-tenant with no memberships in all environments, attaching no org', async () => {
     prisma.userOrganization.findMany.mockResolvedValue([]);
     const guard = new OrgContextGuard(prisma, makeReflector());
-    // NODE_ENV is not 'production' under jest, so the guard is permissive.
-    await expect(
-      guard.canActivate(makeContext({ userId: 'u1', role: Role.ADMIN })),
-    ).resolves.toBe(true);
+
+    // 0-org is permissive even in production; enforcement is left to @OrgId().
+    const prev = process.env.NODE_ENV;
+    try {
+      process.env.NODE_ENV = 'production';
+      const ctx = makeContext({ userId: 'u1', role: Role.ADMIN });
+      await expect(guard.canActivate(ctx)).resolves.toBe(true);
+      expect(ctx.__req.org).toBeUndefined();
+    } finally {
+      process.env.NODE_ENV = prev;
+    }
   });
 });
