@@ -2,16 +2,18 @@ import { PredictiveMaintenanceService } from './predictive-maintenance.service';
 
 /**
  * Unit tests for the pure, side-effect-free helpers on PredictiveMaintenanceService
- * (risk-summary aggregation #9, escalation detection + weekly digest #11).
- * These need no database.
+ * (risk-summary aggregation #9, confidence + data-quality flags #13/#14,
+ * escalation detection + weekly digest #11). These need no database.
  */
 describe('PredictiveMaintenanceService.buildRiskSummary', () => {
-  const snap = (assetId: number, riskLevel: string, category: string, drivers: any[] = []) => ({
-    assetId,
-    riskLevel,
-    category,
-    drivers,
-  });
+  const snap = (
+    assetId: number,
+    riskLevel: string,
+    category: string,
+    drivers: any[] = [],
+    confidence?: number,
+    dataQualityFlags: string[] = [],
+  ) => ({ assetId, riskLevel, category, drivers, confidence, dataQualityFlags });
 
   it('uses the latest snapshot per asset and counts by level', () => {
     const rows = [
@@ -42,6 +44,28 @@ describe('PredictiveMaintenanceService.buildRiskSummary', () => {
     const prior = [snap(1, 'MEDIUM', 'HVAC'), snap(2, 'LOW', 'HVAC')];
     const summary = PredictiveMaintenanceService.buildRiskSummary(current as any, prior as any);
     expect(summary.trend30d).toEqual({ highRiskNow: 2, highRisk30dAgo: 0, delta: 2 });
+  });
+
+  it('aggregates confidence and data-quality flags (#13/#14)', () => {
+    const rows = [
+      snap(1, 'HIGH', 'HVAC', [], 0.9, ['MISSING_INSTALL_DATE']),
+      snap(2, 'LOW', 'HVAC', [], 0.5, ['NO_SERVICE_HISTORY', 'MISSING_INSTALL_DATE']),
+      snap(3, 'MEDIUM', 'PLUMBING', [], 0.4, []),
+    ];
+    const summary = PredictiveMaintenanceService.buildRiskSummary(rows as any, [] as any);
+    expect(summary.averageConfidence).toBe(0.6); // (0.9 + 0.5 + 0.4) / 3
+    expect(summary.lowConfidenceCount).toBe(2); // 0.5 and 0.4 are < 0.6
+    expect(summary.dataQualityFlagCounts).toEqual({ MISSING_INSTALL_DATE: 2, NO_SERVICE_HISTORY: 1 });
+  });
+
+  it('reports null average confidence when no snapshots carry confidence', () => {
+    const summary = PredictiveMaintenanceService.buildRiskSummary(
+      [snap(1, 'LOW', 'HVAC')] as any,
+      [] as any,
+    );
+    expect(summary.averageConfidence).toBeNull();
+    expect(summary.lowConfidenceCount).toBe(0);
+    expect(summary.dataQualityFlagCounts).toEqual({});
   });
 });
 
