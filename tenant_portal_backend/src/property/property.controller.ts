@@ -24,7 +24,6 @@ import { PropertyRollupService } from './property-rollup.service';
 import { Roles } from '../auth/roles.decorator';
 
 import { RolesGuard } from '../auth/roles.guard';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { Public } from '../auth/public.decorator';
 import {
@@ -55,7 +54,7 @@ export class PropertyController {
   ) {}
 
   @Post()
-  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('PROPERTY_MANAGER')
   @HttpCode(HttpStatus.CREATED)
   createProperty(@Body() dto: CreatePropertyDto, @OrgId() orgId: string) {
@@ -63,7 +62,7 @@ export class PropertyController {
   }
 
   @Post(':id/units')
-  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('PROPERTY_MANAGER')
   @HttpCode(HttpStatus.CREATED)
   createUnit(
@@ -75,7 +74,7 @@ export class PropertyController {
   }
 
   @Get()
-  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('PROPERTY_MANAGER', 'OWNER')
   getAllProperties(
     @OrgId() orgId: string,
@@ -92,7 +91,7 @@ export class PropertyController {
   }
 
   @Get('search')
-  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('PROPERTY_MANAGER', 'OWNER')
   searchProperties(@Query() query: PropertySearchQueryDto, @OrgId() orgId: string) {
     return this.propertyService.searchProperties(query, orgId);
@@ -105,21 +104,21 @@ export class PropertyController {
   }
 
   @Get('saved-filters')
-  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('PROPERTY_MANAGER', 'OWNER')
   getSavedFilters(@Request() req: AuthenticatedRequest) {
     return this.propertyService.getSavedFilters(req.user.userId);
   }
 
   @Post('saved-filters')
-  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('PROPERTY_MANAGER')
   saveFilter(@Body() dto: SavePropertyFilterDto, @Request() req: AuthenticatedRequest) {
     return this.propertyService.savePropertyFilter(req.user.userId, dto);
   }
 
   @Delete('saved-filters/:id')
-  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('PROPERTY_MANAGER')
   @HttpCode(HttpStatus.NO_CONTENT)
   deleteFilter(@Param('id', ParseUUIDPipe) id: number, @Request() req: AuthenticatedRequest) {
@@ -127,28 +126,28 @@ export class PropertyController {
   }
 
   @Get(':id')
-  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('PROPERTY_MANAGER', 'OWNER')
   getPropertyById(@Param('id', ParseUUIDPipe) id: string, @OrgId() orgId: string) {
     return this.propertyService.getPropertyById(id, orgId);
   }
 
   @Get(':id/rollup')
-  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('PROPERTY_MANAGER', 'OWNER')
   getPropertyRollup(@Param('id', ParseUUIDPipe) id: string, @OrgId() orgId: string) {
     return this.propertyRollupService.getPropertyRollup(id, orgId);
   }
 
   @Get('units/:unitId/rollup')
-  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('PROPERTY_MANAGER', 'OWNER')
   getUnitRollup(@Param('unitId', ParseUUIDPipe) unitId: string, @OrgId() orgId: string) {
     return this.propertyRollupService.getUnitRollup(unitId, orgId);
   }
 
   @Post('units/:unitId/transition')
-  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('PROPERTY_MANAGER')
   transitionUnitState(
     @Param('unitId', ParseUUIDPipe) unitId: string,
@@ -159,14 +158,14 @@ export class PropertyController {
   }
 
   @Get(':id/marketing')
-  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('PROPERTY_MANAGER', 'OWNER')
   getMarketingProfile(@Param('id', ParseUUIDPipe) id: string, @OrgId() orgId: string) {
     return this.propertyService.getMarketingProfile(id, orgId);
   }
 
   @Post(':id/marketing')
-  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('PROPERTY_MANAGER')
   updateMarketingProfile(
     @Param('id', ParseUUIDPipe) id: string,
@@ -177,7 +176,7 @@ export class PropertyController {
   }
 
   @Patch(':id')
-  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('PROPERTY_MANAGER')
   updateProperty(
     @Param('id', ParseUUIDPipe) id: string,
@@ -188,7 +187,7 @@ export class PropertyController {
   }
 
   @Patch(':id/units/:unitId')
-  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('PROPERTY_MANAGER')
   updateUnit(
     @Param('id', ParseUUIDPipe) propertyId: string,
@@ -207,7 +206,7 @@ export class PropertyController {
    * Gap: Issue 4 - Move-in Readiness State Machine (P0)
    */
   @Post('units/:unitId/start-onboarding')
-  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('PROPERTY_MANAGER', 'ADMIN')
   @HttpCode(201)
   async startOnboarding(
@@ -222,7 +221,7 @@ export class PropertyController {
    * Gap: Issue 4 - Move-in Readiness State Machine (P0)
    */
   @Post('units/:unitId/complete-move-in')
-  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('PROPERTY_MANAGER', 'ADMIN')
   @HttpCode(200)
   async completeMoveIn(

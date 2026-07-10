@@ -6,12 +6,11 @@ import { RolesGuard } from '../auth/roles.guard';
 import { UseApiEnvelope } from '../common/envelope/envelope.decorator';
 import { createEventEnvelope } from '../common/events/event-envelope';
 import { IdempotencyService } from '../common/idempotency/idempotency.service';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 
 @Controller('foundation')
 @ApiBearerAuth('JWT-auth')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 @UseApiEnvelope()
 export class FoundationController {
   constructor(private readonly idempotency: IdempotencyService) {}

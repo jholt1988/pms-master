@@ -10,14 +10,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { WorkflowEngineService } from './workflow-engine.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { Logger } from '@nestjs/common';
 
 @Controller('workflows')
-@UseGuards(AuthGuard('jwt'), OrgContextGuard)
+@UseGuards(AuthGuard('jwt'))
 export class WorkflowsController {
   private readonly logger = new Logger(WorkflowsController.name);
 

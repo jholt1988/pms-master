@@ -18,7 +18,6 @@ import { CreateHouseholdMemberDto } from './dto/create-household-member.dto';
 import { CreateViolationDto } from './dto/create-violation.dto';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { Request } from 'express';
 
@@ -27,7 +26,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('tenants')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class TenantController {
   constructor(private readonly tenantService: TenantService) {}
 

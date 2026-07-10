@@ -20,7 +20,6 @@ import { DocumentsService } from './documents.service';
 import { DocumentCategory } from '@prisma/client'; // Renamed to avoid conflict
 import { Request, Response } from 'express';
 import { memoryStorage } from 'multer';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 
 interface AuthenticatedRequest extends Request {
@@ -32,7 +31,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('documents')
-@UseGuards(AuthGuard('jwt'), OrgContextGuard)
+@UseGuards(AuthGuard('jwt'))
 export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
 

@@ -11,7 +11,6 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { LeasingService } from '../leasing/leasing.service';
 import { RolesGuard } from '../auth/roles.guard';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { Roles } from '../auth/roles.decorator';
 import { LeadStatus, Role } from '@prisma/client';
 
@@ -24,7 +23,7 @@ interface AuthenticatedRequest {
 
 // Global prefix 'api' is applied at bootstrap; declare only the resource segment here.
 @Controller('leads')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 @Roles('PROPERTY_MANAGER')
 export class LeadsLegacyController {
   constructor(private readonly leasingService: LeasingService) {}

@@ -5,7 +5,6 @@ import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiQuery } from '@nes
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { UseApiEnvelope } from '../common/envelope/envelope.decorator';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { CommandCenterService } from './command-center.service';
 
@@ -18,7 +17,7 @@ type AuthenticatedRequest = Request & {
 
 @Controller('command-center')
 @ApiBearerAuth('JWT-auth')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 @UseApiEnvelope()
 export class CommandCenterController {
   constructor(private readonly commandCenterService: CommandCenterService) {}

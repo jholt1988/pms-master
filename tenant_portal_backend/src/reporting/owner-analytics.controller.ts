@@ -2,12 +2,11 @@ import { Controller, Get, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { OwnerAnalyticsService } from './owner-analytics.service';
 
 @Controller('reporting')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class OwnerAnalyticsController {
   constructor(private readonly ownerAnalyticsService: OwnerAnalyticsService) {}
 
