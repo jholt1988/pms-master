@@ -3739,3 +3739,27 @@ model Notice {
   @@index([paymentId])
   @@map("notices")
 }
+
+enum MaintenanceRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model MaintenanceRiskSnapshot {
+  id                      String                   @id @default(uuid()) @db.Uuid
+  assetId                 Int
+  organizationId          String                   @db.Uuid
+  category                MaintenanceAssetCategory
+  riskLevel               MaintenanceRiskLevel
+  failureProbability30d   Float
+  remainingUsefulLifeDays Float?
+  confidence              Float?
+  drivers                 Json?
+  dataQualityFlags        Json?
+  recommendedAction       String?
+  scannedAt               DateTime                 @default(now())
+
+  @@index([organizationId, scannedAt])
+  @@index([assetId, scannedAt])
+}

@@ -30,6 +30,15 @@ export class PredictiveMaintenanceController {
   }
 
   /**
+   * Org risk summary: counts by risk level, top categories, top drivers, and a
+   * 30-day trend delta — aggregated from the latest per-asset snapshots (#9).
+   */
+  @Get('risk-summary')
+  async getRiskSummary(@OrgId() orgId?: string) {
+    return this.predictiveService.getRiskSummary(orgId);
+  }
+
+  /**
    * Manual endpoint to trigger scan and generate ActionIntents for high risk assets
    */
   @Post('scan')
