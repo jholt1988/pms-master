@@ -4,6 +4,7 @@ import { dirname, resolve } from 'path';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from '../src/app.module';
+import { GLOBAL_API_PREFIX, GLOBAL_PREFIX_EXCLUDE } from '../src/config/global-prefix';
 
 async function main() {
   process.env.NODE_ENV = process.env.NODE_ENV || 'test';
@@ -12,14 +13,10 @@ async function main() {
   process.env.ENABLE_LEGACY_ROUTES = process.env.ENABLE_LEGACY_ROUTES || 'false';
 
   const app = await NestFactory.create(AppModule, { logger: false });
-  app.setGlobalPrefix('api', {
-    exclude: [
-      'webhooks/esignature',
-      'webhooks/stripe',
-      'webhooks/quickbooks',
-      'metrics',
-      'metrics/(.*)',
-    ],
+  app.setGlobalPrefix(GLOBAL_API_PREFIX, {
+    // Use the SAME exclude list as the runtime bootstrap so the generated
+    // schema matches the routes the server actually serves.
+    exclude: GLOBAL_PREFIX_EXCLUDE,
   });
 
   const config = new DocumentBuilder()

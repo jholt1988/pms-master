@@ -17,6 +17,7 @@ import { WorkflowEventService } from '../policy/workflow-event.service';
 import { WorkflowEventProcessor } from '../policy/workflow-event-processor.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { BookkeepingService } from '../bookkeeping/bookkeeping.service';
+import { toCents, fromCents, splitCents } from '../utils/money';
 
 
 type CreateManualPaymentInput = {
@@ -87,6 +88,7 @@ export class PaymentsService {
       data: {
         description: dto.description,
         amount: dto.amount,
+        amountCents: dto.amountCents ?? toCents(dto.amount),
         dueDate: new Date(dto.dueDate),
         lease: { connect: { id: leaseId } },
       },
@@ -199,6 +201,7 @@ export class PaymentsService {
     const description = invoice.description || `Invoice #${invoice.id}`;
     const { checkoutUrl, sessionId } = await this.stripeService.createCheckoutSession({
       amount: Number(invoice.amount),
+      amountCents: invoice.amountCents ?? undefined,
       customerId,
       successUrl: dto.successUrl,
       cancelUrl: dto.cancelUrl,
@@ -339,6 +342,7 @@ export class PaymentsService {
       const created = await tx.payment.create({
         data: {
           amount: dto.amount,
+          amountCents: dto.amountCents ?? toCents(dto.amount),
           status: resolvedStatus,
           paymentDate: dto.paymentDate ? new Date(dto.paymentDate) : new Date(),
           invoice: dto.invoiceId ? { connect: { id: dto.invoiceId } } : undefined,
@@ -413,31 +417,6 @@ export class PaymentsService {
     // if payment failed, mark invoice as unpaid
     if (payment.status === PaymentStatus.FAILED) {
       await this.markInvoiceUnpaid(payment.invoiceId);
-    }
-
-   
-
-    // Send confirmation email for successful payments, but do not block on failures
-    if ((payment.status ?? PaymentStatus.COMPLETED) !== PaymentStatus.FAILED) {
-      try {
-        const tenant = payment.lease?.tenant ?? lease.tenant;
-        const tenantEmail = tenant?.username ?? tenant?.email ?? '';
-        await this.emailService.sendRentPaymentConfirmation(
-          tenantEmail,
-          Number(payment.amount),
-          payment.paymentDate ?? new Date(),
-        );
-      } catch (error) {
-        this.logger.warn(
-          `Failed to send payment confirmation for payment ${payment.id}: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
-    }
-    // if payment failed, mark payment failed
-    if (payment.status === PaymentStatus.FAILED) {
-      const tenant = payment.lease?.tenant ?? lease.tenant;
-      const tenantId = tenant?.id ?? lease.tenantId;
-      await this.markPaymentFailed(payment.id, tenantId, Number(payment.amount));
     }
 
     return payment;
@@ -529,7 +508,7 @@ export class PaymentsService {
 
       await tx.lease.update({
         where: { id: lease.id },
-        data: { currentBalance: { decrement: amount } },
+        data: { currentBalance: { decrement: amount }, currentBalanceCents: { decrement: input.amountCents } },
       });
 
       return payment;
@@ -560,7 +539,7 @@ export class PaymentsService {
     return this.prisma.$transaction(async (tx) => {
       await tx.lease.update({
         where: { id: payment.leaseId },
-        data: { currentBalance: { increment: amount } },
+        data: { currentBalance: { increment: amount }, currentBalanceCents: { increment: payment.amountCents } },
       });
 
       const existingPaymentEntry = await tx.ledgerTransaction.findFirst({
@@ -684,7 +663,7 @@ export class PaymentsService {
 
       await tx.lease.update({
         where: { id: lease.id },
-        data: { currentBalance: { increment: amount } },
+        data: { currentBalance: { increment: amount }, currentBalanceCents: { increment: input.amountCents } },
       });
 
       return charge;
@@ -715,7 +694,7 @@ export class PaymentsService {
     return this.prisma.$transaction(async (tx) => {
       await tx.lease.update({
         where: { id: charge.leaseId },
-        data: { currentBalance: { decrement: amount } },
+        data: { currentBalance: { decrement: amount }, currentBalanceCents: { decrement: charge.amountCents } },
       });
 
       const existingChargeEntry = await tx.ledgerTransaction.findFirst({
@@ -798,6 +777,7 @@ export class PaymentsService {
     const payment = await this.prisma.payment.create({
       data: {
         amount: params.amount,
+        amountCents: toCents(params.amount),
         status: 'COMPLETED',
         paymentDate: new Date(),
         invoice: { connect: { id: params.invoiceId } },
@@ -1173,6 +1153,8 @@ export class PaymentsService {
       installments: number;
       amountPerInstallment: number;
       totalAmount: number;
+      amountPerInstallmentCents?: number;
+      totalAmountCents?: number;
     },
     orgId?: string,
   ): Promise<{ id: number; status: string }> {
@@ -1218,28 +1200,39 @@ export class PaymentsService {
       installmentDueDates.push(dueDate);
     }
 
+    // Exact-sum installment amounts in integer cents (no lost/gained cent).
+    const totalAmountCents = plan.totalAmountCents ?? toCents(plan.totalAmount);
+    const installmentScheduleCents =
+      plan.installments > 0 ? splitCents(totalAmountCents, plan.installments) : [];
+
     // Create payment plan
     const paymentPlan = await this.prisma.paymentPlan.create({
       data: {
         invoice: { connect: { id: invoiceId } },
         installments: plan.installments,
         amountPerInstallment: plan.amountPerInstallment,
+        amountPerInstallmentCents: plan.amountPerInstallmentCents ?? toCents(plan.amountPerInstallment),
         totalAmount: plan.totalAmount,
+        totalAmountCents,
         status: 'PENDING',
         paymentPlanPayments: {
-          create: installmentDueDates.map((dueDate, index) => ({
-            installmentNumber: index + 1,
-            dueDate,
-            payment: {
-              create: {
-                amount: plan.amountPerInstallment,
-                paymentDate: dueDate,
-                status: 'PENDING',
-                user: { connect: { id: invoice.lease.tenantId } },
-                lease: { connect: { id: invoice.leaseId } },
+          create: installmentDueDates.map((dueDate, index) => {
+            const installmentCents = installmentScheduleCents[index];
+            return {
+              installmentNumber: index + 1,
+              dueDate,
+              payment: {
+                create: {
+                  amount: fromCents(installmentCents),
+                  amountCents: installmentCents,
+                  paymentDate: dueDate,
+                  status: 'PENDING',
+                  user: { connect: { id: invoice.lease.tenantId } },
+                  lease: { connect: { id: invoice.leaseId } },
+                },
               },
-            },
-          })),
+            };
+          }),
         },
       },
     });
@@ -1535,7 +1528,7 @@ export class PaymentsService {
           kind: 'charge' as const,
           source: 'invoice' as const,
           occurredAt: i.dueDate,
-          amountCents: Math.round(Number(i.amount) * 100),
+          amountCents: i.amountCents ?? Math.round(Number(i.amount) * 100),
           description: i.description || `Invoice #${i.id}`,
         })),
         ...manualCharges
@@ -1555,7 +1548,7 @@ export class PaymentsService {
             kind: 'payment' as const,
             source: 'payment' as const,
             occurredAt: p.paymentDate,
-            amountCents: Math.round(Number(p.amount) * 100),
+            amountCents: p.amountCents ?? Math.round(Number(p.amount) * 100),
             description: `Payment #${p.id}`,
           })),
         ...manualPayments
@@ -1712,7 +1705,7 @@ export class PaymentsService {
       const dueDays = Math.max(1, Math.floor((today.getTime() - invoice.dueDate.getTime()) / 86400000));
       const bucket: '1_7' | '8_30' | '31_plus' = dueDays <= 7 ? '1_7' : dueDays <= 30 ? '8_30' : '31_plus';
       const existing = grouped.get(key);
-      const amountCents = Math.round(Number(invoice.amount) * 100);
+      const amountCents = invoice.amountCents ?? Math.round(Number(invoice.amount) * 100);
 
       if (!existing) {
         grouped.set(key, {
@@ -2194,7 +2187,7 @@ export class PaymentsService {
       throw new BadRequestException('No overdue balance exists for this lease');
     }
 
-    const amountDueCents = overdueInvoices.reduce((sum, invoice) => sum + Math.round(Number(invoice.amount) * 100), 0);
+    const amountDueCents = overdueInvoices.reduce((sum, invoice) => sum + (invoice.amountCents ?? Math.round(Number(invoice.amount) * 100)), 0);
     const oldestDueDate = overdueInvoices[0]?.dueDate;
     const message =
       dto.message?.trim() ||
@@ -2375,7 +2368,7 @@ export class PaymentsService {
       },
     });
 
-    const outstandingDueCents = overdueInvoices.reduce((sum, invoice) => sum + Math.round(Number(invoice.amount) * 100), 0);
+    const outstandingDueCents = overdueInvoices.reduce((sum, invoice) => sum + (invoice.amountCents ?? Math.round(Number(invoice.amount) * 100)), 0);
     const activePlanExists = overdueInvoices.some((invoice) =>
       invoice.paymentPlan && ['ACTIVE', 'PENDING', 'COMPLETED'].includes((invoice.paymentPlan.status || '').toUpperCase()),
     );
@@ -2528,7 +2521,7 @@ export class PaymentsService {
       throw new BadRequestException('No overdue balance exists for this lease');
     }
 
-    const amountDueCents = overdueInvoices.reduce((sum, invoice) => sum + Math.round(Number(invoice.amount) * 100), 0);
+    const amountDueCents = overdueInvoices.reduce((sum, invoice) => sum + (invoice.amountCents ?? Math.round(Number(invoice.amount) * 100)), 0);
     const latestNotice = await this.prisma.leaseNotice.findFirst({
       where: { leaseId: lease.id },
       orderBy: { sentAt: 'desc' },
@@ -2798,7 +2791,7 @@ export class PaymentsService {
       }),
     ]);
 
-    const amountDueCents = overdueInvoices.reduce((sum, invoice) => sum + Math.round(Number(invoice.amount) * 100), 0);
+    const amountDueCents = overdueInvoices.reduce((sum, invoice) => sum + (invoice.amountCents ?? Math.round(Number(invoice.amount) * 100)), 0);
     const attorneyReferrals = communications.filter((entry: any) => entry.metadata?.workflow === 'DELINQUENCY_ATTORNEY_REFERRAL');
     const courtEntries = history.filter((entry: any) => entry.metadata?.legalStage === 'COURT_SCHEDULED');
 

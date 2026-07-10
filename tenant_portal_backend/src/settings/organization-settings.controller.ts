@@ -22,6 +22,7 @@ import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 interface UpdateOrgSettingsDto {
@@ -41,7 +42,7 @@ interface InviteUserDto {
 }
 
 interface UpdateUserDto {
-  role?: string;
+  role?: 'ADMIN' | 'PROPERTY_MANAGER' | 'OWNER' | 'TENANT';
   propertyIds?: string[];
 }
 
@@ -80,7 +81,7 @@ export class OrganizationSettingsController {
   @Roles('ADMIN')
   async updateOrganizationSettings(@Body() dto: UpdateOrgSettingsDto, @OrgId() orgId: string) {
     // Filter out undefined values so we don't accidentally overwrite with null
-    const data: Record<string, any> = {};
+    const data: Prisma.OrganizationUpdateInput = {};
     if (dto.name !== undefined) data.name = dto.name;
     if (dto.timezone !== undefined) data.timezone = dto.timezone;
     if (dto.dateFormat !== undefined) data.dateFormat = dto.dateFormat;
@@ -91,7 +92,7 @@ export class OrganizationSettingsController {
 
     const updated = await this.prisma.organization.update({
       where: { id: orgId },
-      data: data as any,
+      data,
     });
 
     this.logger.log(`Organization settings updated: ${orgId}`);
@@ -188,7 +189,7 @@ export class OrganizationSettingsController {
     const updated = await this.prisma.user.update({
       where: { id: userId },
       data: {
-        role: dto.role as any,
+        role: dto.role,
       },
     });
 
@@ -243,7 +244,7 @@ export class OrganizationSettingsController {
     const orgId = req.user.organizationId;
     await this.prisma.organization.update({
       where: { id: orgId },
-      data: { quickbooksConnected: false } as any,
+      data: { quickbooksConnected: false },
     });
     return { success: true };
   }

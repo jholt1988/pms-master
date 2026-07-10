@@ -269,6 +269,7 @@ export class BillingController {
    * Gap: Issue 8 - Owner Statement Sending (P0)
    */
   @Post('statements/:id/send')
+  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
   @Roles('PROPERTY_MANAGER', 'ADMIN')
   @HttpCode(200)
   async sendOwnerStatement(

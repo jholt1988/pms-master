@@ -2,7 +2,8 @@
 import { Controller, Post, Body } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
-@Controller('api/dev/seed')
+// Global prefix 'api' is applied at bootstrap; declare only the resource segment here.
+@Controller('dev/seed')
 export class DevSeedController {
   constructor(private eventEmitter: EventEmitter2) {}
 

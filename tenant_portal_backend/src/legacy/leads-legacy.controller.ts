@@ -22,7 +22,8 @@ interface AuthenticatedRequest {
   };
 }
 
-@Controller('api/leads')
+// Global prefix 'api' is applied at bootstrap; declare only the resource segment here.
+@Controller('leads')
 @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
 @Roles('PROPERTY_MANAGER')
 export class LeadsLegacyController {

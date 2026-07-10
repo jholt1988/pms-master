@@ -13,7 +13,15 @@ const migratedEnvelopePrefixes = [
   '/api/ai-gateway',
   '/api/operator-',
 ];
-const externalPrefixes = ['/webhooks/', '/metrics'];
+// Routes intentionally NOT under the global /api prefix.
+// - /webhooks, /metrics: external services / scrapers.
+// - /leasing, /esignature: deliberate unprefixed dual-mounts for external
+//   integrations (they are in the backend's GLOBAL_PREFIX_EXCLUDE list; see
+//   tenant_portal_backend/src/config/global-prefix.ts and ADR-005).
+const externalPrefixes = ['/webhooks/', '/metrics', '/leasing', '/esignature'];
+// The root controller serves the bare prefix (`/api`) for its landing/health
+// routes; allow the exact `/api` path in addition to everything under `/api/`.
+const allowedBarePaths = new Set(['/api']);
 const protectedPrefixes = migratedEnvelopePrefixes;
 const forbiddenPaths = [
   '/api/payment-methods',
@@ -101,7 +109,7 @@ for (const [routePath, pathItem] of Object.entries(openApi.paths || {})) {
     fail(`Route path contains whitespace: ${routePath}`);
   }
 
-  if (!routePath.startsWith('/api/') && !isExternalPath(routePath)) {
+  if (!routePath.startsWith('/api/') && !allowedBarePaths.has(routePath) && !isExternalPath(routePath)) {
     fail(`Browser route is not under /api and is not an external exception: ${routePath}`);
   }
 

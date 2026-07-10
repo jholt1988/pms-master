@@ -4,7 +4,23 @@
   "private": true,
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./schemas": {
+      "types": "./src/schemas.ts",
+      "default": "./src/schemas.ts"
+    },
+    "./generated": {
+      "types": "./src/generated/schema.ts",
+      "default": "./src/generated/schema.ts"
+    }
+  },
   "scripts": {
+    "gen": "pnpm dlx openapi-typescript@7.13.0 ../../docs/api/openapi.json -o src/generated/schema.ts",
+    "check:drift": "pnpm dlx openapi-typescript@7.13.0 ../../docs/api/openapi.json -o /tmp/api-contracts-schema.ts && diff -u src/generated/schema.ts /tmp/api-contracts-schema.ts",
     "build": "tsc --noEmit",
     "type-check": "tsc --noEmit"
   },
