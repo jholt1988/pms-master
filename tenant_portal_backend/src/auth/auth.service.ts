@@ -287,6 +287,18 @@ export class AuthService {
       orgId = newOrg.id;
     }
 
+    // Security: public self-registration is ALWAYS created as a TENANT. Any
+    // client-supplied `dto.role` is intentionally ignored here so that an
+    // unauthenticated caller cannot self-assign an elevated role. Privileged
+    // accounts (PROPERTY_MANAGER / ADMIN / OWNER) are created only through the
+    // authenticated POST /users endpoint (see UsersController.createUser).
+    if (dto.role && dto.role !== 'TENANT') {
+      this.logger.warn(
+        `Ignoring non-TENANT role '${dto.role}' supplied to public registration ` +
+          `(username='${dto.username}'). Public self-registration always creates a TENANT.`,
+      );
+    }
+
     // Password hashing is now handled by UsersService
     let user;
     try {
@@ -295,7 +307,7 @@ export class AuthService {
           username: dto.username,
           password: dto.password,
           passwordUpdatedAt: new Date(),
-          role: dto.role ?? 'TENANT',
+          role: 'TENANT',
           email: dto.email,
           firstName: dto.firstName,
           lastName: dto.lastName,

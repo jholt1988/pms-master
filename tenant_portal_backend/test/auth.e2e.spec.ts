@@ -87,6 +87,26 @@ describe('Auth API (e2e)', () => {
       expect(user?.username).toBe('newuser@test.com');
     });
 
+    it('ignores a client-supplied elevated role and creates a TENANT (security)', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({
+          username: 'escalation@test.com',
+          ...baseRegisterPayload,
+          email: 'escalation@test.com',
+          password: 'StrongPass@123',
+          role: 'ADMIN',
+        })
+        .expect(201);
+
+      expect(response.body.user.role).toBe('TENANT');
+
+      const user = await prisma.user.findUnique({
+        where: { username: 'escalation@test.com' },
+      });
+      expect(user?.role).toBe('TENANT');
+    });
+
     it('should reject weak passwords', async () => {
       const response = await request(app.getHttpServer())
         .post('/auth/register')
