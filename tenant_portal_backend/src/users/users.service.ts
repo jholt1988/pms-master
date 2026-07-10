@@ -39,9 +39,13 @@ export class UsersService {
       data.password = await bcrypt.hash(data.password, this.saltRounds);
     }
 
-    // Role validation: elevated roles require elevated creator
+    // Role validation: an elevated role may only be assigned by an elevated creator.
+    // Default-deny — a missing `requestingUserRole` (e.g. unauthenticated self-service
+    // registration, which passes `undefined`) is treated as un-privileged, so it can
+    // never mint a PROPERTY_MANAGER/ADMIN account. Privileged accounts are created only
+    // via the authenticated POST /users endpoint, which passes the caller's own role.
     if (this.elevatedRoles.includes(data.role as Role)) {
-      if (requestingUserRole && !this.elevatedRoles.includes(requestingUserRole)) {
+      if (!requestingUserRole || !this.elevatedRoles.includes(requestingUserRole)) {
         throw new ForbiddenException('Only property managers or admins can create privileged accounts');
       }
     } else {
