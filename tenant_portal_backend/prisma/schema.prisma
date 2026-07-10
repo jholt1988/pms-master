@@ -655,6 +655,15 @@ model MaintenanceRequest {
   documents         MaintenanceRequestDocument[] @relation("MaintenanceRequestDocuments")
 
   approvalTasks ApprovalTask[]
+
+  // Hot list/queue queries filter by these FKs + status but the table had no
+  // secondary indexes, forcing sequential scans as it grows.
+  @@index([authorId])
+  @@index([propertyId])
+  @@index([unitId])
+  @@index([assigneeId])
+  @@index([leaseId])
+  @@index([status])
 }
 
 model MaintenanceAsset {
