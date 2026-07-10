@@ -23,6 +23,7 @@ import { ExpenseModule } from './expense/expense.module';
 import { RentEstimatorModule } from './rent-estimator/rent-estimator.module';
 import { PaymentsModule } from './payments/payments.module';
 import { BillingModule } from './billing/billing.module';
+import { SettingsModule } from './settings/settings.module';
 import { SecurityEventsModule } from './security-events/security-events.module';
 import { EmailModule } from './email/email.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -159,6 +160,7 @@ const rateLimitProviders = rateLimitEnabled
     ExpenseModule,
     RentEstimatorModule,
     BillingModule,
+    SettingsModule,
     SecurityEventsModule,
     EmailModule,
     NotificationsModule,
