@@ -1,8 +1,9 @@
 import { PredictiveMaintenanceService } from './predictive-maintenance.service';
 
 /**
- * Unit tests for the pure risk-summary aggregation (#9). buildRiskSummary is a
- * static, side-effect-free function, so it is tested without a database.
+ * Unit tests for the pure, side-effect-free helpers on PredictiveMaintenanceService
+ * (risk-summary aggregation #9, escalation detection + weekly digest #11).
+ * These need no database.
  */
 describe('PredictiveMaintenanceService.buildRiskSummary', () => {
   const snap = (assetId: number, riskLevel: string, category: string, drivers: any[] = []) => ({
@@ -41,5 +42,34 @@ describe('PredictiveMaintenanceService.buildRiskSummary', () => {
     const prior = [snap(1, 'MEDIUM', 'HVAC'), snap(2, 'LOW', 'HVAC')];
     const summary = PredictiveMaintenanceService.buildRiskSummary(current as any, prior as any);
     expect(summary.trend30d).toEqual({ highRiskNow: 2, highRisk30dAgo: 0, delta: 2 });
+  });
+});
+
+describe('PredictiveMaintenanceService.isEscalationToHigh', () => {
+  it('fires only when crossing UP into HIGH from a lower/unscored level', () => {
+    expect(PredictiveMaintenanceService.isEscalationToHigh('MEDIUM', 'HIGH')).toBe(true);
+    expect(PredictiveMaintenanceService.isEscalationToHigh('LOW', 'HIGH')).toBe(true);
+    expect(PredictiveMaintenanceService.isEscalationToHigh(null, 'HIGH')).toBe(true);
+    expect(PredictiveMaintenanceService.isEscalationToHigh('HIGH', 'HIGH')).toBe(false); // stays HIGH
+    expect(PredictiveMaintenanceService.isEscalationToHigh('HIGH', 'MEDIUM')).toBe(false); // de-escalation
+    expect(PredictiveMaintenanceService.isEscalationToHigh('LOW', 'MEDIUM')).toBe(false);
+  });
+});
+
+describe('PredictiveMaintenanceService.buildWeeklyDigests', () => {
+  it('groups HIGH assets per org, counting each asset once (latest row wins)', () => {
+    const rows = [
+      { assetId: 1, organizationId: 'orgA' },
+      { assetId: 1, organizationId: 'orgA' }, // duplicate asset — counted once
+      { assetId: 2, organizationId: 'orgA' },
+      { assetId: 3, organizationId: 'orgB' },
+    ];
+    const digests = PredictiveMaintenanceService.buildWeeklyDigests(rows);
+    const a = digests.find((d) => d.organizationId === 'orgA');
+    const b = digests.find((d) => d.organizationId === 'orgB');
+    expect(a?.highRiskAssetCount).toBe(2);
+    expect(a?.assetIds.slice().sort()).toEqual([1, 2]);
+    expect(b?.highRiskAssetCount).toBe(1);
+    expect(digests).toHaveLength(2);
   });
 });

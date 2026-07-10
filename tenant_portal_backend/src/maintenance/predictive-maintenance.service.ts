@@ -86,6 +86,16 @@ export class PredictiveMaintenanceService {
 
         const rulData = response.data;
         const failureProb = Number(rulData.failure_probability_30d ?? 0);
+        const newLevel = this.computeRiskLevel(failureProb);
+
+        // #11: remember the asset's prior risk level (the most recent snapshot
+        // BEFORE this run) so we can detect an escalation into HIGH below.
+        const priorSnapshot = await this.prisma.maintenanceRiskSnapshot.findFirst({
+          where: { assetId: asset.id },
+          orderBy: { scannedAt: 'desc' },
+          select: { riskLevel: true },
+        });
+        const priorLevel = priorSnapshot?.riskLevel ?? null;
 
         // Persist a per-asset risk snapshot on every scan. This is the data
         // foundation for the risk-summary API, 30-day trend, and MED->HIGH
@@ -96,7 +106,7 @@ export class PredictiveMaintenanceService {
               assetId: asset.id,
               organizationId: asset.property.organizationId,
               category: asset.category,
-              riskLevel: this.computeRiskLevel(failureProb),
+              riskLevel: newLevel,
               failureProbability30d: failureProb,
               remainingUsefulLifeDays: rulData.remaining_useful_life_days ?? null,
               confidence: this.computeConfidence({
@@ -125,8 +135,9 @@ export class PredictiveMaintenanceService {
           );
         }
 
-        // Create ActionIntent alert if failure probability is high (> 70% in 30 days)
-        if (rulData.failure_probability_30d >= 0.70) {
+        // #11: alert only when the asset ESCALATES into HIGH (was below HIGH on
+        // the previous scan). Staying HIGH or de-escalating does not re-alert.
+        if (PredictiveMaintenanceService.isEscalationToHigh(priorLevel, newLevel)) {
           // Check if pending alert already exists to prevent duplicate ActionIntents
           const existingIntent = await (this.prisma as any).actionIntent.findFirst({
             where: {
@@ -140,7 +151,7 @@ export class PredictiveMaintenanceService {
             (existingIntent.metadata as any)?.assetId === asset.id : false;
 
           if (!alreadyHasAlert) {
-            const description = `Asset ${asset.name} (${asset.category}) has a ${Math.round(rulData.failure_probability_30d * 100)}% failure risk within 30 days. Projected RUL: ${rulData.remaining_useful_life_days} days.`;
+            const description = `Asset ${asset.name} (${asset.category}) escalated to HIGH maintenance risk (${Math.round(failureProb * 100)}% 30-day failure risk; was ${priorLevel ?? 'UNSCORED'}). Projected RUL: ${rulData.remaining_useful_life_days} days.`;
             
             const intent = await (this.prisma as any).actionIntent.create({
               data: {
@@ -148,7 +159,7 @@ export class PredictiveMaintenanceService {
                 type: 'PREVENTIVE_MAINTENANCE_ALERT',
                 description,
                 status: 'PENDING',
-                priority: rulData.failure_probability_30d >= 0.90 ? 'HIGH' : 'MEDIUM',
+                priority: failureProb >= 0.9 ? 'HIGH' : 'MEDIUM',
                 metadata: {
                   assetId: asset.id,
                   assetName: asset.name,
@@ -156,8 +167,11 @@ export class PredictiveMaintenanceService {
                   propertyId: asset.propertyId,
                   unitId: asset.unitId,
                   remainingLifeDays: rulData.remaining_useful_life_days,
-                  failureProbability: rulData.failure_probability_30d,
+                  failureProbability: failureProb,
                   recommendedAction: rulData.recommended_action,
+                  priorRiskLevel: priorLevel ?? 'UNSCORED',
+                  newRiskLevel: 'HIGH',
+                  escalated: true,
                 },
               },
             });
@@ -325,6 +339,75 @@ export class PredictiveMaintenanceService {
       },
       generatedAt: new Date().toISOString(),
     };
+  }
+
+  /** #11: true when an asset crosses UP into HIGH from a lower/unscored level. */
+  static isEscalationToHigh(
+    priorLevel: string | null | undefined,
+    newLevel: string,
+  ): boolean {
+    return newLevel === 'HIGH' && priorLevel !== 'HIGH';
+  }
+
+  /**
+   * #11 — weekly owner digest of assets currently at HIGH maintenance risk.
+   * Creates one PREVENTIVE_MAINTENANCE_DIGEST ActionIntent per organization.
+   * Runs Mondays 08:00 (raw cron string avoids CronExpression enum coupling).
+   */
+  @Cron('0 8 * * 1')
+  async handleWeeklyRiskDigest() {
+    this.logger.log('Building weekly predictive-maintenance risk digest...');
+    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const highRows = await this.prisma.maintenanceRiskSnapshot.findMany({
+      where: { riskLevel: MaintenanceRiskLevel.HIGH, scannedAt: { gte: since } },
+      orderBy: { scannedAt: 'desc' },
+      take: 10000,
+    });
+    const digests = PredictiveMaintenanceService.buildWeeklyDigests(highRows);
+    let orgDigestsCreated = 0;
+    for (const digest of digests) {
+      await (this.prisma as any).actionIntent.create({
+        data: {
+          organizationId: digest.organizationId,
+          type: 'PREVENTIVE_MAINTENANCE_DIGEST',
+          description: `${digest.highRiskAssetCount} asset(s) at HIGH maintenance risk in the last 7 days.`,
+          status: 'PENDING',
+          priority: 'MEDIUM',
+          metadata: {
+            period: '7d',
+            highRiskAssetCount: digest.highRiskAssetCount,
+            assetIds: digest.assetIds,
+            generatedAt: new Date().toISOString(),
+          },
+        },
+      });
+      orgDigestsCreated++;
+    }
+    this.logger.log(`Weekly risk digest created ${orgDigestsCreated} org digest(s).`);
+    return { orgDigestsCreated };
+  }
+
+  /**
+   * Pure: group HIGH-risk snapshots into one digest per org, counting each asset
+   * once (rows must be scannedAt DESC, so the first row per asset is the latest).
+   */
+  static buildWeeklyDigests(
+    highRowsDesc: Array<{ assetId: number; organizationId: string }>,
+  ): Array<{ organizationId: string; highRiskAssetCount: number; assetIds: number[] }> {
+    const seenAsset = new Set<number>();
+    const byOrg = new Map<string, number[]>();
+    for (const row of highRowsDesc) {
+      if (seenAsset.has(row.assetId)) continue;
+      seenAsset.add(row.assetId);
+      const list = byOrg.get(row.organizationId) ?? [];
+      list.push(row.assetId);
+      byOrg.set(row.organizationId, list);
+    }
+    return [...byOrg.entries()].map(([organizationId, assetIds]) => ({
+      organizationId,
+      highRiskAssetCount: assetIds.length,
+      assetIds,
+    }));
   }
 
   async triggerPreventiveTicket(assetId: number, userId: string) {
