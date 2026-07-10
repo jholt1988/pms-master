@@ -1,8 +1,11 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ApiException } from '../errors';
 import { ErrorCode } from '../errors/error-codes.enum';
 import { OrgRole, Role } from '@prisma/client';
+import { IS_PUBLIC_KEY } from '../../auth/public.decorator';
+import { SKIP_ORG_CONTEXT_KEY } from './skip-org-context.decorator';
 
 /**
  * Single-org mode:
@@ -14,9 +17,31 @@ import { OrgRole, Role } from '@prisma/client';
  */
 @Injectable()
 export class OrgContextGuard implements CanActivate {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly reflector: Reflector,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    // Registered globally (APP_GUARD). Exempt routes/controllers that opt out
+    // via @SkipOrgContext(), and @Public() routes (which have no authenticated
+    // user anyway). Both checks read handler-level then class-level metadata.
+    const skip = this.reflector.getAllAndOverride<boolean>(SKIP_ORG_CONTEXT_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (skip) {
+      return true;
+    }
+
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isPublic) {
+      return true;
+    }
+
     const req = context.switchToHttp().getRequest<Request>();
 
     const user = (req as any).user as { userId: string; role: Role } | undefined;
