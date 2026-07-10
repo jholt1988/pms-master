@@ -397,7 +397,9 @@ export class PaymentsService {
       try {
         const tenant = (payment as any).lease?.tenant ?? lease.tenant;
         const tenantEmail = tenant?.username ?? tenant?.email ?? '';
-        await this.emailService.sendRentPaymentConfirmation(
+        // Enqueue (non-blocking) instead of awaiting SMTP inline; falls back to
+        // an inline send when the queue is disabled (tests / DISABLE_REDIS).
+        await this.emailService.queuePaymentConfirmation(
           tenantEmail,
           Number(payment.amount),
           payment.paymentDate ?? new Date(),
