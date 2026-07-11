@@ -70,11 +70,33 @@ jobs:
         working-directory: .
         run: pnpm install --frozen-lockfile
 
-      - name: Prisma generate
-        run: pnpm exec prisma generate
+      - name: Wait for Postgres to be ready
+        run: |
+          echo "Waiting for Postgres to accept connections..."
+          for i in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U pms >/dev/null 2>&1; then
+              echo "Postgres is ready"
+              break
+            fi
+            echo "Postgres not ready yet ($i/30), sleeping 2s"
+            sleep 2
+          done
 
-      - name: Prisma migrate deploy
-        run: pnpm exec prisma migrate deploy
+      - name: Apply Prisma migrations (CI)
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: |
+          set -e
+          echo "Running prisma migrate deploy..."
+          pnpm exec prisma migrate deploy --schema=./prisma/schema.prisma
+
+      - name: Prisma generate
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: |
+          set -e
+          echo "Generating Prisma client..."
+          pnpm exec prisma generate --schema=./prisma/schema.prisma
 
       - name: Seed robust inspection demo
         run: pnpm run seed:inspection-demo:robust
