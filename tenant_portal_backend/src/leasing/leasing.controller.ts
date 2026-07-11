@@ -22,7 +22,6 @@ import { ApiParam } from '@nestjs/swagger';
 import { Request as ExpressRequest } from 'express';
 import { LeasingService } from './leasing.service';
 import { LeadStatus } from '@prisma/client';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 
 interface AuthenticatedRequest extends ExpressRequest {
@@ -118,7 +117,7 @@ export class LeasingController {
    * Get all leads with filtering
    * GET /leasing/leads?status=NEW&search=john&limit=20&offset=0
    */
-  @UseGuards(AuthGuard('jwt'), OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'))
   @Get('leads')
   async getLeads(
     @Query('status') status?: string,
@@ -291,7 +290,7 @@ export class LeasingController {
    * Update lead status
    * PATCH /leasing/leads/:id/status
    */
-  @UseGuards(AuthGuard('jwt'), OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'))
   @Patch('leads/:id/status')
   async updateStatus(
     @Param('id') leadId: string,
@@ -321,7 +320,7 @@ export class LeasingController {
    * Execute bulk action from ops summary groupings
    * POST /leasing/ops-summary/bulk-action
    */
-  @UseGuards(AuthGuard('jwt'), OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'))
   @Post('ops-summary/bulk-action')
   async executeBulkAction(
     @Body()
@@ -363,7 +362,7 @@ export class LeasingController {
    * Get leasing operations summary
    * GET /leasing/ops-summary
    */
-  @UseGuards(AuthGuard('jwt'), OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'))
   @Get('ops-summary')
   async getOpsSummary(
     @Query('limit') limit?: string,
@@ -380,7 +379,7 @@ export class LeasingController {
    * Get leasing statistics
    * GET /leasing/statistics
    */
-  @UseGuards(AuthGuard('jwt'), OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'))
   @Get('statistics')
   async getStatistics(
     @Query('dateFrom') dateFrom?: string,
