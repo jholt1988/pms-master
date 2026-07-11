@@ -2,8 +2,8 @@
  * Lead Applications Controller
  * API endpoints for rental application management
  *
- * Security: the whole controller sits behind JWT auth (also enforced globally
- * by GlobalJwtAuthGuard) plus RolesGuard and OrgContextGuard. Management
+ * Security: JWT auth and single-org context are enforced application-wide by the
+ * global auth and org-context guards; this controller adds RolesGuard. Management
  * endpoints are restricted to PROPERTY_MANAGER/ADMIN and are org-scoped via
  * @OrgId(): a caller can only read/mutate applications whose property belongs
  * to their organization. The `submit` intake endpoint is intentionally left
@@ -29,14 +29,13 @@ import { LeadApplicationsService } from './lead-applications.service';
 import { isUUID } from 'class-validator';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { UpdateApplicationStatusDto } from './dto/update-application-status.dto';
 import { UpdateScreeningDto } from './dto/update-screening.dto';
 import { RecordApplicationPaymentDto } from './dto/record-application-payment.dto';
 
 @Controller('applications')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class LeadApplicationsController {
   constructor(
     private readonly leadApplicationsService: LeadApplicationsService,

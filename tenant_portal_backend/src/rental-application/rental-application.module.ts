@@ -9,7 +9,6 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { SecurityEventsModule } from '../security-events/security-events.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt.guard';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { RentalApplicationAiService } from './rental-application.ai.service';
 import { RentalApplicationProcessor } from './rental-application.processor';
 import { EventScheduleModule } from '../schedule/schedule.module';
@@ -45,7 +44,6 @@ const queueEnabled = process.env.NODE_ENV !== 'test' && process.env.DISABLE_REDI
     RentalApplicationService,
     ApplicationLifecycleService,
     OptionalJwtAuthGuard,
-    OrgContextGuard,
     RentalApplicationAiService,
     RentalApplicationProcessor,
   ],
