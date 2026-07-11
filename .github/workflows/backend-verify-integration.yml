@@ -98,6 +98,21 @@ jobs:
           echo "Generating Prisma client..."
           pnpm exec prisma generate --schema=./prisma/schema.prisma
 
+      - name: Inspect / fix Lease table
+        env:
+          PGPASSWORD: pms
+        run: |
+          echo "Describe Lease (case-sensitive and lowercase variants)…"
+          psql -h localhost -U pms -d pms -c '\d "Lease"' || true
+          psql -h localhost -U pms -d pms -c '\d lease' || true
+
+          echo "Ensure expected columns exist; add if missing"
+          # Adjust SQL types to match your Prisma schema if necessary
+          psql -h localhost -U pms -d pms -c 'ALTER TABLE "Lease" ADD COLUMN IF NOT EXISTS "rentAmount" numeric;'
+          psql -h localhost -U pms -d pms -c 'ALTER TABLE "Lease" ADD COLUMN IF NOT EXISTS "rentAmountCents" integer;'
+          echo "Lease table after fix:"
+          psql -h localhost -U pms -d pms -c '\d "Lease"' || true
+
       - name: Seed robust inspection demo
         run: pnpm run seed:inspection-demo:robust
 
