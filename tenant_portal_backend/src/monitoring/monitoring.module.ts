@@ -10,7 +10,6 @@ import { QueryMonitorService } from './query-monitor';
 import { PrismaModule } from '../prisma/prisma.module';
 import { ConfigModule } from '@nestjs/config';
 import { NotificationsModule } from '../notifications/notifications.module';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 
 @Module({
   imports: [PrismaModule, ConfigModule, NotificationsModule],
@@ -22,7 +21,6 @@ import { OrgContextGuard } from '../common/org-context/org-context.guard';
     AIAlertingService,
     PerformanceMiddleware,
     QueryMonitorService,
-    OrgContextGuard,
   ],
   controllers: [PerformanceController],
   exports: [
