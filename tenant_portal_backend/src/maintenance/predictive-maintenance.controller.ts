@@ -2,7 +2,6 @@ import { Body, Controller, Get, Param, Post, Request, UseGuards } from '@nestjs/
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { PredictiveMaintenanceService } from './predictive-maintenance.service';
 import { Role } from '@prisma/client';
@@ -16,7 +15,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('maintenance/predictive')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 @Roles('PROPERTY_MANAGER', 'ADMIN')
 export class PredictiveMaintenanceController {
   constructor(private readonly predictiveService: PredictiveMaintenanceService) {}
@@ -27,6 +26,24 @@ export class PredictiveMaintenanceController {
   @Get('assets')
   async getPredictiveAssets(@OrgId() orgId?: string) {
     return this.predictiveService.scanAssetsAndPredict(orgId);
+  }
+
+  /**
+   * Org risk summary: counts by risk level, top categories, top drivers, and a
+   * 30-day trend delta — aggregated from the latest per-asset snapshots (#9).
+   */
+  @Get('risk-summary')
+  async getRiskSummary(@OrgId() orgId?: string) {
+    return this.predictiveService.getRiskSummary(orgId);
+  }
+
+  /**
+   * Latest risk snapshot for a single asset — risk level, drivers, confidence,
+   * and data-quality flags for the "why this score" UI (#12/#13/#14).
+   */
+  @Get('assets/:id/risk')
+  async getAssetRisk(@Param('id') id: string, @OrgId() orgId?: string) {
+    return this.predictiveService.getAssetRisk(Number(id), orgId);
   }
 
   /**

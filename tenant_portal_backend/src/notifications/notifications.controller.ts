@@ -1,10 +1,9 @@
-import { Controller, Get, Post, Param, Query, Delete, UseGuards, Req, ParseIntPipe, Put, Body } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Delete, UseGuards, Req, ParseUUIDPipe, Put, Body } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { NotificationsService } from './notifications.service';
 import { NotificationPreferencesService, NotificationPreferencesDto } from './notification-preferences.service';
 import { NotificationType } from '@prisma/client';
 import { Request } from 'express';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -15,7 +14,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('notifications')
-@UseGuards(AuthGuard('jwt'), OrgContextGuard)
+@UseGuards(AuthGuard('jwt'))
 export class NotificationsController {
   constructor(
     private readonly notificationsService: NotificationsService,
@@ -52,7 +51,7 @@ export class NotificationsController {
   }
 
   @Put(':id/read')
-  async markAsRead(@Req() req: AuthenticatedRequest, @Param('id', ParseIntPipe) id: number) {
+  async markAsRead(@Req() req: AuthenticatedRequest, @Param('id', ParseUUIDPipe) id: number) {
     const userId = req.user.sub;
     const orgId = (req as any).org?.orgId as string | undefined;
     const notification = await this.notificationsService.markAsRead(userId, id, orgId);
@@ -68,7 +67,7 @@ export class NotificationsController {
   }
 
   @Delete(':id')
-  async deleteNotification(@Req() req: AuthenticatedRequest, @Param('id', ParseIntPipe) id: number) {
+  async deleteNotification(@Req() req: AuthenticatedRequest, @Param('id', ParseUUIDPipe) id: number) {
     const userId = req.user.sub;
     const orgId = (req as any).org?.orgId as string | undefined;
     await this.notificationsService.delete(userId, id, orgId);

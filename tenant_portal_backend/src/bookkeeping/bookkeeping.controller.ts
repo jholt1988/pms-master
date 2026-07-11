@@ -12,7 +12,6 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { BookkeepingService } from './bookkeeping.service';
@@ -21,7 +20,7 @@ const ok = <T>(data: T, meta: Record<string, unknown> = {}) => ({ data, meta, er
 const pagination = (total: number, skip: number, take: number) => ({ pagination: { total, skip, take } });
 
 @Controller('bookkeeping')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class BookkeepingController {
   constructor(private readonly bookkeepingService: BookkeepingService) {}
 

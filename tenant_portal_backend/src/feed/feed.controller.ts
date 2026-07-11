@@ -2,11 +2,10 @@ import { Controller, Get, UseGuards, Request, Param, Body, Query, Patch } from '
 import { FeedAggregatorService } from './feed-aggregator.service';
 import {AuthGuard} from '@nestjs/passport';
 import {RolesGuard} from '../auth/roles.guard';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Controller('feed')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class FeedController {
     constructor(
         private readonly feedService: FeedAggregatorService,

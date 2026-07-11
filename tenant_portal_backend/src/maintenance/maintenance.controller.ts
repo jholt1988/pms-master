@@ -14,7 +14,6 @@ import { AddMaintenancePhotoDto } from './dto/add-maintenance-photo.dto';
 import { ConfirmMaintenanceCompleteDto } from './dto/confirm-maintenance-complete.dto';
 import { ApiException } from '../common/errors';
 import { ErrorCode } from '../common/errors/error-codes.enum';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { AuditLogService } from '../shared/audit-log.service';
 import { MaintenanceFeatureExtractionService } from './ai/maintenance-feature-extraction.service';
@@ -37,7 +36,7 @@ interface AuthenticatedRequest extends Request {
 type ManagerFilters = Parameters<MaintenanceService['findAllForOrgPaged']>[1];
 
 @Controller('maintenance')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class MaintenanceController {
   constructor(
     private readonly maintenanceService: MaintenanceService,

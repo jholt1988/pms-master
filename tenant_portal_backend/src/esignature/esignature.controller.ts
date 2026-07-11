@@ -1,11 +1,10 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Request, Res, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Request, Res, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Role } from '@prisma/client';
 
 import { Request as ExpressRequest, Response } from 'express';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { EsignatureService } from './esignature.service';
 import { CreateEnvelopeDto } from './dto/create-envelope.dto';
 import { RecipientViewDto } from './dto/recipient-view.dto';
@@ -20,7 +19,7 @@ interface AuthenticatedRequest extends ExpressRequest {
 }
 
 @Controller(['esignature','api/esignature'])
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class EsignatureController {
   constructor(private readonly esignatureService: EsignatureService) {}
 
@@ -65,7 +64,7 @@ export class EsignatureController {
   @Get('envelopes/:envelopeId')
   @Roles('PROPERTY_MANAGER', 'TENANT')
   getEnvelope(
-    @Param('envelopeId', ParseIntPipe) envelopeId: number,
+    @Param('envelopeId', ParseUUIDPipe) envelopeId: number,
     @Request() req: AuthenticatedRequest,
   ) {
     return this.esignatureService.getEnvelope(envelopeId, req.user);
@@ -74,7 +73,7 @@ export class EsignatureController {
   @Patch('envelopes/:envelopeId/void')
   @Roles('PROPERTY_MANAGER')
   voidEnvelope(
-    @Param('envelopeId', ParseIntPipe) envelopeId: number,
+    @Param('envelopeId', ParseUUIDPipe) envelopeId: number,
     @Body() dto: VoidEnvelopeDto,
     @Request() req: AuthenticatedRequest,
   ) {
@@ -84,7 +83,7 @@ export class EsignatureController {
   @Post('envelopes/:envelopeId/refresh')
   @Roles('PROPERTY_MANAGER', 'TENANT')
   refreshEnvelopeStatus(
-    @Param('envelopeId', ParseIntPipe) envelopeId: number,
+    @Param('envelopeId', ParseUUIDPipe) envelopeId: number,
     @Request() req: AuthenticatedRequest,
   ) {
     return this.esignatureService.refreshEnvelopeStatus(envelopeId, req.user);
@@ -93,7 +92,7 @@ export class EsignatureController {
   @Post('envelopes/:envelopeId/resend')
   @Roles('PROPERTY_MANAGER')
   resendNotifications(
-    @Param('envelopeId', ParseIntPipe) envelopeId: number,
+    @Param('envelopeId', ParseUUIDPipe) envelopeId: number,
     @Request() req: AuthenticatedRequest,
   ) {
     return this.esignatureService.resendNotifications(envelopeId, req.user.userId);
@@ -102,7 +101,7 @@ export class EsignatureController {
   @Post('envelopes/:envelopeId/retry-send')
   @Roles('PROPERTY_MANAGER')
   retryEnvelopeSend(
-    @Param('envelopeId', ParseIntPipe) envelopeId: number,
+    @Param('envelopeId', ParseUUIDPipe) envelopeId: number,
     @Request() req: AuthenticatedRequest,
   ) {
     return this.esignatureService.retryEnvelopeSend(envelopeId, req.user.userId);
@@ -111,7 +110,7 @@ export class EsignatureController {
   @Get('envelopes/:envelopeId/documents/signed')
   @Roles('PROPERTY_MANAGER', 'TENANT')
   async downloadSignedDocument(
-    @Param('envelopeId', ParseIntPipe) envelopeId: number,
+    @Param('envelopeId', ParseUUIDPipe) envelopeId: number,
     @Request() req: AuthenticatedRequest,
     @Res() res: Response,
   ) {
@@ -124,7 +123,7 @@ export class EsignatureController {
   @Get('envelopes/:envelopeId/documents/certificate')
   @Roles('PROPERTY_MANAGER', 'TENANT')
   async downloadCertificate(
-    @Param('envelopeId', ParseIntPipe) envelopeId: number,
+    @Param('envelopeId', ParseUUIDPipe) envelopeId: number,
     @Request() req: AuthenticatedRequest,
     @Res() res: Response,
   ) {

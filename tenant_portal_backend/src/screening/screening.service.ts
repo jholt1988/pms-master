@@ -1,8 +1,9 @@
-import { Injectable, Logger, NotFoundException, Inject } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ScreeningProvider, ScreeningApplicant } from './screening-provider.interface';
 import { ApplicationStatus } from '@prisma/client';
 import { SCREENING_PROVIDER } from './screening.constants';
+import { ScreeningDecisionDto } from './dto/screening-decision.dto';
 
 /**
  * ScreeningService — orchestrates tenant screening requests through
@@ -187,6 +188,85 @@ export class ScreeningService {
     this.logger.log(
       `Screening completed for app #${request.applicationId}: ${result.recommendation}`,
     );
+  }
+
+  /**
+   * Record a manager/admin screening decision and persist an auditable record.
+   * Uses existing models only (RentalApplication + ApplicationLifecycleEvent) —
+   * no schema migration required.
+   */
+  async recordDecision(
+    applicationId: number,
+    dto: ScreeningDecisionDto,
+    actorUserId?: string,
+  ) {
+    const application = await this.prisma.rentalApplication.findUnique({
+      where: { id: applicationId },
+    });
+    if (!application) {
+      throw new NotFoundException(`Application #${applicationId} not found`);
+    }
+
+    // Adverse action: denying or conditionally approving must carry a reason
+    // (free-text or a structured code) so the decision is defensible.
+    const isAdverse = dto.decision === 'DENY' || dto.decision === 'CONDITIONAL';
+    if (isAdverse && !dto.reasonCode && !dto.reason?.trim()) {
+      throw new BadRequestException(
+        'A reason or reasonCode is required for DENY and CONDITIONAL decisions (adverse action).',
+      );
+    }
+
+    const toStatus =
+      dto.decision === 'APPROVE'
+        ? ApplicationStatus.APPROVED
+        : dto.decision === 'DENY'
+          ? ApplicationStatus.REJECTED
+          : ApplicationStatus.CONDITIONALLY_APPROVED;
+    const fromStatus = application.status;
+    const decidedAt = new Date();
+    const decisionNotes =
+      [dto.reason?.trim(), dto.note?.trim()].filter(Boolean).join(' — ') || null;
+
+    const [, event] = await this.prisma.$transaction([
+      this.prisma.rentalApplication.update({
+        where: { id: applicationId },
+        data: {
+          status: toStatus,
+          decisionReasonCode: dto.reasonCode ?? null,
+          decisionNotes,
+          decisionedAt: decidedAt,
+        },
+      }),
+      this.prisma.applicationLifecycleEvent.create({
+        data: {
+          applicationId,
+          eventType: `DECISION_${dto.decision}`,
+          fromStatus,
+          toStatus,
+          performedById: actorUserId ?? null,
+          metadata: {
+            decision: dto.decision,
+            reasonCode: dto.reasonCode ?? null,
+            reason: dto.reason ?? null,
+            note: dto.note ?? null,
+            decidedBy: actorUserId ?? null,
+          },
+        },
+      }),
+    ]);
+
+    this.logger.log(
+      `Application #${applicationId} decision=${dto.decision} -> ${toStatus} by=${actorUserId ?? 'unknown'}`,
+    );
+
+    return {
+      applicationId,
+      decision: dto.decision,
+      status: toStatus,
+      decisionRecordId: event.id,
+      decidedAt,
+      decidedBy: actorUserId ?? null,
+    };
   }
 
   /**

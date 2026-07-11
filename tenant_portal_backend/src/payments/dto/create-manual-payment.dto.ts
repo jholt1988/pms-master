@@ -17,7 +17,7 @@ export class CreateManualPaymentDto {
   tenantId!: string;
 
   @ApiProperty({ type: Number, description: 'Amount in integer cents.' })
-  @IsInt()
+  @IsString()
   @Min(1)
   amountCents!: number;
 

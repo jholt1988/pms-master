@@ -2,7 +2,7 @@ import { PaymentAIChannel } from './payment-strategy.types';
 
 export interface AIPaymentGuardrailInput {
   userId: string;
-  invoiceId: number;
+  invoiceId: string;
   operation: 'ASSESS_RISK' | 'REMINDER_TIMING' | 'PERSONALIZED_MESSAGE';
   metadata?: Record<string, unknown>;
 }

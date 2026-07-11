@@ -2,7 +2,6 @@ import { Controller, Get, Request, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Role } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { Roles } from '../auth/roles.decorator';
 
 import { DashboardService } from './dashboard.service';
@@ -15,7 +14,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('tenant')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 @Roles('TENANT')
 export class TenantDashboardController {
   constructor(private readonly dashboardService: DashboardService) {}

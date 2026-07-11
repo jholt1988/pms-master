@@ -137,7 +137,7 @@ export class BillingService {
   async recordYieldSweepAllocation(
     orgId: string,
     leaseId: string,
-    paymentId: number,
+    paymentId: string,
     amountCents: number,
   ) {
     return this.paymentsService.recordYieldSweepAllocation(orgId, leaseId, paymentId, amountCents);
@@ -969,7 +969,7 @@ export class BillingService {
     return { leaseId: leaseIdNum, active: false };
   }
 
-  private async getOrCreateDailyAutopayAttempt(autopayEnrollmentId: number, invoiceId: number, scheduledFor: Date) {
+  private async getOrCreateDailyAutopayAttempt(autopayEnrollmentId: number, invoiceId: string, scheduledFor: Date) {
     try {
       return await this.prisma.paymentAttempt.create({
         data: {

@@ -27,12 +27,12 @@ export class CreatePaymentMethodDto {
   brand?: string;
 
   @IsOptional()
-  @Type(() => Number)
+  
   @IsNumber()
   expMonth?: number;
 
   @IsOptional()
-  @Type(() => Number)
+  
   @IsNumber()
   expYear?: number;
 }

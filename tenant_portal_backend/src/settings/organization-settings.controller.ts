@@ -18,7 +18,6 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { PrismaService } from '../prisma/prisma.service';
@@ -47,7 +46,7 @@ interface UpdateUserDto {
 }
 
 @Controller('settings')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class OrganizationSettingsController {
   private readonly logger = new Logger(OrganizationSettingsController.name);
 

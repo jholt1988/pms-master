@@ -4,7 +4,6 @@ import { PaymentsService } from './payments.service';
 import { AIPaymentMetricsService } from './ai-payment-metrics.service';
 import { Invoice, LeaseNoticeDeliveryMethod, Payment, Role } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
@@ -32,7 +31,7 @@ type AuthenticatedRequest = ExpressRequest & {
 };
 
 @Controller('payments')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class PaymentsController {
   constructor(
     private readonly paymentsService: PaymentsService,
@@ -157,8 +156,8 @@ export class PaymentsController {
       orgId,
       bucket,
       propertyId,
-      limit: limit ? Number(limit) : undefined,
-      offset: offset ? Number(offset) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+      offset: offset ? parseInt(offset, 10) : undefined,
       sortBy,
       sortOrder,
     });
@@ -232,7 +231,7 @@ export class PaymentsController {
         : 'Late notice issued from admin feed action.';
 
     return this.paymentsService.issueDelinquencyNoticeByPaymentId(
-      Number(paymentId),
+      String(paymentId),
       {
         deliveryMethod: body?.deliveryMethod ?? LeaseNoticeDeliveryMethod.PRINT,
         approvalConfirmed: true,
@@ -262,7 +261,7 @@ export class PaymentsController {
     @OrgId() orgId: string,
   ) {
     return this.paymentsService.resolveDelinquencyLegalHoldByPaymentId(
-      Number(paymentId),
+      String(paymentId),
       {
         resolutionMode: DelinquencyResolutionMode.PAYMENT_PLAN,
         reason: body?.reason ?? 'Promise to pay initiated from admin feed action.',
@@ -311,7 +310,7 @@ export class PaymentsController {
       `Payment message sent to tenant for payment ${paymentId}: ${body.subject}`,
     );
     return this.paymentsService.sendTenantMessage(
-      parseInt(paymentId),
+      String(paymentId),
       body.subject,
       body.message,
       req.user.userId,
@@ -336,7 +335,7 @@ export class PaymentsController {
       `Manual payment recorded for payment ${paymentId}: amount=${body.amount}, method=${body.paymentMethod || 'MANUAL'}`,
     );
     return this.paymentsService.recordManualPayment(
-      parseInt(paymentId),
+      String(paymentId),
       body.amount,
       new Date(body.paymentDate),
       body.notes,
@@ -389,7 +388,7 @@ export class PaymentsController {
   async createStripeCheckoutSession(
     @Body() body: CreateStripeCheckoutSessionDto,
     @Request() req: AuthenticatedRequest,
-  ): Promise<{ checkoutUrl: string; sessionId: string; invoiceId: number }> {
+  ): Promise<{ checkoutUrl: string; sessionId: string; invoiceId: string }> {
     const orgId = (req as any).org?.orgId as string | undefined;
     return this.paymentsService.createStripeCheckoutSession(body, req.user, orgId);
   }
@@ -521,7 +520,7 @@ export class PaymentsController {
     @Request() req: AuthenticatedRequest,
   ): Promise<Invoice> {
     const orgId = (req as any).org?.orgId as string | undefined;
-    return this.paymentsService.getInvoiceById(Number(id), req.user.userId, req.user.role, orgId);
+    return this.paymentsService.getInvoiceById(String(id), req.user.userId, req.user.role, orgId);
   }
 
   @Post('payment-plans')
@@ -557,7 +556,7 @@ export class PaymentsController {
     @Request() req: AuthenticatedRequest,
     @Query('invoiceId') invoiceId?: string,
   ) {
-    const parsedInvoiceId = invoiceId ? Number(invoiceId) : undefined;
+    const parsedInvoiceId = invoiceId ? String(invoiceId) : undefined;
     const orgId = (req as any).org?.orgId as string | undefined;
     return this.paymentsService.getPaymentPlans(req.user.userId, req.user.role, parsedInvoiceId, orgId);
   }
@@ -569,7 +568,7 @@ export class PaymentsController {
     @Request() req: AuthenticatedRequest,
   ) {
     const orgId = (req as any).org?.orgId as string | undefined;
-    return this.paymentsService.getPaymentPlanById(Number(id), req.user.userId, req.user.role, orgId);
+    return this.paymentsService.getPaymentPlanById(parseInt(id, 10), req.user.userId, req.user.role, orgId);
   }
 
   @Get('ops-summary')
@@ -579,7 +578,7 @@ export class PaymentsController {
     @Query('limit') limit?: string,
   ) {
     const orgId = (req as any).org?.orgId as string | undefined;
-    return this.paymentsService.getPaymentsOpsSummary(orgId, limit ? Number(limit) : undefined);
+    return this.paymentsService.getPaymentsOpsSummary(orgId, limit ? parseInt(limit, 10) : undefined);
   }
 
   @Post('ops-summary/bulk-action')
@@ -614,7 +613,7 @@ export class PaymentsController {
     @Request() req: AuthenticatedRequest,
   ): Promise<Payment> {
     const orgId = (req as any).org?.orgId as string | undefined;
-    return this.paymentsService.getPaymentById(Number(id), req.user.userId, req.user.role, orgId);
+    return this.paymentsService.getPaymentById(String(id), req.user.userId, req.user.role, orgId);
   }
 
   // ========== GAP REMEDIATION - Issue 7: Rent Reminder Automation ==========
@@ -649,7 +648,7 @@ export class PaymentsController {
   ) {
     const { RentReminderService } = await import('./rent-reminder.service');
     const reminderService = new RentReminderService(this.prisma);
-    return reminderService.sendReminder(parseInt(paymentId), body.message);
+    return reminderService.sendReminder(String(paymentId), body.message);
   }
 
   /**
@@ -666,7 +665,7 @@ export class PaymentsController {
   ) {
     const { RentReminderService } = await import('./rent-reminder.service');
     const reminderService = new RentReminderService(this.prisma);
-    return reminderService.suppressReminder(parseInt(paymentId), body.days || 7);
+    return reminderService.suppressReminder(String(paymentId), body.days || 7);
   }
 
   // ========== END REMINDER ENDPOINTS ==========

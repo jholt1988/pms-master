@@ -19,6 +19,14 @@ export class RegisterRequestDto {
   @MinLength(1)
   password!: string;
 
+  /**
+   * @deprecated Ignored by the server for security. Public self-registration
+   * always creates a TENANT account (see AuthService.register); any value sent
+   * here is discarded. The field is retained and still whitelisted only so that
+   * existing clients which post a `role` are not rejected by the global
+   * `forbidNonWhitelisted` ValidationPipe. Assign privileged roles via the
+   * authenticated POST /users endpoint instead.
+   */
   @IsIn(ROLE_VALUES)
   @IsOptional()
   role?: RoleValue;

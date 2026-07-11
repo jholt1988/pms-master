@@ -10,13 +10,13 @@ export class CreatePaymentDto {
   // Stage-A dual-send: optional integer cents. Preferred over `amount` when provided.
   @ApiPropertyOptional({ type: Number, description: 'Integer cents (preferred).' })
   @IsOptional()
-  @IsInt()
+  @IsString()
   @Min(0)
   amountCents?: number;
 
   @IsOptional()
   @IsNumber()
-  invoiceId?: number;
+  invoiceId?: string;
 
   @IsUUID()
   leaseId!: string;

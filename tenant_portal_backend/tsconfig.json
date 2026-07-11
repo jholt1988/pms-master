@@ -43,13 +43,6 @@
     "src/**/*-radial.controller.ts",
     "src/analytics/portfolio-analytics.controller.ts",
     "src/copilot/decision-engine.controller.ts",
-    "src/documents/document-management.controller.ts",
-    "src/lease/lease-lifecycle.controller.ts",
-    "src/notifications/notification.controller.ts",
-    "src/property/property-radial.controller.ts",
-    "src/settings/organization-settings.controller.ts",
-    "src/tenant/tenant-profile.controller.ts",
-    "src/vendors/vendor-management.controller.ts",
-    "src/webhooks/webhook.controller.ts"
+    "src/settings/organization-settings.controller.ts"
   ]
 }

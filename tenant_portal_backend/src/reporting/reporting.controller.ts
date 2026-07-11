@@ -6,13 +6,12 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 import { AnalyticsService } from './analytics.service';
 
 @Controller('reporting')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class ReportingController {
   constructor(
     private readonly prisma: PrismaService,

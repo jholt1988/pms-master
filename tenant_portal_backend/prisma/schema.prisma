@@ -586,9 +586,9 @@ model Lease {
   currentBalance            Float                     @default(0)
   currentBalanceCents Int @default(0)
   tenant                    User                      @relation(fields: [tenantId], references: [id])
-  tenantId                  String                    @db.Uuid
+  tenantId                  String                    @db.Uuid @unique
   unit                      Unit                      @relation(fields: [unitId], references: [id])
-  unitId                    String                    @db.Uuid
+  unitId                    String                    @db.Uuid @unique
   payments                  Payment[]
   manualPayments            ManualPayment[]
   manualCharges             ManualCharge[]
@@ -967,7 +967,7 @@ model Invoice {
 }
 
 model Payment {
-  id                  Int                  @id @default(autoincrement())
+  id                  String                  @id  @db.Uuid
   amount              Float
   amountCents Int?
   paymentDate         DateTime             @default(now())
@@ -3738,4 +3738,28 @@ model Notice {
 
   @@index([paymentId])
   @@map("notices")
+}
+
+enum MaintenanceRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model MaintenanceRiskSnapshot {
+  id                      String                   @id @default(uuid()) @db.Uuid
+  assetId                 Int
+  organizationId          String                   @db.Uuid
+  category                MaintenanceAssetCategory
+  riskLevel               MaintenanceRiskLevel
+  failureProbability30d   Float
+  remainingUsefulLifeDays Float?
+  confidence              Float?
+  drivers                 Json?
+  dataQualityFlags        Json?
+  recommendedAction       String?
+  scannedAt               DateTime                 @default(now())
+
+  @@index([organizationId, scannedAt])
+  @@index([assetId, scannedAt])
 }

@@ -48,7 +48,7 @@ export class AIPaymentService {
    */
   async assessPaymentRisk(
     userId: string,
-    invoiceId: number,
+    invoiceId: string,
   ): Promise<PaymentRiskAssessmentResult> {
     // Get user payment history
     const user = await this.prisma.user.findUnique({
@@ -301,7 +301,7 @@ export class AIPaymentService {
    */
   async determineReminderTiming(
     userId: string,
-    invoiceId: number,
+    invoiceId: string,
   ): Promise<PaymentReminderTimingResult> {
     const user = await this.prisma.user.findUnique({
         where: { id: userId },
@@ -371,7 +371,7 @@ export class AIPaymentService {
     const guardrailContext = await this.getReminderGuardrailContext(userId);
     const timingGuardrailDecision = defaultAIPaymentGuardrailPolicy.evaluate({
       userId,
-      invoiceId: Number(invoice?.id ?? invoiceId),
+      invoiceId: String(invoice?.id ?? invoiceId),
       operation: 'REMINDER_TIMING',
       metadata: {
         channel,
@@ -451,7 +451,7 @@ export class AIPaymentService {
 
     const guardrailDecision = defaultAIPaymentGuardrailPolicy.evaluate({
       userId,
-      invoiceId: Number(invoice?.id ?? 0),
+      invoiceId: String(invoice?.id ?? 0),
       operation: 'PERSONALIZED_MESSAGE',
       metadata: {
         urgency,
