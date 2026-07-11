@@ -102,7 +102,6 @@ jobs:
     if: ${{ always() && !inputs.rollback && (needs.build.result == 'success' || github.event_name == 'workflow_dispatch') }}
     environment:
       name: production
-      url: ${{ secrets.PRODUCTION_URL }}
 
     steps:
       - name: Checkout code
@@ -201,7 +200,6 @@ jobs:
     if: ${{ inputs.rollback }}
     environment:
       name: production
-      url: ${{ secrets.PRODUCTION_URL }}
 
     steps:
       - name: Rollback to previous deployment
