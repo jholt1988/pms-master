@@ -3,7 +3,6 @@ import { MessagingController } from './messaging.controller';
 import { MessagingService } from './messaging.service';
 import { BulkMessagingService } from './bulk-messaging.service';
 import { PrismaModule } from '../prisma/prisma.module';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { SentimentAnalysisService } from './sentiment-analysis.service';
 
 @Module({
@@ -12,7 +11,7 @@ import { SentimentAnalysisService } from './sentiment-analysis.service';
   // The legacy controller used the same routes but returned different response shapes,
   // which made the API non-deterministic for clients.
   controllers: [MessagingController],
-  providers: [MessagingService, BulkMessagingService, SentimentAnalysisService, OrgContextGuard],
+  providers: [MessagingService, BulkMessagingService, SentimentAnalysisService],
   exports: [MessagingService, BulkMessagingService, SentimentAnalysisService],
 })
 export class MessagingModule {}

@@ -5,7 +5,6 @@ import { FeedController } from './feed.controller';
 import { DevSeedController } from './dev.controller';
 import { FeedAggregatorService } from './feed-aggregator.service';
 import { RolesGuard } from '../auth/roles.guard';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 
 // The dev seed controller can emit forged domain events (e.g.
 // payment.delinquent). It must NEVER be exposed in production.
@@ -15,7 +14,7 @@ const devControllers = isProduction ? [] : [DevSeedController];
 @Module({
   imports: [PrismaModule, PaymentsModule],
   controllers: [FeedController, ...devControllers],
-  providers: [FeedAggregatorService, RolesGuard, OrgContextGuard],
+  providers: [FeedAggregatorService, RolesGuard],
   exports: [FeedAggregatorService],
 })
 export class FeedModule {}

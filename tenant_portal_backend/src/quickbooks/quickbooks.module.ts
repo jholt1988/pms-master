@@ -10,7 +10,6 @@ import { QuickBooksWebhookController } from './quickbooks-webhook.controller';
 
 import { QuickBooksService } from './quickbooks.service';
 import { AbstractQuickBooksService } from './quickbooks.types';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 
 const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
 const queueEnabled = process.env.NODE_ENV !== 'test' && process.env.DISABLE_REDIS !== 'true';
@@ -29,7 +28,6 @@ const queueEnabled = process.env.NODE_ENV !== 'test' && process.env.DISABLE_REDI
   controllers: [QuickBooksMinimalController, QuickBooksWebhookController],
   providers: [
     QuickBooksMinimalService,
-    OrgContextGuard,
     // Bind the abstract DI token to the minimal implementation by default
     { provide: AbstractQuickBooksService, useClass: QuickBooksMinimalService },
     AccountingAnomalyService,

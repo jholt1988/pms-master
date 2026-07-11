@@ -11,7 +11,6 @@ import { StripeService } from './stripe.service';
 import { StripeWebhookController } from './stripe-webhook.controller';
 import { RentReminderService } from './rent-reminder.service';
 import { EmailModule } from '../email/email.module';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { PaymentStrategyRegistry } from './ai/payment-strategy.registry';
 import { MilModule } from '../mil/mil.module';
 import { PolicyModule } from '../policy/policy.module';
@@ -28,7 +27,6 @@ import { AIProviderService } from '../ai-provider';
     AIPaymentMetricsService,
     StripeService,
     RentReminderService,
-    OrgContextGuard,
     PaymentStrategyRegistry,
     AIProviderService,    
   ],
