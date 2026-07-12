@@ -26,10 +26,10 @@ async function upsertUser({ username, password, role, email, firstName, lastName
 async function main() {
   console.log('🌱 Robust inspection demo seed starting...');
 
-  const adminUsername = 'admin';
-  const adminPassword = 'Admin123!@#';
-  const tenantUsername = 'tenant';
-  const tenantPassword = 'Tenant123!@#';
+  const adminUsername = process.env.VERIFY_ADMIN_USER || 'admin';
+  const adminPassword = process.env.VERIFY_ADMIN_PASS || 'Admin123!@#';
+  const tenantUsername = process.env.VERIFY_TENANT_USER || 'tenant';
+  const tenantPassword = process.env.VERIFY_TENANT_PASS || 'Tenant123!@#';
 
   // Some schemas have orgs, some don’t. Feature-detect.
   let organization = null;
