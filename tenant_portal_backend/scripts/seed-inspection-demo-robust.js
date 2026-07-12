@@ -84,9 +84,9 @@ async function main() {
         createData.id = user.id;
       }
       // Many Tenant models reference the User via userId; include if present
-      try { createData.userId = user.id; } catch (_) { }
+      try { createData.id = user.id; } catch (_) { }
 
-      createData.name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username;
+      createData.fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username;
       if (user.email) createData.email = user.email;
 
       try {
