@@ -145,43 +145,44 @@ async function main() {
     lease = existingLease;
   }
 
-  if (!lease) {
-    try { 
-    lease = await prisma.lease.upsert({
-      where: { id: leaseId },
-      update: { status: 'ACTIVE', unitId: unit.id, tenantId: tenant.id, rentAmount: 1350 },
-      create: {
-        id: leaseId,
-        status: 'ACTIVE',
-        unitId: unit.id,
-        tenantId: tenant.id,
-        startDate: new Date('2026-01-01'),
-        endDate: new Date('2026-12-31'),
-        rentAmount: 1350,
-        noticePeriodDays: 30,
-        depositAmount: 600,
-        autoRenew: false,
-      },
-    });
-  } catch (e) {
-    // Retry minimal lease
-    lease = await prisma.lease.upsert({
-      where: { id: leaseId },
-      update: { status: 'ACTIVE', unitId: unit.id, tenantId: tenant.id },
-      create: {
-        id: leaseId,
-        status: 'ACTIVE',
-        unitId: unit.id,
-        tenantId: tenant.id,
-        startDate: new Date('2026-01-01'),
-        endDate: new Date('2026-12-31'),
-        rentAmount: 1350,
-        noticePeriodDays: 30,
-        depositAmount: 600,
-        autoRenew: false,
-      },
-    });
-  }
+    if (!lease) {
+      try {
+        lease = await prisma.lease.upsert({
+          where: { id: leaseId },
+          update: { status: 'ACTIVE', unitId: unit.id, tenantId: tenant.id, rentAmount: 1350 },
+          create: {
+            id: leaseId,
+            status: 'ACTIVE',
+            unitId: unit.id,
+            tenantId: tenant.id,
+            startDate: new Date('2026-01-01'),
+            endDate: new Date('2026-12-31'),
+            rentAmount: 1350,
+            noticePeriodDays: 30,
+            depositAmount: 600,
+            autoRenew: false,
+          },
+        });
+      } catch (e) {
+        // Retry with only essential fields - omit depositAmount and other potentially problematic fields
+        lease = await prisma.lease.upsert({
+          where: { id: leaseId },
+          update: { status: 'ACTIVE', unitId: unit.id, tenantId: tenant.id, rentAmount: 1350 },
+          create: {
+            id: leaseId,
+            status: 'ACTIVE',
+            unitId: unit.id,
+            tenantId: tenant.id,
+            startDate: new Date('2026-01-01'),
+            endDate: new Date('2026-12-31'),
+            rentAmount: 1350,
+            noticePeriodDays: 30,
+            autoRenew: false,
+            // depositAmount removed - may not be compatible with current schema
+          },
+        });
+      }
+    }
   }
 
   // Inspection + rooms + checklist items (omit structured fields if schema doesn't support them)
