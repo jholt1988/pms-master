@@ -26,7 +26,6 @@ import {
   CreateBulkMessageDto,
 } from './dto/messaging.dto';
 import { RolesGuard } from '../auth/roles.guard';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgIdOptional } from '../common/org-context/org-id-optional.decorator';
 import { Roles } from '../auth/roles.decorator';
 
@@ -41,7 +40,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('messaging')
-@UseGuards(AuthGuard('jwt'), OrgContextGuard)
+@UseGuards(AuthGuard('jwt'))
 export class MessagingController {
   constructor(
     private readonly messagingService: MessagingService,

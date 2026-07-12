@@ -14,7 +14,6 @@ import type { Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt.guard';
 import { RentalApplicationsService } from './rental-applications.service';
@@ -40,21 +39,21 @@ export class RentalApplicationsController {
     return this.rentalApplicationsService.create(dto, req.user?.userId);
   }
 
-  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('TENANT')
   @Get('mine')
   findMine(@Req() req: AuthenticatedRequest) {
     return this.rentalApplicationsService.findAllForApplicant(req.user!.userId);
   }
 
-  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('PROPERTY_MANAGER', 'ADMIN')
   @Get(':id')
   findOne(@Param('id') id: string, @OrgId() orgId?: string) {
     return this.rentalApplicationsService.findOne(Number(id), orgId);
   }
 
-  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('PROPERTY_MANAGER', 'ADMIN')
   @Put(':id')
   update(
@@ -65,7 +64,7 @@ export class RentalApplicationsController {
     return this.rentalApplicationsService.update(Number(id), dto, orgId);
   }
 
-  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('PROPERTY_MANAGER', 'ADMIN')
   @Patch(':id/review')
   review(
@@ -84,7 +83,7 @@ export class RentalApplicationsController {
    * Gap: Issue 5 - High-Risk Applicant Reasoning (P0)
    */
   @Get(':id/screening-reasoning')
-  @UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('PROPERTY_MANAGER', 'ADMIN', 'OWNER')
   @HttpCode(200)
   async getScreeningReasoning(

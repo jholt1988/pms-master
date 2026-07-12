@@ -1,6 +1,14 @@
 /**
  * Lead Applications Controller
  * API endpoints for rental application management
+ *
+ * Security: JWT auth and single-org context are enforced application-wide by the
+ * global auth and org-context guards; this controller adds RolesGuard. Management
+ * endpoints are restricted to PROPERTY_MANAGER/ADMIN and are org-scoped via
+ * @OrgId(): a caller can only read/mutate applications whose property belongs
+ * to their organization. The `submit` intake endpoint is intentionally left
+ * open to any authenticated caller (it creates an application against a
+ * specific property on a lead's behalf).
  */
 
 import {
@@ -14,12 +22,20 @@ import {
   HttpStatus,
   Patch,
   BadRequestException,
+  UseGuards,
 } from '@nestjs/common';
-import { ApplicationDecisionReasonCode } from '@prisma/client';
+import { AuthGuard } from '@nestjs/passport';
 import { LeadApplicationsService } from './lead-applications.service';
 import { isUUID } from 'class-validator';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { OrgId } from '../common/org-context/org-id.decorator';
+import { UpdateApplicationStatusDto } from './dto/update-application-status.dto';
+import { UpdateScreeningDto } from './dto/update-screening.dto';
+import { RecordApplicationPaymentDto } from './dto/record-application-payment.dto';
 
 @Controller('applications')
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class LeadApplicationsController {
   constructor(
     private readonly leadApplicationsService: LeadApplicationsService,
@@ -55,14 +71,16 @@ export class LeadApplicationsController {
   }
 
   /**
-   * Get application by ID
+   * Get application by ID (org-scoped)
    * GET /api/applications/:id
    */
   @Get(':id')
-  async getApplicationById(@Param('id') id: string) {
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async getApplicationById(@Param('id') id: string, @OrgId() orgId: string) {
     try {
       const application = await this.leadApplicationsService.getApplicationById(
         id,
+        orgId,
       );
 
       if (!application) {
@@ -74,6 +92,9 @@ export class LeadApplicationsController {
         application,
       };
     } catch (error: any) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         error.message || 'Failed to fetch application',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -82,14 +103,19 @@ export class LeadApplicationsController {
   }
 
   /**
-   * Get applications for a lead
+   * Get applications for a lead (org-scoped)
    * GET /api/applications/lead/:leadId
    */
   @Get('lead/:leadId')
-  async getApplicationsForLead(@Param('leadId') leadId: string) {
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
+  async getApplicationsForLead(
+    @Param('leadId') leadId: string,
+    @OrgId() orgId: string,
+  ) {
     try {
       const applications = await this.leadApplicationsService.getApplicationsForLead(
         leadId,
+        orgId,
       );
 
       return {
@@ -105,18 +131,24 @@ export class LeadApplicationsController {
   }
 
   /**
-   * Get all applications with filtering
-   * GET /api/applications?propertyId=1&status=SUBMITTED
+   * Get stale application follow-ups (org-scoped)
+   * GET /api/applications/stale/follow-ups
    */
   @Get('stale/follow-ups')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
   async getStaleFollowUps(
+    @OrgId() orgId: string,
     @Query('olderThanHours') olderThanHours?: string,
     @Query('limit') limit?: string,
   ) {
     try {
       const parsedHours = olderThanHours ? parseInt(olderThanHours, 10) : undefined;
       const parsedLimit = limit ? parseInt(limit, 10) : undefined;
-      const result = await this.leadApplicationsService.getStaleApplications(parsedHours, parsedLimit);
+      const result = await this.leadApplicationsService.getStaleApplications(
+        parsedHours,
+        parsedLimit,
+        orgId,
+      );
 
       return {
         success: true,
@@ -130,8 +162,14 @@ export class LeadApplicationsController {
     }
   }
 
+  /**
+   * Get all applications with filtering (org-scoped)
+   * GET /api/applications?propertyId=1&status=SUBMITTED
+   */
   @Get()
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
   async getApplications(
+    @OrgId() orgId: string,
     @Query('propertyId') propertyId?: string,
     @Query('status') status?: string,
     @Query('dateFrom') dateFrom?: string,
@@ -156,6 +194,7 @@ export class LeadApplicationsController {
 
       const result = await this.leadApplicationsService.getApplications(
         filters,
+        orgId,
       );
 
       return {
@@ -163,6 +202,9 @@ export class LeadApplicationsController {
         ...result,
       };
     } catch (error: any) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         error.message || 'Failed to fetch applications',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -171,29 +213,18 @@ export class LeadApplicationsController {
   }
 
   /**
-   * Update application status
+   * Update application status (org-scoped)
    * PATCH /api/applications/:id/status
    */
   @Patch(':id/status')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
   async updateStatus(
     @Param('id') id: string,
-    @Body()
-    body: {
-      status: string;
-      reviewedById?: string;
-      reviewNotes?: string;
-      reasonCode?: ApplicationDecisionReasonCode;
-    },
+    @Body() body: UpdateApplicationStatusDto,
+    @OrgId() orgId: string,
   ) {
     try {
       const { status, reviewedById, reviewNotes, reasonCode } = body;
-
-      if (!status) {
-        throw new HttpException('Status is required', HttpStatus.BAD_REQUEST);
-      }
-      if (reviewedById && !isUUID(reviewedById)) {
-        throw new HttpException('Invalid reviewedById', HttpStatus.BAD_REQUEST);
-      }
 
       const application = await this.leadApplicationsService.updateApplicationStatus(
         id,
@@ -201,6 +232,7 @@ export class LeadApplicationsController {
         reviewedById,
         reviewNotes,
         reasonCode,
+        orgId,
       );
 
       return {
@@ -208,6 +240,9 @@ export class LeadApplicationsController {
         application,
       };
     } catch (error: any) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         error.message || 'Failed to update application status',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -216,18 +251,15 @@ export class LeadApplicationsController {
   }
 
   /**
-   * Update screening results
+   * Update screening results (org-scoped)
    * PATCH /api/applications/:id/screening
    */
   @Patch(':id/screening')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
   async updateScreening(
     @Param('id') id: string,
-    @Body()
-    body: {
-      creditScore?: number;
-      backgroundCheckStatus?: string;
-      creditCheckStatus?: string;
-    },
+    @Body() body: UpdateScreeningDto,
+    @OrgId() orgId: string,
   ) {
     try {
       const { creditScore, backgroundCheckStatus, creditCheckStatus } = body;
@@ -237,6 +269,7 @@ export class LeadApplicationsController {
         creditScore,
         backgroundCheckStatus,
         creditCheckStatus,
+        orgId,
       );
 
       return {
@@ -244,6 +277,9 @@ export class LeadApplicationsController {
         application,
       };
     } catch (error: any) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         error.message || 'Failed to update screening results',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -252,24 +288,23 @@ export class LeadApplicationsController {
   }
 
   /**
-   * Record fee payment
+   * Record fee payment (org-scoped)
    * POST /api/applications/:id/payment
    */
   @Post(':id/payment')
+  @Roles('PROPERTY_MANAGER', 'ADMIN')
   async recordPayment(
     @Param('id') id: string,
-    @Body() body: { amount: number },
+    @Body() body: RecordApplicationPaymentDto,
+    @OrgId() orgId: string,
   ) {
     try {
       const { amount } = body;
 
-      if (!amount) {
-        throw new HttpException('Amount is required', HttpStatus.BAD_REQUEST);
-      }
-
       const application = await this.leadApplicationsService.recordFeePayment(
         id,
         amount,
+        orgId,
       );
 
       return {
@@ -278,6 +313,9 @@ export class LeadApplicationsController {
         message: 'Payment recorded successfully',
       };
     } catch (error: any) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         error.message || 'Failed to record payment',
         HttpStatus.INTERNAL_SERVER_ERROR,

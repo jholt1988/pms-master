@@ -7,7 +7,6 @@ import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { Roles } from '../auth/roles.decorator';
 import { ExpenseCategory, Role } from '@prisma/client';
 import { RolesGuard } from '../auth/roles.guard';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 
 interface AuthenticatedRequest extends Request {
@@ -18,7 +17,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('expenses')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 @Roles('PROPERTY_MANAGER')
 export class ExpenseController {
   constructor(private readonly expenseService: ExpenseService) {}

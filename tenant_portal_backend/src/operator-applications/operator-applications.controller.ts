@@ -5,7 +5,6 @@ import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagge
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { UseApiEnvelope } from '../common/envelope/envelope.decorator';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { RentalApplicationReviewActionDto } from '../rental-application/dto/review-action.dto';
 import { ConvertApplicationToLeasePayload } from './operator-applications.types';
@@ -21,7 +20,7 @@ type AuthenticatedRequest = Request & {
 
 @Controller('operator-applications')
 @ApiBearerAuth('JWT-auth')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 @UseApiEnvelope()
 export class OperatorApplicationsController {
   constructor(private readonly applicationsService: OperatorApplicationsService) {}

@@ -11,12 +11,11 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { CapexForecastingService } from './capex-forecasting.service';
 
 @Controller('capex-forecasting')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 @Roles('PROPERTY_MANAGER', 'OWNER', 'ADMIN')
 export class CapexForecastingController {
   constructor(private readonly capexService: CapexForecastingService) {}

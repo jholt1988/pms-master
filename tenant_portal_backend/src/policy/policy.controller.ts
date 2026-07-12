@@ -5,7 +5,6 @@ import { Request as ExpressRequest } from 'express';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { DecidePolicyApprovalTaskDto } from './dto/decide-policy-approval-task.dto';
 import { PolicyApprovalService } from './policy-approval.service';
 import { PolicyService, PolicySection } from './policy.service';
@@ -18,7 +17,7 @@ type AuthenticatedRequest = ExpressRequest & {
 };
 
 @Controller('policy')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class PolicyController {
   constructor(
     private readonly policyApprovalService: PolicyApprovalService,

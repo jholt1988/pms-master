@@ -2,7 +2,6 @@ import { Body, Controller, Get, Param, ParseUUIDPipe, Post, UseGuards } from '@n
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 
 import { ListingSyndicationService } from './listing-syndication.service';
@@ -10,7 +9,7 @@ import { SyndicationActionDto } from './dto/syndication-action.dto';
 import { UpsertChannelCredentialDto } from './dto/channel-credential.dto';
 
 @Controller('listings/syndication')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 @Roles('PROPERTY_MANAGER')
 export class ListingSyndicationController {
   constructor(private readonly listingSyndicationService: ListingSyndicationService) {}

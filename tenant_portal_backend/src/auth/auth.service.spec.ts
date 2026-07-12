@@ -544,6 +544,39 @@ describe('AuthService', () => {
       );
     });
 
+    it('ignores a client-supplied elevated role and always registers a TENANT (security)', async () => {
+      const registerDto = {
+        username: 'escalation@example.com',
+        password: 'SecurePass123!',
+        email: 'escalation@example.com',
+        firstName: 'Esc',
+        lastName: 'Alation',
+        role: 'ADMIN' as const,
+      };
+
+      mockUsersService.findOne.mockResolvedValue(null);
+      mockPrismaService.user = { findUnique: jest.fn().mockResolvedValue(null) } as any;
+      mockPasswordPolicy.validate.mockReturnValue([]);
+      mockUsersService.create.mockResolvedValue({
+        id: '2',
+        username: registerDto.username,
+        role: Role.TENANT,
+        email: registerDto.email,
+        firstName: registerDto.firstName,
+        lastName: registerDto.lastName,
+      });
+      mockSecurityEvents.logEvent.mockResolvedValue(undefined);
+
+      const result = await service.register(registerDto);
+
+      expect(result.role).toBe(Role.TENANT);
+      expect(mockUsersService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ role: 'TENANT' }),
+        undefined,
+        undefined,
+      );
+    });
+
     it('should reject weak passwords', async () => {
       const registerDto = {
         username: 'newuser@example.com',

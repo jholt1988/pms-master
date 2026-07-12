@@ -5,7 +5,6 @@ import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagge
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { UseApiEnvelope } from '../common/envelope/envelope.decorator';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { CreatePropertyDto, CreateUnitDto, UpdatePropertyDto, UpdateUnitDto } from '../property/dto/property.dto';
 import { OperatorSetupService } from './operator-setup.service';
@@ -19,7 +18,7 @@ type AuthenticatedRequest = Request & {
 
 @Controller('operator-setup')
 @ApiBearerAuth('JWT-auth')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 @UseApiEnvelope()
 export class OperatorSetupController {
   constructor(private readonly setupService: OperatorSetupService) {}

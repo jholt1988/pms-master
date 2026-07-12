@@ -39,6 +39,9 @@
     "node_modules",
     "src/**/*.spec.ts",
     "test/**",
+    "src/quickbooks/**",
+    "src/**/*-radial.controller.ts",
+    "src/analytics/portfolio-analytics.controller.ts",
     "src/copilot/decision-engine.controller.ts",
     "src/settings/organization-settings.controller.ts"
   ]

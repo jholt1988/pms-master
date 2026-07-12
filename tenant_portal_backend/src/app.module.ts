@@ -8,6 +8,7 @@ import { WinstonModule } from 'nest-winston';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { TenantThrottlerGuard } from './middleware/tenant-throttler.guard';
 import { GlobalJwtAuthGuard } from './auth/global-jwt-auth.guard';
+import { OrgContextGuard } from './common/org-context/org-context.guard';
 import { winstonConfig } from './config/winston.config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -228,6 +229,16 @@ const rateLimitProviders = rateLimitEnabled
     {
       provide: APP_GUARD,
       useClass: GlobalJwtAuthGuard,
+    },
+    // Global org-context guard. Registered AFTER GlobalJwtAuthGuard so that
+    // req.user is populated before it runs. It attaches req.org for
+    // authenticated non-tenant users and enforces single-org membership.
+    // @Public() routes and @SkipOrgContext() handlers are exempt (checked
+    // inside the guard); unauthenticated requests and TENANT users pass through
+    // without an org context.
+    {
+      provide: APP_GUARD,
+      useClass: OrgContextGuard,
     },
     {
       provide: APP_INTERCEPTOR,

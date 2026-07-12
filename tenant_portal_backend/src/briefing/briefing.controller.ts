@@ -1,13 +1,12 @@
 import { Controller, Get, Post, UseGuards, Request, Body, HttpCode } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { BriefingService } from './briefing.service';
 
 @Controller('briefing')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class BriefingController {
   constructor(private readonly briefingService: BriefingService) {}
 
