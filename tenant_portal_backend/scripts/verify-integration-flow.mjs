@@ -56,6 +56,9 @@ async function login(username, password) {
   const rows = [];
   for (const [scope, path, token] of checks) {
     const r = await api(path, { token });
+    if (r.status !== 200 && r.status !== 201) {
+      console.log(`Failed ${path}:`, r.status, r.data);
+    }
     rows.push({ scope, path, status: r.status, pass: r.status === 200 });
   }
 
@@ -95,6 +98,8 @@ async function login(username, password) {
           description: "Automated verification flow",
           category: "PLUMBING",
           priority: "LOW",
+          propertyId: "22222222-2222-4222-8222-222222222222",
+          unitId: "33333333-3333-4333-8333-333333333333",
         },
       });
 

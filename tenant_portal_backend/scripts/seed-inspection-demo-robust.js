@@ -62,6 +62,19 @@ async function main() {
     phone: '555-123-4567',
   });
 
+  if (organization && prisma.userOrganization) {
+    await prisma.userOrganization.upsert({
+      where: { userId_organizationId: { userId: admin.id, organizationId: organization.id } },
+      update: { role: 'ADMIN' },
+      create: { userId: admin.id, organizationId: organization.id, role: 'ADMIN' },
+    });
+    await prisma.userOrganization.upsert({
+      where: { userId_organizationId: { userId: tenant.id, organizationId: organization.id } },
+      update: { role: 'MEMBER' },
+      create: { userId: tenant.id, organizationId: organization.id, role: 'MEMBER' },
+    });
+  }
+
   // Add after you create the tenant user
   async function ensureTenantRecordForUser(user) {
     if (!prisma.tenant) return null;
@@ -214,8 +227,11 @@ async function main() {
         // As before, attempt a minimal create as fallback
         lease = await prisma.lease.upsert({
           where: { id: leaseId },
-          update: leaseUpdate,
-          create: { id: leaseId, status: 'ACTIVE', unitId: unit.id, startDate: new Date('2026-01-01'), endDate: new Date('2026-12-31'), tenantId: tenant.id },
+      update: { rentAmountCents: 150000 },
+      create: {
+        id: leaseId,
+        rentAmountCents: 150000,
+        status: 'ACTIVE', unitId: unit.id, startDate: new Date('2026-01-01'), endDate: new Date('2026-12-31'), tenantId: tenant.id },
         });
       }
     }

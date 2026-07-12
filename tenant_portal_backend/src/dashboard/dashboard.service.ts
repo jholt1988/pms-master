@@ -421,7 +421,7 @@ const [
   this.prisma.user.count({
     where: {
       role: 'TENANT',
-      ...(orgId ? { lease: { is: { unit: { property: { organizationId: orgId } } } } } : {}),
+      ...(orgId ? { Lease: { some: { unit: { property: { organizationId: orgId } } } } } : {}),
     },
   }),
   this.prisma.maintenanceRequest.count({ where: orgMaintenanceWhere }),
