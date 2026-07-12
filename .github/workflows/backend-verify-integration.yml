@@ -132,10 +132,10 @@ jobs:
           exit 1
 
       - name: Verify integration flow
-        env:
-          API_BASE_URL: http://127.0.0.1:3001/api
-          VERIFY_ADMIN_USER: admin
-          VERIFY_ADMIN_PASS: Admin123!@#
-          VERIFY_TENANT_USER: tenant
-          VERIFY_TENANT_PASS: Tenant123!@#
+        env: 
+          API_BASE_URL: http://127.0.0.1:3001/api 
+          VERIFY_ADMIN_USER: admin 
+          VERIFY_ADMIN_PASS: 'Admin123!@#' 
+          VERIFY_TENANT_USER: tenant 
+          VERIFY_TENANT_PASS: 'Tenant123!@#'
         run: pnpm run verify:integration
