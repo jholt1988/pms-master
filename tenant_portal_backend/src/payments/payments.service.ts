@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { BadRequestException, ForbiddenException, Injectable, InternalServerErrorException, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Invoice, Payment, Role, Prisma, ManualPayment, ManualCharge, ManualPaymentAppliedTo, ManualPaymentMethod, ManualChargeType, LeaseNoticeType, LeaseStatus, LeaseTerminationParty, PaymentStatus, ManualPaymentStatus } from '@prisma/client';
@@ -341,7 +342,7 @@ export class PaymentsService {
     const payment = await this.prisma.$transaction(async (tx) => {
       const created = await tx.payment.create({
         data: {
-          id: require('crypto').randomUUID(),
+          id: randomUUID(),
           amount: dto.amount,
           amountCents: dto.amountCents ?? toCents(dto.amount),
           status: resolvedStatus,
@@ -779,7 +780,7 @@ export class PaymentsService {
     const leaseId = this.parseLeaseId(params.leaseId);
     const payment = await this.prisma.payment.create({
       data: {
-        id: require('crypto').randomUUID(),
+        id: randomUUID(),
         amount: params.amount,
         amountCents: toCents(params.amount),
         status: 'COMPLETED',
@@ -1227,7 +1228,7 @@ export class PaymentsService {
               dueDate,
               payment: {
                 create: {
-                  id: require('crypto').randomUUID(),
+                  id: randomUUID(),
                   amount: fromCents(installmentCents),
                   amountCents: installmentCents,
                   paymentDate: dueDate,
