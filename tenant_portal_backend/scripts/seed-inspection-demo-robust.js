@@ -187,7 +187,7 @@ async function main() {
       }
     }
   }
-    }
+    
   
 
   // Inspection + rooms + checklist items (omit structured fields if schema doesn't support them)
