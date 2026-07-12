@@ -22,8 +22,9 @@ async function api(path, { method = "GET", token, body } = {}) {
 
 async function login(username, password) {
   const r = await api("/auth/login", { method: "POST", body: { username, password } });
-  console.log(`Login attempt for ${username}:`, r.data); // ← Add this
-  return { status: r.status, token: r.data?.access_token };
+  console.log(`Login attempt for ${username}:`, r.data);
+  const token = r.data?.access_token || r.data?.accessToken || r.data?.result?.accessToken || r.data?.result?.access_token;
+  return { status: r.status, token };
 }
 
 (async () => {
@@ -97,11 +98,11 @@ async function login(username, password) {
         },
       });
 
-      const id = created.data?.id;
+      const id = created.data?.id || created.data?.result?.id;
       const assign = await api(`/maintenance/${id}/assign`, {
         method: "PATCH",
         token: pm.token,
-        body: { technicianId: tech.data?.id },
+        body: { technicianId: tech.data?.id || tech.data?.result?.id },
       });
       const complete = await api(`/maintenance/${id}/status`, {
         method: "PATCH",
