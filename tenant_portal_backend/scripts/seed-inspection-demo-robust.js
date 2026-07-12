@@ -104,7 +104,8 @@ async function main() {
 
     return tenantRecord;
   }
-
+  const tenantRecord = await ensureTenantRecordForUser(tenant);
+  const tenantIdForLease = tenantRecord ? tenantRecord.id : tenant.id;
   if (organization && prisma.userOrganization) {
     await prisma.userOrganization.upsert({
       where: {
@@ -183,10 +184,10 @@ async function main() {
 
   // Some schemas enforce unique tenantId on Lease.
   try {
-    await prisma.lease.deleteMany({ where: { tenantId: tenant.id } });
+    await prisma.lease.deleteMany({ where: { tenantId: tenantIdForLease } });
   } catch (_) {}
   try {
-  const existingLease = await prisma.lease.findFirst({ where: { tenantId: tenant.id } });
+  const existingLease = await prisma.lease.findFirst({ where: { tenantId: tenantIdForLease } });
   if (existingLease) {
     lease = existingLease;
   }
@@ -195,12 +196,12 @@ async function main() {
       try {
         lease = await prisma.lease.upsert({
           where: { id: leaseId },
-          update: { status: 'ACTIVE', unitId: unit.id, tenantId: tenant.id,  rentAmountCents: 135000,depositAmountCents: 60000 }, 
+          update: { status: 'ACTIVE', unitId: unit.id, tenantId: tenantIdForLease,  rentAmountCents: 135000,depositAmountCents: 60000 }, 
           create: {
             id: leaseId,
             status: 'ACTIVE',
             unitId: unit.id,
-            tenantId: tenant.id,
+            tenantId: tenantIdForLease,
             startDate: new Date('2026-01-01'),
             endDate: new Date('2026-12-31'),
             rentAmount: 1350,
@@ -215,12 +216,12 @@ async function main() {
         // Retry with only essential fields - omit depositAmount and other potentially problematic fields
         lease = await prisma.lease.upsert({
           where: { id: leaseId },
-          update: { status: 'ACTIVE', unitId: unit.id, tenantId: tenant.id, rentAmountCents: 135000, depositAmountCents: 60000},
+          update: { status: 'ACTIVE', unitId: unit.id, tenantId: tenantIdForLease, rentAmountCents: 135000, depositAmountCents: 60000},
           create: {
             id: leaseId,
             status: 'ACTIVE',
             unitId: unit.id,
-            tenantId: tenant.id,
+            tenantId: tenantIdForLease,
             startDate: new Date('2026-01-01'),
             endDate: new Date('2026-12-31'),
             rentAmountCents: 135000,
