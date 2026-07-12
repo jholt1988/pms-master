@@ -8,7 +8,6 @@ import { ZillowSyndicationAdapter } from './providers/zillow.adapter';
 import { ApartmentsComSyndicationAdapter } from './providers/apartments-com.adapter';
 import { ListingSyndicationProcessor } from '../jobs/listing-syndication.processor';
 import { ListingSyndicationScheduler } from '../jobs/listing-syndication.scheduler';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 const queueEnabled = process.env.NODE_ENV !== 'test' && process.env.DISABLE_REDIS !== 'true';
 
 @Module({
@@ -36,7 +35,6 @@ const queueEnabled = process.env.NODE_ENV !== 'test' && process.env.DISABLE_REDI
     ApartmentsComSyndicationAdapter,
     ListingSyndicationProcessor,
     ListingSyndicationScheduler,
-    OrgContextGuard,
   ],
   exports: [ListingSyndicationService],
 })

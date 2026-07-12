@@ -7,7 +7,6 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { MaintenanceLegacyController } from '../legacy/maintenance-legacy.controller';
 import { ConfigModule } from '@nestjs/config';
 import { SystemUserService } from '../shared/system-user.service';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { MaintenanceFeatureExtractionService } from './ai/maintenance-feature-extraction.service';
 import { MaintenanceDataQualityService } from './ai/maintenance-data-quality.service';
 import { NotificationsModule } from '../notifications/notifications.module';
@@ -28,7 +27,6 @@ const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
     AIMaintenanceService,
     AIMaintenanceMetricsService,
     SystemUserService,
-    OrgContextGuard,
     MaintenanceFeatureExtractionService,
     MaintenanceDataQualityService,
     PredictiveMaintenanceService,
