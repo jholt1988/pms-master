@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const BASE = process.env.API_BASE_URL || "http://pms-backend:3001/api";
+const BASE = process.env.API_BASE_URL || "http://localhost:3001/api";
 const ADMIN_USER = process.env.VERIFY_ADMIN_USER || "admin";
 const ADMIN_PASS = process.env.VERIFY_ADMIN_PASS || "Admin123!@#";
 const TENANT_USER = process.env.VERIFY_TENANT_USER || "tenant";
