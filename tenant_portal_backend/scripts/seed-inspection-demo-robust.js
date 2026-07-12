@@ -12,12 +12,14 @@ function uuid() {
   return crypto.randomUUID();
 }
 
-async function upsertUser({ username, password, role, email, firstName, lastName }) {
+async function upsertUser({ username, password, role, email, firstName, lastName, phone }) {
   const hash = await bcrypt.hash(password, 10);
+  const userData = { role, email, firstName, lastName };
+  if (phone) userData.phoneNumber = phone;
   return prisma.user.upsert({
     where: { username },
-    update: { role, email, firstName, lastName },
-    create: { username, password: hash, role, email, firstName, lastName },
+    update: userData,
+    create: { username, password: hash, ...userData },
   });
 }
 
@@ -89,7 +91,9 @@ async function main() {
 
       createData.fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username;
       if (user.email) createData.email = user.email;
-      if (user.phone) createData.phone = user.phone;
+      createData.phone = user.phone || '555-123-4567';
+      createData.createdAt = new Date();
+      createData.updatedAt = new Date();
 
       try {
         tenantRecord = await prisma.tenant.create({ data: createData });
@@ -118,6 +122,32 @@ async function main() {
     } catch (_) { }
   }
 
+  const PROPERTY_ID = '22222222-2222-4222-8222-222222222222';
+  const UNIT_ID = '33333333-3333-4333-8333-333333333333';
+  const leaseId = '44444444-4444-4444-8444-444444444444';
+
+  const propertyData = {
+    name: 'Inspection Demo Property',
+    address: '123 Demo St',
+    city: 'Demo City',
+    state: 'CA',
+    zipCode: '90000',
+    propertyType: 'MULTIFAMILY',
+  };
+  if (organization) propertyData.organizationId = organization.id;
+
+  const property = await prisma.property.upsert({
+    where: { id: PROPERTY_ID },
+    update: propertyData,
+    create: { id: PROPERTY_ID, ...propertyData },
+  });
+
+  const unit = await prisma.unit.upsert({
+    where: { id: UNIT_ID },
+    update: { name: 'Unit A', unitNumber: 'A', propertyId: property.id },
+    create: { id: UNIT_ID, name: 'Unit A', unitNumber: 'A', propertyId: property.id },
+  });
+
   // Try to find an existing lease by tenantId if available, otherwise by unitId
   let existingLease = null;
   try {
@@ -130,6 +160,7 @@ async function main() {
     existingLease = null;
   }
 
+  let lease = null;
   if (existingLease) {
     lease = existingLease;
   }
@@ -184,7 +215,7 @@ async function main() {
         lease = await prisma.lease.upsert({
           where: { id: leaseId },
           update: leaseUpdate,
-          create: { id: leaseId, status: 'ACTIVE', unitId: unit.id },
+          create: { id: leaseId, status: 'ACTIVE', unitId: unit.id, startDate: new Date('2026-01-01'), endDate: new Date('2026-12-31'), tenantId: tenant.id },
         });
       }
     }
