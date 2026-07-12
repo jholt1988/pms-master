@@ -149,7 +149,7 @@ async function main() {
       try {
         lease = await prisma.lease.upsert({
           where: { id: leaseId },
-          update: { status: 'ACTIVE', unitId: unit.id, tenantId: tenant.id, rentAmount: 1350, depositAmount: 600, rentAmountCents: 135000,depositAmountCents: 60000 }, 
+          update: { status: 'ACTIVE', unitId: unit.id, tenantId: tenant.id,  rentAmountCents: 135000,depositAmountCents: 60000 }, 
           create: {
             id: leaseId,
             status: 'ACTIVE',
@@ -159,7 +159,7 @@ async function main() {
             endDate: new Date('2026-12-31'),
             rentAmount: 1350,
             noticePeriodDays: 30,
-            depositAmount: 600,
+        
             rentAmountCents: 135000,
             depositAmountCents: 60000,
             autoRenew: false,
@@ -169,7 +169,7 @@ async function main() {
         // Retry with only essential fields - omit depositAmount and other potentially problematic fields
         lease = await prisma.lease.upsert({
           where: { id: leaseId },
-          update: { status: 'ACTIVE', unitId: unit.id, tenantId: tenant.id, rentAmount: 1350.00, rentAmountCents: 135000, depositAmountCents: 60000, depositAmount: 600.00 },
+          update: { status: 'ACTIVE', unitId: unit.id, tenantId: tenant.id, rentAmountCents: 135000, depositAmountCents: 60000},
           create: {
             id: leaseId,
             status: 'ACTIVE',
@@ -177,10 +177,9 @@ async function main() {
             tenantId: tenant.id,
             startDate: new Date('2026-01-01'),
             endDate: new Date('2026-12-31'),
-            rentAmount: 1350.00,
             rentAmountCents: 135000,
             depositAmountCents: 60000,
-            depositAmount: 600.00,
+          
 
             noticePeriodDays: 30,
             autoRenew: false,
