@@ -57,6 +57,7 @@ async function main() {
     email: 'tenant@example.com',
     firstName: 'Test',
     lastName: 'Tenant',
+    phone: '555-123-4567',
   });
 
   // Add after you create the tenant user
@@ -66,7 +67,7 @@ async function main() {
     // Try to find an existing tenant by userId or email
     let tenantRecord = null;
     try {
-      tenantRecord = await prisma.tenant.findFirst({ where: { userId: user.id } });
+      tenantRecord = await prisma.tenant.findFirst({ where: { id: user.id } });
     } catch (_) {
       /* ignore - model might not have userId field or constraints differ */
     }
@@ -88,13 +89,14 @@ async function main() {
 
       createData.fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username;
       if (user.email) createData.email = user.email;
+      if (user.phone) createData.phone = user.phone;
 
       try {
         tenantRecord = await prisma.tenant.create({ data: createData });
       } catch (err) {
         // Last-resort: try a minimal create (some schemas require fewer fields)
         try {
-          tenantRecord = await prisma.tenant.create({ data: { name: createData.name } });
+          tenantRecord = await prisma.tenant.create({ data: { fullName: createData.fullName } });
         } catch (err2) {
           console.error('Failed to create Tenant record for user:', err, err2);
           tenantRecord = null;
