@@ -22,6 +22,7 @@ async function api(path, { method = "GET", token, body } = {}) {
 
 async function login(username, password) {
   const r = await api("/auth/login", { method: "POST", body: { username, password } });
+  console.log(`Login attempt for ${username}:`, r.data); // ← Add this
   return { status: r.status, token: r.data?.access_token };
 }
 
