@@ -45,13 +45,17 @@ jobs:
       run:
         working-directory: tenant_portal_backend
 
-    env:
-      DATABASE_URL: postgresql://pms:pms@localhost:5432/pms?schema=public
-      DIRECT_URL: postgresql://pms:pms@localhost:5432/pms?schema=public
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      JWT_SECRET: test-secret-key-for-ci
-      NODE_ENV: test
+    env: 
+      DATABASE_URL: postgresql://pms:pms@localhost:5432/pms?schema=public 
+      DIRECT_URL: postgresql://pms:pms@localhost:5432/pms?schema=public 
+      REDIS_HOST: redis 
+      REDIS_PORT: 6379 
+      JWT_SECRET: test-secret-key-for-ci 
+      NODE_ENV: test 
+      VERIFY_ADMIN_USER: admin 
+      VERIFY_ADMIN_PASS: 'Admin123!@#' 
+      VERIFY_TENANT_USER: tenant 
+      VERIFY_TENANT_PASS: 'Tenant123!@#'
 
     steps:
       - name: Checkout
@@ -114,6 +118,11 @@ jobs:
           psql -h localhost -U pms -d pms -c '\d "Lease"' || true
 
       - name: Seed robust inspection demo
+        env: 
+          VERIFY_ADMIN_USER: ${{ env.VERIFY_ADMIN_USER }} 
+          VERIFY_ADMIN_PASS: ${{ env.VERIFY_ADMIN_PASS }} 
+          VERIFY_TENANT_USER: ${{ env.VERIFY_TENANT_USER }} 
+          VERIFY_TENANT_PASS: ${{ env.VERIFY_TENANT_PASS }}
         run: pnpm run seed:inspection-demo:robust
 
       - name: Start backend
