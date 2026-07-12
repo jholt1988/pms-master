@@ -25,7 +25,7 @@
     "ml:simulate:demo": "ts-node scripts/simulate-ml-demo.ts",
     "ml:seed:targeted": "ts-node scripts/seed-ml-targeted-readiness.ts",
     "ml:simulate:targeted": "npm run ml:seed:targeted && npm run ml:readiness:json && npm run ml:readiness:md",
-    "build": "tsc",
+    "build": "tsc --build tsconfig.build.json",
     "db:seed": "ts-node prisma/seed.ts",
     "db:check-drift": "prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --exit-code",
     "db:seed:sit-master": "ts-node scripts/sit-master.ts",
