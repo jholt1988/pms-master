@@ -105,135 +105,88 @@ async function main() {
     return tenantRecord;
   }
   const tenantRecord = await ensureTenantRecordForUser(tenant);
-  const tenantIdForLease = tenantRecord ? tenantRecord.id : tenant.id;
-  if (organization && prisma.userOrganization) {
-    await prisma.userOrganization.upsert({
-      where: {
-        userId_organizationId: {
-          userId: admin.id,
-          organizationId: organization.id,
-        },
-      },
-      update: {},
-      create: {
-        userId: admin.id,
-        organizationId: organization.id,
-        role: 'OWNER',
-      },
-    });
+
+  // Use tenantId only when a Tenant row actually exists.
+  const tenantIdForLease = tenantRecord ? tenantRecord.id : null;
+
+  // If tenantId is not present, skip operations that target tenantId directly.
+  if (tenantIdForLease) {
+    try {
+      await prisma.lease.deleteMany({ where: { tenantId: tenantIdForLease } });
+    } catch (_) { }
   }
 
-  // Property (try a flexible create)
-  const propertyId = (prisma.property?.fields?.id?.type === 'Int') ? 1 : (organization ? '22222222-2222-4222-8222-222222222222' : uuid());
-
-  const propertyWhere = { id: propertyId };
-  const propertyUpdate = {
-    name: 'Riverside Flats',
-    address: '123 N Main St, Wichita, KS, USA',
-    city: 'Wichita',
-    state: 'KS',
-    zipCode: '67202',
-  };
-
-  // Some schemas use organizationId; omit if not accepted.
-  const propertyCreateBase = {
-    id: propertyId,
-    ...propertyUpdate,
-  };
-
-  if (organization) {
-    propertyCreateBase.organizationId = organization.id;
-    propertyUpdate.organizationId = organization.id;
-  }
-
-  let property;
+  // Try to find an existing lease by tenantId if available, otherwise by unitId
+  let existingLease = null;
   try {
-    property = await prisma.property.upsert({ where: propertyWhere, update: propertyUpdate, create: propertyCreateBase });
-  } catch (e) { 
-    // Retry with minimal fields, but preserve required constraints (e.g., organizationId).
-    const update2 = { name: propertyUpdate.name, address: propertyUpdate.address };
-    const create2 = { id: propertyId, ...update2 };
-    if (organization) {
-      update2.organizationId = organization.id;
-      create2.organizationId = organization.id;
+    if (tenantIdForLease) {
+      existingLease = await prisma.lease.findFirst({ where: { tenantId: tenantIdForLease } });
+    } else {
+      existingLease = await prisma.lease.findFirst({ where: { unitId: unit.id } });
     }
-    property = await prisma.property.upsert({ where: propertyWhere, update: update2, create: create2 });
+  } catch (_) {
+    existingLease = null;
   }
 
-  // Unit (id type varies across schemas)
-  const unitId = typeof property.id === 'string' ? uuid() : 101;
-  let unit;
-  try {
-    unit = await prisma.unit.upsert({
-      where: { id: unitId },
-      update: { name: 'Unit 101', propertyId: property.id },
-      create: { id: unitId, name: 'Unit 101', propertyId: property.id, bedrooms: 2, bathrooms: 1 },
-    });
-  } catch (e) {
-    // Retry with minimal fields.
-    unit = await prisma.unit.upsert({
-      where: { id: unitId },
-      update: { name: 'Unit 101', propertyId: property.id },
-      create: { id: unitId, name: 'Unit 101', propertyId: property.id },
-    });
-  }
-
-  // Lease (id type varies; many schemas have id as string/uuid)
-  const leaseId = typeof unit.id === 'string' ? uuid() : 1;
-  let lease;
-
-  // Some schemas enforce unique tenantId on Lease.
-  try {
-    await prisma.lease.deleteMany({ where: { tenantId: tenantIdForLease } });
-  } catch (_) {}
-  try {
-  const existingLease = await prisma.lease.findFirst({ where: { tenantId: tenantIdForLease } });
   if (existingLease) {
     lease = existingLease;
   }
 
-    if (!lease) {
-      try {
-        lease = await prisma.lease.upsert({
-          where: { id: leaseId },
-          update: { status: 'ACTIVE', unitId: unit.id, tenantId: tenantIdForLease,  rentAmountCents: 135000,depositAmountCents: 60000 }, 
-          create: {
-            id: leaseId,
-            status: 'ACTIVE',
-            unitId: unit.id,
-            tenantId: tenantIdForLease,
-            startDate: new Date('2026-01-01'),
-            endDate: new Date('2026-12-31'),
-            rentAmount: 1350,
-            noticePeriodDays: 30,
-        
-            rentAmountCents: 135000,
-            depositAmountCents: 60000,
-            autoRenew: false,
-          },
-        });
-      } catch (e) {
-        // Retry with only essential fields - omit depositAmount and other potentially problematic fields
-        lease = await prisma.lease.upsert({
-          where: { id: leaseId },
-          update: { status: 'ACTIVE', unitId: unit.id, tenantId: tenantIdForLease, rentAmountCents: 135000, depositAmountCents: 60000},
-          create: {
-            id: leaseId,
-            status: 'ACTIVE',
-            unitId: unit.id,
-            tenantId: tenantIdForLease,
-            startDate: new Date('2026-01-01'),
-            endDate: new Date('2026-12-31'),
-            rentAmountCents: 135000,
-            depositAmountCents: 60000,
-          
+  if (!lease) {
+    // Build update/create data objects but only include tenantId when present.
+    const leaseUpdate = {
+      status: 'ACTIVE',
+      unitId: unit.id,
+      rentAmountCents: 135000,
+      depositAmountCents: 60000,
+    };
+    if (tenantIdForLease) leaseUpdate.tenantId = tenantIdForLease;
 
-            noticePeriodDays: 30,
-            autoRenew: false,
-            // depositAmount removed - may not be compatible with current schema
-          },
+    const leaseCreate = {
+      id: leaseId,
+      status: 'ACTIVE',
+      unitId: unit.id,
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-12-31'),
+      rentAmountCents: 135000,
+      noticePeriodDays: 30,
+      autoRenew: false,
+    };
+    if (tenantIdForLease) leaseCreate.tenantId = tenantIdForLease;
+
+    try {
+      lease = await prisma.lease.upsert({
+        where: { id: leaseId },
+        update: leaseUpdate,
+        create: leaseCreate,
+      });
+    } catch (e) {
+      // If the error is a foreign-key violation referencing Tenant (e.g., Postgres 23503),
+      // retry without tenantId to avoid failing the entire seed.
+      const msg = e?.message || String(e);
+      console.error('Lease upsert failed:', msg);
+
+      const isFkError = msg.includes('violates foreign key constraint') || msg.includes('23503');
+      if (isFkError && tenantIdForLease) {
+        console.warn('Detected FK error for tenantId; retrying lease upsert without tenantId.');
+        // Remove tenantId and retry
+        delete leaseUpdate.tenantId;
+        delete leaseCreate.tenantId;
+        lease = await prisma.lease.upsert({
+          where: { id: leaseId },
+          update: leaseUpdate,
+          create: leaseCreate,
+        });
+      } else {
+        // As before, attempt a minimal create as fallback
+        lease = await prisma.lease.upsert({
+          where: { id: leaseId },
+          update: leaseUpdate,
+          create: { id: leaseId, status: 'ACTIVE', unitId: unit.id },
         });
       }
+    }
+  }
     }
   
 
