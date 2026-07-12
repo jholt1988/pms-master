@@ -48,7 +48,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://pms:pms@localhost:5432/pms?schema=public
       DIRECT_URL: postgresql://pms:pms@localhost:5432/pms?schema=public
-      REDIS_HOST: localhost
+      REDIS_HOST: redis
       REDIS_PORT: 6379
       JWT_SECRET: test-secret-key-for-ci
       NODE_ENV: test
