@@ -59,6 +59,52 @@ async function main() {
     lastName: 'Tenant',
   });
 
+  // Add after you create the tenant user
+  async function ensureTenantRecordForUser(user) {
+    if (!prisma.tenant) return null;
+
+    // Try to find an existing tenant by userId or email
+    let tenantRecord = null;
+    try {
+      tenantRecord = await prisma.tenant.findFirst({ where: { userId: user.id } });
+    } catch (_) {
+      /* ignore - model might not have userId field or constraints differ */
+    }
+    if (!tenantRecord && user.email) {
+      try {
+        tenantRecord = await prisma.tenant.findFirst({ where: { email: user.email } });
+      } catch (_) { }
+    }
+
+    if (!tenantRecord) {
+      const createData = {};
+      // If tenant.id type can safely be set to user.id, include it; otherwise omit and let DB assign
+      if (typeof user.id === 'string') {
+        // Many schemas use UUID for Tenant.id — attempt to reuse the user's id when safe
+        createData.id = user.id;
+      }
+      // Many Tenant models reference the User via userId; include if present
+      try { createData.userId = user.id; } catch (_) { }
+
+      createData.name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username;
+      if (user.email) createData.email = user.email;
+
+      try {
+        tenantRecord = await prisma.tenant.create({ data: createData });
+      } catch (err) {
+        // Last-resort: try a minimal create (some schemas require fewer fields)
+        try {
+          tenantRecord = await prisma.tenant.create({ data: { name: createData.name } });
+        } catch (err2) {
+          console.error('Failed to create Tenant record for user:', err, err2);
+          tenantRecord = null;
+        }
+      }
+    }
+
+    return tenantRecord;
+  }
+
   if (organization && prisma.userOrganization) {
     await prisma.userOrganization.upsert({
       where: {
