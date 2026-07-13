@@ -57,7 +57,7 @@ model User {
   journalEntriesCreated           JournalEntry[]              @relation("JournalEntryCreatedBy")
   journalEntriesPosted            JournalEntry[]              @relation("JournalEntryPostedBy")
   leadApplicationReviews          LeadApplication[]           @relation("LeadApplicationReviewers")
-  Lease                           Lease[]
+  lease                           Lease[]
   LeaseDocument                   LeaseDocument[]
   LeaseHistory                    LeaseHistory[]
   LeaseNotice                     LeaseNotice[]
