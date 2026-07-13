@@ -114,7 +114,7 @@ export class TenantService {
     }
 
     if (Object.keys(leaseConditions).length > 0) {
-      where.Lease = { some: leaseConditions };
+      where.lease = {...leaseConditions }; ;
     }
 
     const [data, total] = await Promise.all([
