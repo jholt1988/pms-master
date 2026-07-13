@@ -32,16 +32,17 @@ export class PropertyRollupService {
       if (unit.status === 'VACANT') vacantCount++;
       
       let unitOverdue = 0;
-      if (unit.lease) {
-        if (unit.lease.endDate) {
-          const diffDays = (unit.lease.endDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24);
+      if (unit.lease && (unit.lease as any).length > 0) {
+        const activeLease = (unit.lease as any)[0];
+        if (activeLease.endDate) {
+          const diffDays = (activeLease.endDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24);
           if (diffDays > 0 && diffDays <= 60) {
             expiringCount++;
             signals.push({ type: 'WARNING', message: `Lease Expiring`, unitId: unit.id, unitName: unit.name });
           }
         }
-        unit.lease.invoices.forEach(inv => {
-          unitOverdue += inv.amount;
+        activeLease.invoices?.forEach(inv => {
+          unitOverdue += inv.amountCents;
         });
         if (unitOverdue > 0) {
           overdueAmount += unitOverdue;
@@ -86,15 +87,16 @@ export class PropertyRollupService {
     let revenueYtd = 0;
     let expenses = 0;
 
-    unit.expenses.forEach(e => { expenses += e.amount; });
-    if (unit.lease) {
-      unit.lease.payments.forEach(p => {
-        if (p.status === 'COMPLETED') revenueYtd += p.amount;
+    unit.expenses.forEach(e => { expenses += e.amountCents; });
+    const activeLease = (unit.lease as any)?.[0];
+    if (activeLease) {
+      activeLease.payments?.forEach(p => {
+        if (p.status === 'COMPLETED') revenueYtd += p.amountCents;
       });
     }
 
     return {
-      leaseId: unit.lease?.id,
+      leaseId: activeLease?.id,
       revenueYtd,
       expenses,
       net: revenueYtd - expenses,

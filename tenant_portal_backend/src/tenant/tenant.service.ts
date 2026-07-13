@@ -114,7 +114,7 @@ export class TenantService {
     }
 
     if (Object.keys(leaseConditions).length > 0) {
-      where.lease = leaseConditions;
+      where.Lease = { some: leaseConditions };
     }
 
     const [data, total] = await Promise.all([
@@ -263,7 +263,7 @@ export class TenantService {
         where: { userId },
         orderBy: { paymentDate: 'desc' },
         take: limit,
-        select: { id: true, amount: true, paymentDate: true, status: true },
+        select: { id: true, amountCents: true, paymentDate: true, status: true },
       }),
       this.prisma.maintenanceRequest.findMany({
         where: { authorId: userId },
@@ -296,7 +296,7 @@ export class TenantService {
         id: `pay-${p.id}`,
         date: p.paymentDate,
         type: 'payment' as const,
-        title: `Payment $${p.amount.toLocaleString()}`,
+        title: `Payment $${p.amountCents.toLocaleString()}`,
         details: `Status: ${p.status}`,
       })),
       ...maintenance.map((m) => ({
@@ -505,7 +505,7 @@ export class TenantService {
 
     const lease = await this.prisma.lease.findFirst({
       where: { tenantId: userId } as any,
-      select: { currentBalance: true },
+      select: { currentBalanceCents: true },
     });
 
     const paymentPlan = await this.prisma.paymentPlan.findFirst({
@@ -515,13 +515,13 @@ export class TenantService {
     return {
       recentPayments: payments.slice(0, 10).map((p) => ({
         id: p.id,
-        amount: p.amount,
+        amountCents: p.amountCents,
         date: p.paymentDate,
         status: p.status,
       })),
       onTimeRate: total > 0 ? Math.round(((total - late) / total) * 100) : 100,
       latePayments: late,
-      currentBalance: lease?.currentBalance ?? 0,
+      currentBalanceCents: lease?.currentBalanceCents ?? 0,
       paymentPlanActive: !!paymentPlan,
     };
   }

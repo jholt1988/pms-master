@@ -255,7 +255,7 @@ export class CommandCenterService {
         type: 'DELINQUENCY_FOLLOW_UP',
         domain: 'payments',
         title: `Follow up on overdue invoice for ${this.userLabel(invoice.lease.tenant)}`,
-        summary: `$${invoice.amount.toFixed(2)} due ${daysOverdue} day${daysOverdue === 1 ? '' : 's'} ago.`,
+        summary: `$${invoice.amountCents.toFixed(2)} due ${daysOverdue} day${daysOverdue === 1 ? '' : 's'} ago.`,
         priority: daysOverdue >= 14 ? 'CRITICAL' : daysOverdue >= 7 ? 'HIGH' : 'MEDIUM',
         score: 90 + Math.min(daysOverdue, 30),
         entityType: 'Invoice',
@@ -268,7 +268,7 @@ export class CommandCenterService {
         createdAt: invoice.issuedAt,
         recommendedAction: 'Send compliant delinquency follow-up and offer payment options.',
         evidence: [
-          { label: 'Amount', value: invoice.amount, source: 'Invoice.amount', entityType: 'Invoice', entityId: String(invoice.id) },
+          { label: 'Amount', value: invoice.amountCents, source: 'Invoice.amount', entityType: 'Invoice', entityId: String(invoice.id) },
           { label: 'Days overdue', value: daysOverdue, source: 'Invoice.dueDate', entityType: 'Invoice', entityId: String(invoice.id) },
           { label: 'Property', value: invoice.lease.unit.property.name, source: 'Property.name', entityType: 'Property', entityId: invoice.lease.unit.propertyId },
         ],
@@ -397,7 +397,7 @@ export class CommandCenterService {
         domain: 'leasing',
         title: `Renewal review for ${this.userLabel(lease.tenant)}`,
         summary: pendingOffer
-          ? `Renewal offer is pending at $${pendingOffer.proposedRent.toFixed(2)}.`
+          ? `Renewal offer is pending at $${pendingOffer.proposedRentCents.toFixed(2)}.`
           : `Lease ends in ${daysUntilEnd} day${daysUntilEnd === 1 ? '' : 's'}.`,
         priority: daysUntilEnd <= lease.noticePeriodDays ? 'HIGH' : 'MEDIUM',
         score: daysUntilEnd <= lease.noticePeriodDays ? 80 : 62,
@@ -411,7 +411,7 @@ export class CommandCenterService {
         createdAt: lease.createdAt,
         recommendedAction: 'Review rent, notice timing, and renewal terms before sending an offer.',
         evidence: [
-          { label: 'Current rent', value: lease.rentAmount, source: 'Lease.rentAmount', entityType: 'Lease', entityId: lease.id },
+          { label: 'Current rent', value: lease.rentAmountCents, source: 'Lease.rentAmount', entityType: 'Lease', entityId: lease.id },
           { label: 'Days until end', value: daysUntilEnd, source: 'Lease.endDate', entityType: 'Lease', entityId: lease.id },
           { label: 'Notice period days', value: lease.noticePeriodDays, source: 'Lease.noticePeriodDays', entityType: 'Lease', entityId: lease.id },
         ],

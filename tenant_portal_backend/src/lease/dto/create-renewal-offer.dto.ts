@@ -2,10 +2,10 @@ import { IsISO8601, IsInt, IsNumber, IsOptional, MaxLength, Min } from 'class-va
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateRenewalOfferDto {
-  @ApiProperty({ type: Number, description: 'Proposed renewal rent in dollars (legacy). Prefer proposedRentCents.' })
+  @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
-  proposedRent!: number;
+  proposedRent?: number;
 
   // Stage-A dual-send: optional integer cents. Preferred over `proposedRent` when provided.
   @ApiPropertyOptional({ type: Number, description: 'Proposed renewal rent in integer cents (preferred).' })

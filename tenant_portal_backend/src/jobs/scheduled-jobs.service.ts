@@ -325,10 +325,10 @@ export class ScheduledJobsService {
           // Check if invoice is still unpaid
           const completedPaid = invoice.payments
             .filter(p => p.status === 'COMPLETED')
-            .reduce((sum, payment) => sum + payment.amount, 0);
+            .reduce((sum, payment) => sum + payment.amountCents, 0);
           
           const hasPendingPayment = invoice.payments.some(p => p.status === 'PENDING');
-          if (completedPaid < invoice.amount && !hasPendingPayment) {
+          if (completedPaid < invoice.amountCents && !hasPendingPayment) {
             const lease = await this.prisma.lease.findUnique({
               where: { id: invoice.leaseId },
               include: {
@@ -343,7 +343,7 @@ export class ScheduledJobsService {
 
             const dueDate = new Date(invoice.dueDate);
             const daysLate = Math.max(0, Math.floor((Date.now() - dueDate.getTime()) / (1000 * 60 * 60 * 24)));
-            const outstandingBalance = Number(invoice.amount) - completedPaid;
+            const outstandingBalance = Number(invoice.amountCents) - completedPaid;
             const ledgerPeriod = dueDate.toISOString().slice(0, 7);
 
             if (this.workflowEventService) {
@@ -448,7 +448,7 @@ export class ScheduledJobsService {
           
           // Here you would send expiration alerts
           for (const lease of expiringLeases) {
-            this.logger.log(`Lease ${lease.id} expires in ${days} days - tenant: ${lease.tenant?.username}`);
+            this.logger.log(`Lease ${lease.id} expires in ${days} days - tenant: ${lease.tenant?.email}`);
           }
         }
       }
@@ -512,7 +512,7 @@ export class ScheduledJobsService {
           },
         },
         _sum: {
-          amount: true,
+          amountCents: true,
         },
         _count: {
           id: true,
@@ -529,7 +529,7 @@ export class ScheduledJobsService {
           },
         },
         _sum: {
-          amount: true,
+          amountCents: true,
         },
         _count: {
           id: true,
@@ -537,8 +537,8 @@ export class ScheduledJobsService {
       });
 
       this.logger.log(`Monthly report for ${lastMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}:`);
-      this.logger.log(`  • Rental Income: $${rentalIncome._sum.amount || 0} (${rentalIncome._count} payments)`);
-      this.logger.log(`  • Maintenance Costs: $${maintenanceCosts._sum.amount || 0} (${maintenanceCosts._count} expenses)`);
+      this.logger.log(`  • Rental Income: $${rentalIncome._sum.amountCents || 0} (${rentalIncome._count} payments)`);
+      this.logger.log(`  • Maintenance Costs: $${maintenanceCosts._sum.amountCents || 0} (${maintenanceCosts._count} expenses)`);
       
     } catch (error) {
       this.logger.error('Failed to generate monthly reports:', error);

@@ -163,8 +163,7 @@ export class BillingService {
           const invoice = await tx.invoice.create({
             data: {
               description: schedule.description,
-              amount: schedule.amount,
-              amountCents: toCents(schedule.amount),
+              amountCents: schedule.amountCents,
               dueDate: schedule.nextRun,
               lease: { connect: { id: schedule.leaseId } },
               schedule: { connect: { id: schedule.id } },
@@ -191,7 +190,7 @@ export class BillingService {
       where: {
         status: 'UNPAID',
         schedule: {
-          lateFeeAmount: { not: null },
+          lateFeeAmountCents: { not: null },
           lateFeeAfterDays: { not: null },
         },
       },
@@ -199,7 +198,7 @@ export class BillingService {
     });
 
     for (const invoice of overdueInvoices) {
-      if (!invoice.schedule?.lateFeeAmount || !invoice.schedule.lateFeeAfterDays) {
+      if (!invoice.schedule?.lateFeeAmountCents || !invoice.schedule.lateFeeAfterDays) {
         continue;
       }
 
@@ -209,15 +208,14 @@ export class BillingService {
       if (assessDate <= now && !hasLateFee) {
         // Integer-cents math sourced from the *Cents columns (Float mirrored for back-compat).
         const lateFeeCents =
-          invoice.schedule!.lateFeeAmountCents ?? toCents(invoice.schedule!.lateFeeAmount!);
-        const newInvoiceAmountCents =
-          (invoice.amountCents ?? toCents(invoice.amount)) + lateFeeCents;
+          invoice.schedule!.lateFeeAmountCents ?? toCents(invoice.schedule!.lateFeeAmountCents!);
+        const newInvoiceAmountCents = invoice.amountCents + lateFeeCents;
         try {
           await this.prisma.$transaction(async (tx) => {
             await tx.lateFee.create({
               data: {
                 invoice: { connect: { id: invoice.id } },
-                amount: fromCents(lateFeeCents),
+                // amount removed
                 amountCents: lateFeeCents,
               },
             });
@@ -225,7 +223,7 @@ export class BillingService {
             await tx.invoice.update({
               where: { id: invoice.id },
               data: {
-                amount: fromCents(newInvoiceAmountCents),
+                // amount removed
                 amountCents: newInvoiceAmountCents,
               },
             });
@@ -277,12 +275,12 @@ export class BillingService {
             continue;
           }
 
-          if (enrollment.maxAmount && invoice.amount > enrollment.maxAmount) {
+          if (enrollment.maxAmount && (invoice.amountCents / 100) > enrollment.maxAmount) {
             await this.prisma.paymentAttempt.update({
               where: { id: attempt.id },
               data: {
                 status: 'FAILED',
-                failureReason: `Amount ${invoice.amount} exceeds cap ${enrollment.maxAmount}`,
+                failureReason: `Amount ${invoice.amountCents / 100} exceeds cap ${enrollment.maxAmount}`,
                 attemptedAt: attempt.attemptedAt ?? new Date(),
                 completedAt: new Date(),
               },
@@ -303,7 +301,7 @@ export class BillingService {
           try {
             const payment = await this.paymentsService.recordPaymentForInvoice({
               invoiceId: invoice.id,
-              amount: invoice.amount,
+              amount: invoice.amountCents / 100,
               leaseId: enrollment.leaseId,
               userId: enrollment.lease.tenantId,
               paymentMethodId: enrollment.paymentMethodId,
@@ -646,24 +644,24 @@ export class BillingService {
       where: { leaseId },
       create: {
         leaseId,
-        amount: dto.amount,
+        amountCents: toCents(dto.amount),
         description: dto.description ?? 'Recurring Charge',
         frequency: dto.frequency,
         dayOfMonth: dto.dayOfMonth,
         dayOfWeek: dto.dayOfWeek,
         nextRun,
-        lateFeeAmount: dto.lateFeeAmount,
+        lateFeeAmountCents: dto.lateFeeAmount,
         lateFeeAfterDays: dto.lateFeeAfterDays,
         active: dto.active ?? true,
       },
       update: {
-        amount: dto.amount,
+        amountCents: toCents(dto.amount),
         description: dto.description ?? 'Recurring Charge',
         frequency: dto.frequency,
         dayOfMonth: dto.dayOfMonth,
         dayOfWeek: dto.dayOfWeek,
         nextRun,
-        lateFeeAmount: dto.lateFeeAmount,
+        lateFeeAmountCents: dto.lateFeeAmount,
         lateFeeAfterDays: dto.lateFeeAfterDays,
         active: dto.active ?? true,
       },
@@ -686,7 +684,7 @@ export class BillingService {
         leaseId,
         frequency: dto.frequency,
         amount: dto.amount,
-        lateFeeAmount: dto.lateFeeAmount,
+        lateFeeAmountCents: dto.lateFeeAmount,
         lateFeeAfterDays: dto.lateFeeAfterDays,
       },
     });
@@ -723,7 +721,7 @@ export class BillingService {
   }
 
   async getAutopayForTenant(userId: string) {
-    const lease = await this.prisma.lease.findUnique({
+    const lease = await this.prisma.lease.findFirst({
       where: { tenantId: userId },
       include: {
         autopayEnrollment: {
@@ -837,7 +835,7 @@ export class BillingService {
   }
 
   async listNeedsAuthAttemptsForTenant(userId: string) {
-    const lease = await this.prisma.lease.findUnique({
+    const lease = await this.prisma.lease.findFirst({
       where: { tenantId: userId },
       select: { id: true },
     });
@@ -897,7 +895,7 @@ export class BillingService {
     try {
       const payment = await this.paymentsService.recordPaymentForInvoice({
         invoiceId: attempt.invoiceId,
-        amount: attempt.invoice.amount,
+        amount: attempt.invoice.amountCents / 100,
         leaseId: lease.id,
         userId: lease.tenantId,
         paymentMethodId: attempt.autopayEnrollment.paymentMethodId,

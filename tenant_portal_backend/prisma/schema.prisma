@@ -1167,11 +1167,49 @@ model RentalApplication {
   unit                            Unit                           @relation(fields: [unitId], references: [id])
   manualNotes                     RentalApplicationNote[]
 
+  screeningRequests               ScreeningRequest[]
+
   @@index([convertedLeaseId])
   @@index([propertyId])
   @@index([unitId])
   @@index([applicantId])
   @@index([status])
+}
+
+model ScreeningRequest {
+  id            String            @id @default(uuid()) @db.Uuid
+  applicationId Int
+  provider      String
+  status        String            @default("IN_PROGRESS")
+  externalId    String?
+  requestedAt   DateTime          @default(now())
+  completedAt   DateTime?
+  errorMessage  String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  application   RentalApplication @relation(fields: [applicationId], references: [id])
+  report        ScreeningReport?
+
+  @@index([applicationId])
+  @@index([externalId])
+}
+
+model ScreeningReport {
+  id                String           @id @default(uuid()) @db.Uuid
+  requestId         String           @unique @db.Uuid
+  creditScore       Int?
+  incomeVerified    Boolean          @default(false)
+  identityVerified  Boolean          @default(false)
+  backgroundClear   Boolean          @default(false)
+  evictionHistory   Boolean          @default(false)
+  criminalHistory   Boolean          @default(false)
+  recommendation    String?
+  riskFlags         Json?
+  rawReport         Json?
+  createdAt         DateTime         @default(now())
+  request           ScreeningRequest @relation(fields: [requestId], references: [id])
+
+  @@index([requestId])
 }
 
 model Lead {

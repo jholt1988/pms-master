@@ -23,7 +23,7 @@ export class ReportingService {
         tenant: {
           select: {
             id: true,
-            username: true,
+            email: true,
           },
         },
         unit: {
@@ -55,12 +55,12 @@ export class ReportingService {
     return leases.map((lease) => ({
       property: lease.unit.property.name,
       unit: lease.unit.name,
-      tenant: lease.tenant.username,
-      rentAmount: lease.rentAmount,
+      tenant: lease.tenant.email,
+      rentAmountCents: lease.rentAmountCents,
       status: lease.status,
-      currentBalance: lease.currentBalance,
+      currentBalanceCents: lease.currentBalanceCents,
       unpaidInvoices: lease.invoices.length,
-      totalUnpaid: lease.invoices.reduce((sum, inv) => sum + inv.amount, 0),
+      totalUnpaid: lease.invoices.reduce((sum, inv) => sum + inv.amountCents, 0),
       startDate: lease.startDate,
       endDate: lease.endDate,
     }));
@@ -136,7 +136,7 @@ export class ReportingService {
           expenses: 0,
         };
       }
-      incomeByProperty[propertyId].income += payment.amount;
+      incomeByProperty[propertyId].income += payment.amountCents;
     });
 
     // Calculate expenses
@@ -149,7 +149,7 @@ export class ReportingService {
           expenses: 0,
         };
       }
-      incomeByProperty[propertyId].expenses += expense.amount;
+      incomeByProperty[propertyId].expenses += expense.amountCents;
     });
 
     return Object.values(incomeByProperty).map((property) => ({
@@ -253,7 +253,7 @@ export class ReportingService {
 
     return properties.map((property) => {
       const totalUnits = property.units.length;
-      const occupiedUnits = property.units.filter((unit) => unit.lease && unit.lease.status === 'ACTIVE').length;
+      const occupiedUnits = property.units.filter((unit) => unit.lease && (unit.lease as any)[0]?.status === 'ACTIVE').length;
       const vacancyRate = totalUnits > 0 ? ((totalUnits - occupiedUnits) / totalUnits) * 100 : 0;
 
       return {
@@ -318,7 +318,7 @@ export class ReportingService {
 
     return payments.map((payment) => ({
       id: payment.id,
-      amount: payment.amount,
+      amountCents: payment.amountCents,
       paymentDate: payment.paymentDate,
       status: payment.status,
       tenant: payment.user.username,
@@ -431,7 +431,7 @@ export class ReportingService {
             tenant: {
               select: {
                 id: true,
-                username: true,
+                email: true,
               },
             },
             unit: {
@@ -452,7 +452,7 @@ export class ReportingService {
           },
           select: {
             id: true,
-            amount: true,
+            amountCents: true,
             paymentDate: true,
           },
         },
@@ -463,7 +463,7 @@ export class ReportingService {
                 payment: {
                   select: {
                     id: true,
-                    amount: true,
+                    amountCents: true,
                     paymentDate: true,
                     status: true,
                   },
@@ -480,8 +480,8 @@ export class ReportingService {
       .filter((plan): plan is NonNullable<typeof plan> => Boolean(plan));
 
     const invoicesWithBalances = invoices.map((invoice) => {
-      const totalPaid = invoice.payments.reduce((sum, payment) => sum + payment.amount, 0);
-      const outstandingBalance = Math.max(invoice.amount - totalPaid, 0);
+      const totalPaid = invoice.payments.reduce((sum, payment) => sum + payment.amountCents, 0);
+      const outstandingBalance = Math.max(invoice.amountCents - totalPaid, 0);
       const isOverdue = invoice.status !== 'PAID' && invoice.dueDate < now && outstandingBalance > 0;
       const isPartial = totalPaid > 0 && outstandingBalance > 0;
 
@@ -510,9 +510,9 @@ export class ReportingService {
         return {
           leaseId,
           occurrences: count,
-          tenant: sample?.invoice.lease.tenant.username || 'Unknown',
-          property: sample?.invoice.lease.unit.property.name || 'Unknown',
-          unit: sample?.invoice.lease.unit.name || 'Unknown',
+          tenant: (sample?.invoice.lease as any)?.tenant?.username || 'Unknown',
+          property: (sample?.invoice.lease as any)?.unit?.property?.name || 'Unknown',
+          unit: (sample?.invoice.lease as any)?.unit?.name || 'Unknown',
         };
       });
 
@@ -524,22 +524,22 @@ export class ReportingService {
     const paymentPlanDetails = paymentPlans.map((plan) => {
       const relatedInvoice = invoices.find((invoice) => invoice.paymentPlan?.id === plan.id);
       const planPayments = plan.paymentPlanPayments.filter((installment) => installment.payment?.status === 'COMPLETED');
-      const amountPaid = planPayments.reduce((sum, installment) => sum + (installment.payment?.amount || 0), 0);
-      const remainingAmount = Math.max(plan.totalAmount - amountPaid, 0);
+      const amountPaid = planPayments.reduce((sum, installment) => sum + (installment.payment?.amountCents || 0), 0);
+      const remainingAmount = Math.max(plan.totalAmountCents - amountPaid, 0);
 
       return {
         id: plan.id,
         status: plan.status,
         installments: plan.installments,
-        totalAmount: plan.totalAmount,
+        totalAmountCents: plan.totalAmountCents,
         amountPaid,
         remainingAmount,
         acceptedAt: plan.acceptedAt,
         completedAt: plan.completedAt,
         cancelledAt: plan.cancelledAt,
-        tenant: relatedInvoice?.lease.tenant.username || 'Unknown',
-        property: relatedInvoice?.lease.unit.property.name || 'Unknown',
-        unit: relatedInvoice?.lease.unit.name || 'Unknown',
+        tenant: (relatedInvoice?.lease as any)?.tenant?.username || 'Unknown',
+        property: (relatedInvoice?.lease as any)?.unit?.property?.name || 'Unknown',
+        unit: (relatedInvoice?.lease as any)?.unit?.name || 'Unknown',
       };
     });
 

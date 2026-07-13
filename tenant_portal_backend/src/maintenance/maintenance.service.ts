@@ -107,7 +107,7 @@ export class MaintenanceService {
         if (userLookup) {
           type UserWithLease = Prisma.UserGetPayload<{
             include: {
-              lease: {
+              Lease: {
                 include: {
                   unit: true;
                 };
@@ -118,24 +118,22 @@ export class MaintenanceService {
           const userWithLease = (await userLookup.call(this.prisma.user, {
             where: { id: userId },
             include: {
-              lease: {
-                include: { unit: true },
-              },
+              Lease: { include: { unit: true } },
             },
           })) as UserWithLease;
 
-          if (userWithLease?.lease) {
+          if (userWithLease?.Lease) {
             if (unitId == null) {
-              unitId = userWithLease.lease.unitId;
+              unitId = userWithLease.Lease[0].unitId;
             }
             if (propertyId == null) {
-              propertyId = userWithLease.lease.unit.propertyId;
+              propertyId = userWithLease.Lease[0].unit.propertyId;
             }
           }
         }
       }
     } else if (role === Role.TENANT) {
-      const lease = await this.prisma.lease.findUnique({
+      const lease = await this.prisma.lease.findFirst({
         where: { tenantId: userId },
         include: { unit: { select: { id: true, propertyId: true } } },
       });
@@ -344,7 +342,7 @@ export class MaintenanceService {
   }
 
   async getLeaseForTenant(userId: string): Promise<{ id: string } | null> {
-    return this.prisma.lease.findUnique({
+    return this.prisma.lease.findFirst({
       where: { tenantId: userId },
       select: { id: true },
     });
@@ -543,7 +541,7 @@ export class MaintenanceService {
     return { items, page, pageSize, total };
   }
 
-  private readonly allowedStatusTransitions: Record<Status, Status[]> = {
+  private readonly allowedStatusTransitions: Partial<Record<Status, Status[]>> = {
     [Status.PENDING]: [Status.IN_PROGRESS],
     [Status.IN_PROGRESS]: [Status.COMPLETED],
     [Status.COMPLETED]: [],

@@ -61,7 +61,7 @@ export class AIPaymentService {
           orderBy: { id: 'desc' },
           take: 12,
         },
-        lease: {
+        Lease: {
           include: {
             invoices: {
               orderBy: { dueDate: 'desc' },
@@ -94,7 +94,7 @@ export class AIPaymentService {
         take: 12,
       });
     }
-    const invoices = user.lease?.invoices || [];
+    const invoices = (user.Lease as any)?.[0]?.invoices || [];
 
     if (!payments.length) {
       return {
@@ -113,8 +113,8 @@ export class AIPaymentService {
 
     // Prefer integer cents when present; fall back to the legacy Float dollar column.
     // Keeps this heuristic's math/display in dollars but survives Stage B (Float column drop).
-    const amt = (m: { amount: unknown; amountCents?: number | null }): number =>
-      m.amountCents != null ? fromCents(m.amountCents) : Number(m.amount);
+    const amt = (m: { amount?: unknown; amountCents?: number | null }): number =>
+      m.amountCents != null ? fromCents(m.amountCents) : Number(m.amount ?? 0);
 
     // Factor 1: Payment history (on-time payment rate)
     const totalPayments = payments.length;

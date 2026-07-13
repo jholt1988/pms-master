@@ -637,7 +637,7 @@ export class LeasingService {
         leaseId: env.leaseId,
         status: env.status,
         providerStatus: env.providerStatus,
-        tenantName: env.lease?.tenant?.username,
+        tenantName: env.lease?.tenant?.email,
         propertyName: env.lease?.unit?.property?.name,
         reminderCount: Number(meta.reminderCount || 0),
         retryCount: Number(meta.retryCount || 0),

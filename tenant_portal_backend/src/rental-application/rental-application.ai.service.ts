@@ -174,8 +174,8 @@ export class RentalApplicationAiService {
 
     // Determine rent amount (active lease or market rent)
     let rentAmount = 0;
-    if (application.unit?.lease?.rentAmount) {
-      rentAmount = application.unit.lease.rentAmount;
+    if ((application.unit?.lease as any)?.[0]?.rentAmountCents) {
+      rentAmount = (application.unit.lease as any)[0].rentAmountCents;
     } else if (application.property?.marketingProfile?.minRent) {
       rentAmount = application.property.marketingProfile.minRent;
     } else {

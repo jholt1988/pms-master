@@ -69,7 +69,7 @@ export class OperatorRenewalsService {
     const result = await this.leaseService.createRenewalOffer(
       leaseId,
       {
-        proposedRent: payload.proposedRent ?? Number(lease.rentAmount),
+        proposedRentCents: payload.proposedRent ?? Number(lease.rentAmountCents),
         proposedStart,
         proposedEnd,
         escalationPercent: payload.escalationPercent,
@@ -80,7 +80,7 @@ export class OperatorRenewalsService {
       orgId,
     );
     await this.recordAudit(orgId, actor.userId, 'RENEWAL_OFFER_CREATED_BY_OPERATOR', leaseId, {
-      proposedRent: payload.proposedRent ?? Number(lease.rentAmount),
+      proposedRentCents: payload.proposedRent ?? Number(lease.rentAmountCents),
     });
     return result;
   }
@@ -120,7 +120,7 @@ export class OperatorRenewalsService {
         message: payload.message ?? `Please review and sign your lease renewal for ${lease.unit?.property?.name ?? 'your property'}.`,
         recipients: [
           {
-            name: payload.signerName ?? lease.tenant.username,
+            name: payload.signerName ?? lease.tenant.email,
             email: payload.signerEmail ?? lease.tenant.email!,
             role: 'TENANT',
             userId: lease.tenantId,
@@ -199,8 +199,8 @@ export class OperatorRenewalsService {
         },
       },
       include: {
-        tenant: { select: { id: true, username: true, email: true } },
         unit: { include: { property: true } },
+        tenant: true,
         renewalOffers: { orderBy: { createdAt: 'desc' }, take: 3 },
         notices: { orderBy: { sentAt: 'desc' }, take: 3 },
         esignEnvelopes: { include: { participants: true }, orderBy: { createdAt: 'desc' }, take: 3 },
@@ -228,20 +228,20 @@ export class OperatorRenewalsService {
       leaseId: lease.id,
       leaseStatus: lease.status,
       tenantId: lease.tenantId,
-      tenantName: lease.tenant?.username ?? 'Tenant',
+      tenantName: (lease.tenant.fullName || lease.tenant.email) ?? 'Tenant',
       tenantEmail: lease.tenant?.email ?? null,
       propertyId: lease.unit?.property?.id ?? null,
       propertyName: lease.unit?.property?.name ?? null,
       unitId: lease.unitId,
       unitLabel: lease.unit?.unitNumber ?? lease.unit?.name ?? lease.unitId,
-      currentRent: lease.rentAmount,
+      currentRent: lease.rentAmountCents,
       endDate: lease.endDate.toISOString(),
       renewalDueAt: lease.renewalDueAt?.toISOString() ?? null,
       moveOutAt: lease.moveOutAt?.toISOString() ?? null,
       latestOffer: latestOffer
         ? {
             id: latestOffer.id,
-            proposedRent: latestOffer.proposedRent,
+            proposedRent: latestOffer.proposedRentCents != null ? latestOffer.proposedRentCents / 100 : 0,
             proposedStart: latestOffer.proposedStart.toISOString(),
             proposedEnd: latestOffer.proposedEnd.toISOString(),
             status: latestOffer.status,

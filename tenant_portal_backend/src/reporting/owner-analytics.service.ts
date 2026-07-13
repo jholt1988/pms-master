@@ -51,7 +51,7 @@ export class OwnerAnalyticsService {
         status: 'COMPLETED',
         lease: { unit: { property: { organizationId: orgId } } },
       },
-      _sum: { amount: true },
+      _sum: { amountCents: true },
     });
 
     const currentExpense = await this.prisma.expense.aggregate({
@@ -59,7 +59,7 @@ export class OwnerAnalyticsService {
         date: { gte: currentMonthStart },
         property: { organizationId: orgId },
       },
-      _sum: { amount: true },
+      _sum: { amountCents: true },
     });
 
     // Get last month stats
@@ -69,7 +69,7 @@ export class OwnerAnalyticsService {
         status: 'COMPLETED',
         lease: { unit: { property: { organizationId: orgId } } },
       },
-      _sum: { amount: true },
+      _sum: { amountCents: true },
     });
 
     const lastMonthExpense = await this.prisma.expense.aggregate({
@@ -77,15 +77,15 @@ export class OwnerAnalyticsService {
         date: { gte: lastMonthStart, lte: lastMonthEnd },
         property: { organizationId: orgId },
       },
-      _sum: { amount: true },
+      _sum: { amountCents: true },
     });
 
-    const currentIncomeCents = currentIncome._sum.amount ?? 0;
-    const currentExpenseCents = currentExpense._sum.amount ?? 0;
+    const currentIncomeCents = currentIncome._sum.amountCents ?? 0;
+    const currentExpenseCents = currentExpense._sum.amountCents ?? 0;
     const currentNOICents = currentIncomeCents - currentExpenseCents;
 
-    const lastMonthIncomeCents = lastMonthIncome._sum.amount ?? 0;
-    const lastMonthExpenseCents = lastMonthExpense._sum.amount ?? 0;
+    const lastMonthIncomeCents = lastMonthIncome._sum.amountCents ?? 0;
+    const lastMonthExpenseCents = lastMonthExpense._sum.amountCents ?? 0;
     const lastMonthNOICents = lastMonthIncomeCents - lastMonthExpenseCents;
 
     // Financial Projections

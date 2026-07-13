@@ -105,8 +105,8 @@ export class TenantHealthService {
       where: { tenantId: userId },
     });
 
-    if (lease && lease.currentBalance > 0) {
-      signals.push(`Outstanding balance: $${lease.currentBalance.toLocaleString()}`);
+    if (lease && lease.currentBalanceCents > 0) {
+      signals.push(`Outstanding balance: $${lease.currentBalanceCents.toLocaleString()}`);
     }
 
     const onTimeRate = totalPayments > 0

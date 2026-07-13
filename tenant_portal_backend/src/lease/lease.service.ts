@@ -9,7 +9,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { toCents } from '../utils/money';
+import { toCents, fromCents } from '../utils/money';
 import { CreateLeaseDto } from './dto/create-lease.dto';
 import { UpdateLeaseDto } from './dto/update-lease.dto';
 import { UpdateLeaseStatusDto } from './dto/update-lease-status.dto';
@@ -33,7 +33,7 @@ export class LeaseService {
   ) {}
 
   private readonly leaseInclude: Prisma.LeaseInclude = {
-    tenant: { select: { id: true, username: true, role: true } },
+    tenant: { select: { id: true, email: true } },
     unit: { include: { property: true } },
     recurringSchedule: true,
     autopayEnrollment: {
@@ -91,8 +91,7 @@ export class LeaseService {
           unitId: this.normalizeNumericId(dto.unitId as any),
           startDate,
           endDate,
-          rentAmount: dto.rentAmount,
-          rentAmountCents: dto.rentAmountCents ?? toCents(dto.rentAmount),
+          rentAmountCents: dto.rentAmountCents,
           status: dto.status ?? LeaseStatus.ACTIVE,
           moveInAt: this.optionalDate(dto.moveInAt) ?? startDate,
           moveOutAt: this.optionalDate(dto.moveOutAt),
@@ -108,7 +107,7 @@ export class LeaseService {
       await this.logHistory(lease.id, undefined, {
         toStatus: lease.status,
         note: 'Lease created',
-        rentAmount: lease.rentAmount,
+        rentAmount: dto.rentAmountCents != null ? fromCents(dto.rentAmountCents) : undefined,
         depositAmount: lease.depositAmount,
       });
 
@@ -156,7 +155,7 @@ export class LeaseService {
 
   async getLeaseByTenantId(tenantId: string | number) {
     const tenantIdStr = this.normalizeId(tenantId);
-    return this.prisma.lease.findUnique({ where: { tenantId: tenantIdStr }, include: this.leaseInclude });
+    return this.prisma.lease.findFirst({ where: { tenantId: tenantIdStr }, include: this.leaseInclude });
   }
 
   async updateLease(id: string | number, dto: UpdateLeaseDto, actorId: string | number, orgId?: string) {
@@ -178,7 +177,7 @@ export class LeaseService {
       data.moveOutAt = this.requireDate(dto.moveOutAt, 'moveOutAt');
     }
     if (dto.rentAmount !== undefined) {
-      data.rentAmount = dto.rentAmount;
+      data.rentAmountCents = toCents(dto.rentAmount);
     }
     if (dto.depositAmount !== undefined) {
       data.depositAmount = dto.depositAmount;
@@ -206,8 +205,8 @@ export class LeaseService {
       await this.logHistory(updated.id, actorIdStr, {
         fromStatus: lease.status,
         toStatus: updated.status,
-        rentAmount: updated.rentAmount,
-        depositAmount: updated.depositAmount,
+        rentAmount: updated.rentAmountCents != null ? fromCents(updated.rentAmountCents) : undefined,
+        depositAmount: updated.depositAmount ?? (updated.depositAmountCents != null ? fromCents(updated.depositAmountCents) : undefined),
         note: 'Lease details updated',
       });
     }
@@ -255,7 +254,7 @@ export class LeaseService {
       data.rentEscalationEffectiveAt = this.requireDate(dto.rentEscalationEffectiveAt, 'rentEscalationEffectiveAt');
     }
     if (dto.currentBalance !== undefined) {
-      data.currentBalance = dto.currentBalance;
+      data.currentBalanceCents = toCents(dto.currentBalance);
     }
     if (dto.autoRenew !== undefined) {
       data.autoRenew = dto.autoRenew;
@@ -309,7 +308,7 @@ export class LeaseService {
 
         this.logger.log(
           `AI recommended rent adjustment for lease ${id}: ` +
-          `$${Number(lease.rentAmount).toFixed(2)} → $${proposedRent.toFixed(2)} ` +
+          `$${Number(lease.rentAmountCents).toFixed(2)} → $${proposedRent.toFixed(2)} ` +
           `(${adjustment.adjustmentPercentage > 0 ? '+' : ''}${adjustment.adjustmentPercentage.toFixed(1)}%) ` +
           `(${responseTime}ms)`,
         );
@@ -319,15 +318,14 @@ export class LeaseService {
           error instanceof Error ? error.message : String(error),
         );
         // Fallback to current rent
-        proposedRent = Number(lease.rentAmount);
+        proposedRent = Number(lease.rentAmountCents);
       }
     }
 
     const offer = await this.prisma.leaseRenewalOffer.create({
       data: {
         leaseId,
-        proposedRent,
-        proposedRentCents: toCents(proposedRent),
+        proposedRentCents: proposedRent,
         proposedStart,
         proposedEnd,
         escalationPercent: dto.escalationPercent,
@@ -490,8 +488,7 @@ export class LeaseService {
       leaseUpdate.renewalAcceptedAt = respondedAt;
       leaseUpdate.startDate = offer.proposedStart;
       leaseUpdate.endDate = offer.proposedEnd;
-      leaseUpdate.rentAmount = offer.proposedRent;
-      leaseUpdate.rentAmountCents = toCents(offer.proposedRent);
+      leaseUpdate.rentAmountCents = offer.proposedRentCents;
       leaseUpdate.rentEscalationPercent = offer.escalationPercent ?? lease.rentEscalationPercent;
       leaseUpdate.rentEscalationEffectiveAt = offer.proposedStart;
       leaseUpdate.renewalDueAt = null;
@@ -535,7 +532,7 @@ export class LeaseService {
       fromStatus: lease.status,
       toStatus: updatedLease.status,
       note: noteParts.join(' '),
-      rentAmount: updatedLease.rentAmount,
+      rentAmount: updatedLease.rentAmountCents != null ? fromCents(updatedLease.rentAmountCents) : undefined,
       metadata: historyMetadata,
     });
 
@@ -713,9 +710,8 @@ export class LeaseService {
         fromStatus: data.fromStatus,
         toStatus: data.toStatus,
         note: data.note,
-        rentAmount: data.rentAmount,
+        
         rentAmountCents: data.rentAmount != null ? toCents(data.rentAmount) : undefined,
-        depositAmount: data.depositAmount,
         depositAmountCents: data.depositAmount != null ? toCents(data.depositAmount) : undefined,
         metadata: data.metadata,
       },

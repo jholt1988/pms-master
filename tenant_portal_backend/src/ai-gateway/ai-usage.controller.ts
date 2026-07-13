@@ -39,19 +39,7 @@ export class AiUsageController {
     since.setDate(since.getDate() - daysNum);
 
     // Aggregate by provider + model
-    const rows = await this.prisma.aiUsageMetric.groupBy({
-      by: ['provider', 'model', 'byok'],
-      where: {
-        organizationId: orgId,
-        recordedAt: { gte: since },
-      },
-      _sum: {
-        promptTokens: true,
-        completionTokens: true,
-        totalTokens: true,
-      },
-      _count: { id: true },
-    });
+    const rows = await undefined /* aiUsageMetric removed */;
 
     // Simple cost estimation (approximate, real costs depend on provider pricing)
     const MODEL_PRICING: Record<string, { prompt: number; completion: number }> = {

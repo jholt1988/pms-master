@@ -65,7 +65,7 @@ export class BriefingService {
       include: {
         lease: {
           include: {
-            tenant: { select: { username: true } },
+            tenant: { select: { email: true } },
             unit: { include: { property: { select: { name: true } } } },
           },
         },
@@ -82,9 +82,9 @@ export class BriefingService {
         id: `overdue-${inv.id}`,
         severity: daysOverdue > 30 ? 'critical' : daysOverdue > 14 ? 'high' : 'medium',
         domain: 'payments',
-        title: `${inv.lease?.tenant?.username || 'Tenant'} - $${Number(inv.amount).toLocaleString()} overdue`,
+        title: `${inv.lease?.tenant?.email || 'Tenant'} - $${Number(inv.amountCents).toLocaleString()} overdue`,
         summary: `${daysOverdue} days past due at ${inv.lease?.unit?.property?.name || 'property'}.`,
-        monetaryImpact: Number(inv.amount),
+        monetaryImpact: Number(inv.amountCents),
         actionUrl: '/payments',
         actionLabel: 'Review',
         createdAt: inv.dueDate.toISOString(),
@@ -126,7 +126,7 @@ export class BriefingService {
         ...(orgId ? { unit: { property: { organizationId: orgId } } } : {}),
       },
       include: {
-        tenant: { select: { username: true } },
+        tenant: { select: { email: true } },
         unit: { include: { property: { select: { name: true } } } },
       },
       take: 10,
@@ -140,9 +140,9 @@ export class BriefingService {
         id: `lease-exp-${lease.id}`,
         severity: days <= 14 ? 'high' : 'medium',
         domain: 'renewals',
-        title: `Lease expiring: ${lease.tenant?.username || 'Tenant'}`,
-        summary: `${days} days remaining. $${Number(lease.rentAmount).toLocaleString()}/mo at ${lease.unit?.property?.name || ''}.`,
-        monetaryImpact: Number(lease.rentAmount),
+        title: `Lease expiring: ${lease.tenant?.email || 'Tenant'}`,
+        summary: `${days} days remaining. $${Number(lease.rentAmountCents).toLocaleString()}/mo at ${lease.unit?.property?.name || ''}.`,
+        monetaryImpact: Number(lease.rentAmountCents),
         actionUrl: '/renewals',
         actionLabel: 'Review',
         createdAt: now.toISOString(),
@@ -364,7 +364,7 @@ export class BriefingService {
 
     const overdueInvoices = await this.prisma.invoice.aggregate({
       where: { status: 'OVERDUE', ...(orgId ? { lease: { unit: orgFilter } } : {}) },
-      _sum: { amount: true },
+      _sum: { amountCents: true },
     });
 
     const today = new Date();
@@ -380,7 +380,7 @@ export class BriefingService {
     });
 
     return {
-      atRiskAmount: Number(overdueInvoices._sum.amount || 0),
+      atRiskAmount: Number(overdueInvoices._sum.amountCents || 0),
       pendingDecisions: pendingAppCount,
       todayEvents: todayEventCount,
       vacantUnits: vacantCount,

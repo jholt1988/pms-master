@@ -477,7 +477,7 @@ export class MessagingService {
         id: true,
         username: true,
         role: true,
-        lease: {
+        Lease: {
           select: {
             id: true,
             unit: {

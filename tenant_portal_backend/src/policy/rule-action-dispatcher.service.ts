@@ -204,7 +204,7 @@ export class RuleActionDispatcher {
             await this.prisma.lateFee.create({
               data: {
                 invoiceId: invoiceIdStr,
-                amount: action.amount,
+                amountCents: typeof action.amount === 'number' ? Math.round(action.amount * 100) : action.amount,
               },
             });
           }
