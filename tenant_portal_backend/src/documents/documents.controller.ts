@@ -10,7 +10,7 @@ import {
   Req,
   UseInterceptors,
   UploadedFile,
-  ParseIntPipe,
+  ParseUUIDPipe,
   Res,
   BadRequestException,
 } from '@nestjs/common';
@@ -20,7 +20,6 @@ import { DocumentsService } from './documents.service';
 import { DocumentCategory } from '@prisma/client'; // Renamed to avoid conflict
 import { Request, Response } from 'express';
 import { memoryStorage } from 'multer';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 
 interface AuthenticatedRequest extends Request {
@@ -32,7 +31,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('documents')
-@UseGuards(AuthGuard('jwt'), OrgContextGuard)
+@UseGuards(AuthGuard('jwt'))
 export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
 
@@ -94,7 +93,7 @@ export class DocumentsController {
 
   @Get(':id/download')
   async downloadFile(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: number,
     @Req() req: AuthenticatedRequest,
     @Res() res: Response,
     @OrgId() orgId?: string,
@@ -107,7 +106,7 @@ export class DocumentsController {
 
   @Post(':id/share')
   async shareDocument(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: number,
     @Req() req: AuthenticatedRequest,
     @Body('userIds') userIds: string[],
     @OrgId() orgId?: string,
@@ -116,7 +115,7 @@ export class DocumentsController {
   }
 
   @Delete(':id')
-  async deleteDocument(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest, @OrgId() orgId?: string) {
+  async deleteDocument(@Param('id', ParseUUIDPipe) id: number, @Req() req: AuthenticatedRequest, @OrgId() orgId?: string) {
     return this.documentsService.deleteDocument(id, req.user.sub, orgId);
   }
 }

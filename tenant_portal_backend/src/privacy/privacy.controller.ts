@@ -1,13 +1,12 @@
 import { Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { Roles } from '../auth/roles.decorator';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { PrivacyService } from './privacy.service';
 
 @Controller('privacy')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 @Roles('PROPERTY_MANAGER', 'ADMIN')
 export class PrivacyController {
   constructor(private readonly privacyService: PrivacyService) {}

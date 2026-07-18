@@ -403,8 +403,8 @@ export class EsignatureService {
 
     // Validate that the tenant (if exists) has an email address
     if (lease.tenant && !lease.tenant.email) {
-      this.logger.error(`Cannot create envelope: Tenant ${lease.tenant.username} (ID: ${lease.tenant.id}) has no email address`);
-      throw new BadRequestException(`Tenant ${lease.tenant.username} does not have an email address configured. Please update the tenant's profile with a valid email address before creating a lease envelope.`);
+      this.logger.error(`Cannot create envelope: Tenant ${lease.tenant.email} (ID: ${lease.tenant.id}) has no email address`);
+      throw new BadRequestException(`Tenant ${lease.tenant.email} does not have an email address configured. Please update the tenant's profile with a valid email address before creating a lease envelope.`);
     }
 
     const provider = dto.provider ?? (this.configService.get('ESIGN_PROVIDER') as EsignProvider) ?? EsignProvider.DOCUSIGN;
@@ -2193,7 +2193,7 @@ export class EsignatureService {
           propertyName: envelope.lease?.unit?.property?.name,
           unitId: envelope.lease?.unit?.id,
           tenantId: envelope.lease?.tenantId,
-          tenantName: envelope.lease?.tenant?.username,
+          tenantName: envelope.lease?.tenant?.email,
           dueAt: dueAt.toISOString(),
           hoursUntilDue,
           reminderCount: Number(metadata.reminderCount || 0),

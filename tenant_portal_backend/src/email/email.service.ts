@@ -1,7 +1,12 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { LeadApplicationStatus } from '@prisma/client';
 import * as nodemailer from 'nodemailer';
+
+/** BullMQ queue name for asynchronous outbound email. */
+export const EMAIL_QUEUE_NAME = 'email';
 
 @Injectable()
 export class EmailService implements OnModuleInit {
@@ -11,7 +16,10 @@ export class EmailService implements OnModuleInit {
   private readonly isTest: boolean;
   private readonly smtpConfigured: boolean;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    @Optional() @InjectQueue(EMAIL_QUEUE_NAME) private readonly emailQueue?: Queue,
+  ) {
     this.isDevelopment = process.env.NODE_ENV === 'development';
     this.isTest = process.env.NODE_ENV === 'test';
     
@@ -46,6 +54,25 @@ export class EmailService implements OnModuleInit {
     } else if (!this.smtpConfigured && !this.isTest) {
       this.logger.warn('⚠️  SMTP not configured. Emails will be logged to console in development mode.');
     }
+  }
+
+  /**
+   * Enqueue a rent-payment confirmation so the caller's HTTP request is not
+   * blocked on SMTP. Falls back to sending inline when the queue is unavailable
+   * (tests / DISABLE_REDIS), preserving previous behavior.
+   */
+  async queuePaymentConfirmation(email: string, amount: number, paymentDate: Date): Promise<void> {
+    if (!email) return;
+    if (this.emailQueue) {
+      await this.emailQueue.add('payment-confirmation', {
+        email,
+        amount,
+        paymentDate: paymentDate.toISOString(),
+      });
+      return;
+    }
+    // No queue configured (tests / DISABLE_REDIS): send inline.
+    await this.sendRentPaymentConfirmation(email, amount, paymentDate);
   }
 
   private initializeTransporter() {

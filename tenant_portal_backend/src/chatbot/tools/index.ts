@@ -221,7 +221,7 @@ export const toolRegistry: Record<ToolNameT, ToolDef<AnyZod, AnyZod>> = {
       const tenant = await prisma.user.findUnique({
         where: { id: args.tenant_id },
         include: {
-          lease: {
+          Lease: {
             include: {
               unit: true,
             },
@@ -242,11 +242,11 @@ export const toolRegistry: Record<ToolNameT, ToolDef<AnyZod, AnyZod>> = {
         email: tenant.email ?? undefined,
         preferred_channel: "sms" as const,
         language: "en",
-        property_id: tenant.lease?.unit?.propertyId ?? undefined,
-        unit_id: tenant.lease?.unitId ?? undefined,
-        lease_id: tenant.lease?.id ?? undefined,
-        move_in_date: tenant.lease?.startDate?.toISOString().slice(0, 10) ?? undefined,
-        move_out_date: tenant.lease?.endDate?.toISOString().slice(0, 10) ?? undefined,
+        property_id: tenant.Lease?.[0]?.unit?.propertyId ?? undefined,
+        unit_id: tenant.Lease?.[0]?.unitId ?? undefined,
+        lease_id: tenant.Lease?.[0]?.id ?? undefined,
+        move_in_date: tenant.Lease?.[0]?.startDate?.toISOString().slice(0, 10) ?? undefined,
+        move_out_date: tenant.Lease?.[0]?.endDate?.toISOString().slice(0, 10) ?? undefined,
         balance_due_cents: undefined,
         flags: [],
       };

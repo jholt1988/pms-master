@@ -14,12 +14,12 @@ ALTER TABLE "Payment" ADD COLUMN "id_uuid" UUID NOT NULL DEFAULT gen_random_uuid
 ALTER TABLE "LedgerTransaction"  ADD COLUMN "paymentId_uuid"  UUID;
 ALTER TABLE "PaymentLedgerEntry" ADD COLUMN "paymentId_uuid"  UUID;
 ALTER TABLE "PaymentPlanPayment" ADD COLUMN "paymentId_uuid"  UUID;
-ALTER TABLE "Notice"            ADD COLUMN "payment_id_uuid" UUID;
+-- ALTER TABLE "notices"            ADD COLUMN "payment_id_uuid" UUID;
 
 UPDATE "LedgerTransaction"  c SET "paymentId_uuid"  = p."id_uuid" FROM "Payment" p WHERE c."paymentId"  = p."id";
 UPDATE "PaymentLedgerEntry" c SET "paymentId_uuid"  = p."id_uuid" FROM "Payment" p WHERE c."paymentId"  = p."id";
 UPDATE "PaymentPlanPayment" c SET "paymentId_uuid"  = p."id_uuid" FROM "Payment" p WHERE c."paymentId"  = p."id";
-UPDATE "Notice"            c SET "payment_id_uuid" = p."id_uuid" FROM "Payment" p WHERE c."payment_id" = p."id";
+-- UPDATE "notices"            c SET "payment_id_uuid" = p."id_uuid" FROM "Payment" p WHERE c."payment_id" = p."id";
 
 ALTER TABLE "LedgerTransaction"  DROP CONSTRAINT "LedgerTransaction_paymentId_fkey";
 ALTER TABLE "PaymentLedgerEntry" DROP CONSTRAINT "PaymentLedgerEntry_paymentId_fkey";
@@ -55,8 +55,8 @@ ALTER TABLE "PaymentPlanPayment" ADD CONSTRAINT "PaymentPlanPayment_paymentId_fk
 CREATE UNIQUE INDEX "PaymentPlanPayment_paymentId_key" ON "PaymentPlanPayment"("paymentId");
 
 -- notices (loose reference; kept loose)
-ALTER TABLE "Notice" DROP COLUMN "payment_id";
-ALTER TABLE "Notice" RENAME COLUMN "payment_id_uuid" TO "payment_id";
-CREATE INDEX "notices_payment_id_idx" ON "Notice"("payment_id");
+-- ALTER TABLE "notices" DROP COLUMN "payment_id";
+-- ALTER TABLE "notices" RENAME COLUMN "payment_id_uuid" TO "payment_id";
+-- CREATE INDEX "notices_payment_id_idx" ON "notices"("payment_id");
 
 COMMIT;

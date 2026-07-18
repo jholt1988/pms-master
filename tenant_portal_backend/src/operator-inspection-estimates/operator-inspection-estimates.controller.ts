@@ -5,7 +5,6 @@ import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagge
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { UseApiEnvelope } from '../common/envelope/envelope.decorator';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { CreateRepairRequestPayload } from './operator-inspection-estimates.types';
 import { OperatorInspectionEstimatesService } from './operator-inspection-estimates.service';
@@ -16,7 +15,7 @@ type AuthenticatedRequest = Request & {
 
 @Controller('operator-inspection-estimates')
 @ApiBearerAuth('JWT-auth')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 @UseApiEnvelope()
 export class OperatorInspectionEstimatesController {
   constructor(private readonly estimatesService: OperatorInspectionEstimatesService) {}

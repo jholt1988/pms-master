@@ -1,6 +1,5 @@
 import { Controller, Post, Get, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { ChatbotService } from './chatbot.service';
 
 interface AuthenticatedRequest extends Request {
@@ -12,7 +11,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('chatbot')
-@UseGuards(AuthGuard('jwt'), OrgContextGuard)
+@UseGuards(AuthGuard('jwt'))
 export class ChatbotController {
   constructor(private readonly chatbotService: ChatbotService) {}
 

@@ -2,7 +2,6 @@ import { Controller, Get, UseGuards, Request } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { TenantFeedService } from './tenant-feed.service';
 
 interface AuthenticatedRequest extends Request {
@@ -10,7 +9,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('tenant')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 @Roles('TENANT')
 export class TenantFeedController {
   constructor(private readonly tenantFeedService: TenantFeedService) {}

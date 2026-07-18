@@ -136,7 +136,7 @@ export async function callAIServiceWithRetry<T>(
   while (attempt <= (retry.maxRetries || 3)) {
     try {
       // Use circuit breaker
-      const result = await breaker.fire(async () => {
+      const result = (await breaker.fire(async () => {
         // Add timeout
         if (retry.timeout) {
           return Promise.race([
@@ -145,7 +145,7 @@ export async function callAIServiceWithRetry<T>(
           ]);
         }
         return serviceCall();
-      });
+      })) as T;
 
       const duration = Date.now() - startTime;
 
@@ -259,10 +259,11 @@ export function getCircuitBreakerStats(serviceName: string): {
     return null;
   }
 
+  const b = breaker as any;
   return {
-    isOpen: breaker.isOpen,
-    isHalfOpen: breaker.isHalfOpen,
-    isClosed: !breaker.isOpen && !breaker.isHalfOpen,
+    isOpen: b.opened || b.open || false,
+    isHalfOpen: b.halfOpen || false,
+    isClosed: b.closed || false,
     failures: breaker.stats.failures,
     fires: breaker.stats.fires,
     cacheHits: breaker.stats.cacheHits,

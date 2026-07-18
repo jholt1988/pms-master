@@ -188,7 +188,7 @@ export class ScheduleService {
         ...(orgId ? { unit: { property: { organizationId: orgId } } } : {}),
       },
       include: {
-        tenant: { select: { username: true } },
+        tenant: { select: { email: true } },
         unit: {
           include: {
             property: { select: { name: true } },
@@ -205,7 +205,7 @@ export class ScheduleService {
       priority: 'HIGH',
       propertyName: lease.unit.property.name,
       unitName: lease.unit.name,
-      tenantName: lease.tenant.username,
+      tenantName: lease.tenant.email,
     }));
   }
 

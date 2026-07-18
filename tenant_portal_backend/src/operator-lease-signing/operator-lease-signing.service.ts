@@ -75,7 +75,7 @@ export class OperatorLeaseSigningService {
   ) {
     const lease = await this.getLeaseForAction(orgId, leaseId);
     const signerEmail = payload.signerEmail ?? lease.tenant.email;
-    const signerName = payload.signerName ?? lease.tenant.username;
+    const signerName = payload.signerName ?? lease.tenant.email;
 
     if (!signerEmail) {
       throw new BadRequestException('Tenant email is required before sending lease for signature.');
@@ -188,7 +188,7 @@ export class OperatorLeaseSigningService {
       leaseId: lease.id,
       leaseStatus: lease.status,
       tenantId: lease.tenantId,
-      tenantName: lease.tenant?.username ?? 'Tenant',
+      tenantName: lease.tenant?.email ?? 'Tenant',
       tenantEmail: lease.tenant?.email ?? null,
       propertyId: lease.unit?.property?.id ?? null,
       propertyName: lease.unit?.property?.name ?? null,
@@ -196,7 +196,7 @@ export class OperatorLeaseSigningService {
       unitLabel: lease.unit?.unitNumber ?? lease.unit?.name ?? lease.unitId,
       startDate: lease.startDate.toISOString(),
       endDate: lease.endDate.toISOString(),
-      rentAmount: lease.rentAmount,
+      rentAmount: lease.rentAmountCents != null ? lease.rentAmountCents / 100 : 0,
       depositAmount: lease.depositAmount,
       documentCount,
       latestEnvelope,

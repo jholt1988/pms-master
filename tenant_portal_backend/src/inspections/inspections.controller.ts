@@ -9,7 +9,7 @@ import {
   Query,
   UseGuards,
   Req,
-  ParseIntPipe,
+  ParseUUIDPipe,
   UseInterceptors,
   UploadedFile,
   BadRequestException,
@@ -18,7 +18,6 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId, OptionalOrgId } from '../common/org-context/org-id.decorator';
 import { InspectionType, InspectionStatus, Role } from '@prisma/client';
 import { InspectionsService } from './inspections.service';
@@ -43,7 +42,7 @@ interface AuthenticatedRequest extends Request {
 // Legacy inspections API (v1). Kept for backwards compatibility during consolidation.
 // Prefer /api/inspections from src/inspection/* going forward.
 @Controller('inspections')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class InspectionsController {
   private readonly uploadDir = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads', 'inspections');
 
@@ -124,14 +123,14 @@ export class InspectionsController {
   }
 
   @Get(':id')
-  async findOne(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest, @OptionalOrgId() orgId?: string) {
+  async findOne(@Param('id', ParseUUIDPipe) id: number, @Req() req: AuthenticatedRequest, @OptionalOrgId() orgId?: string) {
     return this.inspectionsService.findOne(id, req.user.sub, req.user.role, orgId);
   }
 
   @Put(':id')
   @Roles('PROPERTY_MANAGER', 'ADMIN', 'OWNER', 'TENANT')
   async update(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: number,
     @Body() dto: UpdateInspectionDto,
     @Req() req: AuthenticatedRequest,
     @OptionalOrgId() orgId?: string,
@@ -149,7 +148,7 @@ export class InspectionsController {
 
   @Post('start')
   @Roles('PROPERTY_MANAGER', 'ADMIN', 'OWNER', 'TENANT')
-  async start(@Body('inspectionId', ParseIntPipe) inspectionId: number, @Req() req: AuthenticatedRequest, @OptionalOrgId() orgId?: string) {
+  async start(@Body('inspectionId', ParseUUIDPipe) inspectionId: number, @Req() req: AuthenticatedRequest, @OptionalOrgId() orgId?: string) {
     return this.inspectionsService.update(
       inspectionId,
       { status: InspectionStatus.IN_PROGRESS },
@@ -161,7 +160,7 @@ export class InspectionsController {
   @Put(':id/complete')
   @Roles('PROPERTY_MANAGER', 'ADMIN', 'OWNER', 'TENANT')
   async complete(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: number,
     @Body() dto: CompleteInspectionDto,
     @Req() req: AuthenticatedRequest,
     @OptionalOrgId() orgId?: string,
@@ -172,7 +171,7 @@ export class InspectionsController {
   @Put(':id/approve')
   @Roles('PROPERTY_MANAGER', 'ADMIN', 'OWNER')
   async approve(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: number,
     @Req() req: AuthenticatedRequest,
     @OrgId() orgId?: string,
   ) {
@@ -204,7 +203,7 @@ export class InspectionsController {
     }),
   )
   async addPhoto(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: number,
     @UploadedFile() file: Express.Multer.File,
     @Body('caption') caption: string,
     @Req() req: AuthenticatedRequest,
@@ -239,7 +238,7 @@ export class InspectionsController {
 
   @Delete(':id')
   @Roles('PROPERTY_MANAGER', 'ADMIN', 'OWNER')
-  async delete(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest, @OrgId() orgId?: string) {
+  async delete(@Param('id', ParseUUIDPipe) id: number, @Req() req: AuthenticatedRequest, @OrgId() orgId?: string) {
     return this.inspectionsService.delete(id, req.user.sub, orgId);
   }
 

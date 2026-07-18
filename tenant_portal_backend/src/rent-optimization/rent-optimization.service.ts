@@ -119,14 +119,10 @@ export class RentOptimizationService {
       data: {
         id: `${unitIdLabel}-${Date.now().toString()}`,
         unit: { connect: { id: unitId } },
-        currentRent: unit.lease?.rentAmount || 0,
-        currentRentCents: toCents(unit.lease?.rentAmount || 0),
-        recommendedRent: recommended_rent,
-        recommendedRentCents: toCents(recommended_rent),
-        confidenceIntervalLow: confidence_interval_low,
-        confidenceIntervalLowCents: toCents(confidence_interval_low),
-        confidenceIntervalHigh: confidence_interval_high,
-        confidenceIntervalHighCents: toCents(confidence_interval_high),
+        currentRentCents: (unit.lease as any)?.[0]?.rentAmountCents || 0,
+        recommendedRentCents: recommended_rent,
+        confidenceIntervalLowCents: confidence_interval_low,
+        confidenceIntervalHighCents: confidence_interval_high,
         factors: factors as any,
         marketComparables: market_comparables as any,
         modelVersion: model_version,
@@ -286,10 +282,10 @@ export class RentOptimizationService {
         data: {
           id: `${unitIdLabel}-${Date.now().toString()}`, // Unique ID
           unit: { connect: { id: unitIdNumeric } },
-          currentRent: unit.lease?.rentAmount || 0,
-          recommendedRent: predictionData.recommendedRent,
-          confidenceIntervalLow: predictionData.confidenceIntervalLow,
-          confidenceIntervalHigh: predictionData.confidenceIntervalHigh,
+          currentRentCents: (unit.lease as any)?.[0]?.rentAmountCents || 0,
+          recommendedRentCents: predictionData.recommendedRentCents,
+          confidenceIntervalLowCents: predictionData.confidenceIntervalLowCents,
+          confidenceIntervalHighCents: predictionData.confidenceIntervalHighCents,
           factors: predictionData.factors as any,
           marketComparables: predictionData.marketComparables as any,
           modelVersion: predictionData.modelVersion,
@@ -389,9 +385,9 @@ export class RentOptimizationService {
 
       // Transform ML response to our format
       return {
-        recommendedRent: response.data.recommended_rent,
-        confidenceIntervalLow: response.data.confidence_interval_low,
-        confidenceIntervalHigh: response.data.confidence_interval_high,
+        recommendedRentCents: response.data.recommended_rent,
+        confidenceIntervalLowCents: response.data.confidence_interval_low,
+        confidenceIntervalHighCents: response.data.confidence_interval_high,
         factors: response.data.factors,
         marketComparables: response.data.market_comparables,
         modelVersion: response.data.model_version,
@@ -531,7 +527,7 @@ export class RentOptimizationService {
       );
     }
 
-    const effectiveBaseRent = baseRent ?? unit.lease?.rentAmount ?? 1000;
+    const effectiveBaseRent = baseRent ?? (unit.lease as any)?.[0]?.rentAmountCents ?? 1000;
     const monthMultipliers = [0.96, 0.95, 0.97, 1.0, 1.03, 1.06, 1.08, 1.09, 1.04, 1.01, 0.98, 0.97];
     const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const termMultipliers: Record<number, number> = {
@@ -613,7 +609,7 @@ export class RentOptimizationService {
         continue;
       }
 
-      const pricing = await this.generateSeasonalPricingMatrix(lease.unitId, lease.rentAmount ?? undefined, orgId);
+      const pricing = await this.generateSeasonalPricingMatrix(lease.unitId, lease.rentAmountCents ?? undefined, orgId);
       const recommendedOption = pricing.options.find((option) => option.recommended) ?? pricing.options[0];
       const churnPrediction = await this.predictResidentChurn({
         ...lease.unit,
@@ -631,8 +627,8 @@ export class RentOptimizationService {
             leaseId: lease.id,
             unitId: lease.unitId,
             tenantId: lease.tenantId,
-            currentRent: lease.rentAmount,
-            recommendedRent: recommendedOption?.monthlyRent,
+            currentRent: lease.rentAmountCents,
+            recommendedRentCents: recommendedOption?.monthlyRent,
             recommendedTermMonths: recommendedOption?.termMonths,
             targetStartMonth: recommendedOption?.targetStartMonth,
             reason: recommendedOption?.reason,
@@ -714,7 +710,7 @@ export class RentOptimizationService {
     // TODO: Update lease rent amount in real implementation
     // await this.prisma.lease.update({
     //   where: { unitId: recommendation.unitId },
-    //   data: { rentAmount: recommendation.recommendedRent },
+    //   data: { rentAmountCents: recommendation.recommendedRent },
     // });
 
     return updated;
@@ -788,15 +784,15 @@ export class RentOptimizationService {
     const recommendations = await this.prisma.rentRecommendation.findMany({
       where: scope,
       select: {
-        currentRent: true,
-        recommendedRent: true,
+        currentRentCents: true,
+        recommendedRentCents: true,
       },
     });
 
     const avgConfidence = 0; // Removed confidenceScore field
 
     // Filter out recommendations with currentRent === 0 to avoid division by zero
-    const validIncreaseRecs = recommendations.filter(r => r.currentRent !== 0);
+    const validIncreaseRecs = recommendations.filter(r => r.currentRentCents !== 0);
     const avgIncrease = validIncreaseRecs.length > 0
       ? validIncreaseRecs.reduce((sum: number, r: any) => {
         const increase = ((r.recommendedRent - r.currentRent) / r.currentRent) * 100;
@@ -950,20 +946,19 @@ export class RentOptimizationService {
       take: 10,
     });
 
-    const currentRent = unit.lease?.rentAmount || 0;
+    const currentRent = (unit.lease as any)?.[0]?.rentAmountCents || 0;
     const latestRecommendation = recommendations[0];
 
-    // Since lease is one-to-one, we only have the current lease
-    const rentHistory = unit.lease ? [{
-      startDate: unit.lease.startDate,
-      endDate: unit.lease.endDate,
-      rent: unit.lease.rentAmount,
+    const rentHistory = (unit.lease as any)?.[0] ? [{
+      startDate: (unit.lease as any)[0].startDate,
+      endDate: (unit.lease as any)[0].endDate,
+      rent: (unit.lease as any)[0].rentAmountCents,
     }] : [];
 
     const recommendationHistory = recommendations.map((rec: any) => ({
       generatedAt: rec.generatedAt,
       currentRent: rec.currentRent,
-      recommendedRent: rec.recommendedRent,
+      recommendedRentCents: rec.recommendedRent,
       status: rec.status,
     }));
 
@@ -979,10 +974,10 @@ export class RentOptimizationService {
       },
       currentRent,
       latestRecommendation: latestRecommendation ? {
-        recommendedRent: latestRecommendation.recommendedRent,
-        difference: latestRecommendation.recommendedRent - currentRent,
+        recommendedRentCents: latestRecommendation.recommendedRentCents,
+        difference: latestRecommendation.recommendedRentCents - currentRent,
         percentageChange: currentRent > 0
-          ? ((latestRecommendation.recommendedRent - currentRent) / currentRent) * 100
+          ? ((latestRecommendation.recommendedRentCents - currentRent) / currentRent) * 100
           : 0,
         generatedAt: latestRecommendation.generatedAt,
         status: latestRecommendation.status,
@@ -1066,7 +1061,7 @@ export class RentOptimizationService {
     }
 
     // Update the current lease rent amount
-    const currentLease = recommendation.unit.lease;
+    const currentLease = (recommendation.unit.lease as any)?.[0];
     if (!currentLease) {
       throw ApiException.badRequest(
         ErrorCode.BUSINESS_PRECONDITION_FAILED,
@@ -1078,26 +1073,26 @@ export class RentOptimizationService {
     await this.prisma.lease.update({
       where: { id: currentLease.id },
       data: {
-        rentAmount: recommendation.recommendedRent,
+        rentAmountCents: recommendation.recommendedRentCents,
       },
     });
 
     this.logger.log(
-      `Applied recommendation ${id}: Updated lease ${currentLease.id} rent from $${recommendation.currentRent} to $${recommendation.recommendedRent}`,
+      `Applied recommendation ${id}: Updated lease ${currentLease.id} rent from $${recommendation.currentRentCents} to $${recommendation.recommendedRentCents}`,
     );
 
     return {
       success: true,
       message: 'Recommendation applied successfully',
-      previousRent: recommendation.currentRent,
-      newRent: recommendation.recommendedRent,
-      difference: recommendation.recommendedRent - recommendation.currentRent,
+      previousRent: recommendation.currentRentCents,
+      newRent: recommendation.recommendedRentCents,
+      difference: recommendation.recommendedRentCents - recommendation.currentRentCents,
       leaseId: currentLease.id,
       unitId: recommendation.unitId,
     };
   }
 
-  async updateRecommendation(id: string, recommendedRent: number, reasoning?: string, orgId?: string) {
+  async updateRecommendation(id: string, recommendedRentCents: number, reasoning?: string, orgId?: string) {
     const recommendation = await this.prisma.rentRecommendation.findFirst({
       where: {
         id,
@@ -1121,22 +1116,22 @@ export class RentOptimizationService {
       );
     }
 
-    if (recommendedRent <= 0) {
+    if (recommendedRentCents <= 0) {
       throw ApiException.badRequest(
         ErrorCode.VALIDATION_OUT_OF_RANGE,
         'Recommended rent must be greater than 0',
-        { recommendedRent },
+        { recommendedRentCents },
       );
     }
 
     const updated = await this.prisma.rentRecommendation.update({
       where: { id },
       data: {
-        recommendedRent,
+        recommendedRentCents,
         reasoning: reasoning || recommendation.reasoning,
         // Recalculate confidence interval based on new recommended rent
-        confidenceIntervalLow: Math.round(recommendedRent * 0.97),
-        confidenceIntervalHigh: Math.round(recommendedRent * 1.03),
+        confidenceIntervalLowCents: Math.round(recommendedRentCents * 0.97),
+        confidenceIntervalHighCents: Math.round(recommendedRentCents * 1.03),
       },
       include: {
         unit: {
@@ -1149,7 +1144,7 @@ export class RentOptimizationService {
     });
 
     this.logger.log(
-      `Updated recommendation ${id}: Rent changed from $${recommendation.recommendedRent} to $${recommendedRent}`,
+      `Updated recommendation ${id}: Rent changed from $${recommendation.recommendedRentCents} to $${recommendedRentCents}`,
     );
 
     return updated;
@@ -1200,8 +1195,8 @@ export class RentOptimizationService {
 
     return {
       recommendedRent,
-      confidenceIntervalLow: Math.round(recommendedRent * 0.97),
-      confidenceIntervalHigh: Math.round(recommendedRent * 1.03),
+      confidenceIntervalLowCents: Math.round(recommendedRent * 0.97),
+      confidenceIntervalHighCents: Math.round(recommendedRent * 1.03),
       factors: [
         {
           name: 'Market Trend',

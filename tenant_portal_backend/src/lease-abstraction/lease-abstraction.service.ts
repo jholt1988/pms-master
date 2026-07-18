@@ -21,7 +21,7 @@ export class LeaseAbstractionService {
       where: { id: leaseId, unit: { property: { organizationId } } },
       include: {
         unit: { select: { name: true, property: { select: { name: true } } } },
-        tenant: { select: { firstName: true, lastName: true } },
+        tenant: { select: { fullName: true,  } },
       },
     });
     if (!lease) throw new NotFoundException('Lease not found');
@@ -77,7 +77,7 @@ export class LeaseAbstractionService {
             id: true,
             startDate: true,
             endDate: true,
-            tenant: { select: { firstName: true, lastName: true } },
+            tenant: { select: { fullName: true,  } },
             unit: {
               select: {
                 name: true,
@@ -100,7 +100,7 @@ export class LeaseAbstractionService {
       include: {
         lease: {
           include: {
-            tenant: { select: { firstName: true, lastName: true, email: true } },
+            tenant: { select: { fullName: true,  email: true } },
             unit: {
               select: {
                 name: true,

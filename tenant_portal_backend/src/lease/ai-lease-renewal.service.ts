@@ -117,16 +117,7 @@ export class AILeaseRenewalService {
       where: { id: leaseIdStr },
       include: {
         tenant: {
-          include: {
-            payments: {
-              orderBy: { paymentDate: 'desc' },
-              take: 12,
-            },
-            requests: {
-              orderBy: { createdAt: 'desc' },
-              take: 10,
-            },
-          },
+// include removed
         },
         unit: {
           include: {
@@ -215,7 +206,7 @@ export class AILeaseRenewalService {
     // Factor 4: Rent amount vs market
     // This would ideally use the rent optimization ML service
     // For now, we'll use a simple heuristic
-    const currentRent = lease.rentAmountCents != null ? lease.rentAmountCents / 100 : Number(lease.rentAmount);
+    const currentRent = lease.rentAmountCents != null ? lease.rentAmountCents / 100 : 0;
     // Assume market rent is similar (in real implementation, call ML service)
     const marketRent = currentRent * 1.05; // 5% higher
     const rentDifference = ((marketRent - currentRent) / currentRent) * 100;
@@ -376,12 +367,7 @@ export class AILeaseRenewalService {
             },
           },
           tenant: {
-            include: {
-              payments: {
-                orderBy: { paymentDate: 'desc' },
-                take: 12,
-              },
-            },
+// include removed
           },
         },
       })) as LeaseWithTenantUnit | null;
@@ -390,7 +376,7 @@ export class AILeaseRenewalService {
         throw new Error(`Lease ${leaseId} not found`);
       }
 
-      const currentRent = lease.rentAmountCents != null ? lease.rentAmountCents / 100 : Number(lease.rentAmount);
+      const currentRent = lease.rentAmountCents != null ? lease.rentAmountCents / 100 : 0;
 
       // Try to get recommendation from ML service with retry logic
       let recommendedRent = currentRent;
@@ -561,12 +547,7 @@ export class AILeaseRenewalService {
       where: { id: leaseIdStr },
       include: {
         tenant: {
-          include: {
-            payments: {
-              orderBy: { paymentDate: 'desc' },
-              take: 12,
-            },
-          },
+// include removed
         },
         unit: {
           include: {
@@ -586,7 +567,7 @@ export class AILeaseRenewalService {
 
     if (!lease.tenant) {
       return {
-        baseRent: lease.rentAmountCents != null ? lease.rentAmountCents / 100 : Number(lease.rentAmount),
+        baseRent: lease.rentAmountCents != null ? lease.rentAmountCents / 100 : 0,
         incentives: [],
         totalValue: 0,
         message: 'Renewal offer: continue your lease with the same terms.',
@@ -600,7 +581,7 @@ export class AILeaseRenewalService {
       // Get rent adjustment recommendation
       const rentAdjustment = await this.getRentAdjustmentRecommendation(leaseIdStr);
 
-    const currentRent = lease.rentAmountCents != null ? lease.rentAmountCents / 100 : Number(lease.rentAmount);
+    const currentRent = lease.rentAmountCents != null ? lease.rentAmountCents / 100 : 0;
     let baseRent = rentAdjustment.recommendedRent;
     const incentives: Array<{
       type: 'RENT_DISCOUNT' | 'FREE_MONTH' | 'UPGRADE' | 'CASH_BACK';

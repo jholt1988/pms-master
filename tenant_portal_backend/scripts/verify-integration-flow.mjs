@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const BASE = process.env.API_BASE_URL || "http://pms-backend:3001/api";
+const BASE = process.env.API_BASE_URL || "http://localhost:3001/api";
 const ADMIN_USER = process.env.VERIFY_ADMIN_USER || "admin";
 const ADMIN_PASS = process.env.VERIFY_ADMIN_PASS || "Admin123!@#";
 const TENANT_USER = process.env.VERIFY_TENANT_USER || "tenant";
@@ -22,7 +22,9 @@ async function api(path, { method = "GET", token, body } = {}) {
 
 async function login(username, password) {
   const r = await api("/auth/login", { method: "POST", body: { username, password } });
-  return { status: r.status, token: r.data?.access_token };
+  console.log(`Login attempt for ${username}:`, r.data);
+  const token = r.data?.access_token || r.data?.accessToken || r.data?.result?.accessToken || r.data?.result?.access_token;
+  return { status: r.status, token };
 }
 
 (async () => {
@@ -54,6 +56,9 @@ async function login(username, password) {
   const rows = [];
   for (const [scope, path, token] of checks) {
     const r = await api(path, { token });
+    if (r.status !== 200 && r.status !== 201) {
+      console.log(`Failed ${path}:`, r.status, r.data);
+    }
     rows.push({ scope, path, status: r.status, pass: r.status === 200 });
   }
 
@@ -93,14 +98,16 @@ async function login(username, password) {
           description: "Automated verification flow",
           category: "PLUMBING",
           priority: "LOW",
+          propertyId: "22222222-2222-4222-8222-222222222222",
+          unitId: "33333333-3333-4333-8333-333333333333",
         },
       });
 
-      const id = created.data?.id;
+      const id = created.data?.id || created.data?.result?.id;
       const assign = await api(`/maintenance/${id}/assign`, {
         method: "PATCH",
         token: pm.token,
-        body: { technicianId: tech.data?.id },
+        body: { technicianId: tech.data?.id || tech.data?.result?.id },
       });
       const complete = await api(`/maintenance/${id}/status`, {
         method: "PATCH",

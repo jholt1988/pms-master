@@ -757,14 +757,14 @@ export class WorkflowEngineService {
         typeof rawInvoiceId === 'number'
           ? rawInvoiceId
           : rawInvoiceId
-          ? Number(rawInvoiceId)
+          ? String(rawInvoiceId)
           : undefined;
 
       if (!tenantId || !invoiceId) {
         throw new Error('Tenant ID and Invoice ID are required for payment risk assessment');
       }
 
-      const riskAssessment = await this.aiPaymentService.assessPaymentRisk(tenantId, invoiceId);
+      const riskAssessment = await this.aiPaymentService.assessPaymentRisk(tenantId, String(invoiceId));
 
       this.logger.log(
         `AI payment risk assessment: ${riskAssessment.riskLevel} (${riskAssessment.riskScore.toFixed(2)})`,
@@ -1048,7 +1048,7 @@ export class WorkflowEngineService {
     }
 
     const rawInvoiceId = step.input?.invoiceId ?? execution.input?.invoiceId ?? execution.output?.invoiceId;
-    const invoiceId = typeof rawInvoiceId === 'number' ? rawInvoiceId : Number(rawInvoiceId);
+    const invoiceId = typeof rawInvoiceId === 'number' ? rawInvoiceId : String(rawInvoiceId);
     if (!Number.isFinite(invoiceId)) {
       throw new Error('invoiceId is required for CREATE_STRIPE_CHECKOUT');
     }
@@ -1064,8 +1064,7 @@ export class WorkflowEngineService {
       role: step.input?.role || 'PROPERTY_MANAGER',
     } as any;
 
-    const result = await this.paymentsService.createStripeCheckoutSession(
-      { invoiceId, successUrl, cancelUrl },
+    const result = await this.paymentsService.createStripeCheckoutSession({ invoiceId: String(invoiceId), successUrl, cancelUrl },
       authUser,
       execution.input?.organizationId,
     );
@@ -1415,16 +1414,12 @@ export class WorkflowEngineService {
     return typeof id === 'number' ? String(id) : id;
   }
 
-  private toNumericId(id?: string | number, field = 'id'): number | undefined {
+  private toNumericId(id?: string | number, field = 'id'): any {
     const normalized = this.normalizeInputId(id);
     if (normalized === undefined) {
       return undefined;
     }
-    const parsed = Number(normalized);
-    if (!Number.isFinite(parsed) || Number.isNaN(parsed) || !Number.isInteger(parsed)) {
-      throw new Error(`Invalid ${field} id: ${id}`);
-    }
-    return parsed;
+    if (typeof normalized === 'string') return normalized; return String(normalized);
   }
 
   /**

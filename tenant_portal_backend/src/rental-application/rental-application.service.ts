@@ -284,7 +284,7 @@ export class RentalApplicationService {
       throw new Error('Rental application not found');
     }
 
-    const rentAmount = application.unit.lease?.rentAmount || 0; // Assuming rent is part of an active lease
+    const rentAmount = (application.unit.lease as any)?.[0]?.rentAmountCents || 0; // rent in cents from active lease
     const fairHousingInput = this.aiService.sanitizeForFairHousing({
       ...application,
       targetRent: rentAmount,
@@ -1009,7 +1009,7 @@ export class RentalApplicationService {
       throw new BadRequestException('Application has no linked applicant user; cannot create lease');
     }
 
-    const existingLease = await this.prisma.lease.findUnique({ where: { tenantId: applicantId } });
+    const existingLease = await this.prisma.lease.findFirst({ where: { tenantId: applicantId } });
     if (existingLease) {
       throw new BadRequestException('Applicant already has an existing lease');
     }
@@ -1022,7 +1022,7 @@ export class RentalApplicationService {
           startDate,
           endDate,
           moveInAt,
-          rentAmount: payload.rentAmount ?? application.income * 0.3,
+          rentAmountCents: payload.rentAmount ?? Math.round(application.income * 0.3),
           depositAmount: payload.depositAmount ?? 0,
           noticePeriodDays: payload.noticePeriodDays ?? 30,
           status: LeaseStatus.DRAFT,
@@ -1120,7 +1120,7 @@ export class RentalApplicationService {
       throw new Error('Rental application not found');
     }
 
-    const rentAmount = Number(application.unit?.lease?.rentAmount ?? 0);
+    const rentAmount = Number((application.unit?.lease as any)?.[0]?.rentAmountCents ?? 0);
     const income = Number(application.income ?? 0);
     const creditScore = application.creditScore ?? null;
     const incomeRatio = rentAmount > 0 ? income / rentAmount : 0;
@@ -1193,13 +1193,13 @@ export class RentalApplicationService {
 
     const unitLease = await this.prisma.lease.findFirst({
       where: { unitId: application.unitId, status: LeaseStatus.ACTIVE },
-      select: { rentAmount: true },
+      select: { rentAmountCents: true },
     });
 
     const review = await this.aiService.getAiReview(String(application.id));
     const fairHousingInput = this.aiService.sanitizeForFairHousing({
       ...application,
-      targetRent: unitLease?.rentAmount ?? 0,
+      targetRent: unitLease?.rentAmountCents ?? 0,
     });
     const tenancyScore = this.aiService.computeTenancySuccessScore(fairHousingInput.sanitizedInput);
 

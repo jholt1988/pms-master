@@ -24,3 +24,7 @@ CREATE INDEX "MaintenanceRiskSnapshot_organizationId_scannedAt_idx" ON "Maintena
 
 -- CreateIndex
 CREATE INDEX "MaintenanceRiskSnapshot_assetId_scannedAt_idx" ON "MaintenanceRiskSnapshot"("assetId", "scannedAt");
+
+ALTER TABLE "Lease" ADD COLUMN "depositAmount" INTEGER;
+
+ALTER TABLE "Lease" ADD COLUMN "currentBalance" TEXT;

@@ -3,7 +3,7 @@
  * Handles property tour scheduling and management
  */
 
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { isUUID } from 'class-validator';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
@@ -56,24 +56,34 @@ export class ToursService {
   /**
    * Get tour by ID
    */
-  async getTourById(id: string) {
+  async getTourById(id: string, orgId?: string) {
+    const include = {
+      lead: true,
+      property: true,
+      unit: true,
+      conductedBy: true,
+    };
+    if (orgId) {
+      return this.prisma.tour.findFirst({
+        where: { id, property: { organizationId: orgId } },
+        include,
+      });
+    }
     return this.prisma.tour.findUnique({
       where: { id },
-      include: {
-        lead: true,
-        property: true,
-        unit: true,
-        conductedBy: true,
-      },
+      include,
     });
   }
 
   /**
    * Get tours for a lead
    */
-  async getToursForLead(leadId: string) {
+  async getToursForLead(leadId: string, orgId?: string) {
     return this.prisma.tour.findMany({
-      where: { leadId },
+      where: {
+        leadId,
+        ...(orgId ? { property: { organizationId: orgId } } : {}),
+      },
       include: {
         property: true,
         unit: true,
@@ -86,15 +96,22 @@ export class ToursService {
   /**
    * Get all tours with filtering
    */
-  async getTours(filters?: {
-    propertyId?: string;
-    status?: string;
-    dateFrom?: Date;
-    dateTo?: Date;
-    limit?: number;
-    offset?: number;
-  }) {
+  async getTours(
+    filters?: {
+      propertyId?: string;
+      status?: string;
+      dateFrom?: Date;
+      dateTo?: Date;
+      limit?: number;
+      offset?: number;
+    },
+    orgId?: string,
+  ) {
     const where: any = {};
+
+    if (orgId) {
+      where.property = { organizationId: orgId };
+    }
 
     if (filters?.propertyId) {
       where.propertyId = String(filters.propertyId);
@@ -132,7 +149,14 @@ export class ToursService {
   /**
    * Update tour status
    */
-  async updateTourStatus(id: string, status: string, feedback?: string) {
+  async updateTourStatus(
+    id: string,
+    status: string,
+    feedback?: string,
+    orgId?: string,
+  ) {
+    await this.assertTourInOrg(id, orgId);
+
     const updates: any = { status };
 
     if (status === 'COMPLETED') {
@@ -156,7 +180,9 @@ export class ToursService {
   /**
    * Assign tour to property manager
    */
-  async assignTour(id: string, userId: string) {
+  async assignTour(id: string, userId: string, orgId?: string) {
+    await this.assertTourInOrg(id, orgId);
+
     return this.prisma.tour.update({
       where: { id },
       data: { conductedById: userId },
@@ -170,7 +196,10 @@ export class ToursService {
     id: string,
     scheduledDate: Date,
     scheduledTime: string,
+    orgId?: string,
   ) {
+    await this.assertTourInOrg(id, orgId);
+
     return this.prisma.tour.update({
       where: { id },
       data: {
@@ -180,6 +209,25 @@ export class ToursService {
         updatedAt: new Date(),
       },
     });
+  }
+
+  /**
+   * Verifies a tour belongs to the caller's organization (via its property).
+   * No-op when orgId is undefined (internal / non-org callers). Throws NotFound
+   * when the tour is missing or outside the org so cross-org ids are
+   * indistinguishable from non-existent ones.
+   */
+  private async assertTourInOrg(id: string, orgId?: string): Promise<void> {
+    if (!orgId) {
+      return;
+    }
+    const found = await this.prisma.tour.findFirst({
+      where: { id, property: { organizationId: orgId } },
+      select: { id: true },
+    });
+    if (!found) {
+      throw new NotFoundException('Tour not found');
+    }
   }
 
   private parseNumericId(value: string | number, field: string): string {

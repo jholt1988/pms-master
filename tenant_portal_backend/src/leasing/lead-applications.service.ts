@@ -89,24 +89,34 @@ export class LeadApplicationsService {
   /**
    * Get application by ID
    */
-  async getApplicationById(id: string) {
+  async getApplicationById(id: string, orgId?: string) {
+    const include = {
+      lead: true,
+      property: true,
+      unit: true,
+      reviewedBy: true,
+    };
+    if (orgId) {
+      return this.prisma.leadApplication.findFirst({
+        where: { id, property: { organizationId: orgId } },
+        include,
+      });
+    }
     return this.prisma.leadApplication.findUnique({
       where: { id },
-      include: {
-        lead: true,
-        property: true,
-        unit: true,
-        reviewedBy: true,
-      },
+      include,
     });
   }
 
   /**
    * Get applications for a lead
    */
-  async getApplicationsForLead(leadId: string) {
+  async getApplicationsForLead(leadId: string, orgId?: string) {
     return this.prisma.leadApplication.findMany({
-      where: { leadId },
+      where: {
+        leadId,
+        ...(orgId ? { property: { organizationId: orgId } } : {}),
+      },
       include: {
         property: true,
         unit: true,
@@ -119,15 +129,22 @@ export class LeadApplicationsService {
   /**
    * Get all applications with filtering
    */
-  async getApplications(filters?: {
-    propertyId?: string;
-    status?: string;
-    dateFrom?: Date;
-    dateTo?: Date;
-    limit?: number;
-    offset?: number;
-  }) {
+  async getApplications(
+    filters?: {
+      propertyId?: string;
+      status?: string;
+      dateFrom?: Date;
+      dateTo?: Date;
+      limit?: number;
+      offset?: number;
+    },
+    orgId?: string,
+  ) {
     const where: any = {};
+
+    if (orgId) {
+      where.property = { organizationId: orgId };
+    }
 
     if (filters?.propertyId) {
       where.propertyId = filters.propertyId;
@@ -171,10 +188,15 @@ export class LeadApplicationsService {
     reviewedById?: string,
     reviewNotes?: string,
     reasonCode?: ApplicationDecisionReasonCode,
+    orgId?: string,
   ) {
     const normalizedStatus = this.normalizeLeadApplicationStatus(status);
 
-    const existing = await this.prisma.leadApplication.findUnique({ where: { id } });
+    const existing = orgId
+      ? await this.prisma.leadApplication.findFirst({
+          where: { id, property: { organizationId: orgId } },
+        })
+      : await this.prisma.leadApplication.findUnique({ where: { id } });
     if (!existing) {
       throw new NotFoundException('Application not found');
     }
@@ -285,7 +307,10 @@ export class LeadApplicationsService {
     creditScore?: number,
     backgroundCheckStatus?: string,
     creditCheckStatus?: string,
+    orgId?: string,
   ) {
+    await this.assertApplicationInOrg(id, orgId);
+
     const updates: any = {
       lastActivityAt: new Date(),
     };
@@ -303,7 +328,9 @@ export class LeadApplicationsService {
   /**
    * Record application fee payment
    */
-  async recordFeePayment(id: string, amount: number) {
+  async recordFeePayment(id: string, amount: number, orgId?: string) {
+    await this.assertApplicationInOrg(id, orgId);
+
     return this.prisma.leadApplication.update({
       where: { id },
       data: {
@@ -315,13 +342,14 @@ export class LeadApplicationsService {
     });
   }
 
-  async getStaleApplications(olderThanHours = 48, limit = 100) {
+  async getStaleApplications(olderThanHours = 48, limit = 100, orgId?: string) {
     const safeHours = Number.isFinite(olderThanHours) ? Math.max(1, olderThanHours) : 48;
     const safeLimit = Number.isFinite(limit) ? Math.min(Math.max(1, limit), 500) : 100;
     const cutoff = new Date(Date.now() - safeHours * 60 * 60 * 1000);
 
     const stale = await this.prisma.leadApplication.findMany({
       where: {
+        ...(orgId ? { property: { organizationId: orgId } } : {}),
         status: {
           in: [
             LeadApplicationStatus.SUBMITTED,
@@ -358,6 +386,25 @@ export class LeadApplicationsService {
             : 'Contact applicant and move to review decision',
       })),
     };
+  }
+
+  /**
+   * Verifies an application belongs to the caller's organization (via its
+   * property). No-op when orgId is undefined (internal / non-org callers).
+   * Throws NotFound when the application is missing or outside the org so that
+   * cross-org ids are indistinguishable from non-existent ones.
+   */
+  private async assertApplicationInOrg(id: string, orgId?: string): Promise<void> {
+    if (!orgId) {
+      return;
+    }
+    const found = await this.prisma.leadApplication.findFirst({
+      where: { id, property: { organizationId: orgId } },
+      select: { id: true },
+    });
+    if (!found) {
+      throw new NotFoundException('Application not found');
+    }
   }
 
   private canTransition(from: LeadApplicationStatus, to: LeadApplicationStatus): boolean {

@@ -45,13 +45,17 @@ jobs:
       run:
         working-directory: tenant_portal_backend
 
-    env:
-      DATABASE_URL: postgresql://pms:pms@localhost:5432/pms?schema=public
-      DIRECT_URL: postgresql://pms:pms@localhost:5432/pms?schema=public
-      REDIS_HOST: localhost
-      REDIS_PORT: 6379
-      JWT_SECRET: test-secret-key-for-ci
-      NODE_ENV: test
+    env: 
+      DATABASE_URL: postgresql://pms:pms@localhost:5432/pms?schema=public 
+      DIRECT_URL: postgresql://pms:pms@localhost:5432/pms?schema=public 
+      REDIS_HOST: redis 
+      REDIS_PORT: 6379 
+      JWT_SECRET: test-secret-key-for-ci 
+      NODE_ENV: test 
+      VERIFY_ADMIN_USER: admin 
+      VERIFY_ADMIN_PASS: 'Admin123!@#' 
+      VERIFY_TENANT_USER: tenant 
+      VERIFY_TENANT_PASS: 'Tenant123!@#'
 
     steps:
       - name: Checkout
@@ -70,13 +74,55 @@ jobs:
         working-directory: .
         run: pnpm install --frozen-lockfile
 
-      - name: Prisma generate
-        run: pnpm exec prisma generate
+      - name: Wait for Postgres to be ready
+        run: |
+          echo "Waiting for Postgres to accept connections..."
+          for i in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U pms >/dev/null 2>&1; then
+              echo "Postgres is ready"
+              break
+            fi
+            echo "Postgres not ready yet ($i/30), sleeping 2s"
+            sleep 2
+          done
 
-      - name: Prisma migrate deploy
-        run: pnpm exec prisma migrate deploy
+      - name: Apply Prisma migrations (CI)
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: |
+          set -e
+          echo "Running prisma migrate deploy..."
+          pnpm exec prisma migrate deploy --schema=./prisma/schema.prisma
+
+      - name: Prisma generate
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: |
+          set -e
+          echo "Generating Prisma client..."
+          pnpm exec prisma generate --schema=./prisma/schema.prisma
+
+      - name: Inspect / fix Lease table
+        env:
+          PGPASSWORD: pms
+        run: |
+          echo "Describe Lease (case-sensitive and lowercase variants)…"
+          psql -h localhost -U pms -d pms -c '\d "Lease"' || true
+          psql -h localhost -U pms -d pms -c '\d lease' || true
+
+          echo "Ensure expected columns exist; add if missing"
+          # Adjust SQL types to match your Prisma schema if necessary
+          psql -h localhost -U pms -d pms -c 'ALTER TABLE "Lease" ADD COLUMN IF NOT EXISTS "rentAmount" numeric;'
+          psql -h localhost -U pms -d pms -c 'ALTER TABLE "Lease" ADD COLUMN IF NOT EXISTS "rentAmountCents" integer;'
+          echo "Lease table after fix:"
+          psql -h localhost -U pms -d pms -c '\d "Lease"' || true
 
       - name: Seed robust inspection demo
+        env: 
+          VERIFY_ADMIN_USER: ${{ env.VERIFY_ADMIN_USER }} 
+          VERIFY_ADMIN_PASS: ${{ env.VERIFY_ADMIN_PASS }} 
+          VERIFY_TENANT_USER: ${{ env.VERIFY_TENANT_USER }} 
+          VERIFY_TENANT_PASS: ${{ env.VERIFY_TENANT_PASS }}
         run: pnpm run seed:inspection-demo:robust
 
       - name: Start backend
@@ -95,10 +141,10 @@ jobs:
           exit 1
 
       - name: Verify integration flow
-        env:
-          API_BASE_URL: http://127.0.0.1:3001/api
-          VERIFY_ADMIN_USER: admin
-          VERIFY_ADMIN_PASS: Admin123!@#
-          VERIFY_TENANT_USER: tenant
-          VERIFY_TENANT_PASS: Tenant123!@#
+        env: 
+          API_BASE_URL: http://127.0.0.1:3001/api 
+          VERIFY_ADMIN_USER: admin 
+          VERIFY_ADMIN_PASS: 'Admin123!@#' 
+          VERIFY_TENANT_USER: tenant 
+          VERIFY_TENANT_PASS: 'Tenant123!@#'
         run: pnpm run verify:integration

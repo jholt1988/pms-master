@@ -167,11 +167,11 @@ export class TenantFeedService {
             kind: 'decision',
             domain: 'renewal',
             title: 'Renewal offer received',
-            summary: `New term offered at $${offer.proposedRent.toLocaleString()}/mo. Accept or decline.`,
-            priority: score('decision', 72, offer.proposedRent),
+            summary: `New term offered at $${offer.proposedRentCents.toLocaleString()}/mo. Accept or decline.`,
+            priority: score('decision', 72, offer.proposedRentCents),
             timestamp: offer.createdAt.toISOString(),
             navigateTo: '/lease',
-            financialImpact: offer.proposedRent,
+            financialImpact: offer.proposedRentCents,
           });
         }
 
@@ -193,15 +193,15 @@ export class TenantFeedService {
             kind,
             domain: 'payments',
             title: isOverdue
-              ? `Payment overdue — $${invoice.amount.toLocaleString()}`
+              ? `Payment overdue — $${invoice.amountCents.toLocaleString()}`
               : `Rent due in ${daysLabel} day${daysLabel === 1 ? '' : 's'}`,
             summary: isOverdue
-              ? `$${invoice.amount.toLocaleString()} was due on ${dueDate.toLocaleDateString()}. Pay now to avoid late fees.`
-              : `$${invoice.amount.toLocaleString()} due on ${dueDate.toLocaleDateString()}.`,
-            priority: score(kind, urgencyHours, invoice.amount),
+              ? `$${invoice.amountCents.toLocaleString()} was due on ${dueDate.toLocaleDateString()}. Pay now to avoid late fees.`
+              : `$${invoice.amountCents.toLocaleString()} due on ${dueDate.toLocaleDateString()}.`,
+            priority: score(kind, urgencyHours, invoice.amountCents),
             timestamp: invoice.issuedAt.toISOString(),
             navigateTo: '/payments',
-            financialImpact: invoice.amount,
+            financialImpact: invoice.amountCents,
             urgencyHours: isOverdue ? 0 : urgencyHours,
           });
         }

@@ -89,7 +89,7 @@ export class DashboardService {
           await this.prisma.lease.update({
             where: { id: leaseId },
             data: {
-              rentAmount: extractedFields.monthlyRent,
+              // rentAmount removed
               // Dual-write integer cents (guarded: skip when the extracted value isn't a finite number).
               rentAmountCents: Number.isFinite(Number(extractedFields.monthlyRent))
                 ? toCents(Number(extractedFields.monthlyRent))
@@ -118,7 +118,7 @@ export class DashboardService {
             where: { id: leaseId },
             data: {
               status: 'RENEWAL_PENDING',
-              rentAmount: recommendedRent, // Updating the rent directly to represent the accepted offer for demo
+              // rentAmount removed // Updating the rent directly to represent the accepted offer for demo
               // Dual-write integer cents (guarded: skip when recommendedRent isn't a finite number).
               rentAmountCents: Number.isFinite(Number(recommendedRent))
                 ? toCents(Number(recommendedRent))
@@ -417,11 +417,11 @@ const [
 ] = await Promise.all([
   this.prisma.property.count({ where: orgPropertyWhere }),
   this.prisma.unit.count({ where: orgUnitWhere }),
-  this.prisma.unit.count({ where: { lease: { isNot: null }, ...(orgUnitWhere ?? {}) } }),
+  this.prisma.unit.count({ where: { lease: { some: {} }, ...(orgUnitWhere ?? {}) } }),
   this.prisma.user.count({
     where: {
       role: 'TENANT',
-      ...(orgId ? { lease: { is: { unit: { property: { organizationId: orgId } } } } } : {}),
+      ...(orgId ? { Lease: { some: { unit: { property: { organizationId: orgId } } } } } : {}),
     },
   }),
   this.prisma.maintenanceRequest.count({ where: orgMaintenanceWhere }),
@@ -436,7 +436,7 @@ const [
     },
   }),
   this.prisma.invoice.aggregate({
-    _sum: { amount: true },
+    _sum: { amountCents: true },
     where: {
       status: 'PENDING',
       dueDate: { lt: now },
@@ -473,7 +473,7 @@ const [
       : 0;
 
     const collectedThisMonth = monthlyRevenue;
-    const outstanding = pendingInvoices._sum.amount || 0;
+    const outstanding = (pendingInvoices._sum.amountCents || 0) / 100 || 0;
 
     const pendingStatuses = [
       LeadApplicationStatus.SUBMITTED,
@@ -604,7 +604,7 @@ const [
         include: {
           property: { select: { id: true, name: true } },
           unit: { select: { id: true, name: true } },
-          tenant: { select: { id: true, username: true } },
+          tenant: { select: { id: true, email: true } },
         },
         orderBy: { date: 'asc' },
         take: 200,
@@ -617,7 +617,7 @@ const [
         include: {
           property: { select: { id: true, name: true } },
           unit: { select: { id: true, name: true } },
-          tenant: { select: { id: true, username: true } },
+          tenant: { select: { id: true, email: true } },
         },
         orderBy: { scheduledDate: 'asc' },
         take: 100,
@@ -629,7 +629,7 @@ const [
           ...(orgId ? { unit: { property: { organizationId: orgId } } } : {}),
         },
         include: {
-          tenant: { select: { id: true, username: true } },
+          tenant: { select: { id: true, email: true } },
           unit: { include: { property: { select: { id: true, name: true } } } },
         },
         orderBy: { endDate: 'asc' },
@@ -644,7 +644,7 @@ const [
         include: {
           lease: {
             include: {
-              tenant: { select: { id: true, username: true } },
+              tenant: { select: { id: true, email: true } },
               unit: { include: { property: { select: { id: true, name: true } } } },
             },
           },
@@ -667,7 +667,7 @@ const [
         unitId: event.unitId,
         unitName: event.unit?.name ?? null,
         tenantId: event.tenantId,
-        tenantName: event.tenant?.username ?? null,
+        tenantName: event.tenant?.email ?? null,
         status: event.status ?? 'SCHEDULED',
       })),
       ...inspections.map((inspection) => ({
@@ -682,7 +682,7 @@ const [
         unitId: inspection.unitId,
         unitName: inspection.unit?.name ?? null,
         tenantId: inspection.tenantId,
-        tenantName: inspection.tenant?.username ?? null,
+        tenantName: inspection.tenant?.email ?? null,
         status: inspection.status,
       })),
       ...expiringLeases.map((lease) => ({
@@ -697,7 +697,7 @@ const [
         unitId: lease.unitId,
         unitName: lease.unit?.name ?? null,
         tenantId: lease.tenantId,
-        tenantName: lease.tenant?.username ?? null,
+        tenantName: lease.tenant?.email ?? null,
         status: lease.status,
       })),
       ...overdueInvoices.map((invoice) => ({
@@ -712,7 +712,7 @@ const [
         unitId: invoice.lease?.unitId ?? null,
         unitName: invoice.lease?.unit?.name ?? null,
         tenantId: invoice.lease?.tenantId ?? null,
-        tenantName: invoice.lease?.tenant?.username ?? null,
+        tenantName: invoice.lease?.tenant?.email ?? null,
         status: invoice.status,
       })),
     ]
@@ -752,7 +752,7 @@ const [
           payments: {
             orderBy: { paymentDate: 'desc' },
             take: 10,
-            select: { id: true, amount: true, paymentDate: true, status: true },
+            select: { id: true, amountCents: true, paymentDate: true, status: true },
           },
         },
       }),
@@ -782,7 +782,7 @@ const [
     ]);
 
     const activeLease = leases.find((lease) => lease.status === 'ACTIVE') ?? leases[0];
-    const upcomingBalance = leases.reduce((sum, lease) => sum + Number(lease.currentBalance ?? 0), 0);
+    const upcomingBalance = leases.reduce((sum, lease) => sum + Number((lease as any).currentBalance ?? 0), 0);
 
     return {
       leases,

@@ -196,7 +196,7 @@ export class NotificationTasks {
         userId: invoice.lease.tenantId,
         type: NotificationType.RENT_OVERDUE,
         title: 'Overdue Rent Payment',
-        message: `Your rent payment of $${invoice.amount.toFixed(2)} is overdue. Please make a payment as soon as possible.`,
+        message: `Your rent payment of $${invoice.amountCents.toFixed(2)} is overdue. Please make a payment as soon as possible.`,
         sendEmail: true,
         useAITiming: true,
         personalize: true,

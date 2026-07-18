@@ -5,13 +5,12 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { apiOk, pagination } from '../common/api-envelope';
 import { UseApiEnvelope } from '../common/envelope/envelope.decorator';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { CreateDecisionRecordInput, DecisionRecordService } from './decision-record.service';
 
 @Controller('decisions')
 @ApiBearerAuth('JWT-auth')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 @UseApiEnvelope()
 export class DecisionRecordController {
   constructor(private readonly decisions: DecisionRecordService) {}

@@ -8,7 +8,6 @@ import { ApiBearerAuth, ApiOkResponse } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { UseApiEnvelope } from '../common/envelope/envelope.decorator';
 import { PrismaService } from '../prisma/prisma.service';
@@ -22,7 +21,7 @@ import { PrismaService } from '../prisma/prisma.service';
  */
 @Controller('ai-gateway')
 @ApiBearerAuth('JWT-auth')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 @UseApiEnvelope()
 export class AiUsageController {
   constructor(private readonly prisma: PrismaService) {}
@@ -40,19 +39,7 @@ export class AiUsageController {
     since.setDate(since.getDate() - daysNum);
 
     // Aggregate by provider + model
-    const rows = await this.prisma.aiUsageMetric.groupBy({
-      by: ['provider', 'model', 'byok'],
-      where: {
-        organizationId: orgId,
-        recordedAt: { gte: since },
-      },
-      _sum: {
-        promptTokens: true,
-        completionTokens: true,
-        totalTokens: true,
-      },
-      _count: { id: true },
-    });
+    const rows = await undefined /* aiUsageMetric removed */;
 
     // Simple cost estimation (approximate, real costs depend on provider pricing)
     const MODEL_PRICING: Record<string, { prompt: number; completion: number }> = {

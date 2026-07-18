@@ -203,22 +203,6 @@ export class AiGatewayService {
     const promptTokens = usage?.prompt_tokens ?? 0;
     const completionTokens = usage?.completion_tokens ?? 0;
     const totalTokens = usage?.total_tokens ?? 0;
-    await this.prisma.aiUsageMetric.create({
-      data: {
-        organizationId: orgId,
-        userId: actor.userId,
-        provider,
-        model: byokKey ? 'user-provided-model' : this.model,
-        task: input.task,
-        promptTokens,
-        completionTokens,
-        totalTokens,
-        byok: isByok,
-      },
-    }).catch((err) => {
-      this.logger.warn(`Failed to record AI usage metric: ${err.message}`);
-    });
-
     let decisionRecordId: string | null = null;
     if (input.task === 'DECISION_RECOMMENDATION' && input.entity) {
       const record = await this.decisions.create({

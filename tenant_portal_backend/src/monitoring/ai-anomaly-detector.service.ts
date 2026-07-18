@@ -53,7 +53,7 @@ export class AIAnomalyDetectorService {
         include: { invoice: true },
       })) || [];
 
-      const paymentAmounts = recentPayments.map((p) => Number(p.amount));
+      const paymentAmounts = recentPayments.map((p) => Number(p.amountCents));
       const maxAmount = paymentAmounts.length ? Math.max(...paymentAmounts) : 0;
       const minAmount = paymentAmounts.length ? Math.min(...paymentAmounts) : 0;
 

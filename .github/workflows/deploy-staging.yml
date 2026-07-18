@@ -1,13 +1,23 @@
-name: Deploy to Staging
+name: Deploy to Production
 
 on:
   push:
-    branches:
-      - develop
+    tags:
+      - 'v*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Image tag to deploy (e.g., staging-abc1234)'
+        required: true
+        type: string
+      rollback:
+        description: 'Rollback to previous deployment'
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
-  group: deploy-staging
+  group: deploy-production
   cancel-in-progress: false
 
 env:
@@ -16,8 +26,9 @@ env:
   FRONTEND_IMAGE: ghcr.io/${{ github.repository }}/frontend
 
 jobs:
-  build-and-push:
+  build:
     runs-on: ubuntu-latest
+    if: ${{ !inputs.rollback && github.event_name == 'push' }}
     permissions:
       contents: read
       packages: write
@@ -28,6 +39,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -42,13 +55,14 @@ jobs:
       - name: Extract metadata
         id: meta
         run: |
-          echo "version=staging-$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+          TAG="${{ github.ref_name }}"
+          echo "version=${TAG}" >> $GITHUB_OUTPUT
           echo "date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
 
       - name: Validate Docker Compose configuration
         run: |
-          docker compose --env-file ops/.env.dev config > /tmp/compose-dev.yaml
-          BACKEND_IMAGE=${{ env.BACKEND_IMAGE }} FRONTEND_IMAGE=${{ env.FRONTEND_IMAGE }} IMAGE_TAG=staging-${{ github.sha }} \
+          docker compose --env-file ops/.env.prod.example config > /tmp/compose-dev.yaml
+          BACKEND_IMAGE=${{ env.BACKEND_IMAGE }} FRONTEND_IMAGE=${{ env.FRONTEND_IMAGE }} IMAGE_TAG=${{ github.ref_name }} \
             docker compose --env-file ops/.env.prod.example -f docker-compose.yml -f docker-compose.prod.yml config > /tmp/compose-prod.yaml
 
       - name: Build and push backend image
@@ -59,13 +73,14 @@ jobs:
           push: true
           tags: |
             ${{ env.BACKEND_IMAGE }}:${{ steps.meta.outputs.version }}
-            ${{ env.BACKEND_IMAGE }}:staging-latest
+            ${{ env.BACKEND_IMAGE }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.created=${{ steps.meta.outputs.date }}
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v5
@@ -75,64 +90,210 @@ jobs:
           push: true
           tags: |
             ${{ env.FRONTEND_IMAGE }}:${{ steps.meta.outputs.version }}
-            ${{ env.FRONTEND_IMAGE }}:staging-latest
+            ${{ env.FRONTEND_IMAGE }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            VITE_API_URL=${{ secrets.STAGING_API_URL }}
-          labels: |
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
+            VITE_API_URL=${{ secrets.PRODUCTION_API_URL }}
 
   deploy:
     runs-on: ubuntu-latest
-    needs: build-and-push
+    needs: [build]
+    if: ${{ always() && !inputs.rollback && (needs.build.result == 'success' || github.event_name == 'workflow_dispatch') }}
     environment:
-      name: staging
-      url: ${{ secrets.STAGING_URL }}
+      name: production
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to staging server
+      - name: Determine image tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.version }}" ]; then
+            echo "image_tag=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "image_tag=${{ needs.build.outputs.image_tag }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy to production server
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_SSH_USER }}
-          key: ${{ secrets.STAGING_SSH_KEY }}
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_SSH_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          env: |
+            BACKEND_IMAGE=${{ env.BACKEND_IMAGE }}
+            FRONTEND_IMAGE=${{ env.FRONTEND_IMAGE }}
+            IMAGE_TAG=${{ steps.tag.outputs.image_tag }}
+            DEPLOY_PATH=${{ secrets.PRODUCTION_DEPLOY_PATH }}
           script: |
-            cd ${{ secrets.STAGING_DEPLOY_PATH }}
+            set -e
+            cd ${DEPLOY_PATH}
 
-            export BACKEND_IMAGE="${{ env.BACKEND_IMAGE }}"
-            export FRONTEND_IMAGE="${{ env.FRONTEND_IMAGE }}"
-            export IMAGE_TAG="${{ needs.build-and-push.outputs.image_tag }}"
+            # Save current state for rollback
+            echo "${IMAGE_TAG}" > .deploy-history-new
+            if [ -f .current-deploy-tag ]; then
+              cp .current-deploy-tag .previous-deploy-tag
+            fi
 
+            export BACKEND_IMAGE="${BACKEND_IMAGE}"
+            export FRONTEND_IMAGE="${FRONTEND_IMAGE}"
+            export IMAGE_TAG="${IMAGE_TAG}"
+
+            # Pull new images
+            docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml pull backend frontend
+
+            # Run migrations
+            docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml run --rm backend-migrate
+
+            # Rolling restart
+            docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build
+            sleep 15
+
+            # Persist deploy tag
             echo "${IMAGE_TAG}" > .current-deploy-tag
-            docker compose --env-file .env.staging -f docker-compose.yml -f docker-compose.prod.yml pull backend frontend
-            docker compose --env-file .env.staging -f docker-compose.yml -f docker-compose.prod.yml run --rm backend-migrate
-            docker compose --env-file .env.staging -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build
-            sleep 10
 
-      - name: Run smoke tests
+      - name: Run production smoke tests
+        id: smoke
+        env:
+          PROD_URL: ${{ secrets.PRODUCTION_URL }}
         run: |
-          STAGING_URL="${{ secrets.STAGING_URL }}"
-          echo "Running smoke tests against ${STAGING_URL}"
+          echo "Running smoke tests against ${PROD_URL}"
 
-          # Health check with retries
-          for i in 1 2 3 4 5; do
-            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${STAGING_URL}/api/health" || echo "000")
+          for i in 1 2 3 4 5 6; do
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${PROD_URL}/api/health" || echo "000")
             if [ "$HTTP_STATUS" = "200" ]; then
               echo "Health check passed (attempt $i)"
+
+              # Verify metrics endpoint
+              METRICS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${PROD_URL}/metrics" || echo "000")
+              echo "Metrics endpoint: $METRICS_STATUS"
               exit 0
             fi
-            echo "Health check failed with status $HTTP_STATUS (attempt $i/5)"
+            echo "Health check returned $HTTP_STATUS (attempt $i/6)"
             sleep 10
           done
-          echo "Smoke tests failed after 5 attempts"
+          echo "::error::Production smoke tests failed"
           exit 1
 
-      - name: Notify on failure
-        if: failure()
+      - name: Auto-rollback on failure
+        if: failure() && steps.smoke.outcome == 'failure'
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_SSH_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          env: |
+            BACKEND_IMAGE=${{ env.BACKEND_IMAGE }}
+            FRONTEND_IMAGE=${{ env.FRONTEND_IMAGE }}
+            DEPLOY_PATH=${{ secrets.PRODUCTION_DEPLOY_PATH }}
+          script: |
+            cd ${DEPLOY_PATH}
+            if [ -f .previous-deploy-tag ]; then
+              PREV_TAG=$(cat .previous-deploy-tag)
+              echo "Rolling back to ${PREV_TAG}"
+              export BACKEND_IMAGE="${BACKEND_IMAGE}"
+              export FRONTEND_IMAGE="${FRONTEND_IMAGE}"
+              export IMAGE_TAG="${PREV_TAG}"
+              docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml pull backend frontend
+              docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml run --rm backend-migrate
+              docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build
+              echo "${PREV_TAG}" > .current-deploy-tag
+              echo "Rollback complete"
+            else
+              echo "::error::No previous deployment tag found for rollback"
+            fi
+
+  rollback:
+    runs-on: ubuntu-latest
+    if: ${{ inputs.rollback }}
+    environment:
+      name: production
+
+    steps:
+      - name: Rollback to previous deployment
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_SSH_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          env: |
+            BACKEND_IMAGE=${{ env.BACKEND_IMAGE }}
+            FRONTEND_IMAGE=${{ env.FRONTEND_IMAGE }}
+            DEPLOY_PATH=${{ secrets.PRODUCTION_DEPLOY_PATH }}
+          script: |
+            cd ${DEPLOY_PATH}
+            if [ -f .previous-deploy-tag ]; then
+              PREV_TAG=$(cat .previous-deploy-tag)
+              echo "Rolling back to ${PREV_TAG}"
+              export BACKEND_IMAGE="${BACKEND_IMAGE}"
+              export FRONTEND_IMAGE="${FRONTEND_IMAGE}"
+              export IMAGE_TAG="${PREV_TAG}"
+              docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml pull backend frontend
+              docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml run --rm backend-migrate
+              docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build
+              cp .current-deploy-tag .rollback-from-tag
+              echo "${PREV_TAG}" > .current-deploy-tag
+              echo "Rollback to ${PREV_TAG} complete"
+            else
+              echo "::error::No previous deployment found to roll back to"
+              exit 1
+            fi
+
+      - name: Verify rollback
+        env:
+          PROD_URL: ${{ secrets.PRODUCTION_URL }}
         run: |
-          echo "::error::Staging deployment failed for commit ${{ github.sha }}"
+          sleep 15
+          for i in 1 2 3 4 5; do
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${PROD_URL}/api/health" || echo "000")
+            if [ "$HTTP_STATUS" = "200" ]; then
+              echo "Rollback verified - health check passed"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::Rollback verification failed"
+          exit 1
+
+  release:
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            CHANGES=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges)
+          else
+            CHANGES=$(git log --pretty=format:"- %s (%h)" --no-merges -20)
+          fi
+          echo "changes<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body: |
+            ## Changes in ${{ github.ref_name }}
+
+            ${{ steps.changelog.outputs.changes }}
+
+            ---
+            Deployed to production via [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          draft: false
+          prerelease: false

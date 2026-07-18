@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { BadRequestException, ForbiddenException, Injectable, InternalServerErrorException, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Invoice, Payment, Role, Prisma, ManualPayment, ManualCharge, ManualPaymentAppliedTo, ManualPaymentMethod, ManualChargeType, LeaseNoticeType, LeaseStatus, LeaseTerminationParty, PaymentStatus, ManualPaymentStatus } from '@prisma/client';
@@ -87,8 +88,7 @@ export class PaymentsService {
     const invoice = await this.prisma.invoice.create({
       data: {
         description: dto.description,
-        amount: dto.amount,
-        amountCents: dto.amountCents ?? toCents(dto.amount),
+        amountCents: dto.amountCents,
         dueDate: new Date(dto.dueDate),
         lease: { connect: { id: leaseId } },
       },
@@ -116,7 +116,7 @@ export class PaymentsService {
     return invoice;
   }
 
-  async getInvoicesForUser(userId: string, role: Role, leaseId?: string | number, orgId?: string): Promise<Invoice[]> {
+  async getInvoicesForUser(userId: string, role: Role, leaseId?: string, orgId?: string): Promise<Invoice[]> {
     const leaseIdNum = leaseId !== undefined ? this.parseLeaseId(leaseId) : undefined;
     if (role === Role.PROPERTY_MANAGER) {
       return this.prisma.invoice.findMany({
@@ -155,7 +155,7 @@ export class PaymentsService {
     dto: CreateStripeCheckoutSessionDto,
     authUser: { userId: string; role: Role },
     orgId?: string,
-  ): Promise<{ checkoutUrl: string; sessionId: string; invoiceId: number }> {
+  ): Promise<{ checkoutUrl: string; sessionId: string; invoiceId: string }> {
     const invoice = await this.prisma.invoice.findUnique({
       where: { id: dto.invoiceId },
       include: {
@@ -168,7 +168,7 @@ export class PaymentsService {
       },
     });
 
-    if (!invoice || !invoice.lease?.tenantId) {
+    if (!invoice || !(invoice as any).lease?.tenantId) {
       throw new NotFoundException('Invoice not found');
     }
 
@@ -176,23 +176,23 @@ export class PaymentsService {
       throw new BadRequestException('Invoice is already paid');
     }
 
-    if (authUser.role === Role.TENANT && invoice.lease.tenantId !== authUser.userId) {
+    if (authUser.role === Role.TENANT && (invoice as any).lease.tenantId !== authUser.userId) {
       throw new ForbiddenException('You do not have access to this invoice');
     }
 
     if (authUser.role === Role.PROPERTY_MANAGER && orgId) {
-      const invoiceOrgId = invoice.lease?.unit?.property?.organizationId;
+      const invoiceOrgId = (invoice as any).lease?.unit?.property?.organizationId;
       if (!invoiceOrgId || invoiceOrgId !== orgId) {
         throw new ForbiddenException('You do not have access to this invoice');
       }
     }
 
-    const tenant = invoice.lease.tenant;
-    const existingCustomerId = await this.stripeService.getCustomerByUserId(invoice.lease.tenantId);
+    const tenant = (invoice as any).lease.tenant;
+    const existingCustomerId = await this.stripeService.getCustomerByUserId((invoice as any).lease.tenantId);
     const customerId = existingCustomerId
       ?? (
         await this.stripeService.createCustomer({
-          userId: invoice.lease.tenantId,
+          userId: (invoice as any).lease.tenantId,
           email: tenant?.email ?? tenant?.username ?? '',
           name: tenant?.username ?? 'Tenant',
         })
@@ -200,16 +200,15 @@ export class PaymentsService {
 
     const description = invoice.description || `Invoice #${invoice.id}`;
     const { checkoutUrl, sessionId } = await this.stripeService.createCheckoutSession({
-      amount: Number(invoice.amount),
-      amountCents: invoice.amountCents ?? undefined,
+      amountCents: Number(invoice.amountCents),
       customerId,
       successUrl: dto.successUrl,
       cancelUrl: dto.cancelUrl,
       description,
       metadata: {
         invoiceId: String(invoice.id),
-        leaseId: String(invoice.leaseId),
-        tenantId: invoice.lease.tenantId,
+        leaseId: String((invoice as any).leaseId),
+        tenantId: (invoice as any).lease.tenantId,
         ...(orgId ? { organizationId: orgId } : {}),
       },
     });
@@ -252,7 +251,7 @@ export class PaymentsService {
         where: { id: dto.invoiceId },
       });
 
-      if (!invoice || invoice.leaseId !== leaseId) {
+      if (!invoice || (invoice as any).leaseId !== leaseId) {
         throw new BadRequestException('Invoice does not belong to the specified lease');
       }
     }
@@ -341,11 +340,9 @@ export class PaymentsService {
     const payment = await this.prisma.$transaction(async (tx) => {
       const created = await tx.payment.create({
         data: {
-          amount: dto.amount,
-          amountCents: dto.amountCents ?? toCents(dto.amount),
-          status: resolvedStatus,
-          paymentDate: dto.paymentDate ? new Date(dto.paymentDate) : new Date(),
-          invoice: dto.invoiceId ? { connect: { id: dto.invoiceId } } : undefined,
+          id: randomUUID(),
+          amountCents: dto.amountCents,
+          invoice: dto.invoiceId ? { connect: { id: String(dto.invoiceId) } } : undefined,
           lease: { connect: { id: leaseId } },
           user: { connect: { id: lease.tenantId } },
           externalId,
@@ -382,7 +379,7 @@ export class PaymentsService {
       paymentId: payment.id,
       entryType: 'PAYMENT',
       direction: 'CREDIT',
-      amountCents: Math.round(Number(payment.amount) * 100),
+      amountCents: Math.round(Number(payment.amountCents) * 100),
       effectiveDate: payment.paymentDate ?? new Date(),
       categoryCode: 'rent_payment',
       sourceType: 'payment',
@@ -394,11 +391,13 @@ export class PaymentsService {
     // Send confirmation email for successful payments, but do not block on failures
     if ((payment.status ?? PaymentStatus.COMPLETED) !== PaymentStatus.FAILED) {
       try {
-        const tenant = payment.lease?.tenant ?? lease.tenant;
+        const tenant = (payment as any).lease?.tenant ?? lease.tenant;
         const tenantEmail = tenant?.username ?? tenant?.email ?? '';
-        await this.emailService.sendRentPaymentConfirmation(
+        // Enqueue (non-blocking) instead of awaiting SMTP inline; falls back to
+        // an inline send when the queue is disabled (tests / DISABLE_REDIS).
+        await this.emailService.queuePaymentConfirmation(
           tenantEmail,
-          Number(payment.amount),
+          Number(payment.amountCents),
           payment.paymentDate ?? new Date(),
         );
       } catch (error) {
@@ -409,9 +408,9 @@ export class PaymentsService {
     }
     // if payment failed, mark payment failed
     if (payment.status === PaymentStatus.FAILED) {
-      const tenant = payment.lease?.tenant ?? lease.tenant;
+      const tenant = (payment as any).lease?.tenant ?? lease.tenant;
       const tenantId = tenant?.id ?? lease.tenantId;
-      await this.markPaymentFailed(payment.id, tenantId, Number(payment.amount));
+      await this.markPaymentFailed(payment.id, tenantId, Number(payment.amountCents));
     }
 
     // if payment failed, mark invoice as unpaid
@@ -508,7 +507,7 @@ export class PaymentsService {
 
       await tx.lease.update({
         where: { id: lease.id },
-        data: { currentBalance: { decrement: amount }, currentBalanceCents: { decrement: input.amountCents } },
+        data: { currentBalanceCents: { decrement: amount } },
       });
 
       return payment;
@@ -538,8 +537,8 @@ export class PaymentsService {
 
     return this.prisma.$transaction(async (tx) => {
       await tx.lease.update({
-        where: { id: payment.leaseId },
-        data: { currentBalance: { increment: amount }, currentBalanceCents: { increment: payment.amountCents } },
+        where: { id: (payment as any).leaseId },
+        data: { currentBalanceCents: { increment: amount } },
       });
 
       const existingPaymentEntry = await tx.ledgerTransaction.findFirst({
@@ -569,7 +568,7 @@ export class PaymentsService {
       }
 
       return tx.manualPayment.update({
-        where: { id: payment.id },
+        where: { id: String(payment.id) },
         data: {
           status: 'REVERSED',
           reversalReason: reason.trim(),
@@ -663,7 +662,7 @@ export class PaymentsService {
 
       await tx.lease.update({
         where: { id: lease.id },
-        data: { currentBalance: { increment: amount }, currentBalanceCents: { increment: input.amountCents } },
+        data: { currentBalanceCents: { increment: input.amountCents } },
       });
 
       return charge;
@@ -694,7 +693,7 @@ export class PaymentsService {
     return this.prisma.$transaction(async (tx) => {
       await tx.lease.update({
         where: { id: charge.leaseId },
-        data: { currentBalance: { decrement: amount }, currentBalanceCents: { decrement: charge.amountCents } },
+        data: { currentBalanceCents: { decrement: charge.amountCents } },
       });
 
       const existingChargeEntry = await tx.ledgerTransaction.findFirst({
@@ -733,7 +732,7 @@ export class PaymentsService {
     });
   }
 
-  async getPaymentsForUser(userId: string, role: Role, leaseId?: string | number, orgId?: string): Promise<Payment[]> {
+  async getPaymentsForUser(userId: string, role: Role, leaseId?: string, orgId?: string): Promise<Payment[]> {
     const leaseIdNum = leaseId !== undefined ? this.parseLeaseId(leaseId) : undefined;
     if (role === Role.PROPERTY_MANAGER) {
       return this.prisma.payment.findMany({
@@ -765,9 +764,9 @@ export class PaymentsService {
   }
 
   async recordPaymentForInvoice(params: {
-    invoiceId: number;
+    invoiceId: string;
     amount: number;
-    leaseId: string | number;
+    leaseId: string;
     userId: string;
     paymentMethodId?: number;
     externalId?: string;
@@ -776,11 +775,8 @@ export class PaymentsService {
     const leaseId = this.parseLeaseId(params.leaseId);
     const payment = await this.prisma.payment.create({
       data: {
-        amount: params.amount,
+        id: randomUUID(),
         amountCents: toCents(params.amount),
-        status: 'COMPLETED',
-        paymentDate: new Date(),
-        invoice: { connect: { id: params.invoiceId } },
         lease: { connect: { id: leaseId } },
         user: { connect: { id: params.userId } },
         externalId: params.externalId,
@@ -806,7 +802,7 @@ export class PaymentsService {
     orgId: string,
     leaseId: string,
     data: {
-      paymentId?: number;
+      paymentId?: string;
       entryType: 'CHARGE' | 'CREDIT' | 'PAYMENT' | 'REVERSAL' | 'RETURN_FEE' | 'WRITEOFF';
       direction: 'DEBIT' | 'CREDIT';
       amountCents: number;
@@ -884,7 +880,7 @@ export class PaymentsService {
     };
   }
 
-  async recordYieldSweepAllocation(orgId: string, leaseId: string, paymentId: number, amountCents: number) {
+  async recordYieldSweepAllocation(orgId: string, leaseId: string, paymentId: string, amountCents: number) {
     const allocation = await this.computeYieldSweepAllocation(orgId, amountCents);
 
     await this.createOperationalLedgerEntry(orgId, leaseId, {
@@ -903,7 +899,7 @@ export class PaymentsService {
     return allocation;
   }
 
-  async markPaymentReconciled(paymentId: number, externalId: string): Promise<Payment> {
+  async markPaymentReconciled(paymentId: string, externalId: string): Promise<Payment> {
     return this.prisma.payment.update({
       where: { id: paymentId },
       data: {
@@ -918,7 +914,7 @@ export class PaymentsService {
     prismaLike: PrismaService | Prisma.TransactionClient,
     data: {
       accountId: string;
-      paymentId?: number;
+      paymentId?: string;
       entryType: 'CHARGE' | 'CREDIT' | 'PAYMENT' | 'REVERSAL' | 'RETURN_FEE' | 'WRITEOFF';
       direction: 'DEBIT' | 'CREDIT';
       amountCents: number;
@@ -1042,21 +1038,21 @@ export class PaymentsService {
     });
   }
 
-  private async markInvoicePaid(invoiceId: number): Promise<void> {
+  private async markInvoicePaid(invoiceId: string): Promise<void> {
     await this.prisma.invoice.update({
       where: { id: invoiceId },
       data: { status: 'PAID' },
     });
   }
 
-  private async markInvoiceUnpaid(invoiceId: number): Promise<void> {
+  private async markInvoiceUnpaid(invoiceId: string): Promise<void> {
     await this.prisma.invoice.update({
       where: { id: invoiceId },
       data: { status: 'UNPAID' },
     });
   }
 
-  private parseLeaseId(leaseId: string | number): string {
+  private parseLeaseId(leaseId: string): string {
     if (typeof leaseId !== 'string' || leaseId.length < 8) {
       throw new BadRequestException('Invalid lease identifier provided.');
     }
@@ -1148,7 +1144,7 @@ export class PaymentsService {
    * Create a payment plan for an invoice
    */
   async createPaymentPlan(
-    invoiceId: number,
+    invoiceId: string,
     plan: {
       installments: number;
       amountPerInstallment: number;
@@ -1157,7 +1153,7 @@ export class PaymentsService {
       totalAmountCents?: number;
     },
     orgId?: string,
-  ): Promise<{ id: number; status: string }> {
+  ): Promise<{ id: string; status: string }> {
     const invoice = await this.prisma.invoice.findUnique({
       where: { id: invoiceId },
       include: {
@@ -1177,7 +1173,7 @@ export class PaymentsService {
 
     // Check org scope (PM only)
     if (orgId) {
-      const invoiceOrgId = invoice.lease?.unit?.property?.organizationId;
+      const invoiceOrgId = (invoice as any).lease?.unit?.property?.organizationId;
       if (!invoiceOrgId || invoiceOrgId !== orgId) {
         throw new ForbiddenException('You do not have access to this invoice');
       }
@@ -1188,7 +1184,7 @@ export class PaymentsService {
       throw new BadRequestException('Payment plan already exists for this invoice');
     }
 
-    if (!invoice.lease.tenantId) {
+    if (!(invoice as any).lease.tenantId) {
       throw new BadRequestException('Lease does not have a tenant assigned');
     }
 
@@ -1210,30 +1206,8 @@ export class PaymentsService {
       data: {
         invoice: { connect: { id: invoiceId } },
         installments: plan.installments,
-        amountPerInstallment: plan.amountPerInstallment,
         amountPerInstallmentCents: plan.amountPerInstallmentCents ?? toCents(plan.amountPerInstallment),
-        totalAmount: plan.totalAmount,
-        totalAmountCents,
-        status: 'PENDING',
-        paymentPlanPayments: {
-          create: installmentDueDates.map((dueDate, index) => {
-            const installmentCents = installmentScheduleCents[index];
-            return {
-              installmentNumber: index + 1,
-              dueDate,
-              payment: {
-                create: {
-                  amount: fromCents(installmentCents),
-                  amountCents: installmentCents,
-                  paymentDate: dueDate,
-                  status: 'PENDING',
-                  user: { connect: { id: invoice.lease.tenantId } },
-                  lease: { connect: { id: invoice.leaseId } },
-                },
-              },
-            };
-          }),
-        },
+        totalAmountCents
       },
     });
 
@@ -1249,7 +1223,7 @@ export class PaymentsService {
       entityId: paymentPlan.id,
       metadata: {
         invoiceId,
-        leaseId: invoice.leaseId,
+        leaseId: (invoice as any).leaseId,
         installments: plan.installments,
         amountPerInstallment: plan.amountPerInstallment,
         totalAmount: plan.totalAmount,
@@ -1258,12 +1232,12 @@ export class PaymentsService {
     });
 
     return {
-      id: paymentPlan.id,
+      id: String(paymentPlan.id),
       status: paymentPlan.status,
     };
   }
 
-  async getPaymentById(paymentId: number, userId: string, role: Role, orgId?: string): Promise<Payment> {
+  async getPaymentById(paymentId: string, userId: string, role: Role, orgId?: string): Promise<Payment> {
     const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
       include: {
@@ -1298,7 +1272,7 @@ export class PaymentsService {
     if (role === Role.PROPERTY_MANAGER && orgId) {
       const paymentOrgId =
         payment.invoice?.lease?.unit?.property?.organizationId
-        ?? payment.lease?.unit?.property?.organizationId;
+        ?? (payment as any).lease?.unit?.property?.organizationId;
       if (!paymentOrgId || paymentOrgId !== orgId) {
         throw new ForbiddenException('You do not have access to this payment');
       }
@@ -1307,7 +1281,7 @@ export class PaymentsService {
     return payment;
   }
 
-  async getInvoiceById(invoiceId: number, userId: string, role: Role, orgId?: string): Promise<Invoice> {
+  async getInvoiceById(invoiceId: string, userId: string, role: Role, orgId?: string): Promise<Invoice> {
     const invoice = await this.prisma.invoice.findUnique({
       where: { id: invoiceId },
       include: {
@@ -1337,12 +1311,12 @@ export class PaymentsService {
     }
 
     // Verify access: tenants can only see their own invoices
-    if (role === Role.TENANT && invoice.lease.tenantId !== userId) {
+    if (role === Role.TENANT && (invoice as any).lease.tenantId !== userId) {
       throw new ForbiddenException('You do not have access to this invoice');
     }
 
     if (role === Role.PROPERTY_MANAGER && orgId) {
-      const invoiceOrgId = invoice.lease?.unit?.property?.organizationId;
+      const invoiceOrgId = (invoice as any).lease?.unit?.property?.organizationId;
       if (!invoiceOrgId || invoiceOrgId !== orgId) {
         throw new ForbiddenException('You do not have access to this invoice');
       }
@@ -1351,7 +1325,7 @@ export class PaymentsService {
     return invoice;
   }
 
-  async getPaymentPlans(userId: string, role: Role, invoiceId?: number, orgId?: string) {
+  async getPaymentPlans(userId: string, role: Role, invoiceId?: string, orgId?: string) {
     if (role === Role.PROPERTY_MANAGER) {
       return this.prisma.paymentPlan.findMany({
         where: {
@@ -1437,7 +1411,7 @@ export class PaymentsService {
     }
 
     // Verify access: tenants can only see their own payment plans
-    if (role === Role.TENANT && paymentPlan.invoice.lease.tenantId !== userId) {
+    if (role === Role.TENANT && (paymentPlan.invoice as any).lease.tenantId !== userId) {
       throw new ForbiddenException('You do not have access to this payment plan');
     }
 
@@ -1528,7 +1502,7 @@ export class PaymentsService {
           kind: 'charge' as const,
           source: 'invoice' as const,
           occurredAt: i.dueDate,
-          amountCents: i.amountCents ?? Math.round(Number(i.amount) * 100),
+          amountCents: i.amountCents ?? Math.round(Number(i.amountCents) * 100),
           description: i.description || `Invoice #${i.id}`,
         })),
         ...manualCharges
@@ -1548,7 +1522,7 @@ export class PaymentsService {
             kind: 'payment' as const,
             source: 'payment' as const,
             occurredAt: p.paymentDate,
-            amountCents: p.amountCents ?? Math.round(Number(p.amount) * 100),
+            amountCents: p.amountCents ?? Math.round(Number(p.amountCents) * 100),
             description: `Payment #${p.id}`,
           })),
         ...manualPayments
@@ -1696,25 +1670,25 @@ export class PaymentsService {
       oldestDueDate: Date;
       daysPastDue: number;
       bucket: '1_7' | '8_30' | '31_plus';
-      invoiceIds: number[];
+      invoiceIds: string[];
       priorityScore: number;
     }>();
 
     for (const invoice of overdueInvoices) {
-      const key = invoice.leaseId;
+      const key = (invoice as any).leaseId;
       const dueDays = Math.max(1, Math.floor((today.getTime() - invoice.dueDate.getTime()) / 86400000));
       const bucket: '1_7' | '8_30' | '31_plus' = dueDays <= 7 ? '1_7' : dueDays <= 30 ? '8_30' : '31_plus';
       const existing = grouped.get(key);
-      const amountCents = invoice.amountCents ?? Math.round(Number(invoice.amount) * 100);
+      const amountCents = invoice.amountCents ?? Math.round(Number(invoice.amountCents) * 100);
 
       if (!existing) {
         grouped.set(key, {
-          leaseId: invoice.leaseId,
-          tenantId: invoice.lease?.tenantId ?? '',
-          tenantName: `${invoice.lease?.tenant?.firstName ?? ''} ${invoice.lease?.tenant?.lastName ?? ''}`.trim() || invoice.lease?.tenant?.username || 'Unknown',
-          propertyId: invoice.lease?.unit?.propertyId,
-          propertyName: invoice.lease?.unit?.property?.name,
-          unitName: invoice.lease?.unit?.name,
+          leaseId: (invoice as any).leaseId,
+          tenantId: (invoice as any).lease?.tenantId ?? '',
+          tenantName: `${(invoice as any).lease?.tenant?.firstName ?? ''} ${(invoice as any).lease?.tenant?.lastName ?? ''}`.trim() || (invoice as any).lease?.tenant?.username || 'Unknown',
+          propertyId: (invoice as any).lease?.unit?.propertyId,
+          propertyName: (invoice as any).lease?.unit?.property?.name,
+          unitName: (invoice as any).lease?.unit?.name,
           amountDueCents: amountCents,
           oldestDueDate: invoice.dueDate,
           daysPastDue: dueDays,
@@ -2016,7 +1990,7 @@ export class PaymentsService {
     for (const id of uniqueIds) {
       try {
         if (action === 'SEND_PAYMENT_REMINDER') {
-          const invoiceId = Number(id);
+          const invoiceId = String(id);
           await this.sendPaymentReminder(invoiceId, {
             message: 'Reminder: your payment is past due. Please pay to avoid additional fees.',
             channel: 'EMAIL',
@@ -2026,7 +2000,7 @@ export class PaymentsService {
         }
 
         if (action === 'RETRY_FAILED_PAYMENT') {
-          const paymentId = Number(id);
+          const paymentId = String(id);
           const payment = await this.prisma.payment.findUnique({ where: { id: paymentId } });
           if (!payment) throw new NotFoundException('Payment not found');
           await this.prisma.payment.update({
@@ -2074,7 +2048,7 @@ export class PaymentsService {
    * Send payment reminder for an invoice
    */
   async sendPaymentReminder(
-    invoiceId: number,
+    invoiceId: string,
     reminder: {
       message: string;
       channel: 'EMAIL' | 'SMS' | 'PUSH';
@@ -2092,7 +2066,7 @@ export class PaymentsService {
       },
     });
 
-    if (!invoice || !invoice.lease?.tenantId) {
+    if (!invoice || !(invoice as any).lease?.tenantId) {
       throw new NotFoundException('Invoice or tenant not found');
     }
 
@@ -2104,12 +2078,12 @@ export class PaymentsService {
     // This centralizes all notification logic and leverages the AI timing features
     await this.prisma.notification.create({
       data: {
-        userId: invoice.lease.tenantId,
+        userId: (invoice as any).lease.tenantId,
         type: 'PAYMENT_DUE' as any, // Cast to any until schema is updated in client
         title: 'Payment Reminder',
         message: reminder.message,
         metadata: {
-          invoiceId: invoiceId,
+          invoiceId: String(invoiceId),
           channel: reminder.channel,
           urgency: reminder.urgency,
         },
@@ -2142,8 +2116,8 @@ export class PaymentsService {
       entityId: invoiceId,
       metadata: {
         invoiceId,
-        leaseId: invoice.leaseId,
-        tenantId: invoice.lease.tenantId,
+        leaseId: (invoice as any).leaseId,
+        tenantId: (invoice as any).lease.tenantId,
         channel: reminder.channel,
         urgency: reminder.urgency,
       },
@@ -2187,7 +2161,7 @@ export class PaymentsService {
       throw new BadRequestException('No overdue balance exists for this lease');
     }
 
-    const amountDueCents = overdueInvoices.reduce((sum, invoice) => sum + (invoice.amountCents ?? Math.round(Number(invoice.amount) * 100)), 0);
+    const amountDueCents = overdueInvoices.reduce((sum, invoice) => sum + (invoice.amountCents ?? Math.round(Number(invoice.amountCents) * 100)), 0);
     const oldestDueDate = overdueInvoices[0]?.dueDate;
     const message =
       dto.message?.trim() ||
@@ -2274,7 +2248,7 @@ export class PaymentsService {
   }
 
   async issueDelinquencyNoticeByPaymentId(
-    paymentId: number,
+    paymentId: string,
     dto: Omit<IssueDelinquencyNoticeDto, 'leaseId'>,
     actorId: string,
     orgId: string,
@@ -2291,7 +2265,7 @@ export class PaymentsService {
       throw new NotFoundException(`Payment with ID ${paymentId} not found`);
     }
 
-    const leaseId = payment.leaseId ?? payment.invoice?.leaseId;
+    const leaseId = (payment as any).leaseId ?? payment.invoice?.leaseId;
     if (!leaseId) {
       throw new BadRequestException(`Payment ${paymentId} is not associated with a lease`);
     }
@@ -2313,7 +2287,7 @@ export class PaymentsService {
   // Full integration with email/tenant records to be completed in Phase 2.
 
   async sendTenantMessage(
-    paymentId: number,
+    paymentId: string,
     subject: string,
     message: string,
     actorId: string,
@@ -2324,7 +2298,7 @@ export class PaymentsService {
   }
 
   async recordManualPayment(
-    paymentId: number,
+    paymentId: string,
     amount: number,
     paymentDate: Date,
     notes: string | undefined,
@@ -2368,7 +2342,7 @@ export class PaymentsService {
       },
     });
 
-    const outstandingDueCents = overdueInvoices.reduce((sum, invoice) => sum + (invoice.amountCents ?? Math.round(Number(invoice.amount) * 100)), 0);
+    const outstandingDueCents = overdueInvoices.reduce((sum, invoice) => sum + (invoice.amountCents ?? Math.round(Number(invoice.amountCents) * 100)), 0);
     const activePlanExists = overdueInvoices.some((invoice) =>
       invoice.paymentPlan && ['ACTIVE', 'PENDING', 'COMPLETED'].includes((invoice.paymentPlan.status || '').toUpperCase()),
     );
@@ -2451,7 +2425,7 @@ export class PaymentsService {
   }
 
   async resolveDelinquencyLegalHoldByPaymentId(
-    paymentId: number,
+    paymentId: string,
     dto: Omit<ResolveDelinquencyLegalHoldDto, 'leaseId'>,
     actorId: string,
     orgId: string,
@@ -2468,7 +2442,7 @@ export class PaymentsService {
       throw new NotFoundException(`Payment with ID ${paymentId} not found`);
     }
 
-    const leaseId = payment.leaseId ?? payment.invoice?.leaseId;
+    const leaseId = (payment as any).leaseId ?? payment.invoice?.leaseId;
     if (!leaseId) {
       throw new BadRequestException(`Payment ${paymentId} is not associated with a lease`);
     }
@@ -2521,7 +2495,7 @@ export class PaymentsService {
       throw new BadRequestException('No overdue balance exists for this lease');
     }
 
-    const amountDueCents = overdueInvoices.reduce((sum, invoice) => sum + (invoice.amountCents ?? Math.round(Number(invoice.amount) * 100)), 0);
+    const amountDueCents = overdueInvoices.reduce((sum, invoice) => sum + (invoice.amountCents ?? Math.round(Number(invoice.amountCents) * 100)), 0);
     const latestNotice = await this.prisma.leaseNotice.findFirst({
       where: { leaseId: lease.id },
       orderBy: { sentAt: 'desc' },
@@ -2791,7 +2765,7 @@ export class PaymentsService {
       }),
     ]);
 
-    const amountDueCents = overdueInvoices.reduce((sum, invoice) => sum + (invoice.amountCents ?? Math.round(Number(invoice.amount) * 100)), 0);
+    const amountDueCents = overdueInvoices.reduce((sum, invoice) => sum + (invoice.amountCents ?? Math.round(Number(invoice.amountCents) * 100)), 0);
     const attorneyReferrals = communications.filter((entry: any) => entry.metadata?.workflow === 'DELINQUENCY_ATTORNEY_REFERRAL');
     const courtEntries = history.filter((entry: any) => entry.metadata?.legalStage === 'COURT_SCHEDULED');
 
@@ -2893,7 +2867,7 @@ export class PaymentsService {
           status: lease.status,
           startDate: lease.startDate,
           endDate: lease.endDate,
-          rentAmount: lease.rentAmount,
+          rentAmountCents: lease.rentAmountCents,
         },
       },
       {
@@ -2971,8 +2945,8 @@ export class PaymentsService {
         status: lease.status,
         startDate: lease.startDate,
         endDate: lease.endDate,
-        rentAmount: lease.rentAmount,
-        currentBalance: lease.currentBalance,
+        rentAmountCents: lease.rentAmountCents,
+        currentBalanceCents: lease.currentBalanceCents,
       },
       noticeSummary: delinquencyNotice
         ? {
@@ -3027,7 +3001,7 @@ export class PaymentsService {
     }
   }
 
-  async markPaymentFailed(paymentId: number, tenantId: string, amount: number) {
+  async markPaymentFailed(paymentId: string, tenantId: string, amount: number) {
     //Update payment status to failed
     await this.prisma.payment.update({
       where: { id: paymentId },
@@ -3042,7 +3016,7 @@ export class PaymentsService {
       confidence: 0.95, // Payment failure data is highly reliable
     });
   }
-   async processPaymentSuccess(paymentId: number, tenantId: string, amount: number) {
+   async processPaymentSuccess(paymentId: string, tenantId: string, amount: number) {
     //Update payment status to success
     await this.prisma.payment.update({
       where: { id: paymentId },

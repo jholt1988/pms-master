@@ -124,7 +124,7 @@ export class ChatbotService {
       user = await this.prisma.user.findUnique({
         where: { id: userId },
         include: {
-          lease: {
+          Lease: {
             include: {
               unit: {
                 include: {
@@ -301,7 +301,7 @@ export class ChatbotService {
       (await this.prisma.user.findUnique({
         where: { id: session.userId },
         include: {
-          lease: {
+          Lease: {
             include: {
               unit: {
                 include: {

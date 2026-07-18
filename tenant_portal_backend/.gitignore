@@ -14,3 +14,15 @@ logs/
 smoke-report.*.json
 scenario-report.*.json
 .env
+
+# Debug / scratch artifacts — never commit. A prior commit leaked DocuSign
+# credentials via jwt-test-*.txt; these patterns prevent recurrence.
+jwt-test-*.txt
+envelope-debug-*.txt
+connection-test.txt
+diagnosis.txt
+migration_log.txt
+junit.xml
+check_orgs.js
+fix_ids.js
+fix_orgs.js

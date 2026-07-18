@@ -4,13 +4,12 @@
 import { Controller, Post, Get, Body, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { TelemetryService, TelemetryEvent } from './telemetry.service';
 
 @Controller('telemetry')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class TelemetryController {
   constructor(private readonly telemetryService: TelemetryService) {}
 

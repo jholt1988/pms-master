@@ -16,7 +16,7 @@ export class PrivacyService {
         ...(orgId ? { organizations: { some: { organizationId: orgId } } } : {}),
       },
       include: {
-        lease: true,
+        Lease: true,
         rentalApplications: true,
         sentMessages: {
           orderBy: { createdAt: 'desc' },
@@ -56,7 +56,7 @@ export class PrivacyService {
         lastName: user.lastName,
         role: user.role,
       },
-      lease: user.lease,
+      Lease: user.Lease,
       rentalApplications: user.rentalApplications,
       messages: user.sentMessages,
       payments: user.payments,

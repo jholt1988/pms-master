@@ -30,7 +30,7 @@ export class UtilityBillingService {
     if (!bill) throw new Error('Bill not found');
 
     const activeLeases = bill.property.units
-      .map(u => u.lease)
+      .map(u => (u.lease as any)?.[0])
       .filter(l => l && l.status === 'ACTIVE');
 
     if (activeLeases.length === 0) return { allocated: 0 };

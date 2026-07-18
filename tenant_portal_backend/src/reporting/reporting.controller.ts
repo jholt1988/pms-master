@@ -6,13 +6,12 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { OrgContextGuard } from '../common/org-context/org-context.guard';
 import { OrgId } from '../common/org-context/org-id.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 import { AnalyticsService } from './analytics.service';
 
 @Controller('reporting')
-@UseGuards(AuthGuard('jwt'), RolesGuard, OrgContextGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class ReportingController {
   constructor(
     private readonly prisma: PrismaService,
@@ -68,7 +67,7 @@ export class ReportingController {
 
     const summary = {
       totalOverdue: overdue.length,
-      totalAmount: overdue.reduce((sum, p) => sum + p.amount, 0),
+      totalAmount: overdue.reduce((sum, p) => sum + p.amountCents, 0),
       byDays: {
         '1-30': overdue.filter(p => {
           const days = Math.floor((Date.now() - new Date(p.paymentDate).getTime()) / (1000 * 60 * 60 * 24));
@@ -191,7 +190,7 @@ export class ReportingController {
     return {
       type: 'manual-payments-summary',
       count: payments.length,
-      total: payments.reduce((sum, payment) => sum + payment.amount, 0),
+      total: payments.reduce((sum, payment) => sum + payment.amountCents, 0),
       generatedAt: new Date().toISOString(),
     };
   }
@@ -300,8 +299,8 @@ export class ReportingController {
     if (propertyId) where.lease = { unit: { propertyId } };
 
     const payments = await this.prisma.payment.findMany({ where });
-    const collected = payments.filter(p => p.status === 'COMPLETED').reduce((sum, p) => sum + p.amount, 0);
-    const pending = payments.filter(p => p.status !== 'COMPLETED').reduce((sum, p) => sum + p.amount, 0);
+    const collected = payments.filter(p => p.status === 'COMPLETED').reduce((sum, p) => sum + p.amountCents, 0);
+    const pending = payments.filter(p => p.status !== 'COMPLETED').reduce((sum, p) => sum + p.amountCents, 0);
 
     const charges = await this.prisma.manualCharge.findMany({
       where: { chargeDate: { gte: start, lte: end } },

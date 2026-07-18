@@ -29,7 +29,7 @@ export interface SetupPaymentMethodDto {
 }
 
 export interface CreateCheckoutSessionDto {
-  amount: number;
+  amount?: number; // deprecated; use amountCents instead
   amountCents?: number; // integer cents; preferred over `amount` when provided
   customerId: string;
   successUrl: string;
@@ -440,7 +440,7 @@ export class StripeService {
           typeof paymentIntent.application_fee_amount === 'number'
             ? paymentIntent.application_fee_amount
             : Number(metadata.platform_fee_minor ?? 0) || 0;
-        const grossAmountMinor = Number(paymentIntent.amount ?? Math.round(Number(payment.amount) * 100));
+        const grossAmountMinor = Number(paymentIntent.amount ?? Math.round(Number(payment.amountCents)));
         const netAmountMinor = Math.max(0, grossAmountMinor - platformFeeMinor);
 
         let tierSnapshot: Record<string, unknown> | undefined;
@@ -493,7 +493,7 @@ export class StripeService {
         }
 
         this.logger.log(`Updated payment ${payment.id} to COMPLETED`);
-        this.eventsService.emitPaymentSuccess(payment.id, leaseId || '', Number(payment.amount));
+        this.eventsService.emitPaymentSuccess(String(payment.id), leaseId || '', Number(payment.amountCents));
         
         // Broadcast identically across microservices (Property OS Phase 1)
         await this.rabbitMQService.publishIntent('ledger.updated', {
@@ -741,7 +741,7 @@ export class StripeService {
   private async recordYieldSweepAllocation(
     orgId: string,
     leaseId: string,
-    paymentId: number,
+    paymentId: string,
     amountCents: number,
   ) {
     const allocation = await this.computeYieldSweepAllocation(orgId, amountCents);

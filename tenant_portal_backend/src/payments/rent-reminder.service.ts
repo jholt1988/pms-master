@@ -54,7 +54,7 @@ export class RentReminderService {
   /**
    * Send reminder for a specific payment
    */
-  async sendReminder(paymentId: number, message?: string) {
+  async sendReminder(paymentId: string, message?: string) {
     const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
       include: { lease: { include: { tenant: true } } } as any,
@@ -80,7 +80,7 @@ export class RentReminderService {
   /**
    * Suppress reminder for a payment (snooze)
    */
-  async suppressReminder(paymentId: number, days: number) {
+  async suppressReminder(paymentId: string, days: number) {
     this.logger.log(`[STUB] Suppressing reminder for payment ${paymentId} for ${days} days`);
     
     return {

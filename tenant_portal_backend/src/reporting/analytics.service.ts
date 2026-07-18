@@ -186,7 +186,7 @@ export class AnalyticsService {
     const vacantUnits = await this.prisma.unit.findMany({
       where: {
         ...(orgId ? { property: { organizationId: orgId } } : {}),
-        lease: { is: null },
+        lease: { none: {} },
       },
       include: { property: true },
     });
@@ -246,7 +246,7 @@ export class AnalyticsService {
       include: {
         units: {
           include: {
-            lease: { select: { status: true, rentAmount: true } },
+            lease: { select: { status: true, rentAmountCents: true } },
           },
         },
       },
@@ -262,7 +262,7 @@ export class AnalyticsService {
         paymentDate: { gte: monthStart },
         lease: { unit: { propertyId: { in: propertyIds } } },
       },
-      _sum: { amount: true },
+      _sum: { amountCents: true },
     });
 
     // Build a lookup from leaseId -> property for mapping
@@ -280,7 +280,7 @@ export class AnalyticsService {
       if (pg.leaseId) {
         const propId = leaseToProperty.get(pg.leaseId);
         if (propId) {
-          collectedByProperty.set(propId, (collectedByProperty.get(propId) || 0) + (pg._sum.amount || 0));
+          collectedByProperty.set(propId, (collectedByProperty.get(propId) || 0) + (pg._sum.amountCents || 0));
         }
       }
     }
@@ -296,11 +296,11 @@ export class AnalyticsService {
 
     for (const property of properties) {
       const totalUnits = property.units.length;
-      const occupiedUnits = property.units.filter(u => u.lease?.status === 'ACTIVE').length;
+      const occupiedUnits = property.units.filter(u => (u.lease as any)?.[0]?.status === 'ACTIVE').length;
       const occupancyRate = totalUnits > 0 ? occupiedUnits / totalUnits : 0;
 
-      const activeLeases = property.units.filter(u => u.lease?.status === 'ACTIVE').map(u => u.lease);
-      const expectedMonthlyRent = activeLeases.reduce((sum, l) => sum + (l?.rentAmount || 0), 0);
+      const activeLeases = property.units.filter(u => (u.lease as any)?.[0]?.status === 'ACTIVE').map(u => (u.lease as any)?.[0]);
+      const expectedMonthlyRent = activeLeases.reduce((sum, l) => sum + (l?.rentAmountCents || 0), 0);
       const collectedRent = collectedByProperty.get(property.id) || 0;
       const collectionRate = expectedMonthlyRent > 0 ? collectedRent / expectedMonthlyRent : 0;
 
@@ -356,7 +356,7 @@ export class AnalyticsService {
         propertyId: { in: propertyIds },
         date: { gte: trailingStart, lt: currentMonthStart },
       },
-      _sum: { amount: true },
+      _sum: { amountCents: true },
     });
 
     // Batch: current month expenses grouped by property
@@ -366,11 +366,11 @@ export class AnalyticsService {
         propertyId: { in: propertyIds },
         date: { gte: currentMonthStart },
       },
-      _sum: { amount: true },
+      _sum: { amountCents: true },
     });
 
-    const trailingMap = new Map(trailingExpenses.map(e => [e.propertyId, e._sum.amount || 0]));
-    const currentMap = new Map(currentExpenses.map(e => [e.propertyId, e._sum.amount || 0]));
+    const trailingMap = new Map(trailingExpenses.map(e => [e.propertyId, (e._sum as any).amountCents || 0]));
+    const currentMap = new Map(currentExpenses.map(e => [e.propertyId, (e._sum as any).amountCents || 0]));
 
     const anomalies = [];
 

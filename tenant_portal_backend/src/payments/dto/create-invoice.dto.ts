@@ -7,7 +7,7 @@ export class CreateInvoiceDto {
   description!: string;
 
   @ApiProperty({ type: Number, description: 'Dollar amount (legacy). Prefer amountCents.' })
-  @Type(() => Number)
+  
   @IsNumber()
   @IsPositive()
   amount!: number;
@@ -15,8 +15,8 @@ export class CreateInvoiceDto {
   // Stage-A dual-send: optional integer cents. Preferred over `amount` when provided.
   @ApiPropertyOptional({ type: Number, description: 'Integer cents (preferred).' })
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
+  
+  @IsString()
   @Min(0)
   amountCents?: number;
 
