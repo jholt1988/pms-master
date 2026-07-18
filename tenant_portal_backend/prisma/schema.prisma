@@ -8,25 +8,6 @@ datasource db {
 }
 // --- Multi-tenant foundation (PM company / landlord account) ---
 
-enum OrgRole {
-  OWNER
-  ADMIN
-  MEMBER
-}
-
-enum StripeOnboardingStatus {
-  NOT_STARTED
-  PENDING
-  IN_REVIEW
-  COMPLETED
-  RESTRICTED
-}
-
-enum OrgPlanCycleStatus {
-  DRAFT
-  ACTIVE
-  CLOSED
-}
 
 model User {
   username                        String                      @unique
