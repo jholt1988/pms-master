@@ -1825,6 +1825,43 @@
         ]
       }
     },
+    "/api/maintenance/predictive/risk-summary": {
+      "get": {
+        "operationId": "PredictiveMaintenanceController_getRiskSummary",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PredictiveMaintenance"
+        ]
+      }
+    },
+    "/api/maintenance/predictive/assets/{id}/risk": {
+      "get": {
+        "operationId": "PredictiveMaintenanceController_getAssetRisk",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "PredictiveMaintenance"
+        ]
+      }
+    },
     "/api/maintenance/predictive/scan": {
       "post": {
         "operationId": "PredictiveMaintenanceController_triggerScan",
@@ -2917,6 +2954,29 @@
         },
         "tags": [
           "Payments"
+        ]
+      }
+    },
+    "/webhooks/stripe": {
+      "post": {
+        "operationId": "StripeWebhookController_handleWebhook",
+        "parameters": [
+          {
+            "name": "stripe-signature",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "StripeWebhook"
         ]
       }
     },
@@ -4029,7 +4089,7 @@
           }
         },
         "tags": [
-          "Lease"
+          "leases"
         ]
       },
       "get": {
@@ -4037,11 +4097,21 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LeaseResponseDto"
+                  }
+                }
+              }
+            }
           }
         },
         "tags": [
-          "Lease"
+          "leases"
         ]
       }
     },
@@ -4051,11 +4121,18 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseResponseDto"
+                }
+              }
+            }
           }
         },
         "tags": [
-          "Lease"
+          "leases"
         ]
       }
     },
@@ -4074,11 +4151,18 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaseResponseDto"
+                }
+              }
+            }
           }
         },
         "tags": [
-          "Lease"
+          "leases"
         ]
       },
       "put": {
@@ -4109,7 +4193,7 @@
           }
         },
         "tags": [
-          "Lease"
+          "leases"
         ]
       }
     },
@@ -4132,7 +4216,7 @@
           }
         },
         "tags": [
-          "Lease"
+          "leases"
         ]
       }
     },
@@ -4165,7 +4249,7 @@
           }
         },
         "tags": [
-          "Lease"
+          "leases"
         ]
       }
     },
@@ -4198,7 +4282,7 @@
           }
         },
         "tags": [
-          "Lease"
+          "leases"
         ]
       }
     },
@@ -4231,7 +4315,7 @@
           }
         },
         "tags": [
-          "Lease"
+          "leases"
         ]
       }
     },
@@ -4272,7 +4356,7 @@
           }
         },
         "tags": [
-          "Lease"
+          "leases"
         ]
       }
     },
@@ -4305,7 +4389,7 @@
           }
         },
         "tags": [
-          "Lease"
+          "leases"
         ]
       }
     },
@@ -4319,7 +4403,7 @@
           }
         },
         "tags": [
-          "Lease"
+          "leases"
         ]
       }
     },
@@ -4342,7 +4426,7 @@
           }
         },
         "tags": [
-          "Lease"
+          "leases"
         ]
       }
     },
@@ -4365,7 +4449,7 @@
           }
         },
         "tags": [
-          "Lease"
+          "leases"
         ]
       }
     },
@@ -4761,6 +4845,39 @@
         ]
       }
     },
+    "/api/screening/{id}/decision": {
+      "post": {
+        "operationId": "ScreeningController_decide",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScreeningDecisionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Screening"
+        ]
+      }
+    },
     "/api/screening/webhook/{provider}": {
       "post": {
         "operationId": "ScreeningController_providerWebhook",
@@ -4786,7 +4903,7 @@
     },
     "/api/properties": {
       "post": {
-        "operationId": "PropertyController_createProperty[0]",
+        "operationId": "PropertyController_createProperty",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -4808,60 +4925,7 @@
         ]
       },
       "get": {
-        "operationId": "PropertyController_getAllProperties[0]",
-        "parameters": [
-          {
-            "name": "page",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Property"
-        ]
-      }
-    },
-    "/api/property": {
-      "post": {
-        "operationId": "PropertyController_createProperty[1]",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreatePropertyDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Property"
-        ]
-      },
-      "get": {
-        "operationId": "PropertyController_getAllProperties[1]",
+        "operationId": "PropertyController_getAllProperties",
         "parameters": [
           {
             "name": "page",
@@ -4892,40 +4956,7 @@
     },
     "/api/properties/{id}/units": {
       "post": {
-        "operationId": "PropertyController_createUnit[0]",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateUnitDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Property"
-        ]
-      }
-    },
-    "/api/property/{id}/units": {
-      "post": {
-        "operationId": "PropertyController_createUnit[1]",
+        "operationId": "PropertyController_createUnit",
         "parameters": [
           {
             "name": "id",
@@ -4958,38 +4989,7 @@
     },
     "/api/properties/public": {
       "get": {
-        "operationId": "PropertyController_getPublicProperties[0]",
-        "parameters": [
-          {
-            "name": "page",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Property"
-        ]
-      }
-    },
-    "/api/property/public": {
-      "get": {
-        "operationId": "PropertyController_getPublicProperties[1]",
+        "operationId": "PropertyController_getPublicProperties",
         "parameters": [
           {
             "name": "page",
@@ -5020,21 +5020,7 @@
     },
     "/api/properties/search": {
       "get": {
-        "operationId": "PropertyController_searchProperties[0]",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Property"
-        ]
-      }
-    },
-    "/api/property/search": {
-      "get": {
-        "operationId": "PropertyController_searchProperties[1]",
+        "operationId": "PropertyController_searchProperties",
         "parameters": [],
         "responses": {
           "200": {
@@ -5048,21 +5034,7 @@
     },
     "/api/properties/public/search": {
       "get": {
-        "operationId": "PropertyController_getPublicSearch[0]",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Property"
-        ]
-      }
-    },
-    "/api/property/public/search": {
-      "get": {
-        "operationId": "PropertyController_getPublicSearch[1]",
+        "operationId": "PropertyController_getPublicSearch",
         "parameters": [],
         "responses": {
           "200": {
@@ -5076,7 +5048,7 @@
     },
     "/api/properties/saved-filters": {
       "get": {
-        "operationId": "PropertyController_getSavedFilters[0]",
+        "operationId": "PropertyController_getSavedFilters",
         "parameters": [],
         "responses": {
           "200": {
@@ -5088,43 +5060,7 @@
         ]
       },
       "post": {
-        "operationId": "PropertyController_saveFilter[0]",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SavePropertyFilterDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Property"
-        ]
-      }
-    },
-    "/api/property/saved-filters": {
-      "get": {
-        "operationId": "PropertyController_getSavedFilters[1]",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Property"
-        ]
-      },
-      "post": {
-        "operationId": "PropertyController_saveFilter[1]",
+        "operationId": "PropertyController_saveFilter",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -5148,30 +5084,7 @@
     },
     "/api/properties/saved-filters/{id}": {
       "delete": {
-        "operationId": "PropertyController_deleteFilter[0]",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Property"
-        ]
-      }
-    },
-    "/api/property/saved-filters/{id}": {
-      "delete": {
-        "operationId": "PropertyController_deleteFilter[1]",
+        "operationId": "PropertyController_deleteFilter",
         "parameters": [
           {
             "name": "id",
@@ -5194,7 +5107,7 @@
     },
     "/api/properties/{id}": {
       "get": {
-        "operationId": "PropertyController_getPropertyById[0]",
+        "operationId": "PropertyController_getPropertyById",
         "parameters": [
           {
             "name": "id",
@@ -5215,61 +5128,7 @@
         ]
       },
       "patch": {
-        "operationId": "PropertyController_updateProperty[0]",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdatePropertyDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Property"
-        ]
-      }
-    },
-    "/api/property/{id}": {
-      "get": {
-        "operationId": "PropertyController_getPropertyById[1]",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Property"
-        ]
-      },
-      "patch": {
-        "operationId": "PropertyController_updateProperty[1]",
+        "operationId": "PropertyController_updateProperty",
         "parameters": [
           {
             "name": "id",
@@ -5302,30 +5161,7 @@
     },
     "/api/properties/{id}/rollup": {
       "get": {
-        "operationId": "PropertyController_getPropertyRollup[0]",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Property"
-        ]
-      }
-    },
-    "/api/property/{id}/rollup": {
-      "get": {
-        "operationId": "PropertyController_getPropertyRollup[1]",
+        "operationId": "PropertyController_getPropertyRollup",
         "parameters": [
           {
             "name": "id",
@@ -5348,30 +5184,7 @@
     },
     "/api/properties/units/{unitId}/rollup": {
       "get": {
-        "operationId": "PropertyController_getUnitRollup[0]",
-        "parameters": [
-          {
-            "name": "unitId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Property"
-        ]
-      }
-    },
-    "/api/property/units/{unitId}/rollup": {
-      "get": {
-        "operationId": "PropertyController_getUnitRollup[1]",
+        "operationId": "PropertyController_getUnitRollup",
         "parameters": [
           {
             "name": "unitId",
@@ -5394,30 +5207,7 @@
     },
     "/api/properties/units/{unitId}/transition": {
       "post": {
-        "operationId": "PropertyController_transitionUnitState[0]",
-        "parameters": [
-          {
-            "name": "unitId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Property"
-        ]
-      }
-    },
-    "/api/property/units/{unitId}/transition": {
-      "post": {
-        "operationId": "PropertyController_transitionUnitState[1]",
+        "operationId": "PropertyController_transitionUnitState",
         "parameters": [
           {
             "name": "unitId",
@@ -5440,7 +5230,7 @@
     },
     "/api/properties/{id}/marketing": {
       "get": {
-        "operationId": "PropertyController_getMarketingProfile[0]",
+        "operationId": "PropertyController_getMarketingProfile",
         "parameters": [
           {
             "name": "id",
@@ -5461,61 +5251,7 @@
         ]
       },
       "post": {
-        "operationId": "PropertyController_updateMarketingProfile[0]",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdatePropertyMarketingDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Property"
-        ]
-      }
-    },
-    "/api/property/{id}/marketing": {
-      "get": {
-        "operationId": "PropertyController_getMarketingProfile[1]",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Property"
-        ]
-      },
-      "post": {
-        "operationId": "PropertyController_updateMarketingProfile[1]",
+        "operationId": "PropertyController_updateMarketingProfile",
         "parameters": [
           {
             "name": "id",
@@ -5548,48 +5284,7 @@
     },
     "/api/properties/{id}/units/{unitId}": {
       "patch": {
-        "operationId": "PropertyController_updateUnit[0]",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "unitId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateUnitDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Property"
-        ]
-      }
-    },
-    "/api/property/{id}/units/{unitId}": {
-      "patch": {
-        "operationId": "PropertyController_updateUnit[1]",
+        "operationId": "PropertyController_updateUnit",
         "parameters": [
           {
             "name": "id",
@@ -5630,30 +5325,7 @@
     },
     "/api/properties/units/{unitId}/start-onboarding": {
       "post": {
-        "operationId": "PropertyController_startOnboarding[0]",
-        "parameters": [
-          {
-            "name": "unitId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Property"
-        ]
-      }
-    },
-    "/api/property/units/{unitId}/start-onboarding": {
-      "post": {
-        "operationId": "PropertyController_startOnboarding[1]",
+        "operationId": "PropertyController_startOnboarding",
         "parameters": [
           {
             "name": "unitId",
@@ -5676,30 +5348,7 @@
     },
     "/api/properties/units/{unitId}/complete-move-in": {
       "post": {
-        "operationId": "PropertyController_completeMoveIn[0]",
-        "parameters": [
-          {
-            "name": "unitId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Property"
-        ]
-      }
-    },
-    "/api/property/units/{unitId}/complete-move-in": {
-      "post": {
-        "operationId": "PropertyController_completeMoveIn[1]",
+        "operationId": "PropertyController_completeMoveIn",
         "parameters": [
           {
             "name": "unitId",
@@ -5724,6 +5373,16 @@
       "post": {
         "operationId": "ExpenseController_createExpense",
         "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateExpenseDto"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": ""
@@ -5797,6 +5456,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateExpenseDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": ""
@@ -6284,6 +5953,187 @@
         ]
       }
     },
+    "/api/settings": {
+      "get": {
+        "operationId": "OrganizationSettingsController_getOrganizationSettings",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OrganizationSettings"
+        ]
+      },
+      "patch": {
+        "operationId": "OrganizationSettingsController_updateOrganizationSettings",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OrganizationSettings"
+        ]
+      }
+    },
+    "/api/settings/users": {
+      "get": {
+        "operationId": "OrganizationSettingsController_listOrganizationUsers",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OrganizationSettings"
+        ]
+      }
+    },
+    "/api/settings/users/invite": {
+      "post": {
+        "operationId": "OrganizationSettingsController_inviteUser",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OrganizationSettings"
+        ]
+      }
+    },
+    "/api/settings/users/{id}": {
+      "patch": {
+        "operationId": "OrganizationSettingsController_updateUser",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OrganizationSettings"
+        ]
+      }
+    },
+    "/api/settings/users/{id}/deactivate": {
+      "post": {
+        "operationId": "OrganizationSettingsController_deactivateUser",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OrganizationSettings"
+        ]
+      }
+    },
+    "/api/settings/integrations": {
+      "get": {
+        "operationId": "OrganizationSettingsController_listIntegrations",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OrganizationSettings"
+        ]
+      }
+    },
+    "/api/settings/integrations/quickbooks/connect": {
+      "post": {
+        "operationId": "OrganizationSettingsController_connectQuickBooks",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OrganizationSettings"
+        ]
+      }
+    },
+    "/api/settings/integrations/quickbooks/disconnect": {
+      "post": {
+        "operationId": "OrganizationSettingsController_disconnectQuickBooks",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OrganizationSettings"
+        ]
+      }
+    },
+    "/api/settings/audit-log": {
+      "get": {
+        "operationId": "OrganizationSettingsController_getAuditLog",
+        "parameters": [
+          {
+            "name": "startDate",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "OrganizationSettings"
+        ]
+      }
+    },
     "/api/documents/upload": {
       "post": {
         "operationId": "DocumentsController_uploadFile",
@@ -6414,58 +6264,12 @@
         ]
       }
     },
-    "/api/reports/rent-roll": {
-      "get": {
-        "operationId": "ReportingController_getRentRoll[0]",
-        "parameters": [
-          {
-            "name": "propertyId",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Reporting"
-        ]
-      }
-    },
     "/api/reporting/rent-roll": {
       "get": {
-        "operationId": "ReportingController_getRentRoll[1]",
+        "operationId": "ReportingController_getRentRoll",
         "parameters": [
           {
             "name": "propertyId",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Reporting"
-        ]
-      }
-    },
-    "/api/reports/delinquency-report": {
-      "get": {
-        "operationId": "ReportingController_getDelinquencyReport[0]",
-        "parameters": [
-          {
-            "name": "days",
             "required": true,
             "in": "query",
             "schema": {
@@ -6485,7 +6289,7 @@
     },
     "/api/reporting/delinquency-report": {
       "get": {
-        "operationId": "ReportingController_getDelinquencyReport[1]",
+        "operationId": "ReportingController_getDelinquencyReport",
         "parameters": [
           {
             "name": "days",
@@ -6506,55 +6310,9 @@
         ]
       }
     },
-    "/api/reports/maintenance-summary": {
-      "get": {
-        "operationId": "ReportingController_getMaintenanceSummary[0]",
-        "parameters": [
-          {
-            "name": "propertyId",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Reporting"
-        ]
-      }
-    },
     "/api/reporting/maintenance-summary": {
       "get": {
-        "operationId": "ReportingController_getMaintenanceSummary[1]",
-        "parameters": [
-          {
-            "name": "propertyId",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Reporting"
-        ]
-      }
-    },
-    "/api/reports/occupancy-report": {
-      "get": {
-        "operationId": "ReportingController_getOccupancyReport[0]",
+        "operationId": "ReportingController_getMaintenanceSummary",
         "parameters": [
           {
             "name": "propertyId",
@@ -6577,33 +6335,10 @@
     },
     "/api/reporting/occupancy-report": {
       "get": {
-        "operationId": "ReportingController_getOccupancyReport[1]",
+        "operationId": "ReportingController_getOccupancyReport",
         "parameters": [
           {
             "name": "propertyId",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Reporting"
-        ]
-      }
-    },
-    "/api/reports/delinquency-analytics": {
-      "get": {
-        "operationId": "ReportingController_getDelinquencyAnalytics[0]",
-        "parameters": [
-          {
-            "name": "days",
             "required": true,
             "in": "query",
             "schema": {
@@ -6623,7 +6358,7 @@
     },
     "/api/reporting/delinquency-analytics": {
       "get": {
-        "operationId": "ReportingController_getDelinquencyAnalytics[1]",
+        "operationId": "ReportingController_getDelinquencyAnalytics",
         "parameters": [
           {
             "name": "days",
@@ -6644,48 +6379,9 @@
         ]
       }
     },
-    "/api/reports/profit-loss": {
-      "get": {
-        "operationId": "ReportingController_getProfitLoss[0]",
-        "parameters": [
-          {
-            "name": "startDate",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "endDate",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "propertyId",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Reporting"
-        ]
-      }
-    },
     "/api/reporting/profit-loss": {
       "get": {
-        "operationId": "ReportingController_getProfitLoss[1]",
+        "operationId": "ReportingController_getProfitLoss",
         "parameters": [
           {
             "name": "startDate",
@@ -6703,29 +6399,6 @@
               "type": "string"
             }
           },
-          {
-            "name": "propertyId",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Reporting"
-        ]
-      }
-    },
-    "/api/reports/vacancy-rate": {
-      "get": {
-        "operationId": "ReportingController_getVacancyRate[0]",
-        "parameters": [
           {
             "name": "propertyId",
             "required": true,
@@ -6747,30 +6420,7 @@
     },
     "/api/reporting/vacancy-rate": {
       "get": {
-        "operationId": "ReportingController_getVacancyRate[1]",
-        "parameters": [
-          {
-            "name": "propertyId",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Reporting"
-        ]
-      }
-    },
-    "/api/reports/maintenance-analytics": {
-      "get": {
-        "operationId": "ReportingController_getMaintenanceAnalytics[0]",
+        "operationId": "ReportingController_getVacancyRate",
         "parameters": [
           {
             "name": "propertyId",
@@ -6793,7 +6443,7 @@
     },
     "/api/reporting/maintenance-analytics": {
       "get": {
-        "operationId": "ReportingController_getMaintenanceAnalytics[1]",
+        "operationId": "ReportingController_getMaintenanceAnalytics",
         "parameters": [
           {
             "name": "propertyId",
@@ -6814,71 +6464,9 @@
         ]
       }
     },
-    "/api/reports/manual-payments-summary": {
-      "get": {
-        "operationId": "ReportingController_getManualPaymentsSummary[0]",
-        "parameters": [
-          {
-            "name": "startDate",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "endDate",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Reporting"
-        ]
-      }
-    },
     "/api/reporting/manual-payments-summary": {
       "get": {
-        "operationId": "ReportingController_getManualPaymentsSummary[1]",
-        "parameters": [
-          {
-            "name": "startDate",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "endDate",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Reporting"
-        ]
-      }
-    },
-    "/api/reports/manual-charges-summary": {
-      "get": {
-        "operationId": "ReportingController_getManualChargesSummary[0]",
+        "operationId": "ReportingController_getManualPaymentsSummary",
         "parameters": [
           {
             "name": "startDate",
@@ -6909,7 +6497,7 @@
     },
     "/api/reporting/manual-charges-summary": {
       "get": {
-        "operationId": "ReportingController_getManualChargesSummary[1]",
+        "operationId": "ReportingController_getManualChargesSummary",
         "parameters": [
           {
             "name": "startDate",
@@ -6921,45 +6509,6 @@
           },
           {
             "name": "endDate",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Reporting"
-        ]
-      }
-    },
-    "/api/reports/payment-history": {
-      "get": {
-        "operationId": "ReportingController_getPaymentHistory[0]",
-        "parameters": [
-          {
-            "name": "startDate",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "endDate",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "propertyId",
             "required": true,
             "in": "query",
             "schema": {
@@ -6979,7 +6528,7 @@
     },
     "/api/reporting/payment-history": {
       "get": {
-        "operationId": "ReportingController_getPaymentHistory[1]",
+        "operationId": "ReportingController_getPaymentHistory",
         "parameters": [
           {
             "name": "startDate",
@@ -7016,37 +6565,9 @@
         ]
       }
     },
-    "/api/reports/analytics/heatmap": {
-      "get": {
-        "operationId": "ReportingController_getReportHeatmap[0]",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Reporting"
-        ]
-      }
-    },
     "/api/reporting/analytics/heatmap": {
       "get": {
-        "operationId": "ReportingController_getReportHeatmap[1]",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Reporting"
-        ]
-      }
-    },
-    "/api/reports/accounting-sync-status": {
-      "get": {
-        "operationId": "ReportingController_getAccountingSyncStatus[0]",
+        "operationId": "ReportingController_getReportHeatmap",
         "parameters": [],
         "responses": {
           "200": {
@@ -7060,21 +6581,7 @@
     },
     "/api/reporting/accounting-sync-status": {
       "get": {
-        "operationId": "ReportingController_getAccountingSyncStatus[1]",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Reporting"
-        ]
-      }
-    },
-    "/api/reports/analytics/opex-anomalies": {
-      "get": {
-        "operationId": "ReportingController_getOpexAnomalies[0]",
+        "operationId": "ReportingController_getAccountingSyncStatus",
         "parameters": [],
         "responses": {
           "200": {
@@ -7088,47 +6595,8 @@
     },
     "/api/reporting/analytics/opex-anomalies": {
       "get": {
-        "operationId": "ReportingController_getOpexAnomalies[1]",
+        "operationId": "ReportingController_getOpexAnomalies",
         "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Reporting"
-        ]
-      }
-    },
-    "/api/reports/analytics/capex": {
-      "get": {
-        "operationId": "ReportingController_getCapexAnalytics[0]",
-        "parameters": [
-          {
-            "name": "propertyId",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "upgradeCost",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "rentBump",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": ""
@@ -7141,7 +6609,7 @@
     },
     "/api/reporting/analytics/capex": {
       "get": {
-        "operationId": "ReportingController_getCapexAnalytics[1]",
+        "operationId": "ReportingController_getCapexAnalytics",
         "parameters": [
           {
             "name": "propertyId",
@@ -7161,45 +6629,6 @@
           },
           {
             "name": "rentBump",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Reporting"
-        ]
-      }
-    },
-    "/api/reports/financial-summary": {
-      "get": {
-        "operationId": "ReportingController_getFinancialSummary[0]",
-        "parameters": [
-          {
-            "name": "startDate",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "endDate",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "propertyId",
             "required": true,
             "in": "query",
             "schema": {
@@ -7219,7 +6648,7 @@
     },
     "/api/reporting/financial-summary": {
       "get": {
-        "operationId": "ReportingController_getFinancialSummary[1]",
+        "operationId": "ReportingController_getFinancialSummary",
         "parameters": [
           {
             "name": "startDate",
@@ -7270,94 +6699,9 @@
         ]
       }
     },
-    "/api/inspections-legacy": {
-      "post": {
-        "operationId": "InspectionsController_create[0]",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateInspectionDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Inspections"
-        ]
-      },
-      "get": {
-        "operationId": "InspectionsController_findAll[0]",
-        "parameters": [
-          {
-            "name": "unitId",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "propertyId",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "startDate",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "endDate",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "skip",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "take",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Inspections"
-        ]
-      }
-    },
     "/api/inspections": {
       "post": {
-        "operationId": "InspectionsController_create[1]",
+        "operationId": "InspectionsController_create",
         "parameters": [],
         "requestBody": {
           "required": true,
@@ -7379,7 +6723,7 @@
         ]
       },
       "get": {
-        "operationId": "InspectionsController_findAll[1]",
+        "operationId": "InspectionsController_findAll",
         "parameters": [
           {
             "name": "unitId",
@@ -7427,81 +6771,6 @@
             "in": "query",
             "schema": {
               "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Inspections"
-        ]
-      }
-    },
-    "/api/inspections-legacy/{id}": {
-      "get": {
-        "operationId": "InspectionsController_findOne[0]",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Inspections"
-        ]
-      },
-      "put": {
-        "operationId": "InspectionsController_update[0]",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "number"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateInspectionDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Inspections"
-        ]
-      },
-      "delete": {
-        "operationId": "InspectionsController_delete[0]",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "number"
             }
           }
         ],
@@ -7517,7 +6786,7 @@
     },
     "/api/inspections/{id}": {
       "get": {
-        "operationId": "InspectionsController_findOne[1]",
+        "operationId": "InspectionsController_findOne",
         "parameters": [
           {
             "name": "id",
@@ -7538,7 +6807,7 @@
         ]
       },
       "put": {
-        "operationId": "InspectionsController_update[1]",
+        "operationId": "InspectionsController_update",
         "parameters": [
           {
             "name": "id",
@@ -7569,7 +6838,7 @@
         ]
       },
       "delete": {
-        "operationId": "InspectionsController_delete[1]",
+        "operationId": "InspectionsController_delete",
         "parameters": [
           {
             "name": "id",
@@ -7582,20 +6851,6 @@
         ],
         "responses": {
           "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Inspections"
-        ]
-      }
-    },
-    "/api/inspections-legacy/start": {
-      "post": {
-        "operationId": "InspectionsController_start[0]",
-        "parameters": [],
-        "responses": {
-          "201": {
             "description": ""
           }
         },
@@ -7606,7 +6861,7 @@
     },
     "/api/inspections/start": {
       "post": {
-        "operationId": "InspectionsController_start[1]",
+        "operationId": "InspectionsController_start",
         "parameters": [],
         "responses": {
           "201": {
@@ -7618,42 +6873,9 @@
         ]
       }
     },
-    "/api/inspections-legacy/{id}/complete": {
-      "put": {
-        "operationId": "InspectionsController_complete[0]",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "number"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CompleteInspectionDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Inspections"
-        ]
-      }
-    },
     "/api/inspections/{id}/complete": {
       "put": {
-        "operationId": "InspectionsController_complete[1]",
+        "operationId": "InspectionsController_complete",
         "parameters": [
           {
             "name": "id",
@@ -7674,29 +6896,6 @@
             }
           }
         },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Inspections"
-        ]
-      }
-    },
-    "/api/inspections-legacy/{id}/approve": {
-      "put": {
-        "operationId": "InspectionsController_approve[0]",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "number"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": ""
@@ -7709,7 +6908,7 @@
     },
     "/api/inspections/{id}/approve": {
       "put": {
-        "operationId": "InspectionsController_approve[1]",
+        "operationId": "InspectionsController_approve",
         "parameters": [
           {
             "name": "id",
@@ -7730,32 +6929,9 @@
         ]
       }
     },
-    "/api/inspections-legacy/{id}/photos": {
-      "post": {
-        "operationId": "InspectionsController_addPhoto[0]",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Inspections"
-        ]
-      }
-    },
     "/api/inspections/{id}/photos": {
       "post": {
-        "operationId": "InspectionsController_addPhoto[1]",
+        "operationId": "InspectionsController_addPhoto",
         "parameters": [
           {
             "name": "id",
@@ -7766,20 +6942,6 @@
             }
           }
         ],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Inspections"
-        ]
-      }
-    },
-    "/api/inspections-legacy/sync": {
-      "post": {
-        "operationId": "InspectionsController_sync[0]",
-        "parameters": [],
         "responses": {
           "201": {
             "description": ""
@@ -7792,7 +6954,7 @@
     },
     "/api/inspections/sync": {
       "post": {
-        "operationId": "InspectionsController_sync[1]",
+        "operationId": "InspectionsController_sync",
         "parameters": [],
         "responses": {
           "201": {
@@ -10527,6 +9689,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTourStatusDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": ""
@@ -10550,6 +9722,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignTourDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": ""
@@ -10573,6 +9755,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RescheduleTourDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": ""
@@ -10750,6 +9942,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateApplicationStatusDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": ""
@@ -10773,6 +9975,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateScreeningDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": ""
@@ -10796,6 +10008,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordApplicationPaymentDto"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": ""
@@ -12162,20 +11384,6 @@
         },
         "tags": [
           "Feed"
-        ]
-      }
-    },
-    "/api/dev/seed/payment-delinquent": {
-      "post": {
-        "operationId": "DevSeedController_seedDelinquentPayment",
-        "parameters": [],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "DevSeed"
         ]
       }
     },
@@ -15918,11 +15126,35 @@
       },
       "CreateInvoiceDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "amount": {
+            "type": "number",
+            "description": "Dollar amount (legacy). Prefer amountCents."
+          },
+          "amountCents": {
+            "type": "number",
+            "description": "Integer cents (preferred)."
+          }
+        },
+        "required": [
+          "amount"
+        ]
       },
       "CreatePaymentDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "amount": {
+            "type": "number",
+            "description": "Dollar amount (legacy). Prefer amountCents."
+          },
+          "amountCents": {
+            "type": "number",
+            "description": "Integer cents (preferred)."
+          }
+        },
+        "required": [
+          "amount"
+        ]
       },
       "UpdateDelinquencyPriorityConfigDto": {
         "type": "object",
@@ -15946,11 +15178,37 @@
       },
       "CreateStripeCheckoutSessionDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "invoiceId": {
+            "type": "number",
+            "description": "Invoice id whose amount (and amountCents) will be charged."
+          },
+          "successUrl": {
+            "type": "string",
+            "description": "Redirect URL on successful checkout."
+          },
+          "cancelUrl": {
+            "type": "string",
+            "description": "Redirect URL on cancelled checkout."
+          }
+        },
+        "required": [
+          "invoiceId",
+          "successUrl",
+          "cancelUrl"
+        ]
       },
       "CreateManualPaymentDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "amountCents": {
+            "type": "number",
+            "description": "Amount in integer cents."
+          }
+        },
+        "required": [
+          "amountCents"
+        ]
       },
       "ReverseManualPaymentDto": {
         "type": "object",
@@ -15958,7 +15216,15 @@
       },
       "CreateManualChargeDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "amountCents": {
+            "type": "number",
+            "description": "Amount in integer cents."
+          }
+        },
+        "required": [
+          "amountCents"
+        ]
       },
       "VoidManualChargeDto": {
         "type": "object",
@@ -15966,7 +15232,28 @@
       },
       "CreatePaymentPlanDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "amountPerInstallment": {
+            "type": "number",
+            "description": "Per-installment dollar amount (legacy). Prefer amountPerInstallmentCents."
+          },
+          "totalAmount": {
+            "type": "number",
+            "description": "Total dollar amount (legacy). Prefer totalAmountCents."
+          },
+          "amountPerInstallmentCents": {
+            "type": "number",
+            "description": "Per-installment integer cents (preferred)."
+          },
+          "totalAmountCents": {
+            "type": "number",
+            "description": "Total integer cents (preferred)."
+          }
+        },
+        "required": [
+          "amountPerInstallment",
+          "totalAmount"
+        ]
       },
       "CreateScheduleEventDto": {
         "type": "object",
@@ -15988,21 +15275,405 @@
         "type": "object",
         "properties": {}
       },
+      "LeaseTenantRefDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username"
+        ]
+      },
+      "LeasePropertyRefDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "LeaseUnitRefDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "property": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LeasePropertyRefDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "LeaseResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "PENDING_APPROVAL",
+              "ACTIVE",
+              "RENEWAL_PENDING",
+              "NOTICE_GIVEN",
+              "TERMINATING",
+              "TERMINATED",
+              "HOLDOVER",
+              "CLOSED"
+            ]
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "rentAmount": {
+            "type": "number"
+          },
+          "depositAmount": {
+            "type": "number"
+          },
+          "depositHeldAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "depositReturnedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "depositDisposition": {
+            "type": "string",
+            "enum": [
+              "HELD",
+              "PARTIAL_RETURN",
+              "RETURNED",
+              "FORFEITED"
+            ],
+            "nullable": true
+          },
+          "noticePeriodDays": {
+            "type": "number",
+            "nullable": true
+          },
+          "moveInAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "moveOutAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "autoRenew": {
+            "type": "boolean"
+          },
+          "autoRenewLeadDays": {
+            "type": "number",
+            "nullable": true
+          },
+          "renewalDueAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "renewalAcceptedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "terminationRequestedBy": {
+            "type": "string",
+            "enum": [
+              "MANAGER",
+              "TENANT",
+              "SYSTEM"
+            ],
+            "nullable": true
+          },
+          "terminationEffectiveAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "terminationReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "billingAlignment": {
+            "type": "string",
+            "enum": [
+              "FULL_CYCLE",
+              "PRORATE"
+            ]
+          },
+          "currentBalance": {
+            "type": "number",
+            "nullable": true
+          },
+          "tenant": {
+            "$ref": "#/components/schemas/LeaseTenantRefDto"
+          },
+          "unit": {
+            "$ref": "#/components/schemas/LeaseUnitRefDto"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "startDate",
+          "endDate",
+          "rentAmount",
+          "depositAmount",
+          "unit"
+        ]
+      },
       "CreateLeaseDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "startDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Lease start date (ISO 8601)."
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Lease end date (ISO 8601)."
+          },
+          "rentAmount": {
+            "type": "number",
+            "description": "Monthly rent amount."
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tenant (User) id."
+          },
+          "unitId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unit id."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "PENDING_APPROVAL",
+              "ACTIVE",
+              "RENEWAL_PENDING",
+              "NOTICE_GIVEN",
+              "TERMINATING",
+              "TERMINATED",
+              "HOLDOVER",
+              "CLOSED"
+            ]
+          },
+          "moveInAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "moveOutAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "noticePeriodDays": {
+            "type": "number",
+            "minimum": 0
+          },
+          "autoRenew": {
+            "type": "boolean"
+          },
+          "autoRenewLeadDays": {
+            "type": "number",
+            "minimum": 0
+          },
+          "depositAmount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "rentAmountCents": {
+            "type": "number",
+            "description": "Monthly rent in integer cents (preferred)."
+          },
+          "depositAmountCents": {
+            "type": "number",
+            "description": "Security deposit in integer cents (preferred)."
+          }
+        },
+        "required": [
+          "startDate",
+          "endDate",
+          "rentAmount",
+          "tenantId",
+          "unitId"
+        ]
       },
       "UpdateLeaseDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "startDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "moveInAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "moveOutAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "rentAmount": {
+            "type": "number"
+          },
+          "depositAmount": {
+            "type": "number"
+          },
+          "noticePeriodDays": {
+            "type": "number",
+            "minimum": 0
+          },
+          "autoRenew": {
+            "type": "boolean"
+          },
+          "autoRenewLeadDays": {
+            "type": "number",
+            "minimum": 0
+          },
+          "terminationReason": {
+            "type": "string",
+            "maxLength": 500
+          }
+        }
       },
       "UpdateLeaseStatusDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "PENDING_APPROVAL",
+              "ACTIVE",
+              "RENEWAL_PENDING",
+              "NOTICE_GIVEN",
+              "TERMINATING",
+              "TERMINATED",
+              "HOLDOVER",
+              "CLOSED"
+            ]
+          },
+          "moveInAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "moveOutAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "noticePeriodDays": {
+            "type": "number",
+            "minimum": 0
+          },
+          "renewalDueAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "renewalAcceptedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "terminationEffectiveAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "terminationRequestedBy": {
+            "type": "string",
+            "enum": [
+              "MANAGER",
+              "TENANT",
+              "SYSTEM"
+            ]
+          },
+          "terminationReason": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "rentEscalationPercent": {
+            "type": "number"
+          },
+          "rentEscalationEffectiveAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "currentBalance": {
+            "type": "number"
+          },
+          "autoRenew": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "status"
+        ]
       },
       "CreateRenewalOfferDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "proposedRentCents": {
+            "type": "number",
+            "description": "Proposed renewal rent in integer cents (preferred)."
+          }
+        }
       },
       "RecordLeaseNoticeDto": {
         "type": "object",
@@ -16028,6 +15699,10 @@
         "type": "object",
         "properties": {}
       },
+      "ScreeningDecisionDto": {
+        "type": "object",
+        "properties": {}
+      },
       "CreatePropertyDto": {
         "type": "object",
         "properties": {}
@@ -16049,6 +15724,14 @@
         "properties": {}
       },
       "UpdateUnitDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateExpenseDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateExpenseDto": {
         "type": "object",
         "properties": {}
       },
@@ -16105,6 +15788,30 @@
         "properties": {}
       },
       "UpsertChannelCredentialDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateTourStatusDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "AssignTourDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "RescheduleTourDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateApplicationStatusDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateScreeningDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "RecordApplicationPaymentDto": {
         "type": "object",
         "properties": {}
       },

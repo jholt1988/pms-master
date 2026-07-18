@@ -198,7 +198,7 @@ export class BulkMessagingService {
           include: {
             user: {
               include: {
-                Lease: {
+                lease: {
                   include: { unit: { include: { property: true } } },
                 },
               },
@@ -400,7 +400,7 @@ export class BulkMessagingService {
       if (filters.leaseStatuses?.length) {
         leaseFilter.status = { in: filters.leaseStatuses };
       }
-      andConditions.push({ Lease: { some: leaseFilter } });
+      andConditions.push({ lease: {  ...leaseFilter } });
     }
 
     if (andConditions.length) {
@@ -411,7 +411,7 @@ export class BulkMessagingService {
       ? await this.prisma.user.findMany({
           where,
           include: {
-            Lease: {
+            lease: {
               include: { unit: { include: { property: true } } },
             },
           },
@@ -425,7 +425,7 @@ export class BulkMessagingService {
             ...(orgId ? { organizations: { some: { id: orgId } } } : {}),
           },
           include: {
-            Lease: {
+            lease: {
               include: { unit: { include: { property: true } } },
             },
           },
