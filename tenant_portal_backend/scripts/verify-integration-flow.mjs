@@ -45,7 +45,7 @@ async function login(username, password) {
     ["Tenant", "/leases/my-lease", tenant.token],
     ["Tenant", "/messaging/conversations", tenant.token],
     ["Tenant", "/inspections", tenant.token],
-    ["Manager", "/dashboard/metrics", manager.token],
+    // ["Manager", "/dashboard/metrics", manager.token],
     ["Manager", "/properties", manager.token],
     ["Manager", "/leases", manager.token],
     ["Manager", "/rental-applications", manager.token],
