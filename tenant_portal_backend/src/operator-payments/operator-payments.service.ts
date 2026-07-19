@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { BookkeepingTransactionStatus, Role } from '@prisma/client';
+import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { BookkeepingService } from '../bookkeeping/bookkeeping.service';
 import { PaymentsService } from '../payments/payments.service';

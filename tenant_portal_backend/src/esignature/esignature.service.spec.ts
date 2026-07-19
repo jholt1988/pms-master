@@ -9,10 +9,8 @@ import { EsignatureService } from './esignature.service';
 import { CreateEnvelopeDto } from './dto/create-envelope.dto';
 import { ProviderWebhookDto } from './dto/provider-webhook.dto';
 import { RecipientViewDto } from './dto/recipient-view.dto';
-import * as docusign from 'docusign-esign';
 
 jest.mock('axios');
-jest.mock('docusign-esign');
 
 const mockAxiosInstance = {
   request: jest.fn(),

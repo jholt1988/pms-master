@@ -36,7 +36,7 @@ export class TelemetryController {
   @Roles('PROPERTY_MANAGER', 'OWNER', 'ADMIN')
   async trackAction(
     @Body() body: { action: string; domain: string; entityId?: string; metadata?: Record<string, unknown> },
-    @OrgId() orgId?: string,
+    @OrgId() _orgId?: string,
   ) {
     await this.telemetryService.trackAction(
       body.action,

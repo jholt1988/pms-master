@@ -49,7 +49,7 @@ describe('FeatureFlagsService', () => {
     it('should respect tenant strategy', () => {
       // ai_inspection_scoring uses tenant strategy
       const contextWithTenant = { tenantId: 'tenant-123' };
-      const contextWithoutTenant = {};
+      const __contextWithoutTenant = {};
 
       const result = service.evaluate('ai_inspection_scoring', contextWithTenant);
       // Result depends on whether tenant is in allowlist

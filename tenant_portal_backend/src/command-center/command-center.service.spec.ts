@@ -10,6 +10,7 @@ describe('CommandCenterService', () => {
       {
         id: 10,
         amount: 1200,
+        amountCents: 120000,
         description: 'June rent',
         dueDate: new Date('2026-06-01T00:00:00.000Z'),
         issuedAt: new Date('2026-05-25T00:00:00.000Z'),
@@ -48,6 +49,7 @@ describe('CommandCenterService', () => {
       {
         id: 10,
         amount: 1200,
+        amountCents: 120000,
         description: 'June rent',
         dueDate: new Date('2026-06-01T00:00:00.000Z'),
         issuedAt: new Date('2026-05-25T00:00:00.000Z'),

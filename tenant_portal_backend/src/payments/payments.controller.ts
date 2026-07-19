@@ -627,7 +627,7 @@ export class PaymentsController {
   @HttpCode(200)
   async processRentReminders(
     @Body() body: { daysBeforeDue?: number },
-    @OrgId() orgId: string,
+    @OrgId() _orgId: string,
   ) {
     const { RentReminderService } = await import('./rent-reminder.service');
     const reminderService = new RentReminderService(this.prisma);
@@ -644,7 +644,7 @@ export class PaymentsController {
   async sendRentReminder(
     @Param('id') paymentId: string,
     @Body() body: { message?: string },
-    @OrgId() orgId: string,
+    @OrgId() _orgId: string,
   ) {
     const { RentReminderService } = await import('./rent-reminder.service');
     const reminderService = new RentReminderService(this.prisma);
@@ -661,7 +661,7 @@ export class PaymentsController {
   async suppressReminder(
     @Param('id') paymentId: string,
     @Body() body: { days?: number },
-    @OrgId() orgId: string,
+    @OrgId() _orgId: string,
   ) {
     const { RentReminderService } = await import('./rent-reminder.service');
     const reminderService = new RentReminderService(this.prisma);

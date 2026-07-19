@@ -129,7 +129,7 @@ export class PropertyOsService {
     }
   }
 
-  async extractLeaseAbstraction(envelopeId: string, leaseId: string, orgId?: string, actorId?: string): Promise<any> {
+  async extractLeaseAbstraction(envelopeId: string, leaseId: string, orgId?: string, _actorId?: string): Promise<any> {
     this.logger.log(`Beginning AI Lease Abstraction for Envelope ${envelopeId}`);
     
     // Simulate LLM extraction of unstructured PDF Document into a structured schema

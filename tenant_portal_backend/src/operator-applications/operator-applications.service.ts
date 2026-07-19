@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { ApplicationDecisionReasonCode, ApplicationStatus, Role } from '@prisma/client';
+import { ApplicationDecisionReasonCode, ApplicationStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RentalApplicationService } from '../rental-application/rental-application.service';
 import {

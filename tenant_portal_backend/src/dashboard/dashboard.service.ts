@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import axios from 'axios';
+// import axios from 'axios';  // removed unused import
 import { PrismaService } from '../prisma/prisma.service';
 import { LeadApplicationStatus, MaintenancePriority, Status } from '@prisma/client';
 import { AuditLogService } from '../shared/audit-log.service';
@@ -421,7 +421,7 @@ const [
   this.prisma.user.count({
     where: {
       role: 'TENANT',
-      ...(orgId ? { Lease: { some: { unit: { property: { organizationId: orgId } } } } } : {}),
+      ...(orgId ? { lease: { some: { unit: { property: { organizationId: orgId } } } } } : {}),
     },
   }),
   this.prisma.maintenanceRequest.count({ where: orgMaintenanceWhere }),

@@ -1,9 +1,9 @@
-import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { AILeaseRenewalMetricsService } from './ai-lease-renewal-metrics.service';
 import { AIProviderService } from '../ai-provider';
-import { Lease, LeaseRenewalOffer, Payment, MaintenanceRequest, Unit, Property, Invoice } from '@prisma/client';
+import { Lease, Payment, MaintenanceRequest, Property, Invoice } from '@prisma/client';
 
 interface RenewalPrediction {
   renewalProbability: number; // 0-1
@@ -108,7 +108,7 @@ export class AILeaseRenewalService {
   async predictRenewalLikelihood(leaseId: string | number): Promise<RenewalPrediction> {
     const startTime = Date.now();
     let success = false;
-    const renewalProbability = 0;
+    const __renewalProbability = 0;
     let error: string | undefined;
 
     const leaseIdStr = this.normalizeLeaseId(leaseId);
@@ -581,7 +581,7 @@ export class AILeaseRenewalService {
       // Get rent adjustment recommendation
       const rentAdjustment = await this.getRentAdjustmentRecommendation(leaseIdStr);
 
-    const currentRent = lease.rentAmountCents != null ? lease.rentAmountCents / 100 : 0;
+    const __currentRent = lease.rentAmountCents != null ? lease.rentAmountCents / 100 : 0;
     let baseRent = rentAdjustment.recommendedRent;
     const incentives: Array<{
       type: 'RENT_DISCOUNT' | 'FREE_MONTH' | 'UPGRADE' | 'CASH_BACK';

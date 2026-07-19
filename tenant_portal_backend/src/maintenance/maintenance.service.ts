@@ -107,7 +107,7 @@ export class MaintenanceService {
         if (userLookup) {
           type UserWithLease = Prisma.UserGetPayload<{
             include: {
-              Lease: {
+              lease: {
                 include: {
                   unit: true;
                 };
@@ -118,16 +118,16 @@ export class MaintenanceService {
           const userWithLease = (await userLookup.call(this.prisma.user, {
             where: { id: userId },
             include: {
-              Lease: { include: { unit: true } },
+              lease: { include: { unit: true } },
             },
           })) as UserWithLease;
 
-          if (userWithLease?.Lease) {
+          if (userWithLease?.lease) {
             if (unitId == null) {
-              unitId = userWithLease.Lease[0].unitId;
+              unitId = userWithLease.lease[0].unitId;
             }
             if (propertyId == null) {
-              propertyId = userWithLease.Lease[0].unit.propertyId;
+              propertyId = userWithLease.lease[0].unit.propertyId;
             }
           }
         }
@@ -1563,9 +1563,9 @@ export class MaintenanceService {
   async assignVendor(
     requestId: string,
     vendorId: string,
-    notes: string | undefined,
-    actorId: string,
-    orgId: string,
+    _notes: string | undefined,
+    _actorId: string,
+    _orgId: string,
   ) {
     this.logger.log(`[STUB] Maintenance ${requestId}: Assign vendor ${vendorId}`);
     return {
@@ -1577,12 +1577,12 @@ export class MaintenanceService {
     };
   }
 
-  async notifyTenant(requestId: string, message: string, actorId: string, orgId: string) {
+  async notifyTenant(requestId: string, message: string, _actorId: string, _orgId: string) {
     this.logger.log(`[STUB] Maintenance ${requestId}: Notify tenant - ${message}`);
     return { success: true, requestId, message: 'Tenant notification sent' };
   }
 
-  async notifyOwner(requestId: string, message: string, actorId: string, orgId: string) {
+  async notifyOwner(requestId: string, message: string, _actorId: string, _orgId: string) {
     this.logger.log(`[STUB] Maintenance ${requestId}: Notify owner - ${message}`);
     return { success: true, requestId, message: 'Owner notification sent' };
   }

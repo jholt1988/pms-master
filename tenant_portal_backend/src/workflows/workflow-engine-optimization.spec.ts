@@ -4,11 +4,10 @@ import { WorkflowEngineService } from './workflow-engine.service';
 import { WorkflowMetricsService } from './workflow-metrics.service';
 import { WorkflowCacheService } from './workflow-cache.service';
 import { WorkflowRateLimiterService } from './workflow-rate-limiter.service';
-import { WorkflowErrorCode } from './workflow.errors';
 
 describe('WorkflowEngineService - Optimizations', () => {
   let service: WorkflowEngineService;
-  let prisma: PrismaService;
+  let __prisma: PrismaService;
   let cacheService: WorkflowCacheService;
   let rateLimiter: WorkflowRateLimiterService;
 
@@ -188,8 +187,8 @@ describe('WorkflowEngineService - Optimizations', () => {
 
   describe('Parallel Execution', () => {
     it('should execute independent steps in parallel', async () => {
-      const step1Start = Date.now();
-      const step2Start = Date.now();
+      const __step1Start = Date.now();
+      const __step2Start = Date.now();
 
       let step1Executed = false;
       let step2Executed = false;

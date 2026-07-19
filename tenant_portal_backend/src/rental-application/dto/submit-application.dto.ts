@@ -3,7 +3,6 @@ import {
   IsArray,
   IsBoolean,
   IsEmail,
-  IsInt,
   IsNumber,
   IsOptional,
   IsString,

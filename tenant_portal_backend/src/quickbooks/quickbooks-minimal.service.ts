@@ -66,7 +66,7 @@ export class QuickBooksMinimalService extends AbstractQuickBooksService {
       this.logger.log(`Processing QuickBooks OAuth callback for user ${userId}`);
 
       // Exchange code for tokens
-      const authResponse = await this.oauthClient.createToken(code);
+      const __authResponse = await this.oauthClient.createToken(code);
       const token = this.oauthClient.getToken();
 
       // Store connection in database
@@ -250,7 +250,7 @@ export class QuickBooksMinimalService extends AbstractQuickBooksService {
         refresh_token: connection.refreshToken,
       });
 
-      const authResponse = await this.oauthClient.refresh();
+      const __authResponse = await this.oauthClient.refresh();
       const token = this.oauthClient.getToken();
 
       const updatedConnection = await this.prisma.quickBooksConnection.update({

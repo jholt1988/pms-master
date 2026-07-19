@@ -11387,6 +11387,20 @@
         ]
       }
     },
+    "/api/dev/seed/payment-delinquent": {
+      "post": {
+        "operationId": "DevSeedController_seedDelinquentPayment",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "DevSeed"
+        ]
+      }
+    },
     "/api/analytics/decision-events": {
       "post": {
         "operationId": "AnalyticsController_trackDecisionEvent",

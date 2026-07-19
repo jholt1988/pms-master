@@ -4,7 +4,6 @@ import {
   ExecutionContext,
   CallHandler,
   Logger,
-  Inject,
 } from '@nestjs/common';
 import { Observable, throwError } from 'rxjs';
 import { catchError, tap } from 'rxjs/operators';

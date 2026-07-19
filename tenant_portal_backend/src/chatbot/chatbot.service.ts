@@ -124,7 +124,7 @@ export class ChatbotService {
       user = await this.prisma.user.findUnique({
         where: { id: userId },
         include: {
-          Lease: {
+          lease: {
             include: {
               unit: {
                 include: {
@@ -301,7 +301,7 @@ export class ChatbotService {
       (await this.prisma.user.findUnique({
         where: { id: session.userId },
         include: {
-          Lease: {
+          lease: {
             include: {
               unit: {
                 include: {
@@ -421,7 +421,7 @@ Be friendly, professional, and concise. Provide actionable information when poss
    */
   private generateSuggestedActions(
     intent?: string,
-    message?: string,
+    _message?: string,
   ): Array<{ label: string; action: string; params?: Record<string, any> }> {
     const actions: Array<{ label: string; action: string; params?: Record<string, any> }> = [];
 

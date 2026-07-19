@@ -15,11 +15,11 @@ import { AbstractQuickBooksService } from '../quickbooks/quickbooks.types';
 
 describe('WorkflowEngineService', () => {
   let service: WorkflowEngineService;
-  let prismaService: PrismaService;
-  let aiMaintenanceService: AIMaintenanceService;
-  let aiPaymentService: AIPaymentService;
-  let aiLeaseRenewalService: AILeaseRenewalService;
-  let aiNotificationService: AINotificationService;
+  let __prismaService: PrismaService;
+  let __aiMaintenanceService: AIMaintenanceService;
+  let __aiPaymentService: AIPaymentService;
+  let __aiLeaseRenewalService: AILeaseRenewalService;
+  let __aiNotificationService: AINotificationService;
 
   const mockPrismaService = {
     maintenanceRequest: {
@@ -273,7 +273,7 @@ describe('WorkflowEngineService', () => {
 
       expect(result.riskLevel).toBe('HIGH');
       expect(result.riskScore).toBe(0.8);
-      expect(mockAIPaymentService.assessPaymentRisk).toHaveBeenCalledWith('1', 1);
+      expect(mockAIPaymentService.assessPaymentRisk).toHaveBeenCalledWith('1', '1');
     });
 
     it('should return fallback if AI service not available', async () => {

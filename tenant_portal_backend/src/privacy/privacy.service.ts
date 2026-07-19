@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../shared/audit-log.service';
 
@@ -16,7 +16,7 @@ export class PrivacyService {
         ...(orgId ? { organizations: { some: { organizationId: orgId } } } : {}),
       },
       include: {
-        Lease: true,
+        lease: true,
         rentalApplications: true,
         sentMessages: {
           orderBy: { createdAt: 'desc' },
@@ -56,7 +56,7 @@ export class PrivacyService {
         lastName: user.lastName,
         role: user.role,
       },
-      Lease: user.Lease,
+      lease: user.lease,
       rentalApplications: user.rentalApplications,
       messages: user.sentMessages,
       payments: user.payments,

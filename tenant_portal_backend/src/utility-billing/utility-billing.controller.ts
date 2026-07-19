@@ -1,7 +1,6 @@
-import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Param, UseGuards } from '@nestjs/common';
 import { UtilityBillingService } from './utility-billing.service';
 import { AuthGuard } from '@nestjs/passport';
-import { OrgId } from '../common/org-context/org-id.decorator';
 
 @Controller('utility-billing')
 @UseGuards(AuthGuard('jwt'))

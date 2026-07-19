@@ -26,7 +26,7 @@ export class WorkflowsController {
   ) {}
 
   @Get()
-  async listWorkflows(@OrgId() orgId: string) {
+  async listWorkflows(@OrgId() _orgId: string) {
     return this.workflowEngine.listWorkflows();
   }
 

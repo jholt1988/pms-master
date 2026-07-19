@@ -13,7 +13,7 @@ describe('OperatorPaymentsService', () => {
             updatedAt: new Date('2026-06-04T00:00:00.000Z'),
             lease: {
               tenantId: 'tenant-1',
-              currentBalance: 1250,
+              currentBalanceCents: 1250,
               tenant: { firstName: 'Ava', lastName: 'Tenant', email: 'ava@example.com' },
               unitId: 'unit-1',
               unit: { name: '1A', propertyId: 'property-1', property: { name: 'Oak House' } },

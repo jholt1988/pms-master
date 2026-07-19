@@ -155,7 +155,7 @@ export class RentalApplicationsService {
 
   // ========== GAP REMEDIATION - Issue 5: Screening Risk Reasoning ==========
 
-  async getScreeningReasoning(applicationId: string, orgId: string) {
+  async getScreeningReasoning(applicationId: string, _orgId: string) {
     // In production, this would pull actual screening data
     // For now, return stub data showing the breakdown structure
     

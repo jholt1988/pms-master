@@ -6,7 +6,6 @@ import {
   MaintenancePriority,
   MaintenanceRequest,
   Technician,
-  Prisma,
 } from '@prisma/client';
 
 interface TechnicianMatch {

@@ -31,7 +31,7 @@ describe('BillingService recurring invoice and late fee cycles', () => {
         id: 1,
         leaseId: 'lease-1',
         description: 'Rent',
-        amount: 1200,
+        amountCents: 120000,
         nextRun: new Date('2026-05-01T09:00:00.000Z'),
         frequency: 'MONTHLY',
       },
@@ -50,21 +50,21 @@ describe('BillingService recurring invoice and late fee cycles', () => {
     prisma.invoice.findMany.mockResolvedValueOnce([
       {
         id: 10,
-        amount: 1000,
+        amountCents: 100000,
         dueDate,
         status: 'UNPAID',
         lateFees: [],
-        schedule: { lateFeeAmount: 50, lateFeeAfterDays: 5 },
+        schedule: { lateFeeAmountCents: 5000, lateFeeAfterDays: 5 },
       },
     ]);
 
     await service.applyLateFees();
 
     expect(prisma.lateFee.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ amount: 50 }) }),
+      expect.objectContaining({ data: expect.objectContaining({ amountCents: 5000 }) }),
     );
     expect(prisma.invoice.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 10 }, data: { amount: 1050 } }),
+      expect.objectContaining({ where: { id: 10 }, data: { amountCents: 105000 } }),
     );
   });
 
@@ -74,11 +74,11 @@ describe('BillingService recurring invoice and late fee cycles', () => {
     prisma.invoice.findMany.mockResolvedValueOnce([
       {
         id: 11,
-        amount: 1000,
+        amountCents: 100000,
         dueDate,
         status: 'UNPAID',
         lateFees: [{ id: 1, waived: false }],
-        schedule: { lateFeeAmount: 50, lateFeeAfterDays: 5 },
+        schedule: { lateFeeAmountCents: 5000, lateFeeAfterDays: 5 },
       },
     ]);
 

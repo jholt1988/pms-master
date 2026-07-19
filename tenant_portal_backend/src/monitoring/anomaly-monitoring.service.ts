@@ -315,7 +315,7 @@ export class AnomalyMonitoringService {
   /**
    * Handle maintenance-related critical anomalies
    */
-  private async handleMaintenanceAnomaly(anomaly: AnomalyDetectionResult, anomalyLogId: number): Promise<void> {
+  private async handleMaintenanceAnomaly(anomaly: AnomalyDetectionResult, _anomalyLogId: number): Promise<void> {
     // For maintenance spikes, we might want to:
     // - Auto-assign additional technicians
     // - Escalate to property managers

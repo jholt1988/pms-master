@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { DocumentCategory, EsignEnvelopeStatus, EsignParticipantStatus, LeaseStatus } from '@prisma/client';
+import { DocumentCategory, EsignEnvelopeStatus, LeaseStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { LeaseService } from '../lease/lease.service';
 import { EsignatureService } from '../esignature/esignature.service';

@@ -1,4 +1,4 @@
-import { IsInt, IsNotEmpty, IsString, IsUrl, Min } from 'class-validator';
+import { IsNotEmpty, IsString, IsUrl, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateStripeCheckoutSessionDto {

@@ -258,7 +258,7 @@ export class ListingSyndicationService {
     };
   }
 
-  private parseNumericId(value: string | number, field: string): string {
+  private parseNumericId(value: string | number, _field: string): string {
     return String(value);
   }
 }

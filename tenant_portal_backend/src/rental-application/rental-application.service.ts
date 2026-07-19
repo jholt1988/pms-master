@@ -4,7 +4,6 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import {
-  ApplicationDecisionReasonCode,
   ApplicationStatus,
   LeaseStatus,
   NotificationType,
@@ -963,7 +962,7 @@ export class RentalApplicationService {
     return Number.isNaN(parsed.getTime()) ? undefined : parsed;
   }
 
-  private parseNumericId(value: string | number, field: string): string {
+  private parseNumericId(value: string | number, _field: string): string {
     return String(value);
   }
 

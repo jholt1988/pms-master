@@ -5,7 +5,6 @@ import axios, { AxiosInstance } from 'axios';
 import { createHmac, randomUUID, timingSafeEqual } from 'crypto';
 import { isUUID } from 'class-validator';
 import * as docusign from 'docusign-esign';
-import * as fs from 'fs/promises';
 import * as path from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { DocumentsService } from '../documents/documents.service';
@@ -1165,7 +1164,7 @@ export class EsignatureService {
     const accessToken = await this.ensureValidToken();
     const accountId = this.configService.get<string>('ESIGN_PROVIDER_ACCOUNT_ID');
 
-    const isStrict = this.configService.get<string>('ESIGN_STRICT_MODE') === 'true';
+    const __isStrict = this.configService.get<string>('ESIGN_STRICT_MODE') === 'true';
 
     // if (!basePath || !accessToken || !accountId) {
     //   if (isStrict) {
@@ -1180,7 +1179,7 @@ export class EsignatureService {
       const dsApiClient = new docusign.ApiClient();
       dsApiClient.setBasePath(basePath);
       dsApiClient.addDefaultHeader('Authorization', `Bearer ${accessToken}`);
-      const envelopesApi = new docusign.EnvelopesApi(dsApiClient);
+      const __envelopesApi = new docusign.EnvelopesApi(dsApiClient);
 
       // Create envelope definition
       const envelopeDefinition = await this.makeDocuSignEnvelope(dto, lease);
@@ -2381,7 +2380,7 @@ export class EsignatureService {
           'ACCOUNT_NOT_FOUND': 'Account ID not found. Please verify your account ID is correct.',
         };
 
-        const userFriendlyMessage = errorCode && errorCodeMap[errorCode]
+        const __userFriendlyMessage = errorCode && errorCodeMap[errorCode]
           ? `${errorCodeMap[errorCode]} (${errorMessage})`
           : errorMessage;
 

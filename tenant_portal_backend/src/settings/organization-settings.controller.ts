@@ -232,7 +232,7 @@ export class OrganizationSettingsController {
 
   @Post('integrations/quickbooks/connect')
   @Roles('ADMIN')
-  async connectQuickBooks(@Req() req: any) {
+  async connectQuickBooks(@Req() _req: any) {
     // In production, redirect to OAuth flow
     return { authUrl: '/api/quickbooks/auth-url', message: 'Redirect to OAuth' };
   }

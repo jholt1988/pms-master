@@ -1,4 +1,3 @@
-import { Type } from 'class-transformer';
 import { IsNumber, IsOptional, IsString } from 'class-validator';
 import { PaymentMethodType, PaymentProvider } from '@prisma/client';
 import { IsEnumSafe } from '../../common/validation/is-enum-safe.decorator';

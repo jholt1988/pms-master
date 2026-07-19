@@ -279,7 +279,19 @@ async function main() {
   console.info('   - TENANT: mike_tenant / password123');
   console.info('   - PROPERTY_MANAGER: admin_pm / password123');
 
-  // 6. Create Leases
+  // 6. Create Tenant records for each tenant user
+  console.info('👥 Creating tenant records...');
+  async function ensureTenant(userId: string, fullName: string, email: string, phone: string) {
+    const existing = await prisma.tenant.findFirst({ where: { email } });
+    if (existing) return existing;
+    return prisma.tenant.create({ data: { id: userId, fullName, email, phone } });
+  }
+
+  const tenant1Record = await ensureTenant(tenant1.id, 'John Tenant', 'john_tenant@example.com', '+1-555-0100');
+  const tenant2Record = await ensureTenant(tenant2.id, 'Sarah Tenant', 'sarah_tenant@example.com', '+1-555-0200');
+  const tenant3Record = await ensureTenant(tenant3.id, 'Mike Tenant', 'mike_tenant@example.com', '+1-555-0300');
+
+  // 7. Create Leases
   console.info('📄 Creating leases...');
   if (allUnits.length >= 3) {
     const today = new Date();
@@ -289,67 +301,57 @@ async function main() {
     const sixMonthsAgo = new Date(today);
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
+    async function ensureLease(data: { tenantId: string; unitId: string; startDate: Date; endDate: Date; moveInAt: Date; rentAmountCents: number; depositAmountCents: number; status: LeaseStatus; noticePeriodDays: number; autoRenew: boolean; autoRenewLeadDays: number }) {
+      const existing = await prisma.lease.findFirst({
+        where: { tenantId: data.tenantId, status: LeaseStatus.ACTIVE },
+      });
+      if (existing) return existing;
+      return prisma.lease.create({ data });
+    }
+
     // Active lease for tenant1
-    await prisma.lease.upsert({
-      where: { tenantId: tenant1.id },
-      update: {},
-      create: {
-        tenantId: tenant1.id,
-        unitId: allUnits[0].id,
-        startDate: sixMonthsAgo,
-        endDate: oneYearFromNow,
-        moveInAt: sixMonthsAgo,
-        rentAmount: 1800,
-        rentAmountCents: 180000,
-        depositAmount: 1800,
-        depositAmountCents: 180000,
-        status: LeaseStatus.ACTIVE,
-        noticePeriodDays: 30,
-        autoRenew: true,
-        autoRenewLeadDays: 60,
-      },
+    await ensureLease({
+      tenantId: tenant1Record.id,
+      unitId: allUnits[0].id,
+      startDate: sixMonthsAgo,
+      endDate: oneYearFromNow,
+      moveInAt: sixMonthsAgo,
+      rentAmountCents: 180000,
+      depositAmountCents: 180000,
+      status: LeaseStatus.ACTIVE,
+      noticePeriodDays: 30,
+      autoRenew: true,
+      autoRenewLeadDays: 60,
     });
 
     // Active lease for tenant2
-    await prisma.lease.upsert({
-      where: { tenantId: tenant2.id },
-      update: {},
-      create: {
-        tenantId: tenant2.id,
-        unitId: allUnits[1].id,
-        startDate: sixMonthsAgo,
-        endDate: oneYearFromNow,
-        moveInAt: sixMonthsAgo,
-        rentAmount: 2100,
-        rentAmountCents: 210000,
-        depositAmount: 2100,
-        depositAmountCents: 210000,
-        status: LeaseStatus.ACTIVE,
-        noticePeriodDays: 30,
-        autoRenew: false,
-        autoRenewLeadDays: 60,
-      },
+    await ensureLease({
+      tenantId: tenant2Record.id,
+      unitId: allUnits[1].id,
+      startDate: sixMonthsAgo,
+      endDate: oneYearFromNow,
+      moveInAt: sixMonthsAgo,
+      rentAmountCents: 210000,
+      depositAmountCents: 210000,
+      status: LeaseStatus.ACTIVE,
+      noticePeriodDays: 30,
+      autoRenew: false,
+      autoRenewLeadDays: 60,
     });
 
     // Active lease for tenant3
-    await prisma.lease.upsert({
-      where: { tenantId: tenant3.id },
-      update: {},
-      create: {
-        tenantId: tenant3.id,
-        unitId: allUnits[2].id,
-        startDate: sixMonthsAgo,
-        endDate: oneYearFromNow,
-        moveInAt: sixMonthsAgo,
-        rentAmount: 1950,
-        rentAmountCents: 195000,
-        depositAmount: 1950,
-        depositAmountCents: 195000,
-        status: LeaseStatus.ACTIVE,
-        noticePeriodDays: 30,
-        autoRenew: true,
-        autoRenewLeadDays: 60,
-      },
+    await ensureLease({
+      tenantId: tenant3Record.id,
+      unitId: allUnits[2].id,
+      startDate: sixMonthsAgo,
+      endDate: oneYearFromNow,
+      moveInAt: sixMonthsAgo,
+      rentAmountCents: 195000,
+      depositAmountCents: 195000,
+      status: LeaseStatus.ACTIVE,
+      noticePeriodDays: 30,
+      autoRenew: true,
+      autoRenewLeadDays: 60,
     });
   }
 
@@ -357,85 +359,83 @@ async function main() {
   console.info('🔨 Creating maintenance requests...');
   const maintenanceRequests = [];
 
+  async function ensureMaintenanceRequest(data: { authorId: string; unitId?: string; title: string; description: string; priority: MaintenancePriority; status: Status; assigneeId?: string; leaseId?: string; completedAt?: Date }) {
+    const existing = await prisma.maintenanceRequest.findFirst({
+      where: { authorId: data.authorId, title: data.title },
+    });
+    if (existing) return existing;
+    return prisma.maintenanceRequest.create({ data });
+  }
+
   // Open request for tenant1
-  const lease1 = await prisma.lease.findUnique({ where: { tenantId: tenant1.id } });
+  const lease1 = await prisma.lease.findFirst({ where: { tenantId: tenant1Record.id, status: LeaseStatus.ACTIVE } });
   maintenanceRequests.push(
-    await prisma.maintenanceRequest.create({
-      data: {
-        authorId: tenant1.id,
-        unitId: allUnits[0]?.id,
-        title: 'Leaking Faucet in Kitchen',
-        description: 'The kitchen faucet has been dripping constantly for the past two days.',
-        priority: MaintenancePriority.MEDIUM,
-        status: Status.PENDING,
-        leaseId: lease1?.id,
-      },
+    await ensureMaintenanceRequest({
+      authorId: tenant1.id,
+      unitId: allUnits[0]?.id,
+      title: 'Leaking Faucet in Kitchen',
+      description: 'The kitchen faucet has been dripping constantly for the past two days.',
+      priority: MaintenancePriority.MEDIUM,
+      status: Status.PENDING,
+      leaseId: lease1?.id,
     })
   );
 
   // In Progress request for tenant1
   maintenanceRequests.push(
-    await prisma.maintenanceRequest.create({
-      data: {
-        authorId: tenant1.id,
-        unitId: allUnits[0]?.id,
-        title: 'HVAC Not Heating Properly',
-        description: 'The heating system is not reaching the set temperature. Currently only getting to 65°F.',
-        priority: MaintenancePriority.HIGH,
-        status: Status.IN_PROGRESS,
-        assigneeId: technicians[1].id,
-        leaseId: lease1?.id,
-      },
+    await ensureMaintenanceRequest({
+      authorId: tenant1.id,
+      unitId: allUnits[0]?.id,
+      title: 'HVAC Not Heating Properly',
+      description: 'The heating system is not reaching the set temperature. Currently only getting to 65°F.',
+      priority: MaintenancePriority.HIGH,
+      status: Status.IN_PROGRESS,
+      assigneeId: technicians[1].id,
+      leaseId: lease1?.id,
     })
   );
 
   // Completed request for tenant1
   maintenanceRequests.push(
-    await prisma.maintenanceRequest.create({
-      data: {
-        authorId: tenant1.id,
-        unitId: allUnits[0]?.id,
-        title: 'Light Bulb Replacement',
-        description: 'Light bulb in hallway needs replacement.',
-        priority: MaintenancePriority.LOW,
-        status: Status.COMPLETED,
-        assigneeId: technicians[0].id,
-        completedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-        leaseId: lease1?.id,
-      },
+    await ensureMaintenanceRequest({
+      authorId: tenant1.id,
+      unitId: allUnits[0]?.id,
+      title: 'Light Bulb Replacement',
+      description: 'Light bulb in hallway needs replacement.',
+      priority: MaintenancePriority.LOW,
+      status: Status.COMPLETED,
+      assigneeId: technicians[0].id,
+      completedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+      leaseId: lease1?.id,
     })
   );
 
   // Emergency request for tenant2
-  const lease2 = await prisma.lease.findUnique({ where: { tenantId: tenant2.id } });
+  const lease2 = await prisma.lease.findFirst({ where: { tenantId: tenant2Record.id, status: LeaseStatus.ACTIVE } });
   maintenanceRequests.push(
-    await prisma.maintenanceRequest.create({
-      data: {
-        authorId: tenant2.id,
-        unitId: allUnits[1]?.id,
-        title: 'Water Leak from Ceiling',
-        description: 'Emergency! Water is leaking from the ceiling in the bathroom.',
-        priority: MaintenancePriority.EMERGENCY,
-        status: Status.IN_PROGRESS,
-        assigneeId: technicians[2].id,
-        leaseId: lease2?.id,
-      },
+    await ensureMaintenanceRequest({
+      authorId: tenant2.id,
+      unitId: allUnits[1]?.id,
+      title: 'Water Leak from Ceiling',
+      description: 'Emergency! Water is leaking from the ceiling in the bathroom.',
+      priority: MaintenancePriority.EMERGENCY,
+      status: Status.IN_PROGRESS,
+      assigneeId: technicians[2].id,
+      leaseId: lease2?.id,
     })
   );
 
   // Open request for tenant3
-  const lease3 = await prisma.lease.findUnique({ where: { tenantId: tenant3.id } });
+  const lease3 = await prisma.lease.findFirst({ where: { tenantId: tenant3Record.id, status: LeaseStatus.ACTIVE } });
   maintenanceRequests.push(
-    await prisma.maintenanceRequest.create({
-      data: {
-        authorId: tenant3.id,
-        unitId: allUnits[2]?.id,
-        title: 'Broken Window Lock',
-        description: 'The lock on the bedroom window is broken and won\'t close properly.',
-        priority: MaintenancePriority.MEDIUM,
-        status: Status.PENDING,
-        leaseId: lease3?.id,
-      },
+    await ensureMaintenanceRequest({
+      authorId: tenant3.id,
+      unitId: allUnits[2]?.id,
+      title: 'Broken Window Lock',
+      description: 'The lock on the bedroom window is broken and won\'t close properly.',
+      priority: MaintenancePriority.MEDIUM,
+      status: Status.PENDING,
+      leaseId: lease3?.id,
     })
   );
 
@@ -447,151 +447,111 @@ async function main() {
   const twoMonthsAgo = new Date(currentMonth);
   twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
 
+  async function ensurePayment(data: { userId: string; amountCents: number; paymentDate: Date; status: string }) {
+    const existing = await prisma.payment.findFirst({
+      where: { userId: data.userId, amountCents: data.amountCents, paymentDate: data.paymentDate, status: data.status },
+    });
+    if (existing) return existing;
+    return prisma.payment.create({ data });
+  }
+
   // Tenant 1 payments (no paymentMethod for now - can be added later)
-  await prisma.payment.create({
-    data: {
-      userId: tenant1.id,
-      amount: 1800,
-      amountCents: 180000,
-      paymentDate: twoMonthsAgo,
-      status: 'COMPLETED',
-    },
-  });
-
-  await prisma.payment.create({
-    data: {
-      userId: tenant1.id,
-      amount: 1800,
-      amountCents: 180000,
-      paymentDate: lastMonth,
-      status: 'COMPLETED',
-    },
-  });
-
-  await prisma.payment.create({
-    data: {
-      userId: tenant1.id,
-      amount: 1800,
-      amountCents: 180000,
-      paymentDate: currentMonth,
-      status: 'PENDING',
-    },
-  });
+  await ensurePayment({ userId: tenant1.id, amountCents: 180000, paymentDate: twoMonthsAgo, status: 'COMPLETED' });
+  await ensurePayment({ userId: tenant1.id, amountCents: 180000, paymentDate: lastMonth, status: 'COMPLETED' });
+  await ensurePayment({ userId: tenant1.id, amountCents: 180000, paymentDate: currentMonth, status: 'PENDING' });
 
   // Tenant 2 payments
-  await prisma.payment.create({
-    data: {
-      userId: tenant2.id,
-      amount: 2100,
-      amountCents: 210000,
-      paymentDate: twoMonthsAgo,
-      status: 'COMPLETED',
-    },
-  });
-
-  await prisma.payment.create({
-    data: {
-      userId: tenant2.id,
-      amount: 2100,
-      amountCents: 210000,
-      paymentDate: lastMonth,
-      status: 'COMPLETED',
-    },
-  });
-
-  await prisma.payment.create({
-    data: {
-      userId: tenant2.id,
-      amount: 2100,
-      amountCents: 210000,
-      paymentDate: currentMonth,
-      status: 'PENDING',
-    },
-  });
+  await ensurePayment({ userId: tenant2.id, amountCents: 210000, paymentDate: twoMonthsAgo, status: 'COMPLETED' });
+  await ensurePayment({ userId: tenant2.id, amountCents: 210000, paymentDate: lastMonth, status: 'COMPLETED' });
+  await ensurePayment({ userId: tenant2.id, amountCents: 210000, paymentDate: currentMonth, status: 'PENDING' });
 
   // 9. Create Rental Applications
   console.info('📝 Creating rental applications...');
   if (allUnits.length >= 5) {
-    await prisma.rentalApplication.create({
-      data: {
-        fullName: 'Emily Johnson',
-        email: 'emily.johnson@example.com',
-        phoneNumber: '+1-555-0300',
-        previousAddress: '123 Oak Street, Springfield',
-        income: 5000,
-        employmentStatus: 'Employed Full-Time',
-        propertyId: property.id,
-        unitId: allUnits[3].id,
-        status: ApplicationStatus.PENDING,
-      },
+    async function ensureRentalApplication(data: { fullName: string; email: string; phoneNumber: string; previousAddress: string; income: number; employmentStatus: string; propertyId: string; unitId: string; status: ApplicationStatus; screenedById?: string }) {
+      const existing = await prisma.rentalApplication.findFirst({
+        where: { email: data.email },
+      });
+      if (existing) return existing;
+      return prisma.rentalApplication.create({ data });
+    }
+
+    await ensureRentalApplication({
+      fullName: 'Emily Johnson',
+      email: 'emily.johnson@example.com',
+      phoneNumber: '+1-555-0300',
+      previousAddress: '123 Oak Street, Springfield',
+      income: 5000,
+      employmentStatus: 'Employed Full-Time',
+      propertyId: property.id,
+      unitId: allUnits[3].id,
+      status: ApplicationStatus.PENDING,
     });
 
-    await prisma.rentalApplication.create({
-      data: {
-        fullName: 'David Chen',
-        email: 'david.chen@example.com',
-        phoneNumber: '+1-555-0600',
-        previousAddress: '789 Pine Road, Springfield',
-        income: 6500,
-        employmentStatus: 'Employed Full-Time',
-        propertyId: property.id,
-        unitId: allUnits[4].id,
-        status: ApplicationStatus.PENDING,
-      },
+    await ensureRentalApplication({
+      fullName: 'David Chen',
+      email: 'david.chen@example.com',
+      phoneNumber: '+1-555-0600',
+      previousAddress: '789 Pine Road, Springfield',
+      income: 6500,
+      employmentStatus: 'Employed Full-Time',
+      propertyId: property.id,
+      unitId: allUnits[4].id,
+      status: ApplicationStatus.PENDING,
     });
 
-    await prisma.rentalApplication.create({
-      data: {
-        fullName: 'Lisa Martinez',
-        email: 'lisa.martinez@example.com',
-        phoneNumber: '+1-555-0900',
-        previousAddress: '555 Cedar Lane, Springfield',
-        income: 4500,
-        employmentStatus: 'Employed Part-Time',
-        propertyId: property.id,
-        unitId: allUnits[0].id,
-        status: ApplicationStatus.PENDING,
-        screenedById: propertyManager.id,
-      },
+    await ensureRentalApplication({
+      fullName: 'Lisa Martinez',
+      email: 'lisa.martinez@example.com',
+      phoneNumber: '+1-555-0900',
+      previousAddress: '555 Cedar Lane, Springfield',
+      income: 4500,
+      employmentStatus: 'Employed Part-Time',
+      propertyId: property.id,
+      unitId: allUnits[0].id,
+      status: ApplicationStatus.PENDING,
+      screenedById: propertyManager.id,
     });
   }
 
     // 10. Create Expenses (for Property Manager)
   console.info('📊 Creating expense records...');
-  await prisma.expense.create({
-    data: {
-      description: 'HVAC System Maintenance',
-      amount: 850,
-      amountCents: 85000,
-      date: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
-      category: ExpenseCategory.MAINTENANCE,
-      propertyId: property.id,
-      recordedById: propertyManager.id,
-    },
+  async function ensureExpense(data: { description: string; amountCents: number; date: Date; category: ExpenseCategory; propertyId: string; recordedById: string }) {
+    const existing = await prisma.expense.findFirst({
+      where: { description: data.description, amountCents: data.amountCents, propertyId: data.propertyId },
+    });
+    if (existing) return existing;
+    return prisma.expense.create({ data });
+  }
+
+  await ensureExpense({
+    description: 'HVAC System Maintenance',
+    
+    amountCents: 85000,
+    date: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
+    category: ExpenseCategory.MAINTENANCE,
+    propertyId: property.id,
+    recordedById: propertyManager.id,
   });
 
-  await prisma.expense.create({
-    data: {
-      description: 'Landscaping Services',
-      amount: 300,
-      amountCents: 30000,
-      date: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
-      category: ExpenseCategory.OTHER,
-      propertyId: property.id,
-      recordedById: propertyManager.id,
-    },
+  await ensureExpense({
+    description: 'Landscaping Services',
+    
+    amountCents: 30000,
+    date: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+    category: ExpenseCategory.OTHER,
+    propertyId: property.id,
+    recordedById: propertyManager.id,
   });
 
-  await prisma.expense.create({
-    data: {
-      description: 'Property Insurance',
-      amount: 1200,
-      amountCents: 120000,
-      date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-      category: ExpenseCategory.INSURANCE,
-      propertyId: property.id,
-      recordedById: propertyManager.id,
-    },
+  await ensureExpense({
+    description: 'Property Insurance',
+    
+    amountCents: 120000,
+    date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+    category: ExpenseCategory.INSURANCE,
+    propertyId: property.id,
+    recordedById: propertyManager.id,
   });
 
   console.info('\n✅ Comprehensive seed data created!');

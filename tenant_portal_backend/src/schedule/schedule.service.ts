@@ -82,7 +82,7 @@ export class ScheduleService {
 
   async getSummary(orgId?: string) {
     const now = new Date();
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const __endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     const scope = orgId ? { property: { organizationId: orgId } } : undefined;
 
     const [totalEvents, tours, urgentEvents, highPriorityEvents, mediumPriorityEvents] = await Promise.all([
@@ -239,7 +239,7 @@ export class ScheduleService {
     }));
   }
 
-  private parseNumericId(value: string | number, field: string): string {
+  private parseNumericId(value: string | number, _field: string): string {
     return String(value);
   }
 }

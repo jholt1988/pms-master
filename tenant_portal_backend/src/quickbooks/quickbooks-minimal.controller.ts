@@ -12,7 +12,6 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { Inject } from '@nestjs/common';
-import { QuickBooksMinimalService } from './quickbooks-minimal.service';
 import { AbstractQuickBooksService } from './quickbooks.types';
 import { AccountingAnomalyService } from './accounting-anomaly.service';
 

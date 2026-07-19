@@ -3,7 +3,6 @@ import { BadRequestException } from '@nestjs/common';
 import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
 import { Role } from '@prisma/client';
-import { testData } from '../../test/factories';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService } from '../shared/audit-log.service';
 
