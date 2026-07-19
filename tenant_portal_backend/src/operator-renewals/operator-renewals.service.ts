@@ -228,7 +228,7 @@ export class OperatorRenewalsService {
       leaseId: lease.id,
       leaseStatus: lease.status,
       tenantId: lease.tenantId,
-      tenantName: (lease.tenant.fullName || lease.tenant.email) ?? 'Tenant',
+      tenantName: [lease.tenant?.firstName, lease.tenant?.lastName].filter(Boolean).join(' ') || lease.tenant?.email || 'Tenant',
       tenantEmail: lease.tenant?.email ?? null,
       propertyId: lease.unit?.property?.id ?? null,
       propertyName: lease.unit?.property?.name ?? null,

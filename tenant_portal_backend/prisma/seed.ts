@@ -279,19 +279,7 @@ async function main() {
   console.info('   - TENANT: mike_tenant / password123');
   console.info('   - PROPERTY_MANAGER: admin_pm / password123');
 
-  // 6. Create Tenant records for each tenant user
-  console.info('👥 Creating tenant records...');
-  async function ensureTenant(userId: string, fullName: string, email: string, phone: string) {
-    const existing = await prisma.tenant.findFirst({ where: { email } });
-    if (existing) return existing;
-    return prisma.tenant.create({ data: { id: userId, fullName, email, phone } });
-  }
-
-  const tenant1Record = await ensureTenant(tenant1.id, 'John Tenant', 'john_tenant@example.com', '+1-555-0100');
-  const tenant2Record = await ensureTenant(tenant2.id, 'Sarah Tenant', 'sarah_tenant@example.com', '+1-555-0200');
-  const tenant3Record = await ensureTenant(tenant3.id, 'Mike Tenant', 'mike_tenant@example.com', '+1-555-0300');
-
-  // 7. Create Leases
+  // 6. Create Leases (tenantId now references User directly — Tenant model removed)
   console.info('📄 Creating leases...');
   if (allUnits.length >= 3) {
     const today = new Date();
@@ -311,7 +299,7 @@ async function main() {
 
     // Active lease for tenant1
     await ensureLease({
-      tenantId: tenant1Record.id,
+      tenantId: tenant1.id,
       unitId: allUnits[0].id,
       startDate: sixMonthsAgo,
       endDate: oneYearFromNow,
@@ -326,7 +314,7 @@ async function main() {
 
     // Active lease for tenant2
     await ensureLease({
-      tenantId: tenant2Record.id,
+      tenantId: tenant2.id,
       unitId: allUnits[1].id,
       startDate: sixMonthsAgo,
       endDate: oneYearFromNow,
@@ -341,7 +329,7 @@ async function main() {
 
     // Active lease for tenant3
     await ensureLease({
-      tenantId: tenant3Record.id,
+      tenantId: tenant3.id,
       unitId: allUnits[2].id,
       startDate: sixMonthsAgo,
       endDate: oneYearFromNow,
@@ -368,7 +356,7 @@ async function main() {
   }
 
   // Open request for tenant1
-  const lease1 = await prisma.lease.findFirst({ where: { tenantId: tenant1Record.id, status: LeaseStatus.ACTIVE } });
+  const lease1 = await prisma.lease.findFirst({ where: { tenantId: tenant1.id, status: LeaseStatus.ACTIVE } });
   maintenanceRequests.push(
     await ensureMaintenanceRequest({
       authorId: tenant1.id,
@@ -411,7 +399,7 @@ async function main() {
   );
 
   // Emergency request for tenant2
-  const lease2 = await prisma.lease.findFirst({ where: { tenantId: tenant2Record.id, status: LeaseStatus.ACTIVE } });
+  const lease2 = await prisma.lease.findFirst({ where: { tenantId: tenant2.id, status: LeaseStatus.ACTIVE } });
   maintenanceRequests.push(
     await ensureMaintenanceRequest({
       authorId: tenant2.id,
@@ -426,7 +414,7 @@ async function main() {
   );
 
   // Open request for tenant3
-  const lease3 = await prisma.lease.findFirst({ where: { tenantId: tenant3Record.id, status: LeaseStatus.ACTIVE } });
+  const lease3 = await prisma.lease.findFirst({ where: { tenantId: tenant3.id, status: LeaseStatus.ACTIVE } });
   maintenanceRequests.push(
     await ensureMaintenanceRequest({
       authorId: tenant3.id,

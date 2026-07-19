@@ -63,6 +63,7 @@ model User {
   journalEntriesPosted            JournalEntry[]              @relation("JournalEntryPostedBy")
   leadApplicationReviews          LeadApplication[]           @relation("LeadApplicationReviewers")
   lease                           Lease[]
+  leaseAsTenant                   Lease[]                    @relation("LeaseTenant")
   LeaseDocument                   LeaseDocument[]
   LeaseHistory                    LeaseHistory[]
   LeaseNotice                     LeaseNotice[]
@@ -519,7 +520,7 @@ model Lease {
   esignEnvelopes            EsignEnvelope[]
   inspectionRequests        InspectionRequest[]
   invoices                  Invoice[]
-  tenant                    Tenant                    @relation(fields: [tenantId], references: [id])
+  tenant                    User                      @relation("LeaseTenant", fields: [tenantId], references: [id])
   unit                      Unit                      @relation(fields: [unitId], references: [id])
   User                      User?                     @relation(fields: [userId], references: [id])
   leaseAbstractions         LeaseAbstraction[]
@@ -2879,6 +2880,9 @@ model TenantProfile {
   moveInDate         DateTime?
   moveOutDate        DateTime?
   notes              String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  tenantNotes        String?
   createdAt          DateTime                   @default(now())
   updatedAt          DateTime                   @updatedAt
   householdMembers   HouseholdMember[]
@@ -2994,18 +2998,9 @@ model Decision {
   @@index([domain, type, resolved])
 }
 
-model Tenant {
-  id                    String   @id @default(uuid()) @db.Uuid
-  fullName              String
-  email                 String   @unique
-  phone                 String
-  emergencyContactName  String?
-  emergencyContactPhone String?
-  notes                 String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  lease                 Lease[]
-}
+// Tenant model removed — merged into User + TenantProfile
+// Lease.tenantId now references User.id directly
+// emergencyContactName/Phone and tenantNotes moved to TenantProfile
 
 model VendorAssignment {
   id                   String    @id @db.Uuid
