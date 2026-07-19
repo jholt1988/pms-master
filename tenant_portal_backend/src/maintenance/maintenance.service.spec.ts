@@ -10,10 +10,10 @@ import { AssignTechnicianDto } from './dto/assign-technician.dto';
 
 describe('MaintenanceService - Metrics Integration', () => {
   let service: MaintenanceService;
-  let __aiMaintenanceService: AIMaintenanceService;
-  let __systemUserService: SystemUserService;
-  let __aiMetrics: AIMaintenanceMetricsService;
-  let __prismaService: PrismaService;
+  let aiMaintenanceService: AIMaintenanceService;
+  let systemUserService: SystemUserService;
+  let aiMetrics: AIMaintenanceMetricsService;
+  let prismaService: PrismaService;
 
   const mockPrismaService = {
     maintenanceRequest: {

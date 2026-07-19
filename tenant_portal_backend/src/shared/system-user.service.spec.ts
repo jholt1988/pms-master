@@ -10,7 +10,7 @@ const mockedBcrypt = bcrypt as jest.Mocked<typeof bcrypt>;
 
 describe('SystemUserService', () => {
   let service: SystemUserService;
-  let __prismaService: PrismaService;
+  let prismaService: PrismaService;
 
   const mockPrismaService = {
     user: {

@@ -5,8 +5,8 @@ import { ConfigService } from '@nestjs/config';
 
 describe('AIAnomalyDetectorService', () => {
   let service: AIAnomalyDetectorService;
-  let __prismaService: PrismaService;
-  let __configService: ConfigService;
+  let prismaService: PrismaService;
+  let configService: ConfigService;
 
   const mockPrismaService = {
     payment: {

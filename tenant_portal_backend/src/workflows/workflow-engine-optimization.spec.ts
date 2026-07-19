@@ -7,7 +7,7 @@ import { WorkflowRateLimiterService } from './workflow-rate-limiter.service';
 
 describe('WorkflowEngineService - Optimizations', () => {
   let service: WorkflowEngineService;
-  let __prisma: PrismaService;
+  let prisma: PrismaService;
   let cacheService: WorkflowCacheService;
   let rateLimiter: WorkflowRateLimiterService;
 
@@ -187,8 +187,8 @@ describe('WorkflowEngineService - Optimizations', () => {
 
   describe('Parallel Execution', () => {
     it('should execute independent steps in parallel', async () => {
-      const __step1Start = Date.now();
-      const __step2Start = Date.now();
+      const _step1Start = Date.now();
+      const _step2Start = Date.now();
 
       let step1Executed = false;
       let step2Executed = false;

@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 
 describe('PushService', () => {
   let service: PushService;
-  let __configService: ConfigService;
+  let configService: ConfigService;
 
   const mockConfigService = {
     get: jest.fn(),
