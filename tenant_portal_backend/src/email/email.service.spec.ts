@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 
 describe('EmailService', () => {
   let service: EmailService;
-  let configService: ConfigService;
+  let __configService: ConfigService;
 
   // Mock ConfigService
   const mockConfigService = {

@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationPreferencesService } from './notification-preferences.service';
 import { AIProviderService } from '../ai-provider';
-import { NotificationType, User } from '@prisma/client';
+import { NotificationType } from '@prisma/client';
 
 interface OptimalNotificationTiming {
   sendAt: Date;

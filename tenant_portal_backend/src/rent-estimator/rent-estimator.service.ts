@@ -1,5 +1,5 @@
 
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -53,7 +53,7 @@ export class RentEstimatorService {
     return { estimatedRent, details };
   }
 
-  private parseNumericId(value: string | number, field: string): string {
+  private parseNumericId(value: string | number, _field: string): string {
     return String(value);
   }
 }

@@ -1,6 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsBoolean, IsInt, IsISO8601, IsNumber, IsOptional, IsPositive, IsUUID, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsISO8601, IsNumber, IsOptional, IsPositive, IsUUID, Min } from 'class-validator';
 import { LeaseStatus } from '@prisma/client';
 import { IsEnumSafe } from '../../common/validation/is-enum-safe.decorator';
 

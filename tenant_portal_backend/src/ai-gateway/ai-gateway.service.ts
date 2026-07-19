@@ -200,9 +200,9 @@ export class AiGatewayService {
 
     // Phase 2B: record AI usage metrics
     const usage = (generated as any).usage;
-    const promptTokens = usage?.prompt_tokens ?? 0;
-    const completionTokens = usage?.completion_tokens ?? 0;
-    const totalTokens = usage?.total_tokens ?? 0;
+    const __promptTokens = usage?.prompt_tokens ?? 0;
+    const __completionTokens = usage?.completion_tokens ?? 0;
+    const __totalTokens = usage?.total_tokens ?? 0;
     let decisionRecordId: string | null = null;
     if (input.task === 'DECISION_RECOMMENDATION' && input.entity) {
       const record = await this.decisions.create({

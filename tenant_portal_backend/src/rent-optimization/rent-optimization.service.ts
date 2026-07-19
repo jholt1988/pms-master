@@ -1,6 +1,5 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { toCents } from '../utils/money';
 import { RentRecommendationStatus } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import axios from 'axios';
@@ -405,7 +404,7 @@ export class RentOptimizationService {
   /**
    * Call Python ML microservice for dynamic pricing optimization (Airline style)
    */
-  async predictDynamicPricing(unit: any, orgId?: string): Promise<any> {
+  async predictDynamicPricing(unit: any, _orgId?: string): Promise<any> {
     try {
       // Calculate occupancy rate for property
       const totalUnits = await this.prisma.unit.count({
@@ -458,7 +457,7 @@ export class RentOptimizationService {
   /**
    * Call Python ML microservice for churn prediction
    */
-  async predictResidentChurn(unit: any, orgId?: string): Promise<any> {
+  async predictResidentChurn(unit: any, _orgId?: string): Promise<any> {
     try {
       const leaseEndDate = unit.lease?.endDate ? new Date(unit.lease.endDate).getTime() : Date.now();
       const daysToLeaseEnd = Math.max(0, Math.floor((leaseEndDate - Date.now()) / (1000 * 60 * 60 * 24)));
@@ -1225,7 +1224,7 @@ export class RentOptimizationService {
     };
   }
 
-  private parseNumericId(value: string | number, field: string): string {
+  private parseNumericId(value: string | number, _field: string): string {
     return String(value);
   }
 }

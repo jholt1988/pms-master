@@ -138,7 +138,7 @@ services:
       SHADOW_DATABASE_URL: ${SHADOW_DATABASE_URL:-postgresql://pms:pms@postgres:5432/pms_shadow?schema=public}
       DIRECT_URL: ${DIRECT_URL:-}
     user: root
-    command: ["npx", "prisma","generate", "&&", "npx", "prisma", "migrate", "deploy", "--schema=./prisma/schema.prisma"]
+    command: sh -c "npx prisma generate && npx prisma migrate deploy --schema=./prisma/schema.prisma"
     restart: "no"
     networks:
       - pms-internal
@@ -220,6 +220,9 @@ services:
   #     - pms-internal
 
   keyring-os:
+    build:
+      context: ../keyring-os
+      dockerfile: apps/admin/Dockerfile
     image: jholt1988/keyring_os:1.0
     container_name: pms-keyring-os
     restart: unless-stopped

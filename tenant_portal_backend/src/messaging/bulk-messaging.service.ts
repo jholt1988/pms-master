@@ -400,7 +400,7 @@ export class BulkMessagingService {
       if (filters.leaseStatuses?.length) {
         leaseFilter.status = { in: filters.leaseStatuses };
       }
-      andConditions.push({ lease: {  ...leaseFilter } });
+      andConditions.push({ lease: { some: {  ...leaseFilter } } });
     }
 
     if (andConditions.length) {

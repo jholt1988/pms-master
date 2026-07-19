@@ -201,7 +201,7 @@ export class CapexForecastingService {
     return 'LOW';
   }
 
-  private estimateReplacementCost(category: string, property: any): number {
+  private estimateReplacementCost(category: string, _property: any): number {
     const baseCosts: Record<string, number> = {
       ROOF: 1500000,
       HVAC: 800000,

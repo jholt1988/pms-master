@@ -37,10 +37,10 @@ export class InspectionsService {
   }
 
   async create(data: CreateInspectionDto, userId: string, orgId?: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId }, include: { Lease: true } });
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, include: { lease: true } });
     
     if (user?.role === Role.TENANT) {
-      if (user.Lease?.[0]?.unitId !== data.unitId) {
+      if (user.lease?.[0]?.unitId !== data.unitId) {
         throw new ForbiddenException('Tenants can only schedule inspections for their assigned unit');
       }
     } else if (user?.role !== Role.PROPERTY_MANAGER && user?.role !== Role.ADMIN && user?.role !== Role.OWNER) {
@@ -240,7 +240,7 @@ export class InspectionsService {
   }
 
   async update(id: number, data: UpdateInspectionDto, userId: string, orgId?: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId }, include: { Lease: true } });
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, include: { lease: true } });
 
     const inspection = await this.prisma.unitInspection.findFirst({
       where: { id, ...(orgId ? { property: { organizationId: orgId } } : {}) },
@@ -251,7 +251,7 @@ export class InspectionsService {
     }
 
     if (user?.role === Role.TENANT) {
-      if (user.Lease?.[0]?.unitId !== inspection.unitId) {
+      if (user.lease?.[0]?.unitId !== inspection.unitId) {
         throw new ForbiddenException('Tenants can only update inspections for their assigned unit');
       }
     } else if (user?.role !== Role.PROPERTY_MANAGER && user?.role !== Role.ADMIN && user?.role !== Role.OWNER) {
@@ -282,7 +282,7 @@ export class InspectionsService {
   }
 
   async complete(id: number, data: CompleteInspectionDto, userId: string, orgId?: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId }, include: { Lease: true } });
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, include: { lease: true } });
 
     const inspection = await this.prisma.unitInspection.findFirst({
       where: { id, ...(orgId ? { property: { organizationId: orgId } } : {}) },
@@ -293,7 +293,7 @@ export class InspectionsService {
     }
 
     if (user?.role === Role.TENANT) {
-      if (user.Lease?.[0]?.unitId !== inspection.unitId) {
+      if (user.lease?.[0]?.unitId !== inspection.unitId) {
         throw new ForbiddenException('Tenants can only complete inspections for their assigned unit');
       }
     } else if (user?.role !== Role.PROPERTY_MANAGER && user?.role !== Role.ADMIN && user?.role !== Role.OWNER) {
@@ -394,7 +394,7 @@ export class InspectionsService {
   /**
    * Automated Estimating Engine: Digessts findings and translates to estimated labor & materials.
    */
-  async generateEstimateFromInspection(inspectionId: number, generatedById: string, orgId?: string) {
+  async generateEstimateFromInspection(inspectionId: number, generatedById: string, _orgId?: string) {
     const inspection = await this.prisma.unitInspection.findUnique({
       where: { id: inspectionId },
     });

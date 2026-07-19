@@ -133,7 +133,7 @@ describe('StripeService webhook idempotency', () => {
   });
 
   it('ignores duplicate ledger finalization writes for same event id', async () => {
-    basePrisma.payment.findFirst.mockResolvedValueOnce({ id: 33, amount: 12.5 });
+    basePrisma.payment.findFirst.mockResolvedValueOnce({ id: 33, amount: 12.5, amountCents: 1250 });
     basePrisma.payment.update.mockResolvedValueOnce({ id: 33, status: 'COMPLETED' });
     basePrisma.paymentLedgerEntry.create.mockRejectedValueOnce({ code: 'P2002' });
 
@@ -190,9 +190,8 @@ describe('StripeService webhook idempotency', () => {
   });
 
   it('records ledger, yield sweep allocation, event emission, and RabbitMQ intent on payment success', async () => {
-    basePrisma.payment.findFirst.mockResolvedValueOnce({ id: 33, amount: 12.5 });
+    basePrisma.payment.findFirst.mockResolvedValueOnce({ id: 33, amount: 12.5, amountCents: 1250 });
     basePrisma.payment.update.mockResolvedValueOnce({ id: 33, status: 'COMPLETED' });
-    basePrisma.paymentLedgerEntry.create.mockResolvedValueOnce({ id: 'ledger-entry-1' });
     basePrisma.orgPlanCycle.findFirst.mockResolvedValueOnce({
       activeFeeScheduleId: 'fee-schedule-1',
       activeFeeSchedule: {
@@ -246,7 +245,7 @@ describe('StripeService webhook idempotency', () => {
         where: { paymentId: 33, sourceEventId: 'evt_success_1' },
       }),
     );
-    expect(eventsService.emitPaymentSuccess).toHaveBeenCalledWith(33, 'lease-1', 12.5);
+    expect(eventsService.emitPaymentSuccess).toHaveBeenCalledWith('33', 'lease-1', 1250);
     expect(rabbitMQService.publishIntent).toHaveBeenCalledWith('ledger.updated', expect.objectContaining({
       paymentId: 33,
       leaseId: 'lease-1',

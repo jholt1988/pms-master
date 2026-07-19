@@ -18,7 +18,7 @@ import { WorkflowEventService } from '../policy/workflow-event.service';
 import { WorkflowEventProcessor } from '../policy/workflow-event-processor.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { BookkeepingService } from '../bookkeeping/bookkeeping.service';
-import { toCents, fromCents, splitCents } from '../utils/money';
+import { toCents, splitCents } from '../utils/money';
 
 
 type CreateManualPaymentInput = {
@@ -261,7 +261,7 @@ export class PaymentsService {
     if (requestedStatus && !Object.values(PaymentStatus).includes(requestedStatus)) {
       throw new BadRequestException(`Unsupported payment status: ${dto.status}`);
     }
-    let resolvedStatus: PaymentStatus = requestedStatus ?? PaymentStatus.COMPLETED;
+    const _resolvedStatus: PaymentStatus = requestedStatus ?? PaymentStatus.COMPLETED;
 
     if (dto.paymentMethodId) {
       const method = await this.prisma.paymentMethod.findUnique({ where: { id: dto.paymentMethodId } });
@@ -333,7 +333,7 @@ export class PaymentsService {
         });
 
         externalId = intent.id;
-        resolvedStatus = intent.status === 'succeeded' ? PaymentStatus.COMPLETED : PaymentStatus.PENDING;
+        const _resolvedStatus = intent.status === 'succeeded' ? PaymentStatus.COMPLETED : PaymentStatus.PENDING;
       }
     }
 
@@ -599,7 +599,7 @@ export class PaymentsService {
       throw new ForbiddenException('You do not have access to this lease');
     }
 
-    const amount = input.amountCents / 100;
+    const __amount = input.amountCents / 100;
     const organizationId = orgId ?? lease.unit?.property?.organizationId;
 
     if (!organizationId) {
@@ -688,7 +688,7 @@ export class PaymentsService {
       throw new ForbiddenException('You do not have access to this charge');
     }
 
-    const amount = charge.amountCents / 100;
+    const __amount = charge.amountCents / 100;
 
     return this.prisma.$transaction(async (tx) => {
       await tx.lease.update({
@@ -1198,7 +1198,7 @@ export class PaymentsService {
 
     // Exact-sum installment amounts in integer cents (no lost/gained cent).
     const totalAmountCents = plan.totalAmountCents ?? toCents(plan.totalAmount);
-    const installmentScheduleCents =
+    const __installmentScheduleCents =
       plan.installments > 0 ? splitCents(totalAmountCents, plan.installments) : [];
 
     // Create payment plan
@@ -2289,9 +2289,9 @@ export class PaymentsService {
   async sendTenantMessage(
     paymentId: string,
     subject: string,
-    message: string,
-    actorId: string,
-    orgId: string,
+    _message: string,
+    _actorId: string,
+    _orgId: string,
   ) {
     this.logger.log(`[STUB] Payment ${paymentId}: Send message to tenant - ${subject}`);
     return { success: true, paymentId, message: 'Message sent to tenant' };
@@ -2303,8 +2303,8 @@ export class PaymentsService {
     paymentDate: Date,
     notes: string | undefined,
     paymentMethod: string,
-    actorId: string,
-    orgId: string,
+    _actorId: string,
+    _orgId: string,
   ) {
     this.logger.log(`[STUB] Payment ${paymentId}: Record manual payment - $${amount} via ${paymentMethod}`);
     return { success: true, paymentId, amountPaid: amount, message: 'Manual payment recorded' };
@@ -3016,7 +3016,7 @@ export class PaymentsService {
       confidence: 0.95, // Payment failure data is highly reliable
     });
   }
-   async processPaymentSuccess(paymentId: string, tenantId: string, amount: number) {
+   async processPaymentSuccess(paymentId: string, _tenantId: string, _amount: number) {
     //Update payment status to success
     await this.prisma.payment.update({
       where: { id: paymentId },

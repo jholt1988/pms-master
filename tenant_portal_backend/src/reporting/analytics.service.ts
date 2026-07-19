@@ -47,7 +47,7 @@ export class AnalyticsService {
 
     // Simplistic Monte Carlo Approach
     const trials = 1000;
-    const baseLineNOI = 50000; // Placeholder for actual trailing 12M NOI derivation
+    const __baseLineNOI = 50000; // Placeholder for actual trailing 12M NOI derivation
     const cost = input.upgradeCost;
     
     // Yearly gross revenue bump
@@ -285,7 +285,7 @@ export class AnalyticsService {
       }
     }
 
-    const sentimentWeights: Record<string, number> = {
+    const __sentimentWeights: Record<string, number> = {
       URGENT: 0.1,
       FRUSTRATED: 0.3,
       NEUTRAL: 0.65,

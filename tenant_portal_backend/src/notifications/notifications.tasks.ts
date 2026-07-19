@@ -7,7 +7,7 @@ import { AIPaymentService } from '../payments/ai-payment.service';
 import { AIPaymentMetricsService } from '../payments/ai-payment-metrics.service';
 import { SmsService } from './sms.service';
 import { NotificationType } from '@prisma/client';
-import { differenceInDays, addDays } from 'date-fns';
+import { differenceInDays } from 'date-fns';
 
 @Injectable()
 export class NotificationTasks {

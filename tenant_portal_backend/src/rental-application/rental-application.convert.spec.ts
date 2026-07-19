@@ -18,6 +18,7 @@ describe('RentalApplicationService convertApprovedApplicationToLease', () => {
       update: jest.fn(),
     },
     lease: {
+      findFirst: jest.fn(),
       findUnique: jest.fn(),
       create: jest.fn(),
     },
@@ -81,10 +82,13 @@ describe('RentalApplicationService convertApprovedApplicationToLease', () => {
       status: ApplicationStatus.APPROVED,
       applicantId: 'tenant-1',
       unitId: 'unit-1',
+      propertyId: 'property-1',
+      fullName: 'Test Applicant',
       income: 6000,
       decisionNotes: 'approved',
       convertedLeaseId: null,
     });
+    prisma.lease.findFirst.mockResolvedValue(null);
     prisma.lease.findUnique.mockResolvedValue(null);
     prisma.lease.create.mockResolvedValue({ id: 'lease-1', status: 'DRAFT' });
     prisma.rentalApplication.update.mockResolvedValue({ id: 11, convertedLeaseId: 'lease-1' });

@@ -112,7 +112,7 @@ export class ExpenseService {
 
   // ========== GAP REMEDIATION - Issue 9: Expense Anomaly Reasoning ==========
 
-  async getAnomalyDetails(expenseId: number, orgId: string) {
+  async getAnomalyDetails(expenseId: number, _orgId: string) {
     // In production, this would calculate actual anomaly metrics
     // For now, return stub data showing the structure
 

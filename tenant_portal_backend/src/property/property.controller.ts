@@ -14,7 +14,6 @@ import {
   UsePipes,
   Query,
   Delete,
-  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Role } from '@prisma/client';

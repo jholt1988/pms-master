@@ -1,6 +1,6 @@
-import { Injectable, Logger, ForbiddenException, Optional } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { WorkflowStep, WorkflowExecution, WorkflowStatus } from './workflow.types';
+import { WorkflowStep, WorkflowExecution } from './workflow.types';
 import { AIMaintenanceService } from '../maintenance/ai-maintenance.service';
 import { AIPaymentService } from '../payments/ai-payment.service';
 import { AILeaseRenewalService } from '../lease/ai-lease-renewal.service';
@@ -522,8 +522,8 @@ export class WorkflowEngineService {
    */
   private async executeCreateLease(
     step: WorkflowStep,
-    execution: WorkflowExecution,
-    userId?: string,
+    _execution: WorkflowExecution,
+    _userId?: string,
   ): Promise<any> {
     // Implementation would create a lease using Prisma
     this.logger.log(`Executing CREATE_LEASE step: ${step.id}`);
@@ -535,8 +535,8 @@ export class WorkflowEngineService {
    */
   private async executeSendEmail(
     step: WorkflowStep,
-    execution: WorkflowExecution,
-    userId?: string,
+    _execution: WorkflowExecution,
+    _userId?: string,
   ): Promise<any> {
     this.logger.log(`Executing SEND_EMAIL step: ${step.id}`);
     return { emailSent: true };
@@ -547,8 +547,8 @@ export class WorkflowEngineService {
    */
   private async executeScheduleInspection(
     step: WorkflowStep,
-    execution: WorkflowExecution,
-    userId?: string,
+    _execution: WorkflowExecution,
+    _userId?: string,
   ): Promise<any> {
     this.logger.log(`Executing SCHEDULE_INSPECTION step: ${step.id}`);
     return { inspectionId: 456 };
@@ -559,8 +559,8 @@ export class WorkflowEngineService {
    */
   private async executeCreateMaintenanceRequest(
     step: WorkflowStep,
-    execution: WorkflowExecution,
-    userId?: string,
+    _execution: WorkflowExecution,
+    _userId?: string,
   ): Promise<any> {
     this.logger.log(`Executing CREATE_MAINTENANCE_REQUEST step: ${step.id}`);
     return { maintenanceRequestId: 789 };
@@ -572,7 +572,7 @@ export class WorkflowEngineService {
   private async executeAssignTechnician(
     step: WorkflowStep,
     execution: WorkflowExecution,
-    userId?: string,
+    _userId?: string,
   ): Promise<any> {
     this.logger.log(`Executing ASSIGN_TECHNICIAN step: ${step.id}`);
     
@@ -620,8 +620,8 @@ export class WorkflowEngineService {
    */
   private async executeSendNotification(
     step: WorkflowStep,
-    execution: WorkflowExecution,
-    userId?: string,
+    _execution: WorkflowExecution,
+    _userId?: string,
   ): Promise<any> {
     this.logger.log(`Executing SEND_NOTIFICATION step: ${step.id}`);
     return { notificationSent: true };
@@ -737,8 +737,8 @@ export class WorkflowEngineService {
   private async executeAssessPaymentRiskAI(
     step: WorkflowStep,
     execution: WorkflowExecution,
-    userId?: string,
-    correlationId?: string,
+    _userId?: string,
+    _correlationId?: string,
   ): Promise<any> {
     this.logger.log(`Executing ASSESS_PAYMENT_RISK_AI step: ${step.id}`);
 
@@ -792,8 +792,8 @@ export class WorkflowEngineService {
   private async executePredictRenewalAI(
     step: WorkflowStep,
     execution: WorkflowExecution,
-    userId?: string,
-    correlationId?: string,
+    _userId?: string,
+    _correlationId?: string,
   ): Promise<any> {
     this.logger.log(`Executing PREDICT_RENEWAL_AI step: ${step.id}`);
 
@@ -853,7 +853,7 @@ export class WorkflowEngineService {
     step: WorkflowStep,
     execution: WorkflowExecution,
     userId?: string,
-    correlationId?: string,
+    _correlationId?: string,
   ): Promise<any> {
     this.logger.log(`Executing PERSONALIZE_NOTIFICATION_AI step: ${step.id}`);
 
@@ -931,7 +931,7 @@ export class WorkflowEngineService {
   private async executeConditional(
     step: WorkflowStep,
     execution: WorkflowExecution,
-    userId?: string,
+    _userId?: string,
   ): Promise<any> {
     this.logger.log(`Executing CONDITIONAL step: ${step.id}`);
     
@@ -1414,7 +1414,7 @@ export class WorkflowEngineService {
     return typeof id === 'number' ? String(id) : id;
   }
 
-  private toNumericId(id?: string | number, field = 'id'): any {
+  private toNumericId(id?: string | number, _field = 'id'): any {
     const normalized = this.normalizeInputId(id);
     if (normalized === undefined) {
       return undefined;
@@ -1478,7 +1478,7 @@ export class WorkflowEngineService {
           id: 'setup-payment-account',
           type: 'CUSTOM',
           input: { leaseId: '${output.leaseId}' },
-          handler: async (execution, userId) => {
+          handler: async (_execution, _userId) => {
             // Custom handler for setting up payment account
             return { paymentAccountSetup: true };
           },
@@ -1534,7 +1534,7 @@ export class WorkflowEngineService {
           id: 'generate-offer',
           type: 'CUSTOM',
           input: { leaseId: '${input.leaseId}' },
-          handler: async (execution, userId) => {
+          handler: async (execution, _userId) => {
             // Generate personalized renewal offer using AI prediction results
             const leaseId = execution.input?.leaseId || execution.output?.leaseId;
             const renewalData = execution.output?.renewalProbability

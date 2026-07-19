@@ -208,11 +208,13 @@ export class TestDataFactory {
    */
   static createInvoice(leaseId: string | number, overrides: any = {}) {
     const dueDate = testData.date(30);
+    const amount = testData.amount(1000, 3000);
     
     return {
       leaseId: String(leaseId),
       description: 'Monthly Rent',
-      amount: testData.amount(1000, 3000),
+      amount,
+      amountCents: Math.round(amount * 100),
       dueDate,
       status: 'UNPAID',
       ...overrides,

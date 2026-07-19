@@ -22,7 +22,9 @@ describe('LeaseService core lease workflows', () => {
     startDate: new Date('2026-01-01T00:00:00.000Z'),
     endDate: new Date('2026-12-31T00:00:00.000Z'),
     rentAmount: 1800,
+    rentAmountCents: 180000,
     depositAmount: 1800,
+    depositAmountCents: 180000,
     status: LeaseStatus.ACTIVE,
     renewalDueAt: null,
     unit: { id: UNIT_ID, name: 'Unit 1A', propertyId: 'property_1', property: { id: 'property_1', organizationId: ORG_ID } },
@@ -117,7 +119,7 @@ describe('LeaseService core lease workflows', () => {
         unitId: UNIT_ID,
         startDate: '2026-01-01',
         endDate: '2026-12-31',
-        rentAmount: 1800,
+        rentAmountCents: 180000,
       } as any, ORG_ID);
 
       expect(result).toBe(createdLease);
@@ -125,7 +127,7 @@ describe('LeaseService core lease workflows', () => {
         data: expect.objectContaining({
           tenantId: TENANT_ID,
           unitId: UNIT_ID,
-          rentAmount: 1800,
+          rentAmountCents: 180000,
           status: LeaseStatus.ACTIVE,
           noticePeriodDays: 30,
           autoRenew: false,
@@ -138,8 +140,8 @@ describe('LeaseService core lease workflows', () => {
           lease: { connect: { id: LEASE_ID } },
           toStatus: LeaseStatus.ACTIVE,
           note: 'Lease created',
-          rentAmount: 1800,
-          depositAmount: 1800,
+          rentAmountCents: 180000,
+          depositAmountCents: 180000,
         }),
       });
     });
@@ -196,7 +198,7 @@ describe('LeaseService core lease workflows', () => {
 
   describe('createRenewalOffer', () => {
     it('uses AI rent recommendations, moves the lease to renewal pending, schedules follow-up, and audits', async () => {
-      const existing = lease({ status: LeaseStatus.ACTIVE, rentAmount: 1800 });
+      const existing = lease({ status: LeaseStatus.ACTIVE, rentAmountCents: 180000 });
       const updated = lease({ status: LeaseStatus.RENEWAL_PENDING, renewalDueAt: new Date('2026-11-30T00:00:00.000Z') });
       prisma.lease.findFirst.mockResolvedValue(existing);
       aiLeaseRenewalService.getRentAdjustmentRecommendation.mockResolvedValue({
@@ -228,7 +230,7 @@ describe('LeaseService core lease workflows', () => {
       expect(prisma.leaseRenewalOffer.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           leaseId: LEASE_ID,
-          proposedRent: 1875,
+          proposedRentCents: 1875,
           proposedStart: new Date('2027-01-01T00:00:00.000Z'),
           proposedEnd: new Date('2027-12-31T00:00:00.000Z'),
           message: 'Market rent supports a modest increase.',
@@ -278,19 +280,19 @@ describe('LeaseService core lease workflows', () => {
   describe('respondToRenewalOffer', () => {
     it('accepts an active renewal offer, updates lease terms, records history, and audits', async () => {
       jest.useFakeTimers().setSystemTime(new Date('2026-10-15T12:00:00.000Z'));
-      const existing = lease({ status: LeaseStatus.RENEWAL_PENDING, rentAmount: 1800 });
+      const existing = lease({ status: LeaseStatus.RENEWAL_PENDING, rentAmountCents: 180000 });
       const updated = lease({
         status: LeaseStatus.ACTIVE,
-        rentAmount: 1900,
+        rentAmountCents: 190000,
         startDate: new Date('2027-01-01T00:00:00.000Z'),
         endDate: new Date('2027-12-31T00:00:00.000Z'),
       });
-      const returned = lease({ status: LeaseStatus.ACTIVE, rentAmount: 1900 });
+      const returned = lease({ status: LeaseStatus.ACTIVE, rentAmountCents: 190000 });
       const offer = {
         id: 77,
         leaseId: LEASE_ID,
         status: LeaseRenewalStatus.OFFERED,
-        proposedRent: 1900,
+        proposedRentCents: 190000,
         proposedStart: new Date('2027-01-01T00:00:00.000Z'),
         proposedEnd: new Date('2027-12-31T00:00:00.000Z'),
         escalationPercent: 3,
@@ -325,7 +327,7 @@ describe('LeaseService core lease workflows', () => {
           status: LeaseStatus.ACTIVE,
           startDate: offer.proposedStart,
           endDate: offer.proposedEnd,
-          rentAmount: 1900,
+          rentAmountCents: 190000,
           rentEscalationPercent: 3,
           renewalDueAt: null,
         }),
@@ -335,7 +337,7 @@ describe('LeaseService core lease workflows', () => {
           actor: { connect: { id: TENANT_ID } },
           fromStatus: LeaseStatus.RENEWAL_PENDING,
           toStatus: LeaseStatus.ACTIVE,
-          rentAmount: 1900,
+          rentAmountCents: 190000,
           metadata: expect.objectContaining({ renewalOfferId: 77, decision: RenewalDecision.ACCEPTED, message: 'Looks good.' }),
         }),
       });

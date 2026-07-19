@@ -1,5 +1,5 @@
 import { IsISO8601, IsInt, IsNumber, IsOptional, MaxLength, Min } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateRenewalOfferDto {
   @IsOptional()

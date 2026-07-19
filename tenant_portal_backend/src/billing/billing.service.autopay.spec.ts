@@ -36,7 +36,7 @@ describe('BillingService autopay state machine', () => {
         lease: {
           tenantId: 'tenant-1',
           unit: { property: { organizationId: 'org-1' } },
-          invoices: [{ id: 22, amount: 120 }],
+          invoices: [{ id: 22, amountCents: 12000 }],
         },
       },
     ]);
@@ -106,7 +106,7 @@ describe('BillingService autopay state machine', () => {
   it('returns the tenant autopay contract as { leaseId, enrollment }', async () => {
     const service = new BillingService(prisma, paymentsService, securityEvents, stripeService);
 
-    prisma.lease.findUnique.mockResolvedValueOnce({
+    prisma.lease.findFirst.mockResolvedValueOnce({
       id: 'lease-1',
       autopayEnrollment: {
         id: 11,
@@ -140,7 +140,7 @@ describe('BillingService autopay state machine', () => {
         lease: {
           tenantId: 'tenant-1',
           unit: { property: { organizationId: 'org-1' } },
-          invoices: [{ id: 22, amount: 120 }],
+          invoices: [{ id: 22, amountCents: 12000 }],
         },
       },
     ]);
@@ -170,7 +170,7 @@ describe('BillingService autopay state machine', () => {
         lease: {
           tenantId: 'tenant-1',
           unit: { property: { organizationId: 'org-1' } },
-          invoices: [{ id: 22, amount: 120 }],
+          invoices: [{ id: 22, amountCents: 12000 }],
         },
       },
     ]);

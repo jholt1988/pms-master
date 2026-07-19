@@ -98,7 +98,7 @@ type Memory = {
   work_order_record?: any;
 
   // estimate
-  estimate?: OrchestratorTerminal extends infer T
+  estimate?: OrchestratorTerminal extends infer _T
     ? any
     : never;
 

@@ -76,7 +76,7 @@ describe('AILeaseRenewalService', () => {
         return undefined;
       });
 
-      const newService = new AILeaseRenewalService(prismaService, configService, undefined, mockAIProvider as any);
+      const __newService = new AILeaseRenewalService(prismaService, configService, undefined, mockAIProvider as any);
       expect(mockAIProvider.getProvider).toHaveBeenCalled();
     });
 
@@ -87,7 +87,7 @@ describe('AILeaseRenewalService', () => {
         return undefined;
       });
 
-      const newService = new AILeaseRenewalService(prismaService, configService, undefined, mockAIProvider as any);
+      const __newService = new AILeaseRenewalService(prismaService, configService, undefined, mockAIProvider as any);
       expect(mockAIProvider.isEnabled).toHaveBeenCalled();
     });
   });
@@ -204,6 +204,7 @@ describe('AILeaseRenewalService', () => {
         id: 1,
         tenantId: 1,
         rentAmount: 1500,
+        rentAmountCents: 150000,
         startDate: new Date('2023-01-01'),
         endDate: new Date('2024-12-31'),
         status: 'ACTIVE',
@@ -225,6 +226,7 @@ describe('AILeaseRenewalService', () => {
         id: 1,
         tenantId: 1,
         rentAmount: 1500,
+        rentAmountCents: 150000,
         startDate: new Date('2023-01-01'),
         endDate: new Date('2024-12-31'),
         status: 'ACTIVE',
@@ -256,6 +258,7 @@ describe('AILeaseRenewalService', () => {
         id: 1,
         tenantId: 1,
         rentAmount: 1500,
+        rentAmountCents: 150000,
         startDate: new Date('2023-01-01'),
         endDate: new Date('2024-12-31'),
         status: 'ACTIVE',

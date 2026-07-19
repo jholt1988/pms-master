@@ -3,8 +3,6 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   ApplicationStatus,
-  QualificationStatus,
-  Recommendation,
   Role,
   NotificationType,
 } from '@prisma/client';

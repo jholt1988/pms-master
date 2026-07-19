@@ -1,5 +1,3 @@
-import * as fs from 'fs';
-import * as fsPromises from 'fs/promises';
 import { NotFoundException } from '@nestjs/common';
 import { DocumentCategory } from '@prisma/client';
 import { DocumentsService } from './documents.service';

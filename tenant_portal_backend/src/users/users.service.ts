@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrgRole, Prisma, Role, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -116,7 +116,7 @@ export class UsersService {
       orderBy: { id: 'asc' },
     });
     // Remove passwords from results
-    return users.map(({ password, ...user }) => user);
+    return users.map(({ password: _password, ...user }) => user);
   }
 
   async count(role?: Role, orgId?: string): Promise<number> {

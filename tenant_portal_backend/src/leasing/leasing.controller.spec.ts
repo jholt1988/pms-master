@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { LeasingController } from './leasing.controller';
 import { LeasingService } from './leasing.service';
-import { HttpException, HttpStatus, BadRequestException } from '@nestjs/common';
+import { HttpException } from '@nestjs/common';
 import { LeadStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 

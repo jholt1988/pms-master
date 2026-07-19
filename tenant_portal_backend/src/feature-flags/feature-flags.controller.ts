@@ -9,11 +9,10 @@
  *   GET /feature-flags/categories/:category - Get flags by category
  */
 
-import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { FeatureFlagsService } from './feature-flags.service';
-import { FeatureFlag, FeatureFlagCategory } from './feature-flag.types';
-import { OptionalJwtAuthGuard } from '../auth/optional-jwt.guard';
+import { FeatureFlagCategory } from './feature-flag.types';
 import { Request } from 'express';
 
 interface AuthenticatedRequest extends Request {

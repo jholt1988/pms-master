@@ -947,7 +947,7 @@ export class LeaseService {
 
   // ========== GAP REMEDIATION - Issue 3: Lease Signing Flow ==========
 
-  async generateLeaseDocument(leaseId: string, actorId: string, orgId: string) {
+  async generateLeaseDocument(leaseId: string, _actorId: string, _orgId: string) {
     this.assertLeaseSigningStubAllowed('generate lease documents');
     this.logger.log(`[STUB] Lease ${leaseId}: Generating document`);
     return {
@@ -963,8 +963,8 @@ export class LeaseService {
     leaseId: string,
     signerEmail: string | undefined,
     signerName: string | undefined,
-    actorId: string,
-    orgId: string,
+    _actorId: string,
+    _orgId: string,
   ) {
     this.assertLeaseSigningStubAllowed('send leases for signature');
     this.logger.log(`[STUB] Lease ${leaseId}: Sending for signature to ${signerEmail}`);

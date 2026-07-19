@@ -688,13 +688,13 @@ export class PropertyService {
   }
 
 
-  private parseNumericId(value: string | number, field: string): string {
+  private parseNumericId(value: string | number, _field: string): string {
     return String(value);
   }
 
   // ========== GAP REMEDIATION - Issue 4: Move-in Readiness ==========
 
-  async startOnboarding(unitId: string, orgId: string) {
+  async startOnboarding(unitId: string, _orgId: string) {
     this.logger.log(`[STUB] Unit ${unitId}: Starting onboarding`);
     return {
       success: true,
@@ -705,7 +705,7 @@ export class PropertyService {
     };
   }
 
-  async completeMoveIn(unitId: string, notes: string | undefined, orgId: string) {
+  async completeMoveIn(unitId: string, notes: string | undefined, _orgId: string) {
     this.logger.log(`[STUB] Unit ${unitId}: Completing move-in`);
     return {
       success: true,

@@ -1,6 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { normalizeAppRole, roleAliasesForQuery } from '../auth/app-role';
 import type {

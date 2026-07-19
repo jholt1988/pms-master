@@ -9,7 +9,6 @@ import { RefreshRequestDto } from './dto/refresh-request.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { MfaActivateDto, MfaDisableDto } from './dto/mfa.dto';
-import { Request } from 'express';
 
 function getIpAddress(req: any): string {
   if (req.headers && req.headers['x-forwarded-for']) {

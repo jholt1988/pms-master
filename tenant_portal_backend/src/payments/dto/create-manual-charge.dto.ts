@@ -1,4 +1,4 @@
-import { IsDateString, IsEnum, IsInt, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { IsDateString, IsEnum, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 import { ManualChargeType } from '@prisma/client';
 import { ApiProperty } from '@nestjs/swagger';
 

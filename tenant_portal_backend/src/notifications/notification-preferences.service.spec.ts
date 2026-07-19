@@ -5,7 +5,7 @@ import { NotificationType } from '@prisma/client';
 
 describe('NotificationPreferencesService', () => {
   let service: NotificationPreferencesService;
-  let prismaService: PrismaService;
+  let __prismaService: PrismaService;
 
   const mockPrismaService = {
     notificationPreference: {

@@ -1,4 +1,3 @@
-import { Logger } from '@nestjs/common';
 import { WorkflowStep } from './workflow.types';
 
 /**

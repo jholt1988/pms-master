@@ -9,7 +9,7 @@ import { UpsertScheduleDto } from './dto/upsert-schedule.dto';
 import { ConfigureAutopayDto } from './dto/configure-autopay.dto';
 import { SecurityEventsService } from '../security-events/security-events.service';
 import { StripeService } from '../payments/stripe.service';
-import { toCents, fromCents } from '../utils/money';
+import { toCents } from '../utils/money';
 
 @Injectable()
 export class BillingService {
@@ -1036,8 +1036,8 @@ export class BillingService {
   async sendOwnerStatement(
     statementId: string,
     ownerId: string | undefined,
-    actorId: string,
-    orgId: string,
+    _actorId: string,
+    _orgId: string,
   ) {
     this.logger.log(`[STUB] Statement ${statementId}: Sending to owner ${ownerId}`);
     return {

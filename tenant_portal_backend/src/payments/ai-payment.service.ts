@@ -61,7 +61,7 @@ export class AIPaymentService {
           orderBy: { id: 'desc' },
           take: 12,
         },
-        Lease: {
+        lease: {
           include: {
             invoices: {
               orderBy: { dueDate: 'desc' },
@@ -94,7 +94,7 @@ export class AIPaymentService {
         take: 12,
       });
     }
-    const invoices = (user.Lease as any)?.[0]?.invoices || [];
+    const invoices = (user.lease as any)?.[0]?.invoices || [];
 
     if (!payments.length) {
       return {
@@ -249,7 +249,7 @@ export class AIPaymentService {
   /**
    * Calculate optimal time to retry a failed payment
    */
-  private calculateOptimalRetryTime(userId: string, invoice: any): Date {
+  private calculateOptimalRetryTime(_userId: string, _invoice: any): Date {
     // Analyze user's payment patterns
     // For now, suggest retry 2-3 days after initial failure
     const retryDate = new Date();

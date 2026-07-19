@@ -1,7 +1,6 @@
 import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
 import { OwnerDrawsService } from './owner-draws.service';
 import { AuthGuard } from '@nestjs/passport';
-import { OrgId } from '../common/org-context/org-id.decorator';
 
 @Controller('owner-portal/draws')
 @UseGuards(AuthGuard('jwt'))

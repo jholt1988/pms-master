@@ -8,10 +8,9 @@ import { QuickBooksMinimalService } from './quickbooks-minimal.service';
 import { QuickBooksController as QuickBooksMinimalController } from './quickbooks-minimal.controller';
 import { QuickBooksWebhookController } from './quickbooks-webhook.controller';
 
-import { QuickBooksService } from './quickbooks.service';
 import { AbstractQuickBooksService } from './quickbooks.types';
 
-const legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
+const __legacyEnabled = process.env.ENABLE_LEGACY_ROUTES === 'true';
 const queueEnabled = process.env.NODE_ENV !== 'test' && process.env.DISABLE_REDIS !== 'true';
 
 @Module({

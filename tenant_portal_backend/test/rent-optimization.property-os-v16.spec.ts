@@ -101,7 +101,7 @@ describe('RentOptimizationService Property OS v1.6 confidence validation', () =>
     } as any);
 
     const out = await (service as any).callMLService(unit);
-    expect(out.recommendedRent).toBe(1250);
+    expect(out.recommendedRentCents).toBe(1250);
     expect(out.modelVersion).toBe('1.6');
   });
 });

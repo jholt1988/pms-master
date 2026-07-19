@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   ApplicationStatus,
-  ApprovalTaskStatus,
   BookkeepingTransactionStatus,
   LeaseRenewalStatus,
   LeaseStatus,

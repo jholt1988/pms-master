@@ -869,7 +869,7 @@ model Payment {
   leaseId             String?              @db.Uuid
   status              PaymentStatus        @default(PENDING)
   amountCents         Int
-  id                  String               @id @db.Uuid
+  id                  String               @id @default(uuid()) @db.Uuid
   invoiceId           String?              @db.Uuid
   ledgerTransactions  LedgerTransaction[]
   invoice             Invoice?             @relation(fields: [invoiceId], references: [id])
@@ -2977,7 +2977,7 @@ model Decision {
 }
 
 model Tenant {
-  id                    String   @id @db.Uuid
+  id                    String   @id @default(uuid()) @db.Uuid
   fullName              String
   email                 String   @unique
   phone                 String
@@ -2985,7 +2985,7 @@ model Tenant {
   emergencyContactPhone String?
   notes                 String?
   createdAt             DateTime @default(now())
-  updatedAt             DateTime
+  updatedAt             DateTime @updatedAt
   lease                 Lease[]
 }
 

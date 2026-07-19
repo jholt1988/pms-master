@@ -395,7 +395,7 @@ export class BriefingService {
     riskType: string,
     riskScore: number,
     description: string,
-    orgId: string,
+    _orgId: string,
   ) {
     this.logger.log(`[STUB] Injecting risk item for property ${propertyId}: ${riskType} (score: ${riskScore})`);
     return {

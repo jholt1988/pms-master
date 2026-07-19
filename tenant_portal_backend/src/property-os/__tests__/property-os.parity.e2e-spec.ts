@@ -3,7 +3,6 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { PropertyOsModule } from '../property-os.module';
 import { PropertyOsService } from '../property-os.service';
-import { SecurityEventsService } from '../../security-events/security-events.service';
 import * as fs from 'fs';
 import * as path from 'path';
 

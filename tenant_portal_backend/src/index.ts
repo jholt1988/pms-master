@@ -1,9 +1,5 @@
 
-// Initialize Sentry FIRST, before any other imports
-import { initializeSentry } from './sentry.config';
-initializeSentry();
 import 'reflect-metadata';
-import * as Sentry from '@sentry/nestjs';
 
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
@@ -74,7 +70,6 @@ async function bootstrap() {
     },
   }));
 
-  // Global exception filter with Sentry integration
   app.useGlobalFilters(new GlobalExceptionFilter());
 
   // Performance monitoring middleware (P0-005)
@@ -131,7 +126,6 @@ async function bootstrap() {
   await app.listen(port);
   logger.log('Security: Helmet headers enabled');
   logger.log(`CORS: Configured for origins: ${process.env.ALLOWED_ORIGINS || 'http://localhost:3000'}`);
-  logger.log('Monitoring: Sentry error tracking initialized');
   logger.log('Performance: Performance monitoring middleware active');
   const schedulerDisabled = process.env.DISABLE_WORKFLOW_SCHEDULER === 'false';
   logger.log(

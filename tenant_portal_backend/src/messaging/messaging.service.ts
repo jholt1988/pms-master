@@ -84,7 +84,7 @@ export class MessagingService {
   /**
    * Get all conversations for a user with pagination
    */
-  async getConversations(userId: string, query?: GetConversationsQueryDto, orgId?: string) {
+  async getConversations(userId: string, query?: GetConversationsQueryDto, _orgId?: string) {
     const page = query?.page || 1;
     const limit = query?.limit || 20;
     const skip = (page - 1) * limit;
@@ -477,7 +477,7 @@ export class MessagingService {
         id: true,
         username: true,
         role: true,
-        Lease: {
+        lease: {
           select: {
             id: true,
             unit: {

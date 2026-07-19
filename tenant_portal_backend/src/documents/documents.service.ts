@@ -2,8 +2,6 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { PrismaService } from '../prisma/prisma.service';
 import { DocumentCategory, Prisma } from '@prisma/client'; 
 import { isUUID } from 'class-validator';
-import { Multer } from 'multer';
-import { Express } from 'express';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { randomBytes } from 'crypto';
@@ -257,7 +255,7 @@ export class DocumentsService {
 
     // Remove filePath from response for security
     return {
-      data: documents.map(({ filePath, ...doc }) => doc),
+      data: documents.map(({ filePath: _filePath, ...doc }) => doc),
       total,
     };
   }
