@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { BadRequestException, ForbiddenException, Injectable, InternalServerErrorException, Logger, NotFoundException, Optional } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../prisma/database.service';
 import { Invoice, Payment, Role, Prisma, ManualPayment, ManualCharge, ManualPaymentAppliedTo, ManualPaymentMethod, ManualChargeType, LeaseNoticeType, LeaseStatus, LeaseTerminationParty, PaymentStatus, ManualPaymentStatus } from '@prisma/client';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
@@ -64,7 +64,7 @@ export class PaymentsService {
   private readonly delinquencyAmountWeight = Number(process.env.DELINQUENCY_PRIORITY_AMOUNT_WEIGHT ?? '1');
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly db: DatabaseService,
     private readonly aiPaymentService: AIPaymentService,
     private readonly emailService: EmailService,
     private readonly stripeService: StripeService,
@@ -76,8 +76,9 @@ export class PaymentsService {
   ) { }
 
   async createInvoice(dto: CreateInvoiceDto, orgId: string): Promise<Invoice> {
+    const prisma = this.db.forOrg(orgId);
     const leaseId = this.parseLeaseId(dto.leaseId);
-    const lease = await this.prisma.lease.findFirst({
+    const lease = await prisma.lease.findFirst({
       where: { id: leaseId, unit: { property: { organizationId: orgId } } },
     });
 
@@ -85,7 +86,7 @@ export class PaymentsService {
       throw new NotFoundException('Lease not found');
     }
 
-    const invoice = await this.prisma.invoice.create({
+    const invoice = await prisma.invoice.create({
       data: {
         description: dto.description,
         amountCents: dto.amountCents,
@@ -100,7 +101,7 @@ export class PaymentsService {
     });
 
     const ledgerAccount = await this.ensureLedgerAccountForLease(leaseId, orgId);
-    const ledgerTransaction = await this.createLedgerTransactionIfMissing(this.prisma, {
+    const ledgerTransaction = await this.createLedgerTransactionIfMissing(prisma, {
       accountId: ledgerAccount.id,
       entryType: 'CHARGE',
       direction: 'DEBIT',
@@ -117,9 +118,10 @@ export class PaymentsService {
   }
 
   async getInvoicesForUser(userId: string, role: Role, leaseId?: string, orgId?: string): Promise<Invoice[]> {
+    const prisma = this.db.forOrg(orgId);
     const leaseIdNum = leaseId !== undefined ? this.parseLeaseId(leaseId) : undefined;
     if (role === Role.PROPERTY_MANAGER) {
-      return this.prisma.invoice.findMany({
+      return prisma.invoice.findMany({
         where: {
           ...(leaseIdNum ? { leaseId: leaseIdNum } : {}),
           ...(orgId ? { lease: { unit: { property: { organizationId: orgId } } } } : {}),
@@ -134,7 +136,7 @@ export class PaymentsService {
       });
     }
 
-    return this.prisma.invoice.findMany({
+    return prisma.invoice.findMany({
         where: {
           lease: {
             tenantId: userId,
@@ -156,7 +158,8 @@ export class PaymentsService {
     authUser: { userId: string; role: Role },
     orgId?: string,
   ): Promise<{ checkoutUrl: string; sessionId: string; invoiceId: string }> {
-    const invoice = await this.prisma.invoice.findUnique({
+    const prisma = this.db.forOrg(orgId);
+    const invoice = await prisma.invoice.findUnique({
       where: { id: dto.invoiceId },
       include: {
         lease: {
@@ -225,8 +228,9 @@ export class PaymentsService {
     authUser?: { userId: string; role: Role },
     orgId?: string,
   ): Promise<Payment> {
+    const prisma = this.db.forOrg(orgId);
     const leaseId = this.parseLeaseId(dto.leaseId);
-    const lease = await this.prisma.lease.findUnique({
+    const lease = await prisma.lease.findUnique({
       where: { id: leaseId },
       include: { tenant: true, unit: { include: { property: true } } },
     });
@@ -247,7 +251,7 @@ export class PaymentsService {
     }
 
     if (dto.invoiceId) {
-      const invoice = await this.prisma.invoice.findUnique({
+      const invoice = await prisma.invoice.findUnique({
         where: { id: dto.invoiceId },
       });
 
@@ -264,7 +268,7 @@ export class PaymentsService {
     const _resolvedStatus: PaymentStatus = requestedStatus ?? PaymentStatus.COMPLETED;
 
     if (dto.paymentMethodId) {
-      const method = await this.prisma.paymentMethod.findUnique({ where: { id: dto.paymentMethodId } });
+      const method = await prisma.paymentMethod.findUnique({ where: { id: dto.paymentMethodId } });
       if (!method || method.userId !== lease.tenantId) {
         throw new BadRequestException('Payment method is invalid for this lease tenant');
       }
@@ -276,13 +280,13 @@ export class PaymentsService {
         let tierSnapshot: Record<string, unknown> | undefined;
 
         if (orgIdForLease) {
-          const org = await this.prisma.organization.findUnique({
+          const org = await prisma.organization.findUnique({
             where: { id: orgIdForLease },
             select: { stripeConnectedAccountId: true },
           });
           connectedAccountId = org?.stripeConnectedAccountId ?? undefined;
 
-          const activeCycle = await this.prisma.orgPlanCycle.findFirst({
+          const activeCycle = await prisma.orgPlanCycle.findFirst({
             where: { organizationId: orgIdForLease, status: 'ACTIVE' },
             include: { activeFeeSchedule: true },
             orderBy: { startsAt: 'desc' },
@@ -337,7 +341,7 @@ export class PaymentsService {
       }
     }
 
-    const payment = await this.prisma.$transaction(async (tx) => {
+    const payment = await prisma.$transaction(async (tx) => {
       const created = await tx.payment.create({
         data: {
           id: randomUUID(),
@@ -374,7 +378,7 @@ export class PaymentsService {
     });
 
     const ledgerAccount = await this.ensureLedgerAccountForLease(lease.id, lease.unit?.property?.organizationId);
-    await this.createLedgerTransactionIfMissing(this.prisma, {
+    await this.createLedgerTransactionIfMissing(prisma, {
       accountId: ledgerAccount.id,
       paymentId: payment.id,
       entryType: 'PAYMENT',
@@ -422,6 +426,7 @@ export class PaymentsService {
   }
 
   async postManualPayment(input: CreateManualPaymentInput, orgId?: string): Promise<ManualPayment> {
+    const prisma = this.db.forOrg(orgId);
     if (input.amountCents <= 0) {
       throw new BadRequestException('Amount must be greater than zero');
     }
@@ -430,7 +435,7 @@ export class PaymentsService {
       throw new BadRequestException('Reference number is required for check and money order payments');
     }
 
-    const lease = await this.prisma.lease.findUnique({
+    const lease = await prisma.lease.findUnique({
       where: { id: this.parseLeaseId(input.leaseId) },
       include: { unit: { include: { property: true } } },
     });
@@ -450,7 +455,7 @@ export class PaymentsService {
       throw new InternalServerErrorException('Lease organization context is missing');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    return prisma.$transaction(async (tx) => {
       const payment = await tx.manualPayment.create({
         data: {
           organizationId: orgId ?? lease.unit?.property?.organizationId,
@@ -515,11 +520,12 @@ export class PaymentsService {
   }
 
   async reverseManualPayment(manualPaymentId: string, reason: string, orgId?: string): Promise<ManualPayment> {
+    const prisma = this.db.forOrg(orgId);
     if (!reason?.trim()) {
       throw new BadRequestException('Reversal reason is required');
     }
 
-    const payment = await this.prisma.manualPayment.findUnique({ where: { id: manualPaymentId } });
+    const payment = await prisma.manualPayment.findUnique({ where: { id: manualPaymentId } });
 
     if (!payment) {
       throw new NotFoundException('Manual payment not found');
@@ -535,7 +541,7 @@ export class PaymentsService {
 
     const amount = payment.amountCents / 100;
 
-    return this.prisma.$transaction(async (tx) => {
+    return prisma.$transaction(async (tx) => {
       await tx.lease.update({
         where: { id: (payment as any).leaseId },
         data: { currentBalanceCents: { increment: amount } },
@@ -578,6 +584,7 @@ export class PaymentsService {
   }
 
   async postManualCharge(input: CreateManualChargeInput, orgId?: string): Promise<ManualCharge> {
+    const prisma = this.db.forOrg(orgId);
     if (input.amountCents <= 0) {
       throw new BadRequestException('Amount must be greater than zero');
     }
@@ -586,7 +593,7 @@ export class PaymentsService {
       throw new BadRequestException('Description is required');
     }
 
-    const lease = await this.prisma.lease.findUnique({
+    const lease = await prisma.lease.findUnique({
       where: { id: this.parseLeaseId(input.leaseId) },
       include: { unit: { include: { property: true } } },
     });
@@ -606,7 +613,7 @@ export class PaymentsService {
       throw new InternalServerErrorException('Lease organization context is missing');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    return prisma.$transaction(async (tx) => {
       const charge = await tx.manualCharge.create({
         data: {
           organizationId: orgId ?? lease.unit?.property?.organizationId,
@@ -670,11 +677,12 @@ export class PaymentsService {
   }
 
   async voidManualCharge(manualChargeId: string, reason: string, orgId?: string): Promise<ManualCharge> {
+    const prisma = this.db.forOrg(orgId);
     if (!reason?.trim()) {
       throw new BadRequestException('Void reason is required');
     }
 
-    const charge = await this.prisma.manualCharge.findUnique({ where: { id: manualChargeId } });
+    const charge = await prisma.manualCharge.findUnique({ where: { id: manualChargeId } });
 
     if (!charge) {
       throw new NotFoundException('Manual charge not found');
@@ -690,7 +698,7 @@ export class PaymentsService {
 
     const __amount = charge.amountCents / 100;
 
-    return this.prisma.$transaction(async (tx) => {
+    return prisma.$transaction(async (tx) => {
       await tx.lease.update({
         where: { id: charge.leaseId },
         data: { currentBalanceCents: { decrement: charge.amountCents } },
@@ -733,9 +741,10 @@ export class PaymentsService {
   }
 
   async getPaymentsForUser(userId: string, role: Role, leaseId?: string, orgId?: string): Promise<Payment[]> {
+    const prisma = this.db.forOrg(orgId);
     const leaseIdNum = leaseId !== undefined ? this.parseLeaseId(leaseId) : undefined;
     if (role === Role.PROPERTY_MANAGER) {
-      return this.prisma.payment.findMany({
+      return prisma.payment.findMany({
         where: {
           ...(leaseIdNum ? { leaseId: leaseIdNum } : {}),
           ...(orgId ? { lease: { unit: { property: { organizationId: orgId } } } } : {}),
@@ -749,7 +758,7 @@ export class PaymentsService {
       });
     }
 
-    return this.prisma.payment.findMany({
+    return prisma.payment.findMany({
       where: {
         userId,
         ...(leaseIdNum ? { leaseId: leaseIdNum } : {}),
@@ -773,7 +782,7 @@ export class PaymentsService {
     initiatedBy?: string;
   }): Promise<Payment> {
     const leaseId = this.parseLeaseId(params.leaseId);
-    const payment = await this.prisma.payment.create({
+    const payment = await this.db.raw.payment.create({
       data: {
         id: randomUUID(),
         amountCents: toCents(params.amount),
@@ -795,6 +804,7 @@ export class PaymentsService {
   }
 
   async getLedgerAccountForLease(leaseId: string, orgId?: string) {
+    const prisma = this.db.forOrg(orgId);
     return this.ensureLedgerAccountForLease(leaseId, orgId);
   }
 
@@ -817,8 +827,9 @@ export class PaymentsService {
       metadata?: Record<string, unknown>;
     },
   ) {
+    const prisma = this.db.forOrg(orgId);
     const account = await this.ensureLedgerAccountForLease(leaseId, orgId);
-    const ledgerTransaction = await this.createLedgerTransactionIfMissing(this.prisma, {
+    const ledgerTransaction = await this.createLedgerTransactionIfMissing(prisma, {
       accountId: account.id,
       ...data,
     });
@@ -827,6 +838,7 @@ export class PaymentsService {
   }
 
   private async createAccountingDraftForLedgerTransaction(orgId: string, ledgerTransactionId?: string, actorId?: string) {
+    const prisma = this.db.forOrg(orgId);
     if (!this.bookkeepingService || !ledgerTransactionId) {
       return;
     }
@@ -845,12 +857,13 @@ export class PaymentsService {
   }
 
   async computeYieldSweepAllocation(orgId: string, amountCents: number) {
+    const prisma = this.db.forOrg(orgId);
     if (amountCents <= 0) {
       throw new BadRequestException('amountCents must be greater than zero');
     }
 
-    const activeCycle = await this.prisma.orgPlanCycle.findFirst({
-      where: { organizationId: orgId, status: 'ACTIVE' },
+    const activeCycle = await prisma.orgPlanCycle.findFirst({
+      where: { status: 'ACTIVE' },
       include: { activeFeeSchedule: true },
       orderBy: { startsAt: 'desc' },
     });
@@ -881,6 +894,7 @@ export class PaymentsService {
   }
 
   async recordYieldSweepAllocation(orgId: string, leaseId: string, paymentId: string, amountCents: number) {
+    const prisma = this.db.forOrg(orgId);
     const allocation = await this.computeYieldSweepAllocation(orgId, amountCents);
 
     await this.createOperationalLedgerEntry(orgId, leaseId, {
@@ -900,7 +914,7 @@ export class PaymentsService {
   }
 
   async markPaymentReconciled(paymentId: string, externalId: string): Promise<Payment> {
-    return this.prisma.payment.update({
+    return this.db.raw.payment.update({
       where: { id: paymentId },
       data: {
         reconciledAt: new Date(),
@@ -911,7 +925,7 @@ export class PaymentsService {
   }
 
   private async createLedgerTransactionIfMissing(
-    prismaLike: PrismaService | Prisma.TransactionClient,
+    prismaLike: any,
     data: {
       accountId: string;
       paymentId?: string;
@@ -998,11 +1012,12 @@ export class PaymentsService {
   }
 
   private async ensureLedgerAccountForLease(leaseId: string, orgId?: string) {
+    const prisma = this.db.forOrg(orgId);
     if (!orgId) {
       throw new BadRequestException('Organization context is required for operational ledger account creation');
     }
 
-    const lease = await this.prisma.lease.findUnique({
+    const lease = await prisma.lease.findUnique({
       where: { id: leaseId },
       include: {
         unit: true,
@@ -1013,7 +1028,7 @@ export class PaymentsService {
       throw new NotFoundException('Lease not found for ledger account');
     }
 
-    return this.prisma.ledgerAccount.upsert({
+    return prisma.ledgerAccount.upsert({
       where: {
         organizationId_leaseId: {
           organizationId: orgId,
@@ -1039,14 +1054,14 @@ export class PaymentsService {
   }
 
   private async markInvoicePaid(invoiceId: string): Promise<void> {
-    await this.prisma.invoice.update({
+    await this.db.raw.invoice.update({
       where: { id: invoiceId },
       data: { status: 'PAID' },
     });
   }
 
   private async markInvoiceUnpaid(invoiceId: string): Promise<void> {
-    await this.prisma.invoice.update({
+    await this.db.raw.invoice.update({
       where: { id: invoiceId },
       data: { status: 'UNPAID' },
     });
@@ -1085,7 +1100,7 @@ export class PaymentsService {
     const targetDate = new Date(today);
     targetDate.setDate(targetDate.getDate() + days);
 
-    return this.prisma.invoice.findMany({
+    return this.db.raw.invoice.findMany({
       where: {
         dueDate: {
           gte: today,
@@ -1118,7 +1133,7 @@ export class PaymentsService {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    return this.prisma.invoice.findMany({
+    return this.db.raw.invoice.findMany({
       where: {
         dueDate: {
           gte: today,
@@ -1154,7 +1169,8 @@ export class PaymentsService {
     },
     orgId?: string,
   ): Promise<{ id: string; status: string }> {
-    const invoice = await this.prisma.invoice.findUnique({
+    const prisma = this.db.forOrg(orgId);
+    const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
       include: {
         paymentPlan: true,
@@ -1202,7 +1218,7 @@ export class PaymentsService {
       plan.installments > 0 ? splitCents(totalAmountCents, plan.installments) : [];
 
     // Create payment plan
-    const paymentPlan = await this.prisma.paymentPlan.create({
+    const paymentPlan = await prisma.paymentPlan.create({
       data: {
         invoice: { connect: { id: invoiceId } },
         installments: plan.installments,
@@ -1238,7 +1254,8 @@ export class PaymentsService {
   }
 
   async getPaymentById(paymentId: string, userId: string, role: Role, orgId?: string): Promise<Payment> {
-    const payment = await this.prisma.payment.findUnique({
+    const prisma = this.db.forOrg(orgId);
+    const payment = await prisma.payment.findUnique({
       where: { id: paymentId },
       include: {
         invoice: {
@@ -1282,7 +1299,8 @@ export class PaymentsService {
   }
 
   async getInvoiceById(invoiceId: string, userId: string, role: Role, orgId?: string): Promise<Invoice> {
-    const invoice = await this.prisma.invoice.findUnique({
+    const prisma = this.db.forOrg(orgId);
+    const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
       include: {
         lease: {
@@ -1326,8 +1344,9 @@ export class PaymentsService {
   }
 
   async getPaymentPlans(userId: string, role: Role, invoiceId?: string, orgId?: string) {
+    const prisma = this.db.forOrg(orgId);
     if (role === Role.PROPERTY_MANAGER) {
-      return this.prisma.paymentPlan.findMany({
+      return prisma.paymentPlan.findMany({
         where: {
           ...(invoiceId ? { invoiceId } : {}),
           ...(orgId ? { invoice: { lease: { unit: { property: { organizationId: orgId } } } } } : {}),
@@ -1354,7 +1373,7 @@ export class PaymentsService {
     }
 
     // Tenants can only see payment plans for their own invoices
-    return this.prisma.paymentPlan.findMany({
+    return prisma.paymentPlan.findMany({
       where: {
         invoice: {
           ...(invoiceId ? { id: invoiceId } : {}),
@@ -1385,7 +1404,8 @@ export class PaymentsService {
   }
 
   async getPaymentPlanById(paymentPlanId: number, userId: string, role: Role, orgId?: string) {
-    const paymentPlan = await this.prisma.paymentPlan.findUnique({
+    const prisma = this.db.forOrg(orgId);
+    const paymentPlan = await prisma.paymentPlan.findUnique({
       where: { id: paymentPlanId },
       include: {
         invoice: {
@@ -1430,8 +1450,9 @@ export class PaymentsService {
     authUser: { userId: string; role: Role },
     orgId?: string,
   ) {
+    const prisma = this.db.forOrg(orgId);
     const parsedLeaseId = this.parseLeaseId(leaseId);
-    const lease = await this.prisma.lease.findUnique({
+    const lease = await prisma.lease.findUnique({
       where: { id: parsedLeaseId },
       include: {
         tenant: true,
@@ -1456,7 +1477,7 @@ export class PaymentsService {
 
     const orgForLease = lease.unit?.property?.organizationId;
     const account = orgForLease
-      ? await this.prisma.ledgerAccount.findUnique({
+      ? await prisma.ledgerAccount.findUnique({
           where: {
             organizationId_leaseId: {
               organizationId: orgForLease,
@@ -1490,10 +1511,10 @@ export class PaymentsService {
       }));
     } else {
       const [invoices, payments, manualCharges, manualPayments] = await Promise.all([
-        this.prisma.invoice.findMany({ where: { leaseId: parsedLeaseId } }),
-        this.prisma.payment.findMany({ where: { leaseId: parsedLeaseId } }),
-        this.prisma.manualCharge.findMany({ where: { leaseId: parsedLeaseId } }),
-        this.prisma.manualPayment.findMany({ where: { leaseId: parsedLeaseId } }),
+        prisma.invoice.findMany({ where: { leaseId: parsedLeaseId } }),
+        prisma.payment.findMany({ where: { leaseId: parsedLeaseId } }),
+        prisma.manualCharge.findMany({ where: { leaseId: parsedLeaseId } }),
+        prisma.manualPayment.findMany({ where: { leaseId: parsedLeaseId } }),
       ]);
 
       entries = [
@@ -1566,7 +1587,8 @@ export class PaymentsService {
   }
 
   async getDelinquencyPriorityConfig(orgId: string) {
-    const org = await this.prisma.organization.findUnique({
+    const prisma = this.db.forOrg(orgId);
+    const org = await prisma.organization.findUnique({
       where: { id: orgId },
       select: {
         id: true,
@@ -1588,7 +1610,8 @@ export class PaymentsService {
   }
 
   async updateDelinquencyPriorityConfig(orgId: string, daysWeight: number, amountWeight: number) {
-    const updated = await this.prisma.organization.update({
+    const prisma = this.db.forOrg(orgId);
+    const updated = await prisma.organization.update({
       where: { id: orgId },
       data: {
         delinquencyDaysWeight: daysWeight,
@@ -1621,7 +1644,7 @@ export class PaymentsService {
     const today = new Date();
 
     const orgPriority = params.orgId
-      ? await this.prisma.organization.findUnique({
+      ? await this.db.raw.organization.findUnique({
           where: { id: params.orgId },
           select: {
             delinquencyDaysWeight: true,
@@ -1633,7 +1656,7 @@ export class PaymentsService {
     const daysWeight = orgPriority?.delinquencyDaysWeight ?? this.delinquencyDaysWeight;
     const amountWeight = orgPriority?.delinquencyAmountWeight ?? this.delinquencyAmountWeight;
 
-    const overdueInvoices = await this.prisma.invoice.findMany({
+    const overdueInvoices = await this.db.raw.invoice.findMany({
       where: {
         status: { not: 'PAID' },
         dueDate: { lt: today },
@@ -1770,6 +1793,7 @@ export class PaymentsService {
   }
 
   async getPaymentsOpsSummary(orgId?: string, limit = 25) {
+    const prisma = this.db.forOrg(orgId);
     const safeLimit = Math.min(Math.max(limit || 25, 1), 100);
     const delinquency = await this.getDelinquencyQueue({
       orgId,
@@ -1779,7 +1803,7 @@ export class PaymentsService {
       sortOrder: 'desc',
     });
 
-    const failedPayments = await this.prisma.payment.findMany({
+    const failedPayments = await prisma.payment.findMany({
       where: {
         ...(orgId ? { lease: { unit: { property: { organizationId: orgId } } } } : {}),
         status: PaymentStatus.FAILED,
@@ -1853,6 +1877,7 @@ export class PaymentsService {
   }
 
   async getPaymentDecisions(orgId?: string) {
+    const prisma = this.db.forOrg(orgId);
     const summary = await this.getPaymentsOpsSummary(orgId, 50);
     const decisions = [];
 
@@ -1928,6 +1953,7 @@ export class PaymentsService {
     confirm = false,
     simulationToken?: string,
   ) {
+    const prisma = this.db.forOrg(orgId);
     if (!Array.isArray(ids) || ids.length === 0) {
       throw new BadRequestException('ids must be a non-empty array');
     }
@@ -2001,9 +2027,9 @@ export class PaymentsService {
 
         if (action === 'RETRY_FAILED_PAYMENT') {
           const paymentId = String(id);
-          const payment = await this.prisma.payment.findUnique({ where: { id: paymentId } });
+          const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
           if (!payment) throw new NotFoundException('Payment not found');
-          await this.prisma.payment.update({
+          await prisma.payment.update({
             where: { id: paymentId },
             data: {
               status: 'PENDING',
@@ -2055,7 +2081,7 @@ export class PaymentsService {
       urgency: 'LOW' | 'MEDIUM' | 'HIGH';
     },
   ): Promise<void> {
-    const invoice = await this.prisma.invoice.findUnique({
+    const invoice = await this.db.raw.invoice.findUnique({
       where: { id: invoiceId },
       include: {
         lease: {
@@ -2076,7 +2102,7 @@ export class PaymentsService {
 
     // Use the NotificationService to send the payment reminder
     // This centralizes all notification logic and leverages the AI timing features
-    await this.prisma.notification.create({
+    await this.db.raw.notification.create({
       data: {
         userId: (invoice as any).lease.tenantId,
         type: 'PAYMENT_DUE' as any, // Cast to any until schema is updated in client
@@ -2129,11 +2155,12 @@ export class PaymentsService {
     actorId: string,
     orgId: string,
   ) {
+    const prisma = this.db.forOrg(orgId);
     if (!dto.approvalConfirmed) {
       throw new BadRequestException('approvalConfirmed must be true before issuing a delinquency notice');
     }
 
-    const lease = await this.prisma.lease.findFirst({
+    const lease = await prisma.lease.findFirst({
       where: {
         id: dto.leaseId,
         unit: { property: { organizationId: orgId } },
@@ -2148,7 +2175,7 @@ export class PaymentsService {
       throw new NotFoundException('Lease not found');
     }
 
-    const overdueInvoices = await this.prisma.invoice.findMany({
+    const overdueInvoices = await prisma.invoice.findMany({
       where: {
         leaseId: lease.id,
         status: { not: 'PAID' },
@@ -2167,8 +2194,8 @@ export class PaymentsService {
       dto.message?.trim() ||
       `Delinquency notice issued for overdue balance of $${(amountDueCents / 100).toFixed(2)} across ${overdueInvoices.length} invoice(s).`;
 
-    const [notice] = await this.prisma.$transaction([
-      this.prisma.leaseNotice.create({
+    const [notice] = await prisma.$transaction([
+      prisma.leaseNotice.create({
         data: {
           lease: { connect: { id: lease.id } },
           type: LeaseNoticeType.OTHER,
@@ -2177,14 +2204,14 @@ export class PaymentsService {
           createdBy: { connect: { id: actorId } },
         },
       }),
-      this.prisma.lease.update({
+      prisma.lease.update({
         where: { id: lease.id },
         data: {
           status: LeaseStatus.NOTICE_GIVEN,
           terminationRequestedBy: LeaseTerminationParty.MANAGER,
         },
       }),
-      this.prisma.leaseHistory.create({
+      prisma.leaseHistory.create({
         data: {
           leaseId: lease.id,
           actorId,
@@ -2200,7 +2227,7 @@ export class PaymentsService {
           },
         },
       }),
-      this.prisma.notification.create({
+      prisma.notification.create({
         data: {
           userId: lease.tenantId,
           type: 'LEASE_NOTICE' as any,
@@ -2253,7 +2280,8 @@ export class PaymentsService {
     actorId: string,
     orgId: string,
   ) {
-    const payment = await this.prisma.payment.findUnique({
+    const prisma = this.db.forOrg(orgId);
+    const payment = await prisma.payment.findUnique({
       where: { id: paymentId },
       include: {
         invoice: { select: { leaseId: true } },
@@ -2317,7 +2345,8 @@ export class PaymentsService {
     actorId: string,
     orgId: string,
   ) {
-    const lease = await this.prisma.lease.findFirst({
+    const prisma = this.db.forOrg(orgId);
+    const lease = await prisma.lease.findFirst({
       where: {
         id: dto.leaseId,
         unit: { property: { organizationId: orgId } },
@@ -2331,7 +2360,7 @@ export class PaymentsService {
       throw new NotFoundException('Lease not found');
     }
 
-    const overdueInvoices = await this.prisma.invoice.findMany({
+    const overdueInvoices = await prisma.invoice.findMany({
       where: {
         leaseId: lease.id,
         status: { not: 'PAID' },
@@ -2356,15 +2385,15 @@ export class PaymentsService {
     }
 
     const targetStatus = LeaseStatus.ACTIVE;
-    await this.prisma.$transaction([
-      this.prisma.lease.update({
+    await prisma.$transaction([
+      prisma.lease.update({
         where: { id: lease.id },
         data: {
           status: targetStatus,
           terminationReason: dto.reason?.trim() || lease.terminationReason,
         },
       }),
-      this.prisma.leaseHistory.create({
+      prisma.leaseHistory.create({
         data: {
           leaseId: lease.id,
           actorId,
@@ -2379,7 +2408,7 @@ export class PaymentsService {
           },
         },
       }),
-      this.prisma.notification.create({
+      prisma.notification.create({
         data: {
           userId: lease.tenantId,
           type: 'LEASE_NOTICE' as any,
@@ -2430,7 +2459,8 @@ export class PaymentsService {
     actorId: string,
     orgId: string,
   ) {
-    const payment = await this.prisma.payment.findUnique({
+    const prisma = this.db.forOrg(orgId);
+    const payment = await prisma.payment.findUnique({
       where: { id: paymentId },
       include: {
         invoice: { select: { leaseId: true } },
@@ -2463,11 +2493,12 @@ export class PaymentsService {
     actorId: string,
     orgId: string,
   ) {
+    const prisma = this.db.forOrg(orgId);
     if (!dto.approvalConfirmed) {
       throw new BadRequestException('approvalConfirmed must be true before evaluating an attorney referral');
     }
 
-    const lease = await this.prisma.lease.findFirst({
+    const lease = await prisma.lease.findFirst({
       where: {
         id: dto.leaseId,
         unit: { property: { organizationId: orgId } },
@@ -2482,7 +2513,7 @@ export class PaymentsService {
       throw new NotFoundException('Lease not found');
     }
 
-    const overdueInvoices = await this.prisma.invoice.findMany({
+    const overdueInvoices = await prisma.invoice.findMany({
       where: {
         leaseId: lease.id,
         status: { not: 'PAID' },
@@ -2496,7 +2527,7 @@ export class PaymentsService {
     }
 
     const amountDueCents = overdueInvoices.reduce((sum, invoice) => sum + (invoice.amountCents ?? Math.round(Number(invoice.amountCents) * 100)), 0);
-    const latestNotice = await this.prisma.leaseNotice.findFirst({
+    const latestNotice = await prisma.leaseNotice.findFirst({
       where: { leaseId: lease.id },
       orderBy: { sentAt: 'desc' },
     });
@@ -2609,7 +2640,8 @@ export class PaymentsService {
     actorId: string,
     orgId: string,
   ) {
-    const lease = await this.prisma.lease.findFirst({
+    const prisma = this.db.forOrg(orgId);
+    const lease = await prisma.lease.findFirst({
       where: {
         id: dto.leaseId,
         unit: { property: { organizationId: orgId } },
@@ -2625,7 +2657,7 @@ export class PaymentsService {
     }
 
     const courtDate = new Date(dto.courtDate);
-    const latestReferral = await this.prisma.communicationLog.findFirst({
+    const latestReferral = await prisma.communicationLog.findFirst({
       where: {
         leaseId: lease.id,
         metadata: {
@@ -2636,8 +2668,8 @@ export class PaymentsService {
       orderBy: { createdAt: 'desc' },
     });
 
-    const [history] = await this.prisma.$transaction([
-      this.prisma.leaseHistory.create({
+    const [history] = await prisma.$transaction([
+      prisma.leaseHistory.create({
         data: {
           leaseId: lease.id,
           actorId,
@@ -2654,7 +2686,7 @@ export class PaymentsService {
           },
         },
       }),
-      this.prisma.communicationLog.create({
+      prisma.communicationLog.create({
         data: {
           channel: 'INTERNAL',
           direction: 'OUTBOUND',
@@ -2682,7 +2714,7 @@ export class PaymentsService {
           createdById: actorId,
         },
       }),
-      this.prisma.notification.create({
+      prisma.notification.create({
         data: {
           userId: actorId,
           type: 'SYSTEM_ALERT' as any,
@@ -2727,7 +2759,8 @@ export class PaymentsService {
   }
 
   async getDelinquencyLegalTracker(leaseId: string, orgId: string) {
-    const lease = await this.prisma.lease.findFirst({
+    const prisma = this.db.forOrg(orgId);
+    const lease = await prisma.lease.findFirst({
       where: {
         id: leaseId,
         unit: { property: { organizationId: orgId } },
@@ -2743,7 +2776,7 @@ export class PaymentsService {
     }
 
     const [overdueInvoices, notices, history, communications] = await Promise.all([
-      this.prisma.invoice.findMany({
+      prisma.invoice.findMany({
         where: {
           leaseId: lease.id,
           status: { not: 'PAID' },
@@ -2751,15 +2784,15 @@ export class PaymentsService {
         },
         orderBy: { dueDate: 'asc' },
       }),
-      this.prisma.leaseNotice.findMany({
+      prisma.leaseNotice.findMany({
         where: { leaseId: lease.id },
         orderBy: { sentAt: 'desc' },
       }),
-      this.prisma.leaseHistory.findMany({
+      prisma.leaseHistory.findMany({
         where: { leaseId: lease.id },
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.communicationLog.findMany({
+      prisma.communicationLog.findMany({
         where: { leaseId: lease.id },
         orderBy: { createdAt: 'desc' },
       }),
@@ -2796,8 +2829,9 @@ export class PaymentsService {
     authUser: { userId: string; role: Role },
     orgId?: string,
   ) {
+    const prisma = this.db.forOrg(orgId);
     const parsedLeaseId = this.parseLeaseId(leaseId);
-    const lease = await this.prisma.lease.findFirst({
+    const lease = await prisma.lease.findFirst({
       where: {
         id: parsedLeaseId,
         ...(orgId ? { unit: { property: { organizationId: orgId } } } : {}),
@@ -2821,12 +2855,12 @@ export class PaymentsService {
     }
 
     const [notices, ledger, communications] = await Promise.all([
-      this.prisma.leaseNotice.findMany({
+      prisma.leaseNotice.findMany({
         where: { leaseId: parsedLeaseId },
         orderBy: { sentAt: 'desc' },
       }),
       this.getOperationalLedgerAccount(parsedLeaseId, authUser, orgId),
-      this.prisma.communicationLog.findMany({
+      prisma.communicationLog.findMany({
         where: { leaseId: parsedLeaseId },
         orderBy: { createdAt: 'desc' },
       }),
@@ -3003,7 +3037,7 @@ export class PaymentsService {
 
   async markPaymentFailed(paymentId: string, tenantId: string, amount: number) {
     //Update payment status to failed
-    await this.prisma.payment.update({
+    await this.db.raw.payment.update({
       where: { id: paymentId },
       data: { status: PaymentStatus.FAILED },
     });
@@ -3018,7 +3052,7 @@ export class PaymentsService {
   }
    async processPaymentSuccess(paymentId: string, _tenantId: string, _amount: number) {
     //Update payment status to success
-    await this.prisma.payment.update({
+    await this.db.raw.payment.update({
       where: { id: paymentId },
       data: { status: PaymentStatus.COMPLETED },
     });

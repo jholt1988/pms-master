@@ -3,7 +3,7 @@ import { MaintenanceService } from './maintenance.service';
 import { AIMaintenanceService } from './ai-maintenance.service';
 import { SystemUserService } from '../shared/system-user.service';
 import { AIMaintenanceMetricsService } from './ai-maintenance-metrics.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../prisma/database.service';
 import { MaintenancePriority, Status, Role, OrgRole } from '@prisma/client';
 import { CreateMaintenanceRequestDto } from './dto/create-maintenance-request.dto';
 import { AssignTechnicianDto } from './dto/assign-technician.dto';
@@ -13,7 +13,7 @@ describe('MaintenanceService - Metrics Integration', () => {
   let aiMaintenanceService: AIMaintenanceService;
   let systemUserService: SystemUserService;
   let aiMetrics: AIMaintenanceMetricsService;
-  let prismaService: PrismaService;
+  let dbService: DatabaseService;
 
   const mockPrismaService = {
     maintenanceRequest: {
@@ -64,7 +64,7 @@ describe('MaintenanceService - Metrics Integration', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MaintenanceService,
-        { provide: PrismaService, useValue: mockPrismaService },
+        { provide: DatabaseService, useValue: { forOrg: () => mockPrismaService, raw: mockPrismaService } },
         { provide: AIMaintenanceService, useValue: mockAIMaintenanceService },
         { provide: SystemUserService, useValue: mockSystemUserService },
         { provide: AIMaintenanceMetricsService, useValue: mockAIMetrics },
@@ -75,7 +75,7 @@ describe('MaintenanceService - Metrics Integration', () => {
     aiMaintenanceService = module.get<AIMaintenanceService>(AIMaintenanceService);
     systemUserService = module.get<SystemUserService>(SystemUserService);
     aiMetrics = module.get<AIMaintenanceMetricsService>(AIMaintenanceMetricsService);
-    prismaService = module.get<PrismaService>(PrismaService);
+    dbService = module.get<DatabaseService>(DatabaseService);
   });
 
   describe('create - Metrics Integration', () => {

@@ -1,7 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { Role } from '@prisma/client';
 import { PaymentsService } from './payments.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../prisma/database.service';
 import { AIPaymentService } from './ai-payment.service';
 import { EmailService } from '../email/email.service';
 import { StripeService } from './stripe.service';
@@ -51,7 +51,7 @@ describe('PaymentsService direct charge fee derivation', () => {
     const module = await Test.createTestingModule({
       providers: [
         PaymentsService,
-        { provide: PrismaService, useValue: prisma },
+        { provide: DatabaseService, useValue: { forOrg: () => prisma, raw: prisma } },
         { provide: AIPaymentService, useValue: {} },
         { provide: EmailService, useValue: { sendRentPaymentConfirmation: jest.fn().mockResolvedValue(undefined) } },
         { provide: StripeService, useValue: stripe },

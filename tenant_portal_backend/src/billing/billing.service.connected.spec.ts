@@ -12,6 +12,7 @@ describe('BillingService connected account and pricing flows', () => {
     recurringInvoiceSchedule: { upsert: jest.fn(), updateMany: jest.fn() },
     ledgerTransaction: { findFirst: jest.fn() },
   };
+  const db = { forOrg: () => prisma, raw: prisma };
   const paymentsService: any = {
     getLedgerAccountForLease: jest.fn(),
     createOperationalLedgerEntry: jest.fn(),
@@ -27,7 +28,7 @@ describe('BillingService connected account and pricing flows', () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
-    service = new BillingService(prisma, paymentsService, securityEvents, stripeService);
+    service = new BillingService(db, paymentsService, securityEvents, stripeService);
   });
 
   it('creates onboarding link and account when org has no connected account', async () => {

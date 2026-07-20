@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 // import axios from 'axios';  // removed unused import
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../prisma/database.service';
 import { LeadApplicationStatus, MaintenancePriority, Status } from '@prisma/client';
 import { AuditLogService } from '../shared/audit-log.service';
 import { AppCacheService } from '../cache/cache.service';
@@ -11,7 +11,7 @@ export class DashboardService {
   private readonly logger = new Logger(DashboardService.name);
 
   constructor(
-    private prisma: PrismaService,
+    private db: DatabaseService,
     private readonly auditLogService: AuditLogService,
     private readonly cacheService: AppCacheService,
   ) {}
@@ -19,9 +19,9 @@ export class DashboardService {
   async getActionIntents(orgId?: string) {
     try {
       // Phase 2: Fetch actionable intents from the database instead of mock/workflow mock.
-      const actionIntents = await (this.prisma as any).actionIntent.findMany({
+      const prisma = orgId ? this.db.forOrg(orgId) : this.db.raw;
+      const actionIntents = await (prisma as any).actionIntent.findMany({
         where: {
-          ...(orgId ? { organizationId: orgId } : {}),
           status: 'PENDING',
         },
         orderBy: { createdAt: 'desc' },
@@ -63,7 +63,8 @@ export class DashboardService {
 
   async resolveActionIntent(id: string, action: string, orgId?: string) {
     // Phase 2: Handle resolution
-    const intent = await (this.prisma as any).actionIntent.findUnique({
+    const prisma = orgId ? this.db.forOrg(orgId) : this.db.raw;
+    const intent = await (prisma as any).actionIntent.findUnique({
       where: { id }
     });
 
@@ -86,7 +87,7 @@ export class DashboardService {
         const extractedFields = metadata?.extractedFields;
         if (leaseId && extractedFields) {
           // Commit to ledger
-          await this.prisma.lease.update({
+          await this.db.raw.lease.update({
             where: { id: leaseId },
             data: {
               // rentAmount removed
@@ -114,7 +115,7 @@ export class DashboardService {
         const recommendedRent = metadata?.recommendedRent;
         if (leaseId && recommendedRent) {
           // Commit to ledger - set the lease to RENEWAL_PENDING and update the rent amount/offer
-          await this.prisma.lease.update({
+          await this.db.raw.lease.update({
             where: { id: leaseId },
             data: {
               status: 'RENEWAL_PENDING',
@@ -132,7 +133,7 @@ export class DashboardService {
       }
     }
     
-    await (this.prisma as any).actionIntent.update({
+    await (prisma as any).actionIntent.update({
       where: { id },
       data: {
         status: newStatus,
@@ -144,8 +145,9 @@ export class DashboardService {
   }
 
   async getPropertyLocations(orgId?: string) {
-    const properties = await this.prisma.property.findMany({
-      where: orgId ? { organizationId: orgId } : undefined,
+    const prisma = orgId ? this.db.forOrg(orgId) : this.db.raw;
+    const properties = await prisma.property.findMany({
+      where: undefined,
       select: {
         id: true,
         name: true,
@@ -198,10 +200,10 @@ export class DashboardService {
 
   async geocodeMissingPropertyLocations(orgId?: string, propertyIds?: string[]) {
     const scopedPropertyIds = propertyIds?.filter(Boolean) ?? [];
+    const prisma = orgId ? this.db.forOrg(orgId) : this.db.raw;
 
-    const candidates = await this.prisma.property.findMany({
+    const candidates = await prisma.property.findMany({
       where: {
-        ...(orgId ? { organizationId: orgId } : {}),
         ...(scopedPropertyIds.length ? { id: { in: scopedPropertyIds } } : {}),
         OR: [{ latitude: null }, { longitude: null }],
       },
@@ -296,7 +298,7 @@ export class DashboardService {
           continue;
         }
 
-        await this.prisma.property.update({
+        await this.db.raw.property.update({
           where: { id: property.id },
           data: { latitude, longitude },
         });
@@ -333,7 +335,7 @@ export class DashboardService {
   }
 
   async getRecentGeocodeAudit(orgId?: string) {
-    const rows = await this.prisma.$queryRawUnsafe<Array<{
+    const rows = await this.db.raw.$queryRawUnsafe<Array<{
       id: number;
       propertyId: string;
       organizationId: string | null;
@@ -366,7 +368,7 @@ export class DashboardService {
     latitude?: number;
     longitude?: number;
   }) {
-    await this.prisma.$executeRawUnsafe(
+    await this.db.raw.$executeRawUnsafe(
       `INSERT INTO "PropertyGeocodeAudit" ("propertyId", "organizationId", "query", "status", "reason", "latitude", "longitude")
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       params.propertyId,
@@ -394,79 +396,72 @@ export class DashboardService {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const orgPropertyWhere = orgId ? { organizationId: orgId } : undefined;
-    const orgUnitWhere = orgId ? { property: { organizationId: orgId } } : undefined;
-    const orgLeaseWhere = orgId ? { unit: { property: { organizationId: orgId } } } : undefined;
-    const orgPaymentWhere = orgId ? { lease: { unit: { property: { organizationId: orgId } } } } : undefined;
-    const orgMaintenanceWhere = orgId ? { property: { organizationId: orgId } } : undefined;
-    const orgLeadAppWhere = orgId ? { property: { organizationId: orgId } } : undefined;
+    const prisma = orgId ? this.db.forOrg(orgId) : this.db.raw;
 
-const [
-  totalProperties,
-  totalUnits,
-  occupiedUnits,
-  totalTenants,
-  maintenanceRequests,
-  applications,
-  paymentsThisMonth,
-  pendingInvoices,
-  recentMaintenance,
-  recentApplications,
-  recentPayments,
-  recentLeaks,
-] = await Promise.all([
-  this.prisma.property.count({ where: orgPropertyWhere }),
-  this.prisma.unit.count({ where: orgUnitWhere }),
-  this.prisma.unit.count({ where: { lease: { some: {} }, ...(orgUnitWhere ?? {}) } }),
-  this.prisma.user.count({
-    where: {
-      role: 'TENANT',
-      ...(orgId ? { lease: { some: { unit: { property: { organizationId: orgId } } } } } : {}),
-    },
-  }),
-  this.prisma.maintenanceRequest.count({ where: orgMaintenanceWhere }),
-  this.prisma.leadApplication.count({ where: orgLeadAppWhere }),
-  this.prisma.payment.count({
-    where: {
-      paymentDate: {
-        gte: startOfMonth,
-        lte: now,
-      },
-      ...(orgPaymentWhere ?? {}),
-    },
-  }),
-  this.prisma.invoice.aggregate({
-    _sum: { amountCents: true },
-    where: {
-      status: 'PENDING',
-      dueDate: { lt: now },
-      ...(orgLeaseWhere ? { lease: orgLeaseWhere } : {}),
-    },
-  }),
-  this.prisma.maintenanceRequest.findMany({
-    where: orgMaintenanceWhere ?? undefined,
-    orderBy: { createdAt: 'desc' },
-    take: 3,
-  }),
-  this.prisma.leadApplication.findMany({
-    where: orgLeadAppWhere ?? undefined,
-    orderBy: { submittedAt: 'desc' },
-    take: 3,
-    include: {
-      lead: true,
-    },
-  }),
-  this.prisma.payment.findMany({
-    where: orgPaymentWhere ?? undefined,
-    orderBy: { paymentDate: 'desc' },
-    take: 3,
-  }),
-  this.prisma.lease.findMany({
-    where: orgLeaseWhere ?? undefined,
-    orderBy: { updatedAt: 'desc' },
-    take: 2,
-  }),
-]);
+    const [
+      totalProperties,
+      totalUnits,
+      occupiedUnits,
+      totalTenants,
+      maintenanceRequests,
+      applications,
+      paymentsThisMonth,
+      pendingInvoices,
+      recentMaintenance,
+      recentApplications,
+      recentPayments,
+      recentLeaks,
+    ] = await Promise.all([
+      prisma.property.count({ where: undefined }),
+      prisma.unit.count({ where: undefined }),
+      prisma.unit.count({ where: { lease: { some: {} } } }),
+      prisma.user.count({
+        where: {
+          role: 'TENANT',
+          ...(orgId ? { lease: { some: { unit: { property: { organizationId: orgId } } } } } : {}),
+        },
+      }),
+      prisma.maintenanceRequest.count({ where: undefined }),
+      prisma.leadApplication.count({ where: undefined }),
+      prisma.payment.count({
+        where: {
+          paymentDate: {
+            gte: startOfMonth,
+            lte: now,
+          },
+        },
+      }),
+      prisma.invoice.aggregate({
+        _sum: { amountCents: true },
+        where: {
+          status: 'PENDING',
+          dueDate: { lt: now },
+        },
+      }),
+      prisma.maintenanceRequest.findMany({
+        where: undefined,
+        orderBy: { createdAt: 'desc' },
+        take: 3,
+      }),
+      prisma.leadApplication.findMany({
+        where: undefined,
+        orderBy: { submittedAt: 'desc' },
+        take: 3,
+        include: {
+          lead: true,
+        },
+      }),
+      prisma.payment.findMany({
+        where: undefined,
+        orderBy: { paymentDate: 'desc' },
+        take: 3,
+      }),
+      prisma.lease.findMany({
+        where: undefined,
+        orderBy: { updatedAt: 'desc' },
+        take: 2,
+      }),
+    ]);
 
     const monthlyRevenue = paymentsThisMonth
       ? paymentsThisMonth * 1 // placeholder: could sum actual amounts
@@ -489,25 +484,23 @@ const [
     ];
 
     const [pendingApplications, approvedApplications, rejectedApplications, legalAcceptedApplications, legalMissingApplications] = await Promise.all([
-      this.prisma.leadApplication.count({
-        where: { status: { in: pendingStatuses }, ...(orgLeadAppWhere ?? {}) },
+      prisma.leadApplication.count({
+        where: { status: { in: pendingStatuses } },
       }),
-      this.prisma.leadApplication.count({
-        where: { status: { in: approvedStatuses }, ...(orgLeadAppWhere ?? {}) },
+      prisma.leadApplication.count({
+        where: { status: { in: approvedStatuses } },
       }),
-      this.prisma.leadApplication.count({
-        where: { status: { in: rejectedStatuses }, ...(orgLeadAppWhere ?? {}) },
+      prisma.leadApplication.count({
+        where: { status: { in: rejectedStatuses } },
       }),
-      this.prisma.leadApplication.count({
+      prisma.leadApplication.count({
         where: {
-          ...(orgLeadAppWhere ?? {}),
           termsAcceptedAt: { not: null },
           privacyAcceptedAt: { not: null },
         },
       }),
-      this.prisma.leadApplication.count({
+      prisma.leadApplication.count({
         where: {
-          ...(orgLeadAppWhere ?? {}),
           OR: [{ termsAcceptedAt: null }, { privacyAcceptedAt: null }],
         },
       }),
@@ -558,22 +551,19 @@ const [
       },
       maintenance: {
         total: maintenanceRequests,
-        pending: await this.prisma.maintenanceRequest.count({
+        pending: await prisma.maintenanceRequest.count({
           where: {
             status: Status.PENDING,
-            ...(orgMaintenanceWhere ?? {}),
           },
         }),
-        inProgress: await this.prisma.maintenanceRequest.count({
+        inProgress: await prisma.maintenanceRequest.count({
           where: {
             status: Status.IN_PROGRESS,
-            ...(orgMaintenanceWhere ?? {}),
           },
         }),
-        overdue: await this.prisma.maintenanceRequest.count({
+        overdue: await prisma.maintenanceRequest.count({
           where: {
             createdAt: { lt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000) },
-            ...(orgMaintenanceWhere ?? {}),
           },
         }),
       },
@@ -595,11 +585,12 @@ const [
     const end = new Date();
     end.setDate(end.getDate() + days);
 
+    const prisma = orgId ? this.db.forOrg(orgId) : this.db.raw;
+
     const [scheduledEvents, inspections, expiringLeases, overdueInvoices] = await Promise.all([
-      this.prisma.scheduleEvent.findMany({
+      prisma.scheduleEvent.findMany({
         where: {
           date: { gte: start, lte: end },
-          ...(orgId ? { property: { organizationId: orgId } } : {}),
         },
         include: {
           property: { select: { id: true, name: true } },
@@ -609,10 +600,9 @@ const [
         orderBy: { date: 'asc' },
         take: 200,
       }),
-      this.prisma.unitInspection.findMany({
+      prisma.unitInspection.findMany({
         where: {
           scheduledDate: { gte: start, lte: end },
-          ...(orgId ? { property: { organizationId: orgId } } : {}),
         },
         include: {
           property: { select: { id: true, name: true } },
@@ -622,11 +612,10 @@ const [
         orderBy: { scheduledDate: 'asc' },
         take: 100,
       }),
-      this.prisma.lease.findMany({
+      prisma.lease.findMany({
         where: {
           endDate: { gte: start, lte: end },
           status: { in: ['ACTIVE', 'RENEWAL_PENDING', 'NOTICE_GIVEN'] },
-          ...(orgId ? { unit: { property: { organizationId: orgId } } } : {}),
         },
         include: {
           tenant: { select: { id: true, email: true } },
@@ -635,11 +624,10 @@ const [
         orderBy: { endDate: 'asc' },
         take: 100,
       }),
-      this.prisma.invoice.findMany({
+      prisma.invoice.findMany({
         where: {
           dueDate: { lt: start },
           status: { not: 'PAID' },
-          ...(orgId ? { lease: { unit: { property: { organizationId: orgId } } } } : {}),
         },
         include: {
           lease: {
@@ -740,8 +728,9 @@ const [
   }
 
   async getTenantDashboard(userId: string) {
+    const prisma = this.db.raw;
     const [leases, maintenanceRequests, recentInspections, notifications, upcomingEvents] = await Promise.all([
-      this.prisma.lease.findMany({
+      prisma.lease.findMany({
         where: { tenantId: userId },
         include: {
           unit: {
@@ -756,22 +745,22 @@ const [
           },
         },
       }),
-      this.prisma.maintenanceRequest.findMany({
+      prisma.maintenanceRequest.findMany({
         where: { authorId: userId },
         orderBy: { createdAt: 'desc' },
         take: 5,
       }),
-      this.prisma.unitInspection.findMany({
+      prisma.unitInspection.findMany({
         where: { tenantId: userId },
         orderBy: { scheduledDate: 'desc' },
         take: 3,
       }),
-      this.prisma.notification.findMany({
+      prisma.notification.findMany({
         where: { userId },
         orderBy: { createdAt: 'desc' },
         take: 5,
       }),
-      this.prisma.scheduleEvent.findMany({
+      prisma.scheduleEvent.findMany({
         where: {
           tenantId: userId,
           date: { gte: new Date() },

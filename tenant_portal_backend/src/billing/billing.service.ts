@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PaymentsService } from '../payments/payments.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../prisma/database.service';
 import { BillingFrequency, Prisma, Role, SecurityEventType } from '@prisma/client';
 import { addDays, addMonths, isBefore, nextDay, set } from 'date-fns';
 import { isUUID } from 'class-validator';
@@ -16,14 +16,15 @@ export class BillingService {
   private readonly logger = new Logger(BillingService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly db: DatabaseService,
     private readonly paymentsService: PaymentsService,
     private readonly securityEvents: SecurityEventsService,
     private readonly stripeService: StripeService,
   ) {}
 
   async getEscrowState(leaseId: string, orgId: string) {
-    const lease = await this.prisma.lease.findFirst({
+    const prisma = this.db.forOrg(orgId);
+    const lease = await prisma.lease.findFirst({
       where: {
         id: leaseId,
         unit: { property: { organizationId: orgId } },
@@ -38,7 +39,7 @@ export class BillingService {
     }
 
     const account = await this.paymentsService.getLedgerAccountForLease(lease.id, orgId);
-    const latestEscrowEntry = await (this.prisma as any).ledgerTransaction.findFirst({
+    const latestEscrowEntry = await (prisma as any).ledgerTransaction.findFirst({
       where: {
         accountId: account.id,
         categoryCode: { startsWith: 'escrow_' },
@@ -67,7 +68,8 @@ export class BillingService {
       reason?: string;
     },
   ) {
-    const lease = await this.prisma.lease.findFirst({
+    const prisma = this.db.forOrg(orgId);
+    const lease = await prisma.lease.findFirst({
       where: {
         id: leaseId,
         unit: { property: { organizationId: orgId } },
@@ -151,15 +153,16 @@ export class BillingService {
   }
 
   async generateRecurringInvoices(): Promise<void> {
+    const prisma = this.db.raw;
     const now = new Date();
-    const schedules = await this.prisma.recurringInvoiceSchedule.findMany({
+    const schedules = await prisma.recurringInvoiceSchedule.findMany({
       where: { active: true, nextRun: { lte: now } },
       include: { lease: true },
     });
 
     for (const schedule of schedules) {
       try {
-        await this.prisma.$transaction(async (tx) => {
+        await prisma.$transaction(async (tx) => {
           const invoice = await tx.invoice.create({
             data: {
               description: schedule.description,
@@ -185,8 +188,9 @@ export class BillingService {
   }
 
   async applyLateFees(): Promise<void> {
+    const prisma = this.db.raw;
     const now = new Date();
-    const overdueInvoices = await this.prisma.invoice.findMany({
+    const overdueInvoices = await prisma.invoice.findMany({
       where: {
         status: 'UNPAID',
         schedule: {
@@ -211,7 +215,7 @@ export class BillingService {
           invoice.schedule!.lateFeeAmountCents ?? toCents(invoice.schedule!.lateFeeAmountCents!);
         const newInvoiceAmountCents = invoice.amountCents + lateFeeCents;
         try {
-          await this.prisma.$transaction(async (tx) => {
+          await prisma.$transaction(async (tx) => {
             await tx.lateFee.create({
               data: {
                 invoice: { connect: { id: invoice.id } },
@@ -238,9 +242,10 @@ export class BillingService {
   }
 
   async processAutopayCharges(): Promise<void> {
+    const prisma = this.db.raw;
     const today = new Date();
     const scheduledFor = this.startOfUtcDay(today);
-    const autopayEnrollments = await this.prisma.autopayEnrollment.findMany({
+    const autopayEnrollments = await prisma.autopayEnrollment.findMany({
       where: { active: true },
       include: {
         lease: {
@@ -262,7 +267,7 @@ export class BillingService {
       let lockAcquired = false;
 
       try {
-        const lockResult = await this.prisma.$queryRaw<Array<{ pg_try_advisory_lock: boolean }>>`
+        const lockResult = await prisma.$queryRaw<Array<{ pg_try_advisory_lock: boolean }>>`
           SELECT pg_try_advisory_lock(hashtext(${lockKey})) as "pg_try_advisory_lock"
         `;
         lockAcquired = lockResult[0]?.pg_try_advisory_lock ?? false;
@@ -276,7 +281,7 @@ export class BillingService {
           }
 
           if (enrollment.maxAmount && (invoice.amountCents / 100) > enrollment.maxAmount) {
-            await this.prisma.paymentAttempt.update({
+            await prisma.paymentAttempt.update({
               where: { id: attempt.id },
               data: {
                 status: 'FAILED',
@@ -288,7 +293,7 @@ export class BillingService {
             continue;
           }
 
-          await this.prisma.paymentAttempt.update({
+          await prisma.paymentAttempt.update({
             where: { id: attempt.id },
             data: {
               status: 'ATTEMPTING',
@@ -308,7 +313,7 @@ export class BillingService {
               initiatedBy: 'AUTOPAY',
             });
 
-            await this.prisma.paymentAttempt.update({
+            await prisma.paymentAttempt.update({
               where: { id: attempt.id },
               data: {
                 status: 'SUCCEEDED',
@@ -321,7 +326,7 @@ export class BillingService {
           } catch (error) {
             const reason = error instanceof Error ? error.message : String(error);
             const needsAuth = /authentication|required|3d secure|requires_action/i.test(reason);
-            await this.prisma.paymentAttempt.update({
+            await prisma.paymentAttempt.update({
               where: { id: attempt.id },
               data: {
                 status: needsAuth ? 'NEEDS_AUTH' : 'FAILED',
@@ -335,7 +340,7 @@ export class BillingService {
         }
       } finally {
         if (lockAcquired) {
-          await this.prisma.$queryRaw`SELECT pg_advisory_unlock(hashtext(${lockKey}))`;
+          await prisma.$queryRaw`SELECT pg_advisory_unlock(hashtext(${lockKey}))`;
         }
       }
     }
@@ -365,7 +370,7 @@ export class BillingService {
   }
 
   async getConnectedAccount(orgId: string) {
-    const org = await this.prisma.organization.findUnique({
+    const org = await this.db.raw.organization.findUnique({
       where: { id: orgId },
       select: {
         id: true,
@@ -400,7 +405,7 @@ export class BillingService {
       stripeOnboardingCompletedAt?: string;
     },
   ) {
-    const updated = await this.prisma.organization.update({
+    const updated = await this.db.raw.organization.update({
       where: { id: orgId },
       data: {
         stripeConnectedAccountId: input.stripeConnectedAccountId,
@@ -431,7 +436,7 @@ export class BillingService {
   }
 
   async createOnboardingLink(orgId: string, input: { refreshUrl: string; returnUrl: string }) {
-    const org = await this.prisma.organization.findUnique({
+    const org = await this.db.raw.organization.findUnique({
       where: { id: orgId },
       select: { id: true, name: true, stripeConnectedAccountId: true },
     });
@@ -443,7 +448,7 @@ export class BillingService {
         organizationId: org.id,
       });
       accountId = created.accountId;
-      await this.prisma.organization.update({
+      await this.db.raw.organization.update({
         where: { id: org.id },
         data: {
           stripeConnectedAccountId: accountId,
@@ -467,7 +472,7 @@ export class BillingService {
   }
 
   async refreshConnectedAccountStatus(orgId: string) {
-    const org = await this.prisma.organization.findUnique({
+    const org = await this.db.raw.organization.findUnique({
       where: { id: orgId },
       select: { id: true, stripeConnectedAccountId: true },
     });
@@ -488,7 +493,9 @@ export class BillingService {
   }
 
   async createFeeScheduleVersion(orgId: string, actorUserId: string, input: { versionLabel: string; effectiveAt: string; feeConfig: Record<string, unknown> }) {
-    return this.prisma.feeScheduleVersion.create({
+    // FeeScheduleVersion is org-scoped — forOrg auto-filters by organizationId
+    const prisma = this.db.forOrg(orgId);
+    return prisma.feeScheduleVersion.create({
       data: {
         organizationId: orgId,
         versionLabel: input.versionLabel,
@@ -500,6 +507,8 @@ export class BillingService {
   }
 
   async createPlanCycle(orgId: string, input: { name: string; startsAt: string; endsAt: string; status?: 'DRAFT' | 'ACTIVE' | 'CLOSED'; activeFeeScheduleId?: string }) {
+    // OrgPlanCycle is org-scoped
+    const prisma = this.db.forOrg(orgId);
     const startsAt = new Date(input.startsAt);
     const endsAt = new Date(input.endsAt);
 
@@ -512,8 +521,8 @@ export class BillingService {
     }
 
     if (input.activeFeeScheduleId) {
-      const feeSchedule = await this.prisma.feeScheduleVersion.findFirst({
-        where: { id: input.activeFeeScheduleId, organizationId: orgId },
+      const feeSchedule = await prisma.feeScheduleVersion.findFirst({
+        where: { id: input.activeFeeScheduleId },
         select: { id: true },
       });
       if (!feeSchedule) {
@@ -521,7 +530,7 @@ export class BillingService {
       }
     }
 
-    return this.prisma.orgPlanCycle.create({
+    return prisma.orgPlanCycle.create({
       data: {
         organizationId: orgId,
         name: input.name,
@@ -534,13 +543,15 @@ export class BillingService {
   }
 
   async createPricingSnapshot(orgId: string, input: { planCycleId: string; feeScheduleVersionId: string; snapshotType?: string; inputPayload?: Record<string, unknown>; computedFees: Record<string, unknown> }) {
+    // PricingSnapshot, OrgPlanCycle, FeeScheduleVersion are all org-scoped
+    const prisma = this.db.forOrg(orgId);
     const [planCycle, feeScheduleVersion] = await Promise.all([
-      this.prisma.orgPlanCycle.findFirst({
-        where: { id: input.planCycleId, organizationId: orgId },
+      prisma.orgPlanCycle.findFirst({
+        where: { id: input.planCycleId },
         select: { id: true },
       }),
-      this.prisma.feeScheduleVersion.findFirst({
-        where: { id: input.feeScheduleVersionId, organizationId: orgId },
+      prisma.feeScheduleVersion.findFirst({
+        where: { id: input.feeScheduleVersionId },
         select: { id: true },
       }),
     ]);
@@ -554,7 +565,7 @@ export class BillingService {
 
     const snapshotType = input.snapshotType?.trim() || 'BILLING_PREVIEW';
 
-    return this.prisma.pricingSnapshot.create({
+    return prisma.pricingSnapshot.create({
       data: {
         organizationId: orgId,
         planCycleId: input.planCycleId,
@@ -567,16 +578,20 @@ export class BillingService {
   }
 
   async listFeeScheduleVersions(orgId: string) {
-    return this.prisma.feeScheduleVersion.findMany({
-      where: { organizationId: orgId },
+    // FeeScheduleVersion is org-scoped
+    const prisma = this.db.forOrg(orgId);
+    return prisma.feeScheduleVersion.findMany({
+      where: {},
       orderBy: [{ effectiveAt: 'desc' }, { createdAt: 'desc' }],
       take: 100,
     });
   }
 
   async listPlanCycles(orgId: string) {
-    return this.prisma.orgPlanCycle.findMany({
-      where: { organizationId: orgId },
+    // OrgPlanCycle is org-scoped
+    const prisma = this.db.forOrg(orgId);
+    return prisma.orgPlanCycle.findMany({
+      where: {},
       include: { activeFeeSchedule: true },
       orderBy: [{ startsAt: 'desc' }, { createdAt: 'desc' }],
       take: 100,
@@ -584,9 +599,10 @@ export class BillingService {
   }
 
   async listPricingSnapshots(orgId: string, planCycleId?: string) {
-    return this.prisma.pricingSnapshot.findMany({
+    // PricingSnapshot is org-scoped
+    const prisma = this.db.forOrg(orgId);
+    return prisma.pricingSnapshot.findMany({
       where: {
-        organizationId: orgId,
         ...(planCycleId ? { planCycleId } : {}),
       },
       include: {
@@ -599,7 +615,9 @@ export class BillingService {
   }
 
   async listSchedules(orgId: string) {
-    return this.prisma.recurringInvoiceSchedule.findMany({
+    // RecurringInvoiceSchedule is NOT org-scoped — filter via nested lease.unit.property
+    const prisma = this.db.forOrg(orgId);
+    return prisma.recurringInvoiceSchedule.findMany({
       where: { lease: { unit: { property: { organizationId: orgId } } } },
       include: {
         lease: {
@@ -618,8 +636,9 @@ export class BillingService {
     dto: UpsertScheduleDto,
     orgId: string,
   ) {
+    const prisma = this.db.forOrg(orgId);
     const leaseId = this.parseLeaseId(dto.leaseId);
-    const lease = await this.prisma.lease.findFirst({
+    const lease = await prisma.lease.findFirst({
       where: { id: leaseId, unit: { property: { organizationId: orgId } } },
       include: { tenant: true, unit: true },
     });
@@ -640,7 +659,7 @@ export class BillingService {
       ? new Date(dto.nextRun)
       : this.computeInitialRun(dto, lease.startDate);
 
-    const schedule = await this.prisma.recurringInvoiceSchedule.upsert({
+    const schedule = await prisma.recurringInvoiceSchedule.upsert({
       where: { leaseId },
       create: {
         leaseId,
@@ -693,9 +712,10 @@ export class BillingService {
   }
 
   async deactivateSchedule(actor: { userId: string; username: string; role: Role }, leaseId: string | number, orgId: string) {
+    const prisma = this.db.forOrg(orgId);
     const leaseIdStr = typeof leaseId === 'number' ? leaseId.toString() : leaseId;
 
-    const lease = await this.prisma.lease.findFirst({
+    const lease = await prisma.lease.findFirst({
       where: { id: leaseIdStr, unit: { property: { organizationId: orgId } } },
       select: { id: true },
     });
@@ -704,7 +724,7 @@ export class BillingService {
       throw new NotFoundException('Lease not found');
     }
 
-    await this.prisma.recurringInvoiceSchedule.updateMany({
+    await prisma.recurringInvoiceSchedule.updateMany({
       where: { leaseId: leaseIdStr },
       data: { active: false },
     });
@@ -721,7 +741,8 @@ export class BillingService {
   }
 
   async getAutopayForTenant(userId: string) {
-    const lease = await this.prisma.lease.findFirst({
+    const prisma = this.db.raw;
+    const lease = await prisma.lease.findFirst({
       where: { tenantId: userId },
       include: {
         autopayEnrollment: {
@@ -742,7 +763,8 @@ export class BillingService {
 
   async getAutopayForLease(leaseId: string | number, orgId?: string) {
     const leaseIdNum = this.parseLeaseId(leaseId);
-    const lease = await this.prisma.lease.findFirst({
+    const prisma = orgId ? this.db.forOrg(orgId) : this.db.raw;
+    const lease = await prisma.lease.findFirst({
       where: {
         id: leaseIdNum,
         ...(orgId ? { unit: { property: { organizationId: orgId } } } : {}),
@@ -768,8 +790,9 @@ export class BillingService {
     dto: ConfigureAutopayDto,
     orgId?: string,
   ) {
+    const prisma = orgId ? this.db.forOrg(orgId) : this.db.raw;
     const leaseId = this.parseLeaseId(dto.leaseId);
-    const lease = await this.prisma.lease.findFirst({
+    const lease = await prisma.lease.findFirst({
       where: {
         id: leaseId,
         ...(actor.role === Role.PROPERTY_MANAGER && orgId
@@ -787,7 +810,7 @@ export class BillingService {
       throw new BadRequestException('You can only configure autopay for your lease');
     }
 
-    const paymentMethod = await this.prisma.paymentMethod.findUnique({
+    const paymentMethod = await prisma.paymentMethod.findUnique({
       where: { id: dto.paymentMethodId },
     });
 
@@ -795,7 +818,7 @@ export class BillingService {
       throw new BadRequestException('Payment method must belong to the lease tenant');
     }
 
-    const enrollment = await this.prisma.autopayEnrollment.upsert({
+    const enrollment = await prisma.autopayEnrollment.upsert({
       where: { leaseId },
       create: {
         leaseId,
@@ -835,13 +858,14 @@ export class BillingService {
   }
 
   async listNeedsAuthAttemptsForTenant(userId: string) {
-    const lease = await this.prisma.lease.findFirst({
+    const prisma = this.db.raw;
+    const lease = await prisma.lease.findFirst({
       where: { tenantId: userId },
       select: { id: true },
     });
     if (!lease) throw new NotFoundException('Lease not found for tenant');
 
-    return this.prisma.paymentAttempt.findMany({
+    return prisma.paymentAttempt.findMany({
       where: {
         autopayEnrollment: { leaseId: lease.id },
         status: 'NEEDS_AUTH',
@@ -859,7 +883,8 @@ export class BillingService {
     attemptId: string,
     orgId?: string,
   ) {
-    const attempt = await this.prisma.paymentAttempt.findUnique({
+    const prisma = orgId ? this.db.forOrg(orgId) : this.db.raw;
+    const attempt = await prisma.paymentAttempt.findUnique({
       where: { id: attemptId },
       include: {
         autopayEnrollment: {
@@ -887,7 +912,7 @@ export class BillingService {
       return attempt;
     }
 
-    await this.prisma.paymentAttempt.update({
+    await prisma.paymentAttempt.update({
       where: { id: attempt.id },
       data: { status: 'ATTEMPTING', attemptedAt: new Date() },
     });
@@ -902,7 +927,7 @@ export class BillingService {
         initiatedBy: 'TENANT_RECOVERY',
       });
 
-      return this.prisma.paymentAttempt.update({
+      return prisma.paymentAttempt.update({
         where: { id: attempt.id },
         data: {
           status: 'SUCCEEDED',
@@ -914,7 +939,7 @@ export class BillingService {
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       const needsAuth = /authentication|required|3d secure|requires_action/i.test(reason);
-      return this.prisma.paymentAttempt.update({
+      return prisma.paymentAttempt.update({
         where: { id: attempt.id },
         data: {
           status: needsAuth ? 'NEEDS_AUTH' : 'FAILED',
@@ -930,8 +955,9 @@ export class BillingService {
     leaseId: string | number,
     orgId?: string,
   ) {
+    const prisma = orgId ? this.db.forOrg(orgId) : this.db.raw;
     const leaseIdNum = this.parseLeaseId(leaseId);
-    const lease = await this.prisma.lease.findFirst({
+    const lease = await prisma.lease.findFirst({
       where: {
         id: leaseIdNum,
         ...(actor.role === Role.PROPERTY_MANAGER && orgId
@@ -949,7 +975,7 @@ export class BillingService {
       throw new BadRequestException('You can only modify autopay for your lease');
     }
 
-    const result = await this.prisma.autopayEnrollment.updateMany({
+    const result = await prisma.autopayEnrollment.updateMany({
       where: { leaseId: leaseIdNum },
       data: { active: false },
     });
@@ -968,8 +994,9 @@ export class BillingService {
   }
 
   private async getOrCreateDailyAutopayAttempt(autopayEnrollmentId: number, invoiceId: string, scheduledFor: Date) {
+    const prisma = this.db.raw;
     try {
-      return await this.prisma.paymentAttempt.create({
+      return await prisma.paymentAttempt.create({
         data: {
           autopayEnrollmentId,
           invoiceId,
@@ -979,7 +1006,7 @@ export class BillingService {
       });
     } catch (error) {
       if (this.isUniqueConstraintError(error)) {
-        return this.prisma.paymentAttempt.findUniqueOrThrow({
+        return prisma.paymentAttempt.findUniqueOrThrow({
           where: {
             autopayEnrollmentId_invoiceId_scheduledFor: {
               autopayEnrollmentId,

@@ -2,6 +2,9 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 
+/** Module-level reference for use inside Prisma extension closures */
+let _orgScopedModels: Set<string> = new Set();
+
 /**
  * DatabaseService is an additive wrapper around PrismaService that provides:
  * - Auto-scoping of ALL org-owned models (detected via Prisma DMMF at startup)
@@ -12,11 +15,24 @@ import { PrismaService } from './prisma.service';
  *
  * It does NOT replace PrismaService — existing services keep working unchanged.
  * Services can migrate to DatabaseService gradually.
+ *
+ * Migration pattern:
+ *   // Before (manual orgId filtering):
+ *   constructor(private prisma: PrismaService) {}
+ *   async getProperties(orgId: string) {
+ *     return this.prisma.property.findMany({ where: { organizationId: orgId } });
+ *   }
+ *
+ *   // After (auto org-scoping):
+ *   constructor(private db: DatabaseService) {}
+ *   async getProperties(orgId: string) {
+ *     return this.db.forOrg(orgId).property.findMany({ });
+ *   }
  */
 @Injectable()
 export class DatabaseService implements OnModuleInit {
   private readonly logger = new Logger(DatabaseService.name);
-  private orgContext: string | null = null;
+
   private queryCounts: Map<string, number> = new Map();
 
   /** Models that have an `organizationId` field (detected at startup) */
@@ -35,6 +51,7 @@ export class DatabaseService implements OnModuleInit {
         const fieldNames = model.fields.map((f) => f.name);
         if (fieldNames.includes('organizationId')) {
           this.orgScopedModels.add(model.name);
+          _orgScopedModels.add(model.name);
         }
         if (fieldNames.includes('deletedAt')) {
           this.softDeleteModels.add(model.name);
@@ -50,20 +67,69 @@ export class DatabaseService implements OnModuleInit {
     }
   }
 
-  /** Set the org context for all subsequent queries through this service */
-  setOrgContext(orgId: string) {
-    this.orgContext = orgId;
+  /**
+   * Return a Prisma client extension that auto-scopes ALL org-owned models.
+   * This covers 25+ models (vs 8 in PrismaService.forOrg).
+   *
+   * Usage:
+   *   const db = this.db.forOrg(orgId);
+   *   await db.property.findMany({}); // auto-filtered by organizationId
+   *   await db.lease.findFirst({ where: { id } }); // auto-filtered if Lease has orgId
+   */
+  forOrg(orgId: string) {
+    return this.prisma.$extends({
+      query: {
+        $allModels: {
+          async findMany({ model, args, query }) {
+          if (_orgScopedModels.has(model)) {
+              args.where = { ...args.where, organizationId: orgId };
+            }
+            return query(args);
+          },
+          async findFirst({ model, args, query }) {
+            if (_orgScopedModels.has(model)) {
+              args.where = { ...args.where, organizationId: orgId };
+            }
+            return query(args);
+          },
+          async findUnique({ model, args, query }) {
+            if (_orgScopedModels.has(model)) {
+              args.where = { ...args.where, organizationId: orgId };
+            }
+            return query(args);
+          },
+          async updateMany({ model, args, query }) {
+            if (_orgScopedModels.has(model)) {
+              args.where = { ...args.where, organizationId: orgId };
+            }
+            return query(args);
+          },
+          async deleteMany({ model, args, query }) {
+            if (_orgScopedModels.has(model)) {
+              args.where = { ...args.where, organizationId: orgId };
+            }
+            return query(args);
+          },
+          async count({ model, args, query }) {
+            if (_orgScopedModels.has(model)) {
+              args.where = { ...args.where, organizationId: orgId };
+            }
+            return query(args);
+          },
+          async aggregate({ model, args, query }) {
+            if (_orgScopedModels.has(model)) {
+              args.where = { ...args.where, organizationId: orgId };
+            }
+            return query(args);
+          },
+        },
+      },
+    });
   }
 
-  /** Clear the org context */
-  clearOrgContext() {
-    this.orgContext = null;
-  }
-
-  /** Get the Prisma client (with org scoping applied if context is set) */
-  get client() {
-    if (!this.orgContext) return this.prisma;
-    return this.prisma.forOrg(this.orgContext);
+  /** Get the raw Prisma client (no scoping) */
+  get raw() {
+    return this.prisma;
   }
 
   /** Health check — runs SELECT 1 */

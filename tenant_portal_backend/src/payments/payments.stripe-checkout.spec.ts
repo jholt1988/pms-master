@@ -15,8 +15,10 @@ describe('PaymentsService - Stripe Checkout Session', () => {
     createCheckoutSession: jest.fn(),
   };
 
+  const db = { forOrg: () => prismaMock, raw: prismaMock };
+
   const service = new PaymentsService(
-    prismaMock,
+    db,
     {} as any,
     {} as any,
     stripeMock,
