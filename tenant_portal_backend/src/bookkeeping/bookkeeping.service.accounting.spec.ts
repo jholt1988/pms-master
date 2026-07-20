@@ -72,7 +72,8 @@ describe('BookkeepingService accounting MVP guardrails', () => {
 
   beforeEach(() => {
     prisma = createPrisma();
-    service = new BookkeepingService(prisma as any);
+    const db = { forOrg: () => prisma, raw: prisma };
+    service = new BookkeepingService(db as any);
   });
 
   it('seeds required chart of accounts as system accounts', async () => {

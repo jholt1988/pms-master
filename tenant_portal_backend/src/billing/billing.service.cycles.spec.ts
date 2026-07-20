@@ -7,6 +7,7 @@ describe('BillingService recurring invoice and late fee cycles', () => {
     lateFee: { create: jest.fn() },
     $transaction: jest.fn(),
   };
+  const db = { forOrg: () => prisma, raw: prisma };
   const paymentsService: any = {};
   const securityEvents: any = { logEvent: jest.fn() };
   const stripeService: any = {};
@@ -15,7 +16,7 @@ describe('BillingService recurring invoice and late fee cycles', () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
-    service = new BillingService(prisma, paymentsService, securityEvents, stripeService);
+    service = new BillingService(db, paymentsService, securityEvents, stripeService);
     prisma.$transaction.mockImplementation(async (fn: any) =>
       fn({
         invoice: prisma.invoice,

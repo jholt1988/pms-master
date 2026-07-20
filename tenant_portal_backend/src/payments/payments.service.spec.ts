@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PaymentsService } from './payments.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../prisma/database.service';
 import { EmailService } from '../email/email.service';
 import { AIPaymentService } from './ai-payment.service';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
@@ -13,9 +13,9 @@ import { WorkflowEventProcessor } from '../policy/workflow-event-processor.servi
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
-  let __prismaService: PrismaService;
-  let __emailService: EmailService;
-  let __auditLogService: AuditLogService;
+  let dbService: DatabaseService;
+  let emailService: EmailService;
+  let auditLogService: AuditLogService;
 
   // Mock PrismaService
   const mockPrismaService = {
@@ -158,7 +158,7 @@ describe('PaymentsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PaymentsService,
-        { provide: PrismaService, useValue: mockPrismaService },
+        { provide: DatabaseService, useValue: { forOrg: () => mockPrismaService, raw: mockPrismaService } },
         { provide: EmailService, useValue: mockEmailService },
         { provide: AIPaymentService, useValue: mockAIPaymentService },
         { provide: StripeService, useValue: mockStripeService },
@@ -170,7 +170,7 @@ describe('PaymentsService', () => {
     }).compile();
 
     service = module.get<PaymentsService>(PaymentsService);
-    prismaService = module.get<PrismaService>(PrismaService);
+    dbService = module.get<DatabaseService>(DatabaseService);
     emailService = module.get<EmailService>(EmailService);
     auditLogService = module.get<AuditLogService>(AuditLogService);
   });

@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
 import { isUUID } from 'class-validator';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../prisma/database.service';
 import {
   MaintenanceAsset,
   MaintenanceAssetCategory,
@@ -53,7 +53,7 @@ export class MaintenanceService {
   private readonly logger = new Logger(MaintenanceService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly db: DatabaseService,
     private readonly aiMaintenanceService: AIMaintenanceService,
     private readonly systemUserService: SystemUserService,
     private readonly aiMetrics?: AIMaintenanceMetricsService,
@@ -103,7 +103,7 @@ export class MaintenanceService {
       unitId = dto.unitId ?? undefined;
 
       if (propertyId == null || unitId == null) {
-        const userLookup = this.prisma.user?.findUnique ?? this.prisma.user?.findFirst;
+        const userLookup = this.db.raw.user?.findUnique ?? this.db.raw.user?.findFirst;
         if (userLookup) {
           type UserWithLease = Prisma.UserGetPayload<{
             include: {
@@ -115,7 +115,7 @@ export class MaintenanceService {
             };
           } | null>;
 
-          const userWithLease = (await userLookup.call(this.prisma.user, {
+          const userWithLease = (await userLookup.call(this.db.raw.user, {
             where: { id: userId },
             include: {
               lease: { include: { unit: true } },
@@ -133,7 +133,7 @@ export class MaintenanceService {
         }
       }
     } else if (role === Role.TENANT) {
-      const lease = await this.prisma.lease.findFirst({
+      const lease = await this.db.raw.lease.findFirst({
         where: { tenantId: userId },
         include: { unit: { select: { id: true, propertyId: true } } },
       });
@@ -155,7 +155,7 @@ export class MaintenanceService {
       leaseId = dto.leaseId ?? undefined;
 
       if (leaseId) {
-        const lease = await this.prisma.lease.findUnique({
+        const lease = await this.db.raw.lease.findUnique({
           where: { id: leaseId },
           include: {
             unit: { select: { id: true, propertyId: true } },
@@ -171,7 +171,7 @@ export class MaintenanceService {
         }
 
         if (orgId) {
-          const leaseInOrg = await this.prisma.lease.findFirst({
+          const leaseInOrg = await this.db.raw.lease.findFirst({
             where: { id: leaseId, unit: { property: { organizationId: orgId } } },
             select: { id: true },
           });
@@ -210,7 +210,7 @@ export class MaintenanceService {
       }
 
       if (propertyId && orgId) {
-        const property = await this.prisma.property.findFirst({
+        const property = await this.db.raw.property.findFirst({
           where: { id: propertyId, organizationId: orgId },
           select: { id: true },
         });
@@ -226,7 +226,7 @@ export class MaintenanceService {
 
       // Guardrail: if unitId + propertyId provided, validate the unit belongs to the property.
       if (propertyId && unitId) {
-        const unit = await this.prisma.unit.findFirst({
+        const unit = await this.db.raw.unit.findFirst({
           where: { id: unitId, propertyId },
           select: { id: true },
         });
@@ -295,7 +295,7 @@ export class MaintenanceService {
 
     const explicitDueAt = dto.dueDate ? this.parseOptionalDate(dto.dueDate, 'dueDate') ?? null : undefined;
 
-    const request = await this.prisma.maintenanceRequest.create({
+    const request = await this.db.raw.maintenanceRequest.create({
       data: {
         title: dto.title,
         description: dto.description,
@@ -325,7 +325,7 @@ export class MaintenanceService {
 
   async findById(id: string | number): Promise<Prisma.MaintenanceRequestGetPayload<{ include: Prisma.MaintenanceRequestInclude }>> {
     const requestId = this.toRequestId(id);
-    const request = await this.prisma.maintenanceRequest.findUnique({
+    const request = await this.db.raw.maintenanceRequest.findUnique({
       where: { id: requestId },
       include: this.defaultRequestInclude,
     });
@@ -342,7 +342,7 @@ export class MaintenanceService {
   }
 
   async getLeaseForTenant(userId: string): Promise<{ id: string } | null> {
-    return this.prisma.lease.findFirst({
+    return this.db.raw.lease.findFirst({
       where: { tenantId: userId },
       select: { id: true },
     });
@@ -355,7 +355,7 @@ export class MaintenanceService {
       return [];
     }
 
-    return this.prisma.maintenanceRequest.findMany({
+    return this.db.raw.maintenanceRequest.findMany({
       where: { leaseId: lease.id },
       include: this.defaultRequestInclude,
       orderBy: { createdAt: 'desc' },
@@ -373,12 +373,12 @@ export class MaintenanceService {
 
     const where: Prisma.MaintenanceRequestWhereInput = { leaseId: lease.id };
 
-    const total = await this.prisma.maintenanceRequest.count({ where });
+    const total = await this.db.raw.maintenanceRequest.count({ where });
 
     const take = Math.min(Math.max(pageSize, 1), 100);
     const skip = Math.max(page - 1, 0) * take;
 
-    const items = await this.prisma.maintenanceRequest.findMany({
+    const items = await this.db.raw.maintenanceRequest.findMany({
       where,
       include: this.defaultRequestInclude,
       orderBy: { createdAt: 'desc' },
@@ -447,7 +447,7 @@ export class MaintenanceService {
     const take = Math.min(Math.max(pageSize, 1), 100);
     const skip = Math.max(page - 1, 0) * take;
 
-    return this.prisma.maintenanceRequest.findMany({
+    return this.db.raw.maintenanceRequest.findMany({
       where,
       include: this.defaultRequestInclude,
       orderBy: [
@@ -487,9 +487,9 @@ export class MaintenanceService {
       );
     }
 
-    const where: Prisma.MaintenanceRequestWhereInput = {
-      property: { organizationId: orgId },
-    };
+    const prisma = this.db.forOrg(orgId);
+
+    const where: Prisma.MaintenanceRequestWhereInput = {};
     if (status) {
       where.status = status;
     }
@@ -521,12 +521,12 @@ export class MaintenanceService {
       where.status = { not: Status.COMPLETED };
     }
 
-    const total = await this.prisma.maintenanceRequest.count({ where });
+    const total = await prisma.maintenanceRequest.count({ where });
 
     const take = Math.min(Math.max(pageSize, 1), 100);
     const skip = Math.max(page - 1, 0) * take;
 
-    const items = await this.prisma.maintenanceRequest.findMany({
+    const items = await prisma.maintenanceRequest.findMany({
       where,
       include: this.defaultRequestInclude,
       orderBy: [
@@ -556,7 +556,7 @@ export class MaintenanceService {
     // Prefer updateStatusScoped from controllers.
 
     const requestNumericId = this.toRequestId(id);
-    const existing = await this.prisma.maintenanceRequest.findUnique({
+    const existing = await this.db.raw.maintenanceRequest.findUnique({
       where: { id: requestNumericId },
       include: this.defaultRequestInclude,
     });
@@ -602,7 +602,7 @@ export class MaintenanceService {
       updateData.completedAt = new Date();
     }
 
-    const updated = await this.prisma.maintenanceRequest.update({
+    const updated = await this.db.raw.maintenanceRequest.update({
       where: { id: requestNumericId },
       data: updateData,
       include: this.defaultRequestInclude,
@@ -673,7 +673,7 @@ export class MaintenanceService {
     // Prefer assignTechnicianScoped from controllers.
 
     const requestNumericId = this.toRequestId(id);
-    const existing = await this.prisma.maintenanceRequest.findUnique({
+    const existing = await this.db.raw.maintenanceRequest.findUnique({
       where: { id: requestNumericId },
       include: {
         property: {
@@ -765,13 +765,13 @@ export class MaintenanceService {
     }
 
     if (existing.assigneeId === technicianId) {
-      return this.prisma.maintenanceRequest.findUniqueOrThrow({
+      return this.db.raw.maintenanceRequest.findUniqueOrThrow({
         where: { id: requestNumericId },
         include: this.defaultRequestInclude,
       });
     }
 
-    const updated = await this.prisma.maintenanceRequest.update({
+    const updated = await this.db.raw.maintenanceRequest.update({
       where: { id: requestNumericId },
       data: {
         assignee: { connect: { id: technicianId } },
@@ -851,7 +851,7 @@ export class MaintenanceService {
     },
   ): Promise<MaintenanceRequest> {
     const numericRequestId = this.toRequestId(requestId);
-    const existing = await this.prisma.maintenanceRequest.findUnique({
+    const existing = await this.db.raw.maintenanceRequest.findUnique({
       where: { id: numericRequestId },
       include: this.defaultRequestInclude,
     });
@@ -896,7 +896,7 @@ export class MaintenanceService {
     const escalationNote = `ESCALATED: ${options.reason}${factorsText ? `\nFactors: ${factorsText}` : ''}`;
 
     // Update the request
-    const updated = await this.prisma.maintenanceRequest.update({
+    const updated = await this.db.raw.maintenanceRequest.update({
       where: { id: numericRequestId },
       data: {
         priority: newPriority,
@@ -934,7 +934,7 @@ export class MaintenanceService {
 
   private async assertRequestInOrg(requestId: string | number, orgId: string) {
     const numericRequestId = this.toRequestId(requestId);
-    const req = await this.prisma.maintenanceRequest.findUnique({
+    const req = await this.db.raw.maintenanceRequest.findUnique({
       where: { id: numericRequestId },
       select: { id: true, property: { select: { organizationId: true } } },
     });
@@ -959,7 +959,7 @@ export class MaintenanceService {
     }
 
     const numericRequestId = this.toRequestId(requestId);
-    const req = await this.prisma.maintenanceRequest.findUnique({
+    const req = await this.db.raw.maintenanceRequest.findUnique({
       where: { id: numericRequestId },
       select: { id: true, leaseId: true },
     });
@@ -979,7 +979,7 @@ export class MaintenanceService {
     authorId: string | number,
   ): Promise<MaintenanceNote> {
     const numericRequestId = this.toRequestId(requestId);
-    const note = await this.prisma.maintenanceNote.create({
+    const note = await this.db.raw.maintenanceNote.create({
       data: {
         request: { connect: { id: numericRequestId } },
         author: { connect: { id: authorId as any } },
@@ -1030,7 +1030,7 @@ export class MaintenanceService {
     }
 
     const numericRequestId = this.toRequestId(requestId);
-    const photo = await this.prisma.maintenancePhoto.create({
+    const photo = await this.db.raw.maintenancePhoto.create({
       data: {
         request: { connect: { id: numericRequestId } },
         uploadedBy: { connect: { id: uploadedById as any } },
@@ -1075,7 +1075,7 @@ export class MaintenanceService {
     await this.assertRequestInTenantLease(requestId, tenantId);
 
     const numericRequestId = this.toRequestId(requestId);
-    const req = await this.prisma.maintenanceRequest.findUnique({
+    const req = await this.db.raw.maintenanceRequest.findUnique({
       where: { id: numericRequestId },
       include: this.defaultRequestInclude,
     });
@@ -1116,7 +1116,7 @@ export class MaintenanceService {
   }
 
   async listTechnicians(orgId?: string): Promise<Technician[]> {
-    return this.prisma.technician.findMany({
+    return this.db.raw.technician.findMany({
       where: {
         active: true,
         ...(orgId ? { organizationId: orgId } : {}),
@@ -1130,7 +1130,7 @@ export class MaintenanceService {
     if (!orgId) {
       throw new BadRequestException('Organization context is required');
     }
-    return this.prisma.technician.create({
+    return this.db.raw.technician.create({
       data: {
         name: data.name,
         phone: data.phone,
@@ -1154,7 +1154,7 @@ export class MaintenanceService {
       where.property = { organizationId: orgId };
     }
 
-    return this.prisma.maintenanceAsset.findMany({
+    return this.db.raw.maintenanceAsset.findMany({
       where,
       orderBy: { name: 'asc' },
     });
@@ -1174,7 +1174,7 @@ export class MaintenanceService {
     const installDate = this.parseOptionalDate(data.installDate, 'installDate');
 
     if (orgId) {
-      const property = await this.prisma.property.findFirst({
+      const property = await this.db.raw.property.findFirst({
         where: { id: data.propertyId, organizationId: orgId },
         select: { id: true },
       });
@@ -1183,7 +1183,7 @@ export class MaintenanceService {
       }
     }
 
-    return this.prisma.maintenanceAsset.create({
+    return this.db.raw.maintenanceAsset.create({
       data: {
         property: { connect: { id: data.propertyId } },
         unit: data.unitId ? { connect: { id: data.unitId } } : undefined,
@@ -1208,7 +1208,7 @@ export class MaintenanceService {
     }
 
     if (orgId && propertyId) {
-      const property = await this.prisma.property.findFirst({
+      const property = await this.db.raw.property.findFirst({
         where: { id: propertyId, organizationId: orgId },
         select: { id: true },
       });
@@ -1217,11 +1217,11 @@ export class MaintenanceService {
       }
     }
 
-    if (!this.prisma.maintenanceSlaPolicy?.findMany) {
+    if (!this.db.raw.maintenanceSlaPolicy?.findMany) {
       return [];
     }
 
-    return this.prisma.maintenanceSlaPolicy.findMany({
+    return this.db.raw.maintenanceSlaPolicy.findMany({
       where,
       orderBy: [{ propertyId: 'desc' }, { priority: 'asc' }],
     });
@@ -1284,7 +1284,7 @@ export class MaintenanceService {
     },
   ): Promise<MaintenanceRequestHistory> {
     const numericRequestId = this.toRequestId(requestId);
-    return this.prisma.maintenanceRequestHistory.create({
+    return this.db.raw.maintenanceRequestHistory.create({
       data: {
         request: { connect: { id: numericRequestId } },
         changedBy: data.changedById ? { connect: { id: data.changedById } } : undefined,
@@ -1304,7 +1304,7 @@ export class MaintenanceService {
     > & { leaseId?: string | null },
   ): Promise<void> {
     const eventDate = request.dueAt ?? request.responseDueAt ?? request.completedAt ?? new Date();
-    const existing = await this.prisma.scheduleEvent.findFirst({
+    const existing = await this.db.raw.scheduleEvent.findFirst({
       where: {
         type: EventType.MAINTENANCE,
         propertyId: request.propertyId ?? undefined,
@@ -1314,14 +1314,14 @@ export class MaintenanceService {
     });
 
     const tenantId = request.leaseId
-      ? (await this.prisma.lease.findUnique({
+      ? (await this.db.raw.lease.findUnique({
           where: { id: request.leaseId },
           select: { tenantId: true },
         }))?.tenantId
       : undefined;
 
     if (existing) {
-      await this.prisma.scheduleEvent.update({
+      await this.db.raw.scheduleEvent.update({
         where: { id: existing.id },
         data: {
           date: eventDate,
@@ -1357,7 +1357,7 @@ export class MaintenanceService {
   private async completeMaintenanceScheduleEvent(
     request: Pick<MaintenanceRequest, 'id' | 'title' | 'propertyId' | 'unitId' | 'completedAt'>,
   ): Promise<void> {
-    const existing = await this.prisma.scheduleEvent.findFirst({
+    const existing = await this.db.raw.scheduleEvent.findFirst({
       where: {
         type: EventType.MAINTENANCE,
         propertyId: request.propertyId ?? undefined,
@@ -1370,7 +1370,7 @@ export class MaintenanceService {
       return;
     }
 
-    await this.prisma.scheduleEvent.update({
+    await this.db.raw.scheduleEvent.update({
       where: { id: existing.id },
       data: {
         status: 'COMPLETED',
@@ -1423,7 +1423,7 @@ export class MaintenanceService {
       return;
     }
 
-    const lease = await this.prisma.lease.findUnique({
+    const lease = await this.db.raw.lease.findUnique({
       where: { id: request.leaseId },
       select: { tenantId: true },
     });

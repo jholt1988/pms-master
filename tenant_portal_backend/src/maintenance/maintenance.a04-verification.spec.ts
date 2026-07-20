@@ -14,6 +14,7 @@ import { MaintenanceService } from './maintenance.service';
 import { AIMaintenanceService } from './ai-maintenance.service';
 import { SystemUserService } from '../shared/system-user.service';
 import { AIMaintenanceMetricsService } from './ai-maintenance-metrics.service';
+import { DatabaseService } from '../prisma/database.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MaintenancePriority, Status, Role, OrgRole } from '@prisma/client';
 import { CreateMaintenanceRequestDto } from './dto/create-maintenance-request.dto';
@@ -85,6 +86,7 @@ describe('A-04: Owner maintenance flow boundaries', () => {
       controllers: [MaintenanceController],
       providers: [
         MaintenanceService,
+        { provide: DatabaseService, useValue: { forOrg: () => mockPrismaService, raw: mockPrismaService } },
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: AIMaintenanceService, useValue: mockAIMaintenanceService },
         { provide: SystemUserService, useValue: mockSystemUserService },

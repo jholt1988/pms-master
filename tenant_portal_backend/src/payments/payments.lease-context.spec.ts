@@ -2,7 +2,7 @@ import { ForbiddenException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { Role } from '@prisma/client';
 import { EmailService } from '../email/email.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../prisma/database.service';
 import { PaymentsService } from './payments.service';
 import { AIPaymentService } from './ai-payment.service';
 import { StripeService } from './stripe.service';
@@ -28,7 +28,7 @@ describe('PaymentsService lease-context access', () => {
     const module = await Test.createTestingModule({
       providers: [
         PaymentsService,
-        { provide: PrismaService, useValue: prisma },
+        { provide: DatabaseService, useValue: { forOrg: () => prisma, raw: prisma } },
         { provide: AIPaymentService, useValue: {} },
         { provide: EmailService, useValue: {} },
         { provide: StripeService, useValue: {} },

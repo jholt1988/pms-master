@@ -15,6 +15,7 @@ describe('BillingService autopay state machine', () => {
     },
   };
 
+  const db = { forOrg: () => prisma, raw: prisma };
   const paymentsService: any = { recordPaymentForInvoice: jest.fn() };
   const securityEvents: any = { logEvent: jest.fn() };
   const stripeService: any = {};
@@ -25,7 +26,7 @@ describe('BillingService autopay state machine', () => {
   });
 
   it('does not retry same-day attempts once they are NEEDS_AUTH', async () => {
-    const service = new BillingService(prisma, paymentsService, securityEvents, stripeService);
+    const service = new BillingService(db, paymentsService, securityEvents, stripeService);
 
     prisma.autopayEnrollment.findMany.mockResolvedValue([
       {
@@ -66,7 +67,7 @@ describe('BillingService autopay state machine', () => {
   });
 
   it('keeps NEEDS_AUTH status on recovery when auth is still required', async () => {
-    const service = new BillingService(prisma, paymentsService, securityEvents, stripeService);
+    const service = new BillingService(db, paymentsService, securityEvents, stripeService);
 
     prisma.paymentAttempt.findUnique.mockResolvedValueOnce({
       id: 'attempt-1',
@@ -104,7 +105,7 @@ describe('BillingService autopay state machine', () => {
   });
 
   it('returns the tenant autopay contract as { leaseId, enrollment }', async () => {
-    const service = new BillingService(prisma, paymentsService, securityEvents, stripeService);
+    const service = new BillingService(db, paymentsService, securityEvents, stripeService);
 
     prisma.lease.findFirst.mockResolvedValueOnce({
       id: 'lease-1',
@@ -129,7 +130,7 @@ describe('BillingService autopay state machine', () => {
   });
 
   it('fails an autopay attempt without charging when the invoice exceeds the enrollment cap', async () => {
-    const service = new BillingService(prisma, paymentsService, securityEvents, stripeService);
+    const service = new BillingService(db, paymentsService, securityEvents, stripeService);
 
     prisma.autopayEnrollment.findMany.mockResolvedValueOnce([
       {
@@ -159,7 +160,7 @@ describe('BillingService autopay state machine', () => {
   });
 
   it('records a succeeded autopay attempt with the external payment id', async () => {
-    const service = new BillingService(prisma, paymentsService, securityEvents, stripeService);
+    const service = new BillingService(db, paymentsService, securityEvents, stripeService);
 
     prisma.autopayEnrollment.findMany.mockResolvedValueOnce([
       {
@@ -197,7 +198,7 @@ describe('BillingService autopay state machine', () => {
   });
 
   it('prevents a tenant from configuring autopay for another tenant lease', async () => {
-    const service = new BillingService(prisma, paymentsService, securityEvents, stripeService);
+    const service = new BillingService(db, paymentsService, securityEvents, stripeService);
 
     prisma.lease.findFirst.mockResolvedValueOnce({
       id: '11111111-1111-4111-8111-111111111111',
@@ -220,7 +221,7 @@ describe('BillingService autopay state machine', () => {
   });
 
   it('rejects autopay configuration when the payment method belongs to another user', async () => {
-    const service = new BillingService(prisma, paymentsService, securityEvents, stripeService);
+    const service = new BillingService(db, paymentsService, securityEvents, stripeService);
 
     prisma.lease.findFirst.mockResolvedValueOnce({
       id: '11111111-1111-4111-8111-111111111111',
@@ -245,7 +246,7 @@ describe('BillingService autopay state machine', () => {
   });
 
   it('rejects disabling autopay when tenant does not own lease', async () => {
-    const service = new BillingService(prisma, paymentsService, securityEvents, stripeService);
+    const service = new BillingService(db, paymentsService, securityEvents, stripeService);
     prisma.lease.findFirst.mockResolvedValueOnce({
       id: '11111111-1111-4111-8111-111111111111',
       tenantId: 'tenant-owner',
@@ -260,7 +261,7 @@ describe('BillingService autopay state machine', () => {
   });
 
   it('returns not found when disabling autopay for missing lease', async () => {
-    const service = new BillingService(prisma, paymentsService, securityEvents, stripeService);
+    const service = new BillingService(db, paymentsService, securityEvents, stripeService);
     prisma.lease.findFirst.mockResolvedValueOnce(null);
     await expect(
       service.disableAutopay(

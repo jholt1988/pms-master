@@ -1,5 +1,5 @@
 import { Injectable, Logger, BadRequestException, ForbiddenException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../prisma/database.service';
 
 const REQUIRED_ACCOUNT_CODES = {
   operatingCash: '1000',
@@ -37,53 +37,55 @@ const DEFAULT_ACCOUNTS = [
 export class BookkeepingService {
   private readonly logger = new Logger(BookkeepingService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly db: DatabaseService) {}
 
   // ---- Transaction Capture & Categorization ----
 
   async getPendingTransactions(orgId: string, take = 50, skip = 0) {
+    const prisma = this.db.forOrg(orgId);
     const safeTake = Math.min(Math.max(take || 50, 1), 100);
     const safeSkip = Math.max(skip || 0, 0);
     const where = { organizationId: orgId, status: 'PENDING_REVIEW' as const };
     const [data, total] = await Promise.all([
-      this.prisma.bookkeepingTransaction.findMany({
-      where: { organizationId: orgId, status: 'PENDING_REVIEW' },
+      prisma.bookkeepingTransaction.findMany({
+      where: { status: 'PENDING_REVIEW' },
       include: { allocations: true, bankTransaction: true },
       orderBy: { date: 'desc' },
       skip: safeSkip,
       take: safeTake,
       }),
-      this.prisma.bookkeepingTransaction.count({ where }),
+      prisma.bookkeepingTransaction.count({ where }),
     ]);
     return { data, total, skip: safeSkip, take: safeTake };
   }
 
   async getExceptionTransactions(orgId: string, take = 50, skip = 0) {
+    const prisma = this.db.forOrg(orgId);
     const safeTake = Math.min(Math.max(take || 50, 1), 100);
     const safeSkip = Math.max(skip || 0, 0);
     const where = { organizationId: orgId, status: 'EXCEPTION' as const };
     const [data, total] = await Promise.all([
-      this.prisma.bookkeepingTransaction.findMany({
-      where: { organizationId: orgId, status: 'EXCEPTION' },
+      prisma.bookkeepingTransaction.findMany({
+      where: { status: 'EXCEPTION' },
       include: { allocations: true, bankTransaction: true },
       orderBy: { date: 'desc' },
       skip: safeSkip,
       take: safeTake,
       }),
-      this.prisma.bookkeepingTransaction.count({ where }),
+      prisma.bookkeepingTransaction.count({ where }),
     ]);
     return { data, total, skip: safeSkip, take: safeTake };
   }
 
   async categorizeTransaction(id: string, category: string, userId: string) {
-    return this.prisma.bookkeepingTransaction.update({
+    return this.db.raw.bookkeepingTransaction.update({
       where: { id },
       data: { category, status: 'CATEGORIZED', reviewedById: userId },
     });
   }
 
   async markException(id: string, reason: string) {
-    return this.prisma.bookkeepingTransaction.update({
+    return this.db.raw.bookkeepingTransaction.update({
       where: { id },
       data: { status: 'EXCEPTION', exceptionReason: reason },
     });
@@ -103,7 +105,7 @@ export class BookkeepingService {
       ownerId?: string;
     }[],
   ) {
-    const tx = await this.prisma.bookkeepingTransaction.findUniqueOrThrow({
+    const tx = await this.db.raw.bookkeepingTransaction.findUniqueOrThrow({
       where: { id: transactionId },
     });
 
@@ -114,20 +116,20 @@ export class BookkeepingService {
       );
     }
 
-    await this.prisma.$transaction([
-      this.prisma.bookkeepingAllocation.deleteMany({ where: { transactionId } }),
+    await this.db.raw.$transaction([
+      this.db.raw.bookkeepingAllocation.deleteMany({ where: { transactionId } }),
       ...allocations.map((a) =>
-        this.prisma.bookkeepingAllocation.create({
+        this.db.raw.bookkeepingAllocation.create({
           data: { transactionId, ...a },
         }),
       ),
-      this.prisma.bookkeepingTransaction.update({
+      this.db.raw.bookkeepingTransaction.update({
         where: { id: transactionId },
         data: { status: 'ALLOCATED' },
       }),
     ]);
 
-    return this.prisma.bookkeepingTransaction.findUnique({
+    return this.db.raw.bookkeepingTransaction.findUnique({
       where: { id: transactionId },
       include: { allocations: { include: { account: true } } },
     });
@@ -136,19 +138,20 @@ export class BookkeepingService {
   // ---- Reconciliation ----
 
   async getReconciliationSummary(orgId: string) {
+    const prisma = this.db.forOrg(orgId);
     const [unmatched, matched, exception] = await Promise.all([
-      this.prisma.reconciliationSessionItem.count({
+      prisma.reconciliationSessionItem.count({
         where: { session: { organizationId: orgId }, status: 'UNMATCHED' },
       }),
-      this.prisma.reconciliationSessionItem.count({
+      prisma.reconciliationSessionItem.count({
         where: { session: { organizationId: orgId }, status: { in: ['MATCHED', 'CONFIRMED'] } },
       }),
-      this.prisma.reconciliationSessionItem.count({
+      prisma.reconciliationSessionItem.count({
         where: { session: { organizationId: orgId }, status: 'EXCEPTION' },
       }),
     ]);
 
-    const items = await this.prisma.reconciliationSessionItem.findMany({
+    const items = await prisma.reconciliationSessionItem.findMany({
       where: { session: { organizationId: orgId }, status: { in: ['UNMATCHED', 'EXCEPTION'] } },
       orderBy: { createdAt: 'desc' },
       take: 50,
@@ -158,7 +161,7 @@ export class BookkeepingService {
   }
 
   async confirmReconciliationMatch(itemId: string, userId: string) {
-    const item = await this.prisma.reconciliationSessionItem.findUnique({
+    const item = await this.db.raw.reconciliationSessionItem.findUnique({
       where: { id: itemId },
     });
     if (!item) {
@@ -174,7 +177,7 @@ export class BookkeepingService {
       throw new BadRequestException('Cannot confirm reconciliation item with amount mismatch');
     }
 
-    return this.prisma.reconciliationSessionItem.update({
+    return this.db.raw.reconciliationSessionItem.update({
       where: { id: itemId },
       data: { status: 'CONFIRMED', resolvedAt: new Date(), resolvedById: userId },
     });
@@ -183,8 +186,9 @@ export class BookkeepingService {
   // ---- Monthly Close ----
 
   async getMonthlyCloseStates(orgId: string) {
-    const properties = await this.prisma.property.findMany({
-      where: { organizationId: orgId },
+    const prisma = this.db.forOrg(orgId);
+    const properties = await prisma.property.findMany({
+      where: { },
       select: { id: true, name: true },
     });
 
@@ -193,27 +197,23 @@ export class BookkeepingService {
 
     const results = await Promise.all(
       properties.map(async (prop) => {
-        const closeRecord = await this.prisma.policyMonthlyClose.findUnique({
+        const closeRecord = await prisma.policyMonthlyClose.findUnique({
           where: { propertyId_month: { propertyId: prop.id, month: currentMonth } },
         });
 
         const [unreconciledCount, exceptionCount, pendingEntries] = await Promise.all([
-          this.prisma.bookkeepingTransaction.count({
-            where: {
-              organizationId: orgId,
-              status: { notIn: ['RECONCILED', 'POSTED'] },
+          prisma.bookkeepingTransaction.count({
+            where: { status: { notIn: ['RECONCILED', 'POSTED'] },
               allocations: { some: { propertyId: prop.id } },
             },
           }),
-          this.prisma.bookkeepingTransaction.count({
-            where: {
-              organizationId: orgId,
-              status: 'EXCEPTION',
+          prisma.bookkeepingTransaction.count({
+            where: { status: 'EXCEPTION',
               allocations: { some: { propertyId: prop.id } },
             },
           }),
-          this.prisma.journalEntry.count({
-            where: { organizationId: orgId, status: 'DRAFT' },
+          prisma.journalEntry.count({
+            where: { status: 'DRAFT' },
           }),
         ]);
 
@@ -247,7 +247,7 @@ export class BookkeepingService {
       throw new BadRequestException(`Cannot lock month with unresolved blockers: ${blockers.join(', ')}`);
     }
 
-    return this.prisma.policyMonthlyClose.upsert({
+    return this.db.raw.policyMonthlyClose.upsert({
       where: { propertyId_month: { propertyId, month } },
       create: { propertyId, month, isLocked: true, closedAt: new Date(), closedByUserId: userId },
       update: { isLocked: true, closedAt: new Date(), closedByUserId: userId },
@@ -259,7 +259,7 @@ export class BookkeepingService {
       throw new BadRequestException('A reopen reason is required');
     }
 
-    return this.prisma.policyMonthlyClose.update({
+    return this.db.raw.policyMonthlyClose.update({
       where: { propertyId_month: { propertyId, month } },
       data: { isLocked: false, closedAt: null, reopenReason: reason },
     });
@@ -268,38 +268,39 @@ export class BookkeepingService {
   // ---- Owner Statements ----
 
   async getOwnerStatements(orgId: string, month?: string) {
+    const prisma = this.db.forOrg(orgId);
     const currentMonth = month || (() => {
       const now = new Date();
       return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     })();
 
-    return this.prisma.ownerStatement.findMany({
-      where: { organizationId: orgId, month: currentMonth },
+    return prisma.ownerStatement.findMany({
+      where: { month: currentMonth },
       include: { owner: { select: { id: true, username: true, firstName: true, lastName: true } } },
       orderBy: { createdAt: 'desc' },
     });
   }
 
   async approveOwnerStatement(id: string, userId: string) {
-    const statement = await this.prisma.ownerStatement.findUnique({ where: { id } });
+    const statement = await this.db.raw.ownerStatement.findUnique({ where: { id } });
     if (!statement) {
       throw new BadRequestException('Owner statement not found');
     }
-    const close = await this.prisma.policyMonthlyClose.findFirst({
+    const close = await this.db.raw.policyMonthlyClose.findFirst({
       where: { month: statement.month, isLocked: true, property: { organizationId: statement.organizationId } },
     });
     if (!close) {
       throw new BadRequestException('Owner statement cannot be approved before monthly close is locked');
     }
 
-    return this.prisma.ownerStatement.update({
+    return this.db.raw.ownerStatement.update({
       where: { id },
       data: { status: 'APPROVED', approvedById: userId, approvedAt: new Date() },
     });
   }
 
   async markOwnerStatementSent(id: string) {
-    const statement = await this.prisma.ownerStatement.findUnique({ where: { id } });
+    const statement = await this.db.raw.ownerStatement.findUnique({ where: { id } });
     if (!statement) {
       throw new BadRequestException('Owner statement not found');
     }
@@ -307,7 +308,7 @@ export class BookkeepingService {
       throw new BadRequestException('Owner statement must be approved before it can be sent');
     }
 
-    return this.prisma.ownerStatement.update({
+    return this.db.raw.ownerStatement.update({
       where: { id },
       data: { status: 'SENT', sentAt: new Date() },
     });
@@ -316,22 +317,25 @@ export class BookkeepingService {
   // ---- Chart of Accounts ----
 
   async getChartOfAccounts(orgId: string) {
-    return this.prisma.chartOfAccount.findMany({
-      where: { organizationId: orgId, isActive: true },
+    const prisma = this.db.forOrg(orgId);
+    return prisma.chartOfAccount.findMany({
+      where: { isActive: true },
       orderBy: [{ type: 'asc' }, { code: 'asc' }],
     });
   }
 
   async createAccount(orgId: string, data: { code: string; name: string; type: string; parentId?: string; description?: string }) {
-    return this.prisma.chartOfAccount.create({
+    const prisma = this.db.forOrg(orgId);
+    return prisma.chartOfAccount.create({
       data: { organizationId: orgId, ...data } as any,
     });
   }
 
   async seedDefaultChartOfAccounts(orgId: string) {
+    const prisma = this.db.forOrg(orgId);
     const results = await Promise.all(
       DEFAULT_ACCOUNTS.map((account) =>
-        this.prisma.chartOfAccount.upsert({
+        prisma.chartOfAccount.upsert({
           where: { organizationId_code: { organizationId: orgId, code: account.code } },
           create: { organizationId: orgId, ...account } as any,
           update: { name: account.name, type: account.type as any, isSystem: true, isActive: true },
@@ -343,9 +347,10 @@ export class BookkeepingService {
   }
 
   async validateRequiredAccountingMappings(orgId: string) {
+    const prisma = this.db.forOrg(orgId);
     const requiredCodes = Object.values(REQUIRED_ACCOUNT_CODES);
-    const accounts = await this.prisma.chartOfAccount.findMany({
-      where: { organizationId: orgId, code: { in: requiredCodes }, isActive: true },
+    const accounts = await prisma.chartOfAccount.findMany({
+      where: { code: { in: requiredCodes }, isActive: true },
     });
     const present = new Set(accounts.map((account) => account.code));
     const missing = Object.entries(REQUIRED_ACCOUNT_CODES)
@@ -360,6 +365,7 @@ export class BookkeepingService {
   }
 
   private async requireAccountingMappings(orgId: string) {
+    const prisma = this.db.forOrg(orgId);
     const status = await this.validateRequiredAccountingMappings(orgId);
     if (!status.ready) {
       throw new BadRequestException(`Accounting mappings are incomplete: ${status.missing.map((item) => item.code).join(', ')}`);
@@ -368,7 +374,8 @@ export class BookkeepingService {
   }
 
   private async accountByCode(orgId: string, code: string) {
-    const account = await this.prisma.chartOfAccount.findUnique({
+    const prisma = this.db.forOrg(orgId);
+    const account = await prisma.chartOfAccount.findUnique({
       where: { organizationId_code: { organizationId: orgId, code } },
     });
     if (!account) {
@@ -395,8 +402,9 @@ export class BookkeepingService {
   }
 
   private async nextJournalEntryNumber(orgId: string) {
-    const latest = await this.prisma.journalEntry.findFirst({
-      where: { organizationId: orgId },
+    const prisma = this.db.forOrg(orgId);
+    const latest = await prisma.journalEntry.findFirst({
+      where: { },
       orderBy: { entryNumber: 'desc' },
       select: { entryNumber: true },
     });
@@ -421,16 +429,17 @@ export class BookkeepingService {
       description?: string;
     }>;
   }, actorId: string) {
+    const prisma = this.db.forOrg(orgId);
     this.validateBalancedLines(payload.lines);
     const accountIds = [...new Set(payload.lines.map((line) => line.accountId))];
-    const accountCount = await this.prisma.chartOfAccount.count({
-      where: { organizationId: orgId, id: { in: accountIds }, isActive: true },
+    const accountCount = await prisma.chartOfAccount.count({
+      where: { id: { in: accountIds }, isActive: true },
     });
     if (accountCount !== accountIds.length) {
       throw new BadRequestException('All journal line accounts must exist and belong to the organization');
     }
 
-    return this.prisma.journalEntry.create({
+    return prisma.journalEntry.create({
       data: {
         organizationId: orgId,
         entryNumber: await this.nextJournalEntryNumber(orgId),
@@ -460,7 +469,7 @@ export class BookkeepingService {
   }
 
   async postJournalEntry(id: string, actorId: string) {
-    const entry = await this.prisma.journalEntry.findUnique({
+    const entry = await this.db.raw.journalEntry.findUnique({
       where: { id },
       include: { lineItems: true },
     });
@@ -475,7 +484,7 @@ export class BookkeepingService {
     }
     this.validateBalancedLines(entry.lineItems);
 
-    return this.prisma.journalEntry.update({
+    return this.db.raw.journalEntry.update({
       where: { id },
       data: { status: 'POSTED', postedAt: new Date(), postedById: actorId },
       include: { lineItems: true },
@@ -486,7 +495,7 @@ export class BookkeepingService {
     if (!reason?.trim()) {
       throw new BadRequestException('A reversal reason is required');
     }
-    const original = await this.prisma.journalEntry.findUnique({
+    const original = await this.db.raw.journalEntry.findUnique({
       where: { id },
       include: { lineItems: true },
     });
@@ -496,7 +505,7 @@ export class BookkeepingService {
     if (original.status !== 'POSTED') {
       throw new BadRequestException('Only posted journal entries can be reversed');
     }
-    const existing = await this.prisma.journalEntry.findFirst({
+    const existing = await this.db.raw.journalEntry.findFirst({
       where: { reversesId: id, status: { in: ['DRAFT', 'POSTED'] } },
       include: { lineItems: true },
     });
@@ -522,7 +531,7 @@ export class BookkeepingService {
       })),
     }, actorId);
 
-    await this.prisma.journalEntry.update({
+    await this.db.raw.journalEntry.update({
       where: { id: reversal.id },
       data: { reversesId: original.id, isReversing: true },
     });
@@ -531,16 +540,17 @@ export class BookkeepingService {
   }
 
   async createAccountingDraftFromOperationalLedgerEvent(orgId: string, ledgerTransactionId: string, actorId: string) {
+    const prisma = this.db.forOrg(orgId);
     await this.requireAccountingMappings(orgId);
-    const ledgerTx = await this.prisma.ledgerTransaction.findUnique({
+    const ledgerTx = await prisma.ledgerTransaction.findUnique({
       where: { id: ledgerTransactionId },
       include: { account: true },
     });
     if (!ledgerTx || ledgerTx.account.organizationId !== orgId) {
       throw new BadRequestException('Operational ledger transaction not found for organization');
     }
-    const existing = await this.prisma.journalEntry.findFirst({
-      where: { organizationId: orgId, sourceType: 'operational_ledger', sourceId: ledgerTransactionId },
+    const existing = await prisma.journalEntry.findFirst({
+      where: { sourceType: 'operational_ledger', sourceId: ledgerTransactionId },
       include: { lineItems: true },
     });
     if (existing) {
@@ -583,6 +593,7 @@ export class BookkeepingService {
   // ---- Workspace Aggregation ----
 
   async getFinancialsWorkspace(orgId: string) {
+    const prisma = this.db.forOrg(orgId);
     const [
       pendingTransactions,
       exceptions,
@@ -625,10 +636,11 @@ export class BookkeepingService {
   // ---- Briefing Integration ----
 
   async getFinancialSignals(orgId: string) {
+    const prisma = this.db.forOrg(orgId);
     const signals: any[] = [];
 
-    const exceptions = await this.prisma.bookkeepingTransaction.findMany({
-      where: { organizationId: orgId, status: 'EXCEPTION' },
+    const exceptions = await prisma.bookkeepingTransaction.findMany({
+      where: { status: 'EXCEPTION' },
       orderBy: { date: 'desc' },
       take: 5,
     });
@@ -647,13 +659,13 @@ export class BookkeepingService {
       });
     }
 
-    const unreconciledCount = await this.prisma.bookkeepingTransaction.count({
-      where: { organizationId: orgId, status: { in: ['PENDING_REVIEW', 'CATEGORIZED', 'ALLOCATED'] } },
+    const unreconciledCount = await prisma.bookkeepingTransaction.count({
+      where: { status: { in: ['PENDING_REVIEW', 'CATEGORIZED', 'ALLOCATED'] } },
     });
 
     if (unreconciledCount > 10) {
-      const totalUnreconciled = await this.prisma.bookkeepingTransaction.aggregate({
-        where: { organizationId: orgId, status: { in: ['PENDING_REVIEW', 'CATEGORIZED', 'ALLOCATED'] } },
+      const totalUnreconciled = await prisma.bookkeepingTransaction.aggregate({
+        where: { status: { in: ['PENDING_REVIEW', 'CATEGORIZED', 'ALLOCATED'] } },
         _sum: { amountCents: true },
       });
       signals.push({
@@ -669,8 +681,8 @@ export class BookkeepingService {
       });
     }
 
-    const draftStatements = await this.prisma.ownerStatement.count({
-      where: { organizationId: orgId, status: 'DRAFT' },
+    const draftStatements = await prisma.ownerStatement.count({
+      where: { status: 'DRAFT' },
     });
 
     if (draftStatements > 0) {
@@ -690,10 +702,11 @@ export class BookkeepingService {
   }
 
   async getFinancialDecisions(orgId: string) {
+    const prisma = this.db.forOrg(orgId);
     const decisions: any[] = [];
 
-    const pendingTransactions = await this.prisma.bookkeepingTransaction.findMany({
-      where: { organizationId: orgId, status: 'PENDING_REVIEW', categoryConfidence: { lt: 0.7 } },
+    const pendingTransactions = await prisma.bookkeepingTransaction.findMany({
+      where: { status: 'PENDING_REVIEW', categoryConfidence: { lt: 0.7 } },
       orderBy: [{ amountCents: 'desc' }],
       take: 5,
     });
@@ -764,8 +777,8 @@ export class BookkeepingService {
       });
     }
 
-    const draftStatements = await this.prisma.ownerStatement.findMany({
-      where: { organizationId: orgId, status: 'DRAFT' },
+    const draftStatements = await prisma.ownerStatement.findMany({
+      where: { status: 'DRAFT' },
       include: { owner: { select: { username: true, firstName: true, lastName: true } } },
       take: 5,
     });
@@ -820,12 +833,13 @@ export class BookkeepingService {
   }
 
   async getFinancialEvents(orgId: string) {
+    const prisma = this.db.forOrg(orgId);
     const events: any[] = [];
 
     const now = new Date();
     const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-    const openMonths = await this.prisma.policyMonthlyClose.findMany({
+    const openMonths = await prisma.policyMonthlyClose.findMany({
       where: {
         property: { organizationId: orgId },
         isLocked: false,
@@ -852,7 +866,7 @@ export class BookkeepingService {
     const end = new Date(start);
     end.setUTCMonth(end.getUTCMonth() + 1);
 
-    const property = await this.prisma.property.findUnique({
+    const property = await this.db.raw.property.findUnique({
       where: { id: propertyId },
       select: { organizationId: true },
     });
@@ -861,7 +875,7 @@ export class BookkeepingService {
     }
 
     const [unreconciled, exceptions, draftJournals, suspenseAccount, draftStatements] = await Promise.all([
-      this.prisma.bookkeepingTransaction.count({
+      this.db.raw.bookkeepingTransaction.count({
         where: {
           organizationId: property.organizationId,
           date: { gte: start, lt: end },
@@ -869,7 +883,7 @@ export class BookkeepingService {
           allocations: { some: { propertyId } },
         },
       }),
-      this.prisma.bookkeepingTransaction.count({
+      this.db.raw.bookkeepingTransaction.count({
         where: {
           organizationId: property.organizationId,
           date: { gte: start, lt: end },
@@ -877,7 +891,7 @@ export class BookkeepingService {
           allocations: { some: { propertyId } },
         },
       }),
-      this.prisma.journalEntry.count({
+      this.db.raw.journalEntry.count({
         where: {
           organizationId: property.organizationId,
           date: { gte: start, lt: end },
@@ -885,16 +899,16 @@ export class BookkeepingService {
           lineItems: { some: { propertyId } },
         },
       }),
-      this.prisma.chartOfAccount.findUnique({
+      this.db.raw.chartOfAccount.findUnique({
         where: { organizationId_code: { organizationId: property.organizationId, code: REQUIRED_ACCOUNT_CODES.suspense } },
       }),
-      this.prisma.ownerStatement.count({
+      this.db.raw.ownerStatement.count({
         where: { organizationId: property.organizationId, month, status: 'DRAFT' },
       }),
     ]);
 
     const suspenseLines = suspenseAccount
-      ? await this.prisma.journalLineItem.count({
+      ? await this.db.raw.journalLineItem.count({
           where: {
             accountId: suspenseAccount.id,
             propertyId,
@@ -913,11 +927,12 @@ export class BookkeepingService {
   }
 
   async generateOwnerStatementsFromPostedEntries(orgId: string, month: string) {
+    const prisma = this.db.forOrg(orgId);
     const start = new Date(`${month}-01T00:00:00.000Z`);
     const end = new Date(start);
     end.setUTCMonth(end.getUTCMonth() + 1);
 
-    const owners = await this.prisma.user.findMany({
+    const owners = await prisma.user.findMany({
       where: {
         role: 'OWNER',
         organizations: { some: { organizationId: orgId } },
@@ -929,10 +944,8 @@ export class BookkeepingService {
       return { generated: 0, statements: [] };
     }
 
-    const postedEntries = await this.prisma.journalEntry.findMany({
-      where: {
-        organizationId: orgId,
-        status: 'POSTED',
+    const postedEntries = await prisma.journalEntry.findMany({
+      where: { status: 'POSTED',
         date: { gte: start, lt: end },
       },
       include: {
@@ -954,7 +967,7 @@ export class BookkeepingService {
         .reduce((sum: number, line: any) => sum + line.debitCents - line.creditCents, 0);
       const netDistributionCents = grossIncomeCents - totalExpensesCents - managementFeeCents;
 
-      const statement = await this.prisma.ownerStatement.upsert({
+      const statement = await prisma.ownerStatement.upsert({
         where: { organizationId_ownerId_month: { organizationId: orgId, ownerId, month } },
         create: {
           organizationId: orgId,
@@ -982,12 +995,13 @@ export class BookkeepingService {
   }
 
   async getPaymentExpansionGateStatus(orgId: string) {
+    const prisma = this.db.forOrg(orgId);
     const mapping = await this.validateRequiredAccountingMappings(orgId);
     const [draftJournals, unreconciled, exceptions, draftStatements] = await Promise.all([
-      this.prisma.journalEntry.count({ where: { organizationId: orgId, status: 'DRAFT' } }),
-      this.prisma.bookkeepingTransaction.count({ where: { organizationId: orgId, status: { in: ['PENDING_REVIEW', 'CATEGORIZED', 'ALLOCATED'] } } }),
-      this.prisma.bookkeepingTransaction.count({ where: { organizationId: orgId, status: 'EXCEPTION' } }),
-      this.prisma.ownerStatement.count({ where: { organizationId: orgId, status: 'DRAFT' } }),
+      prisma.journalEntry.count({ where: { status: 'DRAFT' } }),
+      prisma.bookkeepingTransaction.count({ where: { status: { in: ['PENDING_REVIEW', 'CATEGORIZED', 'ALLOCATED'] } } }),
+      prisma.bookkeepingTransaction.count({ where: { status: 'EXCEPTION' } }),
+      prisma.ownerStatement.count({ where: { status: 'DRAFT' } }),
     ]);
 
     const gates = [
@@ -1011,6 +1025,7 @@ export class BookkeepingService {
   }
 
   async assertPaymentExpansionAllowed(orgId: string, flow: string) {
+    const prisma = this.db.forOrg(orgId);
     const status = await this.getPaymentExpansionGateStatus(orgId);
     if (!status.readyForExpandedPaymentWrites) {
       throw new ForbiddenException(`${flow} is blocked until accounting MVP gates are complete`);
@@ -1019,12 +1034,13 @@ export class BookkeepingService {
   }
 
   async getQuickBooksExportBatchSpec(orgId: string) {
+    const prisma = this.db.forOrg(orgId);
     const mapping = await this.validateRequiredAccountingMappings(orgId);
-    const exportableCount = await this.prisma.journalEntry.count({
-      where: { organizationId: orgId, status: 'POSTED' },
+    const exportableCount = await prisma.journalEntry.count({
+      where: { status: 'POSTED' },
     });
-    const blockedCount = await this.prisma.journalEntry.count({
-      where: { organizationId: orgId, status: 'DRAFT' },
+    const blockedCount = await prisma.journalEntry.count({
+      where: { status: 'DRAFT' },
     });
 
     return {
@@ -1065,6 +1081,7 @@ export class BookkeepingService {
     }>,
     actorId: string,
   ) {
+    const prisma = this.db.forOrg(orgId);
     if (!Array.isArray(rows) || rows.length === 0) {
       throw new BadRequestException('No transaction rows provided');
     }
@@ -1116,7 +1133,7 @@ export class BookkeepingService {
     }
 
     if (validRows.length > 0) {
-      await this.prisma.bookkeepingTransaction.createMany({ data: validRows });
+      await prisma.bookkeepingTransaction.createMany({ data: validRows });
       imported = validRows.length;
       this.logger.log(`Imported ${imported} transactions for org ${orgId} by ${actorId}`);
     }

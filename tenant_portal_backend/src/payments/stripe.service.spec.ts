@@ -5,7 +5,10 @@ describe('StripeService webhook idempotency', () => {
   let eventsService: any;
   let rabbitMQService: any;
 
-  const createService = () => new StripeService(basePrisma, eventsService, rabbitMQService);
+  const createService = () => {
+    const db = { forOrg: () => basePrisma, raw: basePrisma };
+    return new StripeService(db, eventsService, rabbitMQService);
+  };
   const originalEnv = process.env;
 
   beforeEach(() => {

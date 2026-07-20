@@ -1,6 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import Stripe from 'stripe';
-import { PrismaService } from '../prisma/prisma.service';
+import { DatabaseService } from '../prisma/database.service';
 import { EventsService } from '../events/events.service';
 import { RabbitMQService } from '../mil/rabbitmq.service';
 import { Prisma } from '@prisma/client';
@@ -62,7 +62,7 @@ export class StripeService {
     process.env.DISABLE_STRIPE === 'true' || process.env.NODE_ENV === 'test';
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly db: DatabaseService,
     private readonly eventsService: EventsService,
     private readonly rabbitMQService: RabbitMQService,
   ) {
@@ -95,7 +95,7 @@ export class StripeService {
    * Create a Stripe customer and save reference in database
    */
   async createCustomer(dto: CreateStripeCustomerDto): Promise<Stripe.Customer> {
-    const existingUser = await this.prisma.user.findUnique({
+    const existingUser = await this.db.raw.user.findUnique({
       where: { id: dto.userId },
       select: { stripeCustomerId: true },
     });
@@ -104,7 +104,7 @@ export class StripeService {
       const customerId = existingUser?.stripeCustomerId ?? this.createMockCustomerId(dto.userId);
       const customer = this.createMockCustomer(customerId, dto);
       if (!existingUser?.stripeCustomerId) {
-        await this.prisma.user.update({
+        await this.db.raw.user.update({
           where: { id: dto.userId },
           data: { stripeCustomerId: customer.id },
         });
@@ -127,7 +127,7 @@ export class StripeService {
       },
     });
 
-    await this.prisma.user.update({
+    await this.db.raw.user.update({
       where: { id: dto.userId },
       data: { stripeCustomerId: customer.id },
     });
@@ -341,7 +341,7 @@ export class StripeService {
     if (metadataOrgId) {
       organizationId = metadataOrgId;
     } else if (stripeAccountId) {
-      const org = await this.prisma.organization.findFirst({
+      const org = await this.db.raw.organization.findFirst({
         where: { stripeConnectedAccountId: stripeAccountId },
         select: { id: true },
       });
@@ -350,7 +350,7 @@ export class StripeService {
 
     // Atomic idempotency guard: reserve event ID before side effects.
     try {
-      await this.prisma.stripeWebhookEvent.create({
+      await this.db.raw.stripeWebhookEvent.create({
         data: {
           eventId: event.id,
           eventType: event.type,
@@ -361,7 +361,7 @@ export class StripeService {
       });
     } catch (error) {
       if (this.isUniqueConstraintError(error)) {
-        const existing = await this.prisma.stripeWebhookEvent.findUnique({
+        const existing = await this.db.raw.stripeWebhookEvent.findUnique({
           where: { eventId: event.id },
           select: { organizationId: true },
         });
@@ -386,13 +386,13 @@ export class StripeService {
         break;
       case 'account.updated': {
         const account = event.data.object as Stripe.Account;
-        const org = await this.prisma.organization.findFirst({
+        const org = await this.db.raw.organization.findFirst({
           where: { stripeConnectedAccountId: account.id },
           select: { id: true },
         });
         if (org) {
           organizationId = org.id;
-          await this.prisma.organization.update({
+          await this.db.raw.organization.update({
             where: { id: org.id },
             data: {
               stripeOnboardingStatus:
@@ -420,12 +420,12 @@ export class StripeService {
 
   private async handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent, sourceEventId: string): Promise<void> {
     try {
-      const payment = await this.prisma.payment.findFirst({
+      const payment = await this.db.raw.payment.findFirst({
         where: { externalId: paymentIntent.id },
       });
 
       if (payment) {
-        await this.prisma.payment.update({
+        await this.db.raw.payment.update({
           where: { id: payment.id },
           data: {
             status: 'COMPLETED',
@@ -451,7 +451,7 @@ export class StripeService {
         }
 
         try {
-          await this.prisma.paymentLedgerEntry.create({
+          await this.db.raw.paymentLedgerEntry.create({
             data: {
               paymentId: payment.id,
               organizationId,
@@ -478,7 +478,7 @@ export class StripeService {
             grossAmountMinor,
           );
 
-          await this.prisma.paymentLedgerEntry.updateMany({
+          await this.db.raw.paymentLedgerEntry.updateMany({
             where: {
               paymentId: payment.id,
               sourceEventId,
@@ -512,12 +512,12 @@ export class StripeService {
 
   private async handlePaymentFailure(paymentIntent: Stripe.PaymentIntent): Promise<void> {
     try {
-      const payment = await this.prisma.payment.findFirst({
+      const payment = await this.db.raw.payment.findFirst({
         where: { externalId: paymentIntent.id },
       });
 
       if (payment) {
-        await this.prisma.payment.update({
+        await this.db.raw.payment.update({
           where: { id: payment.id },
           data: {
             status: 'FAILED',
@@ -535,12 +535,12 @@ export class StripeService {
 
   private async handlePaymentProcessing(paymentIntent: Stripe.PaymentIntent): Promise<void> {
     try {
-      const payment = await this.prisma.payment.findFirst({
+      const payment = await this.db.raw.payment.findFirst({
         where: { externalId: paymentIntent.id },
       });
 
       if (payment && payment.status === 'PENDING') {
-        await this.prisma.payment.update({
+        await this.db.raw.payment.update({
           where: { id: payment.id },
           data: {
             status: 'PENDING',
@@ -640,7 +640,7 @@ export class StripeService {
    * Get Stripe customer by user ID
    */
   async getCustomerByUserId(userId: string): Promise<string | null> {
-    const user = await this.prisma.user.findUnique({
+    const user = await this.db.raw.user.findUnique({
       where: { id: userId },
       select: { stripeCustomerId: true },
     });
@@ -744,8 +744,9 @@ export class StripeService {
     paymentId: string,
     amountCents: number,
   ) {
+    const prisma = this.db.forOrg(orgId);
     const allocation = await this.computeYieldSweepAllocation(orgId, amountCents);
-    const account = await (this.prisma as any).ledgerAccount.findUnique({
+    const account = await (prisma as any).ledgerAccount.findUnique({
       where: {
         organizationId_leaseId: {
           organizationId: orgId,
@@ -759,7 +760,7 @@ export class StripeService {
       return allocation;
     }
 
-    await (this.prisma as any).ledgerTransaction.create({
+    await (prisma as any).ledgerTransaction.create({
       data: {
         accountId: account.id,
         paymentId,
@@ -779,8 +780,9 @@ export class StripeService {
   }
 
   private async computeYieldSweepAllocation(orgId: string, amountCents: number) {
-    const activeCycle = await this.prisma.orgPlanCycle.findFirst({
-      where: { organizationId: orgId, status: 'ACTIVE' },
+    const prisma = this.db.forOrg(orgId);
+    const activeCycle = await prisma.orgPlanCycle.findFirst({
+      where: { status: 'ACTIVE' },
       include: { activeFeeSchedule: true },
       orderBy: { startsAt: 'desc' },
     });

@@ -18,8 +18,9 @@ describe('BillingService connected account + pricing snapshot guards', () => {
       create: jest.fn(),
     },
   };
+  const db = { forOrg: () => prisma, raw: prisma };
 
-  const service = new BillingService(prisma, {} as any, {} as any, {
+  const service = new BillingService(db, {} as any, {} as any, {
     createConnectedAccount: jest.fn(),
     createConnectedAccountOnboardingLink: jest.fn(),
     getConnectedAccountStatus: jest.fn(),
