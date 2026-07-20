@@ -151,7 +151,7 @@ describe('WorkflowParallelExecutor', () => {
     });
 
     it('should allow parallel execution for steps with different dependencies', () => {
-      const _step1: WorkflowStep = { id: 'step1', type: 'CREATE_LEASE' };
+      const __step1: WorkflowStep = { id: 'step1', type: 'CREATE_LEASE' };
       const step2: WorkflowStep = { id: 'step2', type: 'SEND_EMAIL', dependsOn: ['step1'] };
       const step3: WorkflowStep = { id: 'step3', type: 'SCHEDULE_INSPECTION', dependsOn: ['step1'] };
 

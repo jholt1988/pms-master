@@ -88,7 +88,7 @@ describe('AINotificationService', () => {
         return undefined;
       });
 
-      const _newService = new AINotificationService(prismaService, configService, mockAIProvider as any, preferencesService);
+      const __newService = new AINotificationService(prismaService, configService, mockAIProvider as any, preferencesService);
       // AIProviderService handles client creation now
     });
 
@@ -100,7 +100,7 @@ describe('AINotificationService', () => {
       });
 
       (OpenAI as jest.MockedClass<typeof OpenAI>).mockClear();
-      const _newService = new AINotificationService(prismaService, configService, mockAIProvider as any, preferencesService);
+      const __newService = new AINotificationService(prismaService, configService, mockAIProvider as any, preferencesService);
       // AIProviderService handles client creation now
     });
   });

@@ -29,13 +29,13 @@ jest.mock('otplib', () => ({
 
 describe('AuthService', () => {
   let service: AuthService;
-  let usersService: UsersService;
-  let jwtService: JwtService;
-  let passwordPolicy: PasswordPolicyService;
-  let securityEvents: SecurityEventsService;
-  let configService: ConfigService;
-  let prismaService: PrismaService;
-  let emailService: EmailService;
+  let __usersService: UsersService;
+  let __jwtService: JwtService;
+  let __passwordPolicy: PasswordPolicyService;
+  let __securityEvents: SecurityEventsService;
+  let __configService: ConfigService;
+  let __prismaService: PrismaService;
+  let __emailService: EmailService;
 
   const mockUsersService = {
     findOne: jest.fn(),

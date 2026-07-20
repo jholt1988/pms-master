@@ -6,9 +6,9 @@ import { NotificationsService } from '../notifications/notifications.service';
 
 describe('AnomalyMonitoringService', () => {
   let service: AnomalyMonitoringService;
-  let prismaService: PrismaService;
-  let aiAnomalyDetectorService: AIAnomalyDetectorService;
-  let notificationsService: NotificationsService;
+  let __prismaService: PrismaService;
+  let __aiAnomalyDetectorService: AIAnomalyDetectorService;
+  let __notificationsService: NotificationsService;
 
   const mockPrismaService = {
     anomalyLog: {

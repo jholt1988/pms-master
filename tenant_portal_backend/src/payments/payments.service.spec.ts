@@ -13,9 +13,9 @@ import { WorkflowEventProcessor } from '../policy/workflow-event-processor.servi
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
-  let prismaService: PrismaService;
-  let emailService: EmailService;
-  let auditLogService: AuditLogService;
+  let __prismaService: PrismaService;
+  let __emailService: EmailService;
+  let __auditLogService: AuditLogService;
 
   // Mock PrismaService
   const mockPrismaService = {

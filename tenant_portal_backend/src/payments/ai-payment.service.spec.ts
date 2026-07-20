@@ -97,7 +97,7 @@ describe('AIPaymentService', () => {
         return undefined;
       });
 
-      const _newService = new AIPaymentService(prismaService, configService, mockAIProvider as any);
+      const __newService = new AIPaymentService(prismaService, configService, mockAIProvider as any);
       expect(OpenAI).not.toHaveBeenCalled // provider handles this({ apiKey: 'sk-test-key' });
     });
 
@@ -108,7 +108,7 @@ describe('AIPaymentService', () => {
         return undefined;
       });
 
-      const _newService = new AIPaymentService(prismaService, configService, mockAIProvider as any);
+      const __newService = new AIPaymentService(prismaService, configService, mockAIProvider as any);
       expect(OpenAI).not.toHaveBeenCalled();
     });
   });
