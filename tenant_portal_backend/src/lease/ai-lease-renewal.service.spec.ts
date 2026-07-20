@@ -76,7 +76,7 @@ describe('AILeaseRenewalService', () => {
         return undefined;
       });
 
-      const _newService = new AILeaseRenewalService(prismaService, configService, undefined, mockAIProvider as any);
+      const __newService = new AILeaseRenewalService(prismaService, configService, undefined, mockAIProvider as any);
       expect(mockAIProvider.getProvider).toHaveBeenCalled();
     });
 
@@ -87,7 +87,7 @@ describe('AILeaseRenewalService', () => {
         return undefined;
       });
 
-      const _newService = new AILeaseRenewalService(prismaService, configService, undefined, mockAIProvider as any);
+      const __newService = new AILeaseRenewalService(prismaService, configService, undefined, mockAIProvider as any);
       expect(mockAIProvider.isEnabled).toHaveBeenCalled();
     });
   });

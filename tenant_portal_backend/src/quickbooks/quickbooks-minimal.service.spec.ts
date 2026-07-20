@@ -411,7 +411,7 @@ describe('QuickBooksMinimalService', () => {
       process.env.NODE_ENV = 'development';
       
       // Create new service instance to test environment detection
-      const _testService = new QuickBooksMinimalService(prismaService);
+      const __testService = new QuickBooksMinimalService(prismaService);
       
       // Check that sandbox environment is being used
       // This would need access to private oauthClient property or a public method
@@ -422,7 +422,7 @@ describe('QuickBooksMinimalService', () => {
     it('should use production environment in production', () => {
       process.env.NODE_ENV = 'production';
       
-      const _testService = new QuickBooksMinimalService(prismaService);
+      const __testService = new QuickBooksMinimalService(prismaService);
       
       expect(process.env.NODE_ENV).toBe('production');
     });
@@ -440,7 +440,7 @@ describe('QuickBooksMinimalService', () => {
     });
 
     it('should handle QuickBooks API errors gracefully', async () => {
-      const _userId = 1;
+      const __userId = 1;
       // This would test API error handling once we can mock the QuickBooks API calls
       // For now, we ensure the service doesn't crash on initialization
       expect(service).toBeDefined();

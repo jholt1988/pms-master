@@ -9,8 +9,8 @@ import { TestDataFactory } from '../../test/factories';
 
 describe('LeasingService', () => {
   let service: LeasingService;
-  let prismaService: PrismaService;
-  let emailService: EmailService;
+  let __prismaService: PrismaService;
+  let __emailService: EmailService;
 
   const mockPrismaService = {
     lead: {

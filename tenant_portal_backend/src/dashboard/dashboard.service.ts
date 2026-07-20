@@ -398,6 +398,13 @@ export class DashboardService {
 
     const prisma = orgId ? this.db.forOrg(orgId) : this.db.raw;
 
+    const orgPropertyWhere = orgId ? { organizationId: orgId } : undefined;
+    const orgUnitWhere = orgId ? { property: { organizationId: orgId } } : undefined;
+    const orgLeaseWhere = orgId ? { unit: { property: { organizationId: orgId } } } : undefined;
+    const orgPaymentWhere = orgId ? { lease: { unit: { property: { organizationId: orgId } } } } : undefined;
+    const orgMaintenanceWhere = orgId ? { property: { organizationId: orgId } } : undefined;
+    const orgLeadAppWhere = orgId ? { property: { organizationId: orgId } } : undefined;
+
     const [
       totalProperties,
       totalUnits,
@@ -412,23 +419,24 @@ export class DashboardService {
       recentPayments,
       recentLeaks,
     ] = await Promise.all([
-      prisma.property.count({ where: undefined }),
-      prisma.unit.count({ where: undefined }),
-      prisma.unit.count({ where: { lease: { some: {} } } }),
+      prisma.property.count({ where: orgPropertyWhere }),
+      prisma.unit.count({ where: orgUnitWhere }),
+      prisma.unit.count({ where: { lease: { some: {} }, ...(orgUnitWhere ?? {}) } }),
       prisma.user.count({
         where: {
           role: 'TENANT',
           ...(orgId ? { lease: { some: { unit: { property: { organizationId: orgId } } } } } : {}),
         },
       }),
-      prisma.maintenanceRequest.count({ where: undefined }),
-      prisma.leadApplication.count({ where: undefined }),
+      prisma.maintenanceRequest.count({ where: orgMaintenanceWhere }),
+      prisma.leadApplication.count({ where: orgLeadAppWhere }),
       prisma.payment.count({
         where: {
           paymentDate: {
             gte: startOfMonth,
             lte: now,
           },
+          ...(orgPaymentWhere ?? {}),
         },
       }),
       prisma.invoice.aggregate({
@@ -436,15 +444,16 @@ export class DashboardService {
         where: {
           status: 'PENDING',
           dueDate: { lt: now },
+          ...(orgLeaseWhere ? { lease: orgLeaseWhere } : {}),
         },
       }),
       prisma.maintenanceRequest.findMany({
-        where: undefined,
+        where: orgMaintenanceWhere ?? undefined,
         orderBy: { createdAt: 'desc' },
         take: 3,
       }),
       prisma.leadApplication.findMany({
-        where: undefined,
+        where: orgLeadAppWhere ?? undefined,
         orderBy: { submittedAt: 'desc' },
         take: 3,
         include: {
@@ -452,12 +461,12 @@ export class DashboardService {
         },
       }),
       prisma.payment.findMany({
-        where: undefined,
+        where: orgPaymentWhere ?? undefined,
         orderBy: { paymentDate: 'desc' },
         take: 3,
       }),
       prisma.lease.findMany({
-        where: undefined,
+        where: orgLeaseWhere ?? undefined,
         orderBy: { updatedAt: 'desc' },
         take: 2,
       }),
@@ -485,22 +494,24 @@ export class DashboardService {
 
     const [pendingApplications, approvedApplications, rejectedApplications, legalAcceptedApplications, legalMissingApplications] = await Promise.all([
       prisma.leadApplication.count({
-        where: { status: { in: pendingStatuses } },
+        where: { status: { in: pendingStatuses }, ...(orgLeadAppWhere ?? {}) },
       }),
       prisma.leadApplication.count({
-        where: { status: { in: approvedStatuses } },
+        where: { status: { in: approvedStatuses }, ...(orgLeadAppWhere ?? {}) },
       }),
       prisma.leadApplication.count({
-        where: { status: { in: rejectedStatuses } },
+        where: { status: { in: rejectedStatuses }, ...(orgLeadAppWhere ?? {}) },
       }),
       prisma.leadApplication.count({
         where: {
+          ...(orgLeadAppWhere ?? {}),
           termsAcceptedAt: { not: null },
           privacyAcceptedAt: { not: null },
         },
       }),
       prisma.leadApplication.count({
         where: {
+          ...(orgLeadAppWhere ?? {}),
           OR: [{ termsAcceptedAt: null }, { privacyAcceptedAt: null }],
         },
       }),
@@ -554,16 +565,19 @@ export class DashboardService {
         pending: await prisma.maintenanceRequest.count({
           where: {
             status: Status.PENDING,
+            ...(orgMaintenanceWhere ?? {}),
           },
         }),
         inProgress: await prisma.maintenanceRequest.count({
           where: {
             status: Status.IN_PROGRESS,
+            ...(orgMaintenanceWhere ?? {}),
           },
         }),
         overdue: await prisma.maintenanceRequest.count({
           where: {
             createdAt: { lt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000) },
+            ...(orgMaintenanceWhere ?? {}),
           },
         }),
       },
@@ -591,6 +605,7 @@ export class DashboardService {
       prisma.scheduleEvent.findMany({
         where: {
           date: { gte: start, lte: end },
+          ...(orgId ? { property: { organizationId: orgId } } : {}),
         },
         include: {
           property: { select: { id: true, name: true } },
@@ -603,6 +618,7 @@ export class DashboardService {
       prisma.unitInspection.findMany({
         where: {
           scheduledDate: { gte: start, lte: end },
+          ...(orgId ? { property: { organizationId: orgId } } : {}),
         },
         include: {
           property: { select: { id: true, name: true } },
@@ -616,6 +632,7 @@ export class DashboardService {
         where: {
           endDate: { gte: start, lte: end },
           status: { in: ['ACTIVE', 'RENEWAL_PENDING', 'NOTICE_GIVEN'] },
+          ...(orgId ? { unit: { property: { organizationId: orgId } } } : {}),
         },
         include: {
           tenant: { select: { id: true, email: true } },
@@ -628,6 +645,7 @@ export class DashboardService {
         where: {
           dueDate: { lt: start },
           status: { not: 'PAID' },
+          ...(orgId ? { lease: { unit: { property: { organizationId: orgId } } } } : {}),
         },
         include: {
           lease: {

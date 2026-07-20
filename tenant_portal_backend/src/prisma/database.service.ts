@@ -32,7 +32,7 @@ let _orgScopedModels: Set<string> = new Set();
 @Injectable()
 export class DatabaseService implements OnModuleInit {
   private readonly logger = new Logger(DatabaseService.name);
-
+  private orgContext: string | null = null;
   private queryCounts: Map<string, number> = new Map();
 
   /** Models that have an `organizationId` field (detected at startup) */
@@ -130,6 +130,22 @@ export class DatabaseService implements OnModuleInit {
   /** Get the raw Prisma client (no scoping) */
   get raw() {
     return this.prisma;
+  }
+
+  /** Set the org context for all subsequent queries through this service */
+  setOrgContext(orgId: string) {
+    this.orgContext = orgId;
+  }
+
+  /** Clear the org context */
+  clearOrgContext() {
+    this.orgContext = null;
+  }
+
+  /** Get the Prisma client (with org scoping applied if context is set) */
+  get client() {
+    if (!this.orgContext) return this.prisma;
+    return this.prisma.forOrg(this.orgContext);
   }
 
   /** Health check — runs SELECT 1 */

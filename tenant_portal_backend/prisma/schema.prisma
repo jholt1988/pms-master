@@ -2998,9 +2998,18 @@ model Decision {
   @@index([domain, type, resolved])
 }
 
-// Tenant model removed — merged into User + TenantProfile
-// Lease.tenantId now references User.id directly
-// emergencyContactName/Phone and tenantNotes moved to TenantProfile
+model Tenant {
+  id                    String   @id @default(uuid()) @db.Uuid
+  fullName              String
+  email                 String   @unique
+  phone                 String
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  notes                 String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  lease                 Lease[]
+}
 
 model VendorAssignment {
   id                   String    @id @db.Uuid

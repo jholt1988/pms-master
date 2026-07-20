@@ -15,11 +15,11 @@ import { AbstractQuickBooksService } from '../quickbooks/quickbooks.types';
 
 describe('WorkflowEngineService', () => {
   let service: WorkflowEngineService;
-  let prismaService: PrismaService;
-  let aiMaintenanceService: AIMaintenanceService;
-  let aiPaymentService: AIPaymentService;
-  let aiLeaseRenewalService: AILeaseRenewalService;
-  let aiNotificationService: AINotificationService;
+  let __prismaService: PrismaService;
+  let __aiMaintenanceService: AIMaintenanceService;
+  let __aiPaymentService: AIPaymentService;
+  let __aiLeaseRenewalService: AILeaseRenewalService;
+  let __aiNotificationService: AINotificationService;
 
   const mockPrismaService = {
     maintenanceRequest: {
