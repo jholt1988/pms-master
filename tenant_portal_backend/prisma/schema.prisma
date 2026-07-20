@@ -1,14 +1,16 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+  relationMode      = "foreignKeys"
 }
+
 // --- Multi-tenant foundation (PM company / landlord account) ---
-
-
 
 model User {
   username                        String                      @unique
@@ -61,6 +63,7 @@ model User {
   journalEntriesPosted            JournalEntry[]              @relation("JournalEntryPostedBy")
   leadApplicationReviews          LeadApplication[]           @relation("LeadApplicationReviewers")
   lease                           Lease[]
+  leaseAsTenant                   Lease[]                    @relation("LeaseTenant")
   LeaseDocument                   LeaseDocument[]
   LeaseHistory                    LeaseHistory[]
   LeaseNotice                     LeaseNotice[]
@@ -221,6 +224,7 @@ model PricingSnapshot {
 
   @@index([organizationId, createdAt])
   @@index([planCycleId, createdAt])
+  @@index([feeScheduleVersionId])
 }
 
 model Property {
@@ -516,7 +520,7 @@ model Lease {
   esignEnvelopes            EsignEnvelope[]
   inspectionRequests        InspectionRequest[]
   invoices                  Invoice[]
-  tenant                    Tenant                    @relation(fields: [tenantId], references: [id])
+  tenant                    User                      @relation("LeaseTenant", fields: [tenantId], references: [id])
   unit                      Unit                      @relation(fields: [unitId], references: [id])
   User                      User?                     @relation(fields: [userId], references: [id])
   leaseAbstractions         LeaseAbstraction[]
@@ -537,6 +541,8 @@ model Lease {
 
   @@index([status])
   @@index([endDate])
+  @@index([tenantId])
+  @@index([unitId])
 }
 
 model MaintenanceRequest {
@@ -682,6 +688,7 @@ model MaintenanceNote {
   request   MaintenanceRequest @relation(fields: [requestId], references: [id])
 
   @@index([requestId, createdAt])
+  @@index([authorId])
 }
 
 model MaintenancePhoto {
@@ -776,6 +783,7 @@ model EsignEnvelope {
 
   @@index([leaseId])
   @@index([providerEnvelopeId])
+  @@index([createdById])
 }
 
 model EsignParticipant {
@@ -986,6 +994,7 @@ model ManualPayment {
   @@index([tenantId, receivedAt])
   @@index([propertyId, receivedAt])
   @@index([method, referenceNumber])
+  @@index([createdById])
 }
 
 model ManualCharge {
@@ -1018,6 +1027,7 @@ model ManualCharge {
   @@index([tenantId, chargeDate])
   @@index([propertyId, chargeDate])
   @@index([chargeType, status])
+  @@index([createdById])
 }
 
 model Conversation {
@@ -1036,6 +1046,7 @@ model ConversationParticipant {
   user           User         @relation(fields: [userId], references: [id])
 
   @@id([userId, conversationId])
+  @@index([conversationId])
 }
 
 model Message {
@@ -1170,7 +1181,7 @@ model RentalApplication {
   unit                            Unit                           @relation(fields: [unitId], references: [id])
   manualNotes                     RentalApplicationNote[]
 
-  screeningRequests               ScreeningRequest[]
+  screeningRequests ScreeningRequest[]
 
   @@index([convertedLeaseId])
   @@index([propertyId])
@@ -1198,19 +1209,19 @@ model ScreeningRequest {
 }
 
 model ScreeningReport {
-  id                String           @id @default(uuid()) @db.Uuid
-  requestId         String           @unique @db.Uuid
-  creditScore       Int?
-  incomeVerified    Boolean          @default(false)
-  identityVerified  Boolean          @default(false)
-  backgroundClear   Boolean          @default(false)
-  evictionHistory   Boolean          @default(false)
-  criminalHistory   Boolean          @default(false)
-  recommendation    String?
-  riskFlags         Json?
-  rawReport         Json?
-  createdAt         DateTime         @default(now())
-  request           ScreeningRequest @relation(fields: [requestId], references: [id])
+  id               String           @id @default(uuid()) @db.Uuid
+  requestId        String           @unique @db.Uuid
+  creditScore      Int?
+  incomeVerified   Boolean          @default(false)
+  identityVerified Boolean          @default(false)
+  backgroundClear  Boolean          @default(false)
+  evictionHistory  Boolean          @default(false)
+  criminalHistory  Boolean          @default(false)
+  recommendation   String?
+  riskFlags        Json?
+  rawReport        Json?
+  createdAt        DateTime         @default(now())
+  request          ScreeningRequest @relation(fields: [requestId], references: [id])
 
   @@index([requestId])
 }
@@ -1349,6 +1360,7 @@ model Expense {
   @@index([propertyId])
   @@index([propertyId, date])
   @@index([category])
+  @@index([recordedById])
 }
 
 model RentalApplicationNote {
@@ -1507,6 +1519,7 @@ model PaymentAttempt {
 
   @@unique([autopayEnrollmentId, invoiceId, scheduledFor])
   @@index([status, scheduledFor])
+  @@index([invoiceId])
 }
 
 model SecurityEvent {
@@ -1649,6 +1662,7 @@ model UnitInspection {
   @@index([status])
   @@index([scheduledDate])
   @@index([inspectorId])
+  @@index([createdById])
 }
 
 model UnitInspectionPhoto {
@@ -1746,6 +1760,7 @@ model InspectionChecklistPhoto {
   uploadedBy      User                    @relation("ChecklistPhotoUploader", fields: [uploadedById], references: [id])
 
   @@index([checklistItemId])
+  @@index([uploadedById])
 }
 
 model InspectionSignature {
@@ -1792,6 +1807,7 @@ model RepairEstimate {
   @@index([inspectionId])
   @@index([maintenanceRequestId])
   @@index([status])
+  @@index([generatedById])
 }
 
 model RepairEstimateLineItem {
@@ -1861,6 +1877,7 @@ model QuickBooksConnection {
   @@unique([organizationId, companyId])
   @@index([organizationId])
   @@index([organizationId, isActive])
+  @@index([userId])
   @@map("quickbooks_connections")
 }
 
@@ -2082,6 +2099,7 @@ model PolicyRuleEvaluation {
   workflowEvent      PolicyWorkflowEvent   @relation(fields: [workflowEventId], references: [id], onDelete: Cascade)
 
   @@index([propertyId, ruleName, createdAt])
+  @@index([workflowEventId])
 }
 
 model PolicyRuleApproval {
@@ -2095,6 +2113,7 @@ model PolicyRuleApproval {
   ruleEvaluation   PolicyRuleEvaluation     @relation(fields: [ruleEvaluationId], references: [id], onDelete: Cascade)
 
   @@index([ruleEvaluationId, status])
+  @@index([approverUserId])
 }
 
 model PolicyServiceProof {
@@ -2861,6 +2880,9 @@ model TenantProfile {
   moveInDate         DateTime?
   moveOutDate        DateTime?
   notes              String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  tenantNotes        String?
   createdAt          DateTime                   @default(now())
   updatedAt          DateTime                   @updatedAt
   householdMembers   HouseholdMember[]
