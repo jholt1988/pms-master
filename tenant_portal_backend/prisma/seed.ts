@@ -10,8 +10,14 @@ import {
   ExpenseCategory
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { PrismaPg } from '@prisma/adapter-pg';
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({
+  connectionString: 'postgres://33bf66322d170080bed542f7b64934a810a78eadaf82a76edf474b0ccf6cde0f:sk_0hg08oPtjwj-NAiEg8qlJ@db.prisma.io:5432/postgres?sslmode=require'
+
+});
+
+const prisma = new PrismaClient({ adapter });
 
 async function ensureGlobalSla(priority: MaintenancePriority, resolution: number, response?: number) {
   const existing = await prisma.maintenanceSlaPolicy.findFirst({
@@ -350,7 +356,7 @@ async function main() {
   console.info('🔨 Creating maintenance requests...');
   const maintenanceRequests = [];
 
-  async function ensureMaintenanceRequest(data: { authorId: string; unitId?: string; title: string; description: string; priority: MaintenancePriority; status: Status; assigneeId?: string; leaseId?: string; completedAt?: Date }) {
+  async function ensureMaintenanceRequest(data: { authorId: string; unitId?: string; title: string; description: string; priority: MaintenancePriority; status: Status; assigneeId?: number; leaseId?: string; completedAt?: Date }) {
     const existing = await prisma.maintenanceRequest.findFirst({
       where: { authorId: data.authorId, title: data.title },
     });
@@ -438,7 +444,7 @@ async function main() {
   const twoMonthsAgo = new Date(currentMonth);
   twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
 
-  async function ensurePayment(data: { userId: string; amountCents: number; paymentDate: Date; status: string }) {
+  async function ensurePayment(data: { userId: string; amountCents: number; paymentDate: Date; status: 'COMPLETED' | 'PENDING' }) {
     const existing = await prisma.payment.findFirst({
       where: { userId: data.userId, amountCents: data.amountCents, paymentDate: data.paymentDate, status: data.status },
     });

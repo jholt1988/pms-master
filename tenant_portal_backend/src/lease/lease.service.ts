@@ -15,7 +15,7 @@ import { UpdateLeaseDto } from './dto/update-lease.dto';
 import { UpdateLeaseStatusDto } from './dto/update-lease-status.dto';
 import { CreateRenewalOfferDto } from './dto/create-renewal-offer.dto';
 import { RecordLeaseNoticeDto } from './dto/record-lease-notice.dto';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { RespondRenewalOfferDto, RenewalDecision } from './dto/respond-renewal-offer.dto';
 import { TenantSubmitNoticeDto } from './dto/tenant-submit-notice.dto';
 import { AILeaseRenewalService } from './ai-lease-renewal.service';

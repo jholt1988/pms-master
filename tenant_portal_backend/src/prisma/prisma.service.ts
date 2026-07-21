@@ -1,5 +1,14 @@
 import { Injectable, OnModuleDestroy, OnModuleInit, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg'
+
+export const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL || 'postgres://33bf66322d170080bed542f7b64934a810a78eadaf82a76edf474b0ccf6cde0f:sk_0hg08oPtjwj-NAiEg8qlJ@db.prisma.io:5432/postgres?sslmode=require'
+});
+
+
+
+
 
 const ORG_SCOPED_MODELS = new Set([
   'Property',
@@ -61,8 +70,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
             { emit: 'stdout', level: 'warn' },
           ]
         : [{ emit: 'stdout', level: 'error' }],
-    });
+      // Use the PrismaPg adapter for PostgreSQL
+      adapter,
 
+    });
+        
     // Subscribe to query events for performance monitoring
     // QueryMonitorService will handle the actual monitoring
     if (process.env.ENABLE_QUERY_LOGGING === 'true' || process.env.NODE_ENV === 'development') {

@@ -20,8 +20,13 @@ import {
   ApplicationStatus,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { PrismaPg } from '@prisma/adapter-pg';
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({
+  connectionString: 'postgres://33bf66322d170080bed542f7b64934a810a78eadaf82a76edf474b0ccf6cde0f:sk_0hg08oPtjwj-NAiEg8qlJ@db.prisma.io:5432/postgres?sslmode=require'
+});
+
+const prisma = new PrismaClient({ adapter });
 
 const IDS = {
   ORG: 'aaaaaaa1-1111-4111-8111-111111111111',
@@ -81,7 +86,7 @@ async function main() {
 
   const pm = await upsertUser({
     username: 'morgan_pm',
-    password: 'demo1234',
+    password: '',
     role: Role.PROPERTY_MANAGER,
     email: 'morgan@pms-demo.com',
     firstName: 'Morgan',
@@ -184,7 +189,6 @@ async function main() {
       tenantId: tenant.id,
       unitId: unit.id,
       status: LeaseStatus.ACTIVE,
-      rentAmount: 1200,
       rentAmountCents: 120000,
       depositAmount: 1200,
       depositAmountCents: 120000,
@@ -196,7 +200,6 @@ async function main() {
       status: LeaseStatus.ACTIVE,
       startDate: new Date('2026-03-01'),
       endDate: new Date('2027-02-28'),
-      rentAmount: 1200,
       rentAmountCents: 120000,
       depositAmount: 1200,
       depositAmountCents: 120000,
