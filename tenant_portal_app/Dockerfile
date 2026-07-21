@@ -2,7 +2,7 @@
 
 FROM node:22-alpine AS build
 WORKDIR /app
-RUN npm install -g pnpm@8.15.8
+RUN corepack enable && corepack prepare pnpm@8.15.8 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY tenant_portal_app/package.json tenant_portal_app/package.json
 COPY tenant_portal_backend/package.json tenant_portal_backend/package.json

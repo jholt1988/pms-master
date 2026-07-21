@@ -5,11 +5,9 @@
 # NOTE: Build does not require a running database. Migrations are handled separately
 #       via the backend-migrate service in docker-compose.yml
 
-ARG PNPM_VERSION=8.15.8
-
 FROM node:22-alpine AS base
 WORKDIR /app
-RUN npm install -g pnpm@${PNPM_VERSION}
+RUN corepack enable && corepack prepare pnpm@8.15.8 --activate
 
 FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
@@ -58,7 +56,8 @@ ARG NODE_ENV=production
 ENV NODE_ENV=$NODE_ENV \
     NODE_OPTIONS="--max-old-space-size=512"
 
-RUN npm install -g pnpm@${PNPM_VERSION} \
+RUN corepack enable && corepack prepare pnpm@8.15.8 --activate \
+    && npm install -g prisma@6.19.2 \
     && addgroup -S nodejs \
     && adduser -S nodeuser -G nodejs
 

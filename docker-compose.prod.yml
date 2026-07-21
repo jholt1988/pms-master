@@ -50,6 +50,24 @@ services:
     mem_limit: 512m
     logging: *default-logging
 
+  keyring-os:
+    build: !reset null
+    image: ${KEYRING_OS_IMAGE:-ghcr.io/jholt1988/pms-master/keyring-os}:${IMAGE_TAG:-latest}
+    pull_policy: always
+    ports: !reset []
+    mem_limit: 256m
+    logging: *default-logging
+
   ml-service:
     mem_limit: 2g
+    logging: *default-logging
+
+  prometheus:
+    ports: !reset []
+    mem_limit: 256m
+    logging: *default-logging
+
+  grafana:
+    ports: !reset []
+    mem_limit: 256m
     logging: *default-logging

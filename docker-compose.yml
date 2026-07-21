@@ -195,6 +195,7 @@ services:
     image: pms-frontend
     container_name: pms-frontend
     restart: unless-stopped
+    profiles: ["legacy"]
     depends_on:
       backend:
         condition: service_healthy
