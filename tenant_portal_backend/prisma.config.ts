@@ -1,4 +1,5 @@
 import { defineConfig } from "prisma/config";
+import { PrismaConfig } from "prisma";
 
 /**
  * Prisma CLI + Prisma Client configuration
@@ -14,9 +15,18 @@ import { defineConfig } from "prisma/config";
  * Docker via `--env-file`.  In production, it is injected by the
  * hosting platform.
  */
-export default defineConfig({
+export default defineConfig( {
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
   },
-});
+  datasource: {
+    url: 'postgres://33bf66322d170080bed542f7b64934a810a78eadaf82a76edf474b0ccf6cde0f:sk_0hg08oPtjwj-NAiEg8qlJ@db.prisma.io:5432/postgres?sslmode=require',
+
+    shadowDatabaseUrl: process.env.SHADOW_DATABASE_URL
+  }
+}) satisfies PrismaConfig;
+function defineConfig(arg0: { schema: string; migrations: { path: string; }; datasource: { url: string; shadowDatabaseUrl: string | undefined; }; }): PrismaConfig {
+  return arg0;
+}
+

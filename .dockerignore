@@ -28,3 +28,22 @@ venv
 reports
 coverage
 
+# Exclude unnecessary directories for backend build
+chatbot
+tenant_portal_app
+tenant_portal
+tenant_portal_mobile
+pms-mobile-portals
+pms-plans
+operator_app
+docs
+migrations
+ai_prescreening_service
+contracts
+smart_contracts
+rent_optimization_ml
+.cursor
+.devcontainer
+.husky
+.pre-commit-config.yaml
+pms-master

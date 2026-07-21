@@ -3,10 +3,15 @@
 // Designed to tolerate schema drift by feature-detecting Prisma delegates and omitting unknown fields.
 
 const { PrismaClient } = require('@prisma/client');
+const {PrismaPg} = require('@prisma/adapter-pg');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
+const adapter = new PrismaPg({
+  connectionString: 'postgres://33bf66322d170080bed542f7b64934a810a78eadaf82a76edf474b0ccf6cde0f:sk_0hg08oPtjwj-NAiEg8qlJ@db.prisma.io:5432/postgres?sslmode=require'
 
-const prisma = new PrismaClient();
+});
+
+const prisma = new PrismaClient({adapter});
 
 function uuid() {
   return crypto.randomUUID();
@@ -82,13 +87,13 @@ async function main() {
     // Try to find an existing tenant by userId or email
     let tenantRecord = null;
     try {
-      tenantRecord = await prisma.tenant.findFirst({ where: { id: user.id } });
+      tenantRecord = await prisma.user.findFirst({ where: { id: user.id } });
     } catch (_) {
       /* ignore - model might not have userId field or constraints differ */
     }
     if (!tenantRecord && user.email) {
       try {
-        tenantRecord = await prisma.tenant.findFirst({ where: { email: user.email } });
+        tenantRecord = await prisma.user.findFirst({ where: { email: user.email } });
       } catch (_) { }
     }
 
@@ -109,11 +114,11 @@ async function main() {
       createData.updatedAt = new Date();
 
       try {
-        tenantRecord = await prisma.tenant.create({ data: createData });
+        tenantRecord = await prisma.user.create({ data: createData });
       } catch (err) {
         // Last-resort: try a minimal create (some schemas require fewer fields)
         try {
-          tenantRecord = await prisma.tenant.create({ data: { fullName: createData.fullName } });
+          tenantRecord = await prisma.user.create({ data: { fullName: createData.fullName } });
         } catch (err2) {
           console.error('Failed to create Tenant record for user:', err, err2);
           tenantRecord = null;

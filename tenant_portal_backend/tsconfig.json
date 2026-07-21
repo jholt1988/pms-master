@@ -33,7 +33,8 @@
   },
   "include": [
     "src/**/*.ts",
-    "test/**/*.ts"
+    "test/**/*.ts",
+    "src/prisma/prisma.service.ts", "src/prisma/database.service.ts","src/prisma/prisma.module.ts","src/prisma/database.module.ts"
   ],
   "exclude": [
     "node_modules",
