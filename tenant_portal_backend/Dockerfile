@@ -43,6 +43,13 @@ RUN mkdir -p /prisma-generated/client && \
     test -n "$PRISMA_CLIENT_PKG" && \
     cp -r "$PRISMA_CLIENT_PKG"/* /prisma-generated/client/ || echo "WARNING: Prisma client not found in node_modules"
 
+# Save generated Prisma Client to a well-known path for the runner stage.
+# The .prisma/client directory lives inside pnpm's virtual store.
+RUN mkdir -p /prisma-generated/client && \
+    PRISMA_CLIENT_PKG=$(find /app/node_modules -path '*/.prisma/client' -type d | head -1) && \
+    test -n "$PRISMA_CLIENT_PKG" && \
+    cp -r "$PRISMA_CLIENT_PKG"/* /prisma-generated/client/ || echo "WARNING: Prisma client not found in node_modules"
+
 # Build the TypeScript code
 RUN pnpm build
 
