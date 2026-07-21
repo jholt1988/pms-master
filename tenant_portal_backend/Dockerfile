@@ -17,7 +17,6 @@ RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile --filter tenant_portal_backend...
 
 FROM base AS build
-# Copy all node_modules from deps (already has @prisma/client and everything needed)
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/package.json ./package.json
 COPY --from=deps /app/pnpm-lock.yaml ./pnpm-lock.yaml
@@ -29,22 +28,20 @@ COPY tenant_portal_backend ./tenant_portal_backend
 COPY packages/mil-client ./packages/mil-client
 
 WORKDIR /app/tenant_portal_backend
-ENV DATABASE_URL=postgresql://pms:pms@postgres:5432/pms?schema=public
+ENV DATABASE_URL=postgresql://pms:***@postgres:5432/pms?schema=public
 ENV ALLOW_NO_DB=true
 
-# Generate Prisma Client — prisma.config.ts is clean now (no duplicate defineConfig,
-# no hardcoded credentials), so no need to skip it.
-RUN pnpm exec prisma generate --schema=./prisma/schema.prisma
+# Install prisma CLI locally so it's available in this stage's PATH.
+# pnpm's filtered install in the deps stage hoists prisma to the root
+# node_modules, but pnpm exec may not resolve it correctly from a
+# subworkspace after the manual node_modules copy. Installing directly
+# ensures the binary is available.
+RUN pnpm add -D prisma@7.8.0 --filter tenant_portal_backend
+
+# Generate Prisma Client
+RUN npx prisma generate --schema=./prisma/schema.prisma
 
 # Save generated Prisma Client to a well-known path for the runner stage.
-# The .prisma/client directory lives inside pnpm's virtual store.
-RUN mkdir -p /prisma-generated/client && \
-    PRISMA_CLIENT_PKG=$(find /app/node_modules -path '*/.prisma/client' -type d | head -1) && \
-    test -n "$PRISMA_CLIENT_PKG" && \
-    cp -r "$PRISMA_CLIENT_PKG"/* /prisma-generated/client/ || echo "WARNING: Prisma client not found in node_modules"
-
-# Save generated Prisma Client to a well-known path for the runner stage.
-# The .prisma/client directory lives inside pnpm's virtual store.
 RUN mkdir -p /prisma-generated/client && \
     PRISMA_CLIENT_PKG=$(find /app/node_modules -path '*/.prisma/client' -type d | head -1) && \
     test -n "$PRISMA_CLIENT_PKG" && \
