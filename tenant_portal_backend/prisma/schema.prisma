@@ -1,6 +1,6 @@
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["postgresqlExtensions", "partialIndexes"]
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
@@ -984,7 +984,7 @@ model ManualPayment {
   tenant          User                   @relation("ManualPaymentTenant", fields: [tenantId], references: [id])
   unit            Unit?                  @relation(fields: [unitId], references: [id])
 
-  @@unique([organizationId, method, referenceNumber], map: "ManualPayment_org_method_reference_posted_unique", where: raw("((\"referenceNumber\" IS NOT NULL) AND (status = 'POSTED'::\"ManualPaymentStatus\") AND (method = ANY (ARRAY['CHECK'::\"ManualPaymentMethod\", 'MONEY_ORDER'::\"ManualPaymentMethod\"])))"))
+  @@unique([organizationId, method, referenceNumber], map: "ManualPayment_org_method_reference_posted_unique")
   @@index([organizationId, createdAt])
   @@index([leaseId, receivedAt])
   @@index([tenantId, receivedAt])
