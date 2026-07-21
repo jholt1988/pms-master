@@ -32,20 +32,10 @@ ENV DATABASE_URL=postgresql://pms:***@postgres:5432/pms?schema=public
 ENV ALLOW_NO_DB=true
 
 # Install prisma CLI locally so it's available in this stage's PATH.
-# pnpm's filtered install in the deps stage hoists prisma to the root
-# node_modules, but pnpm exec may not resolve it correctly from a
-# subworkspace after the manual node_modules copy. Installing directly
-# ensures the binary is available.
 RUN pnpm add -D prisma@7.8.0 --filter tenant_portal_backend
 
 # Generate Prisma Client
 RUN npx prisma generate --schema=./prisma/schema.prisma
-
-# Save generated Prisma Client to a well-known path for the runner stage.
-RUN mkdir -p /prisma-generated/client && \
-    PRISMA_CLIENT_PKG=$(find /app/node_modules -path '*/.prisma/client' -type d | head -1) && \
-    test -n "$PRISMA_CLIENT_PKG" && \
-    cp -r "$PRISMA_CLIENT_PKG"/* /prisma-generated/client/ || echo "WARNING: Prisma client not found in node_modules"
 
 # Build the TypeScript code
 RUN pnpm build
@@ -53,7 +43,14 @@ RUN pnpm build
 # Verify build succeeded
 RUN test -f dist/tenant_portal_backend/src/index.js
 
-# Stage: runner
+# Save the generated Prisma Client to a deterministic path for the runner stage.
+# @prisma/client/default.js does require('.prisma/client/default') which Node
+# resolves as a sibling of @prisma/client inside pnpm's virtual store.
+# We copy it out to /prisma-client so the runner stage can place it back.
+RUN PRISMA_CLIENT_DIR=$(find /app/node_modules/.pnpm -path '*/node_modules/.prisma/client' -type d | head -1) && \
+    test -n "$PRISMA_CLIENT_DIR" && \
+    cp -r "$PRISMA_CLIENT_DIR" /prisma-client
+
 FROM node:22-alpine AS runner
 WORKDIR /app
 ARG NODE_ENV=production
@@ -76,11 +73,21 @@ COPY --from=build /app/packages/mil-client/package.json ./packages/mil-client/pa
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile --prod --filter tenant_portal_backend...
 
-# Copy built application and workspace package source (needed at runtime for pnpm symlinks)
+# Place the generated Prisma Client where pnpm's virtual store expects it:
+# as a sibling of @prisma/client inside the .pnpm directory.
+# The exact hash path varies by lockfile, so we find it dynamically.
+COPY --from=build /prisma-client /tmp/prisma-client
+RUN PRISMA_CLIENT_PARENT=$(find /app/node_modules/.pnpm -path '*/node_modules/@prisma/client' -type d | head -1) && \
+    test -n "$PRISMA_CLIENT_PARENT" && \
+    NODE_MODULES_DIR="$(dirname "$PRISMA_CLIENT_PARENT")" && \
+    mkdir -p "$NODE_MODULES_DIR/.prisma" && \
+    cp -r /tmp/prisma-client "$NODE_MODULES_DIR/.prisma/client" && \
+    rm -rf /tmp/prisma-client
+
+# Copy built application
 COPY --from=build /app/tenant_portal_backend/prisma ./tenant_portal_backend/prisma
 COPY --from=build /app/tenant_portal_backend/prisma.config.ts ./tenant_portal_backend/prisma.config.ts
 COPY --from=build /app/tenant_portal_backend/dist ./tenant_portal_backend/dist
-COPY --from=build /prisma-generated/client /app/tenant_portal_backend/node_modules/.prisma/client
 
 WORKDIR /app/tenant_portal_backend
 RUN mkdir -p logs uploads && chown -R nodeuser:nodejs logs uploads
