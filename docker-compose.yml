@@ -221,11 +221,15 @@ services:
   #   networks:
   #     - pms-internal
 
+  # Keyring-OS next-gen frontend.
+  #   Build context: ../keyring-os repo must exist as a sibling directory.
+  #   If absent, the build will fail. Use --profile keyring to skip it,
+  #   or set KEYRING_OS_IMAGE to a pre-built image in your .env.
   keyring-os:
     build:
       context: ../keyring-os
       dockerfile: apps/admin/Dockerfile
-    image: jholt1988/keyring_os:1.0
+    image: ${KEYRING_OS_IMAGE:-jholt1988/keyring_os:1.0}
     container_name: pms-keyring-os
     restart: unless-stopped
     depends_on:

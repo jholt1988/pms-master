@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg'
 
 export const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL || 'postgres://33bf66322d170080bed542f7b64934a810a78eadaf82a76edf474b0ccf6cde0f:sk_0hg08oPtjwj-NAiEg8qlJ@db.prisma.io:5432/postgres?sslmode=require'
+  connectionString: process.env.DATABASE_URL || 'postgresql://pms:pms@postgres:5432/pms?schema=public',
 });
 
 
