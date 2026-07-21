@@ -34,14 +34,17 @@ ENV ALLOW_NO_DB=true
 
 # Generate Prisma Client using pnpm (which has deps installed in node_modules)
 RUN set -e && \
-    # Skip loading the problematic config file
     mv prisma.config.ts prisma.config.ts.skip 2>/dev/null || true && \
-    # Use pnpm exec to run prisma with proper node_modules resolution
     (pnpm exec prisma generate --schema=./prisma/schema.prisma || echo "Note: prisma generate had issues") && \
-    # Restore config file
     mv prisma.config.ts.skip prisma.config.ts 2>/dev/null || true && \
-    # The @prisma/client types should already be available from node_modules
     true
+
+# Save generated Prisma Client to a well-known path for the runner stage.
+# The .prisma/client directory lives inside pnpm's virtual store.
+RUN mkdir -p /prisma-generated/client && \
+    PRISMA_CLIENT_PKG=$(find /app/node_modules -path '*/.prisma/client' -type d | head -1) && \
+    test -n "$PRISMA_CLIENT_PKG" && \
+    cp -r "$PRISMA_CLIENT_PKG"/* /prisma-generated/client/ || echo "WARNING: Prisma client not found in node_modules"
 
 # Build the TypeScript code
 RUN pnpm build
@@ -75,6 +78,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
 COPY --from=build /app/packages/mil-client ./packages/mil-client 2>/dev/null || true
 COPY --from=build /app/tenant_portal_backend/prisma ./tenant_portal_backend/prisma
 COPY --from=build /app/tenant_portal_backend/dist ./tenant_portal_backend/dist
+COPY --from=build /prisma-generated/client /app/tenant_portal_backend/node_modules/.prisma/client
 
 WORKDIR /app/tenant_portal_backend
 RUN mkdir -p logs uploads && chown -R nodeuser:nodejs logs uploads
