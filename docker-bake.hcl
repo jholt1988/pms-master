@@ -46,6 +46,8 @@ target "backend" {
 }
 
 # Production: Backend service (push to registry)
+# NOTE: push=false by default to avoid accidental registry writes locally.
+#       CI pipelines should override to push=true via: docker buildx bake --set *.output=type=image,push=true .
 target "backend-prod" {
   inherits = ["backend"]
   tags = [

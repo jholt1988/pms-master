@@ -255,9 +255,8 @@ services:
       - "--web.enable-lifecycle"
     ports:
       - "9090:9090"
-    depends_on:
-      backend:
-        condition: service_healthy
+    # Prometheus scrapes the backend—starting it independently lets it observe
+    # backend failures rather than failing alongside it.
     networks:
       - pms-internal
 
