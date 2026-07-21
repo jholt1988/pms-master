@@ -4,7 +4,7 @@
 FROM node:22-alpine AS builder
 
 WORKDIR /usr/src/app
-RUN npm install -g pnpm@8.15.8
+RUN corepack enable && corepack prepare pnpm@8.15.8 --activate
 
 # Build MIL as a standalone package to avoid monorepo root builds
 COPY security/mil ./security/mil
