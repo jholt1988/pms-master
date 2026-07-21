@@ -26,3 +26,7 @@ export default defineConfig( {
     shadowDatabaseUrl: process.env.SHADOW_DATABASE_URL
   }
 }) satisfies PrismaConfig;
+function defineConfig(arg0: { schema: string; migrations: { path: string; }; datasource: { url: string; shadowDatabaseUrl: string | undefined; }; }): PrismaConfig {
+  return arg0;
+}
+
