@@ -53,6 +53,7 @@ RUN pnpm build
 # Verify build succeeded
 RUN test -f dist/tenant_portal_backend/src/index.js
 
+# Stage: runner
 FROM node:22-alpine AS runner
 WORKDIR /app
 ARG NODE_ENV=production
@@ -75,8 +76,7 @@ COPY --from=build /app/packages/mil-client/package.json ./packages/mil-client/pa
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile --prod --filter tenant_portal_backend...
 
-# Copy built application
-COPY --from=build /app/packages/mil-client ./packages/mil-client 2>/dev/null || true
+# Copy built application and workspace package source (needed at runtime for pnpm symlinks)
 COPY --from=build /app/tenant_portal_backend/prisma ./tenant_portal_backend/prisma
 COPY --from=build /app/tenant_portal_backend/prisma.config.ts ./tenant_portal_backend/prisma.config.ts
 COPY --from=build /app/tenant_portal_backend/dist ./tenant_portal_backend/dist
