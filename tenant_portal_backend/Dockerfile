@@ -77,14 +77,15 @@ RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
 # as a sibling of @prisma/client inside the .pnpm directory.
 # The exact hash path varies by lockfile, so we find it dynamically.
 COPY --from=build /prisma-client /tmp/prisma-client
-RUN PRISMA_CLIENT_PARENT=$(find /app/node_modules/.pnpm -path '*/node_modules/@prisma/client' -type d | head -1) && \
-    test -n "$PRISMA_CLIENT_PARENT" && \
-    NODE_MODULES_DIR="$(dirname "$PRISMA_CLIENT_PARENT")" && \
+RUN PRISMA_CLIENT_PKG=$(find /app/node_modules/.pnpm -path '*/node_modules/@prisma/client' -type d | head -1) && \
+    test -n "$PRISMA_CLIENT_PKG" && \
+    NODE_MODULES_DIR="$(dirname "$(dirname "$PRISMA_CLIENT_PKG")")" && \
     mkdir -p "$NODE_MODULES_DIR/.prisma" && \
     cp -r /tmp/prisma-client "$NODE_MODULES_DIR/.prisma/client" && \
     rm -rf /tmp/prisma-client
 
-# Copy built application
+# Copy built application and workspace dependencies
+COPY --from=build /app/packages/mil-client ./packages/mil-client
 COPY --from=build /app/tenant_portal_backend/prisma ./tenant_portal_backend/prisma
 COPY --from=build /app/tenant_portal_backend/prisma.config.ts ./tenant_portal_backend/prisma.config.ts
 COPY --from=build /app/tenant_portal_backend/dist ./tenant_portal_backend/dist
@@ -95,7 +96,7 @@ RUN mkdir -p logs uploads && chown -R nodeuser:nodejs logs uploads
 USER nodeuser
 EXPOSE 3001
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3001/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3001/api/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
 
 CMD ["node", "--enable-source-maps", "dist/tenant_portal_backend/src/index.js"]
