@@ -10,7 +10,7 @@ export class IntentsController {
   @Get()
   async list(@Query("tenantId") tenantId?: string, @Query("limit") limit?: string) {
     const take = Math.max(1, Math.min(Number(limit ?? 50), 200));
-    const intents = await this.prisma.actionIntent.findMany({
+    const intents = await this.prisma.workflowIntent.findMany({
       where: tenantId ? { tenantId } : {},
       orderBy: { createdAt: "desc" },
       take,
@@ -30,7 +30,7 @@ export class IntentsController {
       await this.prisma.auditEvent.create({ data: { tenantId: body.tenant_id, type: "AUTONOMY_SPEND_CAP_BLOCK", payload: { estCost, maxSpend } } });
     }
 
-    const intent = await this.prisma.actionIntent.create({
+    const intent = await this.prisma.workflowIntent.create({
       data: {
         tenantId: body.tenant_id,
         propertyId: body.property_id ?? null,

@@ -236,9 +236,12 @@ importers:
       '@nestjs/swagger':
         specifier: ^7.4.2
         version: 7.4.2(@nestjs/common@10.4.22)(@nestjs/core@10.4.22)(reflect-metadata@0.2.2)
+      '@prisma/adapter-pg':
+        specifier: ^7.8.0
+        version: 7.8.0
       '@prisma/client':
-        specifier: ^5.20.0
-        version: 5.22.0(prisma@5.22.0)
+        specifier: ^7.8.0
+        version: 7.8.0(prisma@7.8.0)(typescript@5.9.3)
       '@propertyos/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts-pos
@@ -256,8 +259,8 @@ importers:
         specifier: ^10.4.2
         version: 10.4.9
       prisma:
-        specifier: ^5.20.0
-        version: 5.22.0
+        specifier: ^7.8.0
+        version: 7.8.0(@types/react@19.2.14)(react-dom@19.2.4)(react@19.2.4)(typescript@5.9.3)
       ts-node:
         specifier: ^10.9.2
         version: 10.9.2(@types/node@24.12.2)(typescript@5.9.3)
@@ -10168,7 +10171,7 @@ packages:
   /@types/pg-pool@2.0.7:
     resolution: {integrity: sha512-U4CwmGVQcbEuqpyju8/ptOKg6gEC+Tqsvj2xS9o1g71bUh8twxnC6ZL5rZKCsGN0iyH0CwgUyc9VR5owNQF9Ng==}
     dependencies:
-      '@types/pg': 8.15.6
+      '@types/pg': 8.20.0
     dev: false
 
   /@types/pg@8.15.6:

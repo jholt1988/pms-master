@@ -12,13 +12,14 @@
     "@nestjs/swagger": "^7.4.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "@prisma/client": "^5.20.0",
+    "@prisma/client": "^7.8.0",
+    "@prisma/adapter-pg": "^7.8.0",
     "@propertyos/contracts": "workspace:*",
     "@propertyos/crypto": "workspace:*"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.4.2",
-    "prisma": "^5.20.0",
+    "prisma": "^7.8.0",
     "typescript": "^5.6.3",
     "ts-node": "^10.9.2"
   }

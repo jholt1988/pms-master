@@ -154,7 +154,13 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3003
-      DATABASE_URL: ${DATABASE_URL:-postgresql://pms:pms@postgres:5432/pms?schema=public}
+      # Use a dedicated schema for the property-OS domain tables (Tenant,
+      # Pack, ActionIntent, AuditEvent, etc.) to avoid table-name collisions
+      # with the backend's own tables in the public schema.
+      # Use the `options` param to set search_path to property_os schema.
+      # Prisma's ?schema= param is for CLI/migrations only; the PrismaPg adapter
+      # passes the connection string to node-postgres which doesn't recognize it.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-pms}:${POSTGRES_PASSWORD:-pms}@postgres:5432/${POSTGRES_DB:-pms}?options=-c%20search_path%3Dproperty_os
     depends_on:
       postgres:
         condition: service_healthy
