@@ -20,8 +20,9 @@ export class ReportingController {
 
   @Get('rent-roll')
   @Roles('PROPERTY_MANAGER', 'OWNER', 'ADMIN')
-  async getRentRoll(@Query('propertyId') propertyId?: string) {
-    const where: any = propertyId ? { propertyId } : {};
+  async getRentRoll(@Query('propertyId') propertyId?: string, @OrgId() orgId?: string) {
+    const where: any = { property: { organizationId: orgId } };
+    if (propertyId) where.propertyId = propertyId;
 
     const units = await this.prisma.unit.findMany({
       where,
@@ -49,7 +50,7 @@ export class ReportingController {
 
   @Get('delinquency-report')
   @Roles('PROPERTY_MANAGER', 'ADMIN')
-  async getDelinquencyReport(@Query('days') days?: string) {
+  async getDelinquencyReport(@Query('days') days?: string, @OrgId() orgId?: string) {
     const daysNum = parseInt(days || '30', 10);
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - daysNum);
@@ -58,6 +59,7 @@ export class ReportingController {
       where: {
         status: { not: 'COMPLETED' },
         paymentDate: { lt: cutoff },
+        lease: { unit: { property: { organizationId: orgId } } },
       },
       include: {
         lease: { include: { tenant: true, unit: { include: { property: true } } } },
@@ -89,8 +91,9 @@ export class ReportingController {
 
   @Get('maintenance-summary')
   @Roles('PROPERTY_MANAGER', 'OWNER', 'ADMIN')
-  async getMaintenanceSummary(@Query('propertyId') propertyId?: string) {
-    const where: any = propertyId ? { propertyId } : {};
+  async getMaintenanceSummary(@Query('propertyId') propertyId?: string, @OrgId() orgId?: string) {
+    const where: any = { property: { organizationId: orgId } };
+    if (propertyId) where.propertyId = propertyId;
 
     const requests = await this.prisma.maintenanceRequest.findMany({ where });
 
@@ -115,17 +118,21 @@ export class ReportingController {
 
   @Get('occupancy-report')
   @Roles('PROPERTY_MANAGER', 'OWNER', 'ADMIN')
-  async getOccupancyReport(@Query('propertyId') propertyId?: string) {
-    const where: any = propertyId ? { propertyId } : {};
+  async getOccupancyReport(@Query('propertyId') propertyId?: string, @OrgId() orgId?: string) {
+    const unitWhere: any = { property: { organizationId: orgId } };
+    if (propertyId) unitWhere.propertyId = propertyId;
 
-    const units = await this.prisma.unit.findMany({ where, include: { property: true } });
+    const units = await this.prisma.unit.findMany({ where: unitWhere, include: { property: true } });
 
     const occupied = units.filter(u => u.status === 'LEASED' || u.status === 'OCCUPIED').length;
     const vacant = units.filter(u => u.status === 'VACANT').length;
     const total = units.length;
 
+    const propertyWhere: any = { organizationId: orgId };
+    if (propertyId) propertyWhere.id = propertyId;
+
     const byProperty = await this.prisma.property.findMany({
-      where,
+      where: propertyWhere,
       include: { units: true },
     }).then(props => props.map(p => ({
       property: p.name,
@@ -145,8 +152,8 @@ export class ReportingController {
 
   @Get('delinquency-analytics')
   @Roles('PROPERTY_MANAGER', 'ADMIN')
-  async getDelinquencyAnalytics(@Query('days') days?: string) {
-    return this.getDelinquencyReport(days);
+  async getDelinquencyAnalytics(@Query('days') days?: string, @OrgId() orgId?: string) {
+    return this.getDelinquencyReport(days, orgId);
   }
 
   @Get('profit-loss')
@@ -155,14 +162,15 @@ export class ReportingController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('propertyId') propertyId?: string,
+    @OrgId() orgId?: string,
   ) {
-    return this.getFinancialSummary(startDate, endDate, propertyId);
+    return this.getFinancialSummary(startDate, endDate, propertyId, orgId);
   }
 
   @Get('vacancy-rate')
   @Roles('PROPERTY_MANAGER', 'OWNER', 'ADMIN')
-  async getVacancyRate(@Query('propertyId') propertyId?: string) {
-    const occupancy = await this.getOccupancyReport(propertyId);
+  async getVacancyRate(@Query('propertyId') propertyId?: string, @OrgId() orgId?: string) {
+    const occupancy = await this.getOccupancyReport(propertyId, orgId);
     return {
       ...occupancy,
       type: 'vacancy-rate',
@@ -172,8 +180,8 @@ export class ReportingController {
 
   @Get('maintenance-analytics')
   @Roles('PROPERTY_MANAGER', 'OWNER', 'ADMIN')
-  async getMaintenanceAnalytics(@Query('propertyId') propertyId?: string) {
-    return this.getMaintenanceSummary(propertyId);
+  async getMaintenanceAnalytics(@Query('propertyId') propertyId?: string, @OrgId() orgId?: string) {
+    return this.getMaintenanceSummary(propertyId, orgId);
   }
 
   @Get('manual-payments-summary')
@@ -181,11 +189,15 @@ export class ReportingController {
   async getManualPaymentsSummary(
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @OrgId() orgId?: string,
   ) {
     const start = startDate ? new Date(startDate) : new Date(new Date().setDate(1));
     const end = endDate ? new Date(endDate) : new Date();
     const payments = await this.prisma.payment.findMany({
-      where: { paymentDate: { gte: start, lte: end } },
+      where: {
+        paymentDate: { gte: start, lte: end },
+        lease: { unit: { property: { organizationId: orgId } } },
+      },
     });
     return {
       type: 'manual-payments-summary',
@@ -200,11 +212,15 @@ export class ReportingController {
   async getManualChargesSummary(
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @OrgId() orgId?: string,
   ) {
     const start = startDate ? new Date(startDate) : new Date(new Date().setDate(1));
     const end = endDate ? new Date(endDate) : new Date();
     const charges = await this.prisma.manualCharge.findMany({
-      where: { chargeDate: { gte: start, lte: end } },
+      where: {
+        chargeDate: { gte: start, lte: end },
+        property: { organizationId: orgId },
+      },
     });
     return {
       type: 'manual-charges-summary',
@@ -220,13 +236,14 @@ export class ReportingController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('propertyId') propertyId?: string,
+    @OrgId() orgId?: string,
   ) {
     const start = startDate ? new Date(startDate) : new Date(new Date().setDate(1));
     const end = endDate ? new Date(endDate) : new Date();
     return this.prisma.payment.findMany({
       where: {
         paymentDate: { gte: start, lte: end },
-        ...(propertyId ? { lease: { unit: { propertyId } } } : {}),
+        lease: { unit: { property: { organizationId: orgId, ...(propertyId ? { id: propertyId } : {}) } } },
       },
       include: { lease: { include: { tenant: true, unit: { include: { property: true } } } } },
       orderBy: { paymentDate: 'desc' },
@@ -291,19 +308,25 @@ export class ReportingController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('propertyId') propertyId?: string,
+    @OrgId() orgId?: string,
   ) {
     const start = startDate ? new Date(startDate) : new Date(new Date().setDate(1));
     const end = endDate ? new Date(endDate) : new Date();
 
-    const where: any = { paymentDate: { gte: start, lte: end } };
-    if (propertyId) where.lease = { unit: { propertyId } };
+    const where: any = {
+      paymentDate: { gte: start, lte: end },
+      lease: { unit: { property: { organizationId: orgId, ...(propertyId ? { id: propertyId } : {}) } } },
+    };
 
     const payments = await this.prisma.payment.findMany({ where });
     const collected = payments.filter(p => p.status === 'COMPLETED').reduce((sum, p) => sum + p.amountCents, 0);
     const pending = payments.filter(p => p.status !== 'COMPLETED').reduce((sum, p) => sum + p.amountCents, 0);
 
     const charges = await this.prisma.manualCharge.findMany({
-      where: { chargeDate: { gte: start, lte: end } },
+      where: {
+        chargeDate: { gte: start, lte: end },
+        property: { organizationId: orgId },
+      },
     });
     const totalCharges = charges.reduce((sum, c) => sum + c.amountCents, 0) / 100;
 
