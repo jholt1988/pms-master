@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditLogService } from '../shared/audit-log.service';
 
 interface AuditLogFilters {
   entityId?: string;
@@ -13,68 +14,44 @@ interface AuditLogFilters {
 
 @Injectable()
 export class OperatorAuditLogService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogService: AuditLogService,
+  ) {}
 
   async getWorkbench(orgId: string, filters: AuditLogFilters) {
-    const where: Record<string, unknown> = {
-      user: { organizations: { some: { id: orgId } } },
-    };
-    if (filters.actorId) where.userId = filters.actorId;
-    if (filters.module) where.event = { startsWith: filters.module.toUpperCase() + '.' };
-    if (filters.startDate || filters.endDate) {
-      where.createdAt = {
-        ...(filters.startDate ? { gte: new Date(filters.startDate) } : {}),
-        ...(filters.endDate ? { lte: new Date(filters.endDate) } : {}),
-      };
-    }
-
-    const limit = filters.limit ?? 50;
-    const skip = filters.skip ?? 0;
-
-    const [total, logs] = await Promise.all([
-      this.prisma.auditLog.count({ where }),
-      this.prisma.auditLog.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-        skip,
-        include: {
-          user: { select: { id: true, username: true, firstName: true, lastName: true } },
-        },
-      }),
-    ]);
-
-    // Build metrics from the full result set (not just the page)
-    const allLogs = await this.prisma.auditLog.findMany({
-      where,
-      select: { event: true, createdAt: true },
+    // Delegate to AuditLogService.query() which handles encrypted payload
+    // decryption and entityId post-decrypt filtering correctly.
+    const { data, total } = await this.auditLogService.query({
+      entityId: filters.entityId,
+      module: filters.module,
+      actorId: filters.actorId,
+      startDate: filters.startDate,
+      endDate: filters.endDate,
+      limit: filters.limit,
+      skip: filters.skip,
     });
 
-    const byModule = allLogs.reduce(
-      (acc, log) => {
-        const moduleName = log.event.split('.')[0] || 'UNKNOWN';
-        acc[moduleName] = (acc[moduleName] || 0) + 1;
+    // Build metrics from the returned logs
+    const byModule = data.reduce(
+      (acc: Record<string, number>, log) => {
+        const event = String(log.event ?? '');
+        const moduleName = event.split('.')[0] || 'UNKNOWN';
+        acc[moduleName] = (acc[moduleName] ?? 0) + 1;
         return acc;
       },
       {} as Record<string, number>,
     );
 
     const now = new Date();
-    const last24h = allLogs.filter(
-      (log) => (now.getTime() - log.createdAt.getTime()) / (1000 * 60 * 60) <= 24,
-    ).length;
+    const last24h = data.filter((log) => {
+      const raw = log.createdAt;
+      const createdAt = raw instanceof Date ? raw : new Date(String(raw ?? 0));
+      return (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60) <= 24;
+    }).length;
 
-    const data = logs.map((log) => ({
-      id: log.id,
-      event: log.event,
-      createdAt: log.createdAt,
-      actor: log.user
-        ? {
-            id: log.user.id,
-            name: [log.user.firstName, log.user.lastName].filter(Boolean).join(' ') || log.user.username,
-          }
-        : null,
-    }));
+    const limit = filters.limit ?? 50;
+    const skip = filters.skip ?? 0;
 
     return {
       generatedAt: now.toISOString(),
