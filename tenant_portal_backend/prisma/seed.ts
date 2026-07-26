@@ -7,14 +7,14 @@ import {
   Role,
   Status,
   ApplicationStatus,
-  ExpenseCategory
+  ExpenseCategory,
+  OrgRole
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaPg } from '@prisma/adapter-pg';
 
 const adapter = new PrismaPg({
-  // connectionString: 'postgres://33bf66322d170080bed542f7b64934a810a78eadaf82a76edf474b0ccf6cde0f:sk_0hg08oPtjwj-NAiEg8qlJ@db.prisma.io:5432/postgres?sslmode=require'
-     connectionString: process.env.DATABASE_URL || 'postgresq://pms:pms@postgres:5432/pms',
+  connectionString: process.env.DATABASE_URL ?? 'postgres://33bf66322d170080bed542f7b64934a810a78eadaf82a76edf474b0ccf6cde0f:sk_0hg08oPtjwj-NAiEg8qlJ@db.prisma.io:5432/postgres?sslmode=require'
 });
 
 const prisma = new PrismaClient({ adapter });
@@ -183,6 +183,14 @@ async function main() {
   console.info(`✅ Property Manager created: ${adminUser.username} (ID: ${adminUser.id})`);
   console.info(`   Default password: Admin123!@# (Please change after first login)`);
 
+  // 0b. Link admin user to organization
+  console.info('🔗 Linking admin user to organization...');
+  await prisma.userOrganization.upsert({
+    where: { userId_organizationId: { userId: adminUser.id, organizationId: organization.id } },
+    update: { role: OrgRole.OWNER },
+    create: { userId: adminUser.id, organizationId: organization.id, role: OrgRole.OWNER },
+  });
+
   // 1. Create SLA Policies
   console.info('📋 Creating SLA policies...');
   await ensureGlobalSla(MaintenancePriority.EMERGENCY, 240, 60);
@@ -284,6 +292,14 @@ async function main() {
   console.info('   - TENANT: sarah_tenant / password123');
   console.info('   - TENANT: mike_tenant / password123');
   console.info('   - PROPERTY_MANAGER: admin_pm / password123');
+
+  // 5b. Link property manager to organization
+  console.info('🔗 Linking property manager to organization...');
+  await prisma.userOrganization.upsert({
+    where: { userId_organizationId: { userId: propertyManager.id, organizationId: organization.id } },
+    update: { role: OrgRole.ADMIN },
+    create: { userId: propertyManager.id, organizationId: organization.id, role: OrgRole.ADMIN },
+  });
 
   // 6. Tenant records (now User-based — Tenant model removed)
   console.info('👥 Tenant records OK (using User IDs)...');
