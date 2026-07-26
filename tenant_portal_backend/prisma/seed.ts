@@ -15,7 +15,6 @@ import { PrismaPg } from '@prisma/adapter-pg';
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL ?? 'postgres://33bf66322d170080bed542f7b64934a810a78eadaf82a76edf474b0ccf6cde0f:sk_0hg08oPtjwj-NAiEg8qlJ@db.prisma.io:5432/postgres?sslmode=require'
-
 });
 
 const prisma = new PrismaClient({ adapter });
@@ -304,6 +303,10 @@ async function main() {
 
   // 6. Tenant records (now User-based — Tenant model removed)
   console.info('👥 Tenant records OK (using User IDs)...');
+  console.info(`   - Tenant 1: ${tenant1.username} (ID: ${tenant1.id})`);
+  console.info(`   - Tenant 2: ${tenant2.username} (ID: ${tenant2.id})`);
+  console.info(`   - Tenant 3: ${tenant3.username} (ID: ${tenant3.id})`);
+  console.info(`   - Property Manager: ${propertyManager.username} (ID: ${propertyManager.id})`);
 
   // 7. Create Leases
   console.info('📄 Creating leases...');
