@@ -71,16 +71,53 @@ export class OperatorVendorsService {
   async generate1099Export(organizationId: string) {
     const vendors = await this.prisma.vendor.findMany({
       where: { organizationId, type: 'CONTRACTOR' },
+      orderBy: { name: 'asc' },
     });
 
     this.logger.log(
       `Generated 1099 export for org ${organizationId} with ${vendors.length} vendors`,
     );
 
+    // Build a real CSV. IRS 1099-NEC requires: RON (recipient name), address,
+    // TIN, and payment amount. We don't track per-vendor payment totals yet,
+    // so we emit the vendor roster with a $0.00 amount column that the
+    // accounting team can fill in.
+    const header = [
+      'RecipientName',
+      'Type',
+      'TIN',
+      'Email',
+      'Phone',
+      'Address',
+      'NonemployeeCompensation',
+    ];
+
+    const rows = vendors.map((v) => [
+      this.csvEscape(v.name),
+      v.type,
+      this.csvEscape(v.taxId ?? ''),
+      this.csvEscape(v.email ?? ''),
+      this.csvEscape(v.phone ?? ''),
+      this.csvEscape(v.address ?? ''),
+      '0.00',
+    ]);
+
+    const csv = [header.join(','), ...rows.map((r) => r.join(','))].join('\n');
+
     return {
       status: 'EXPORT_GENERATED',
-      url: 'https://example.com/exports/1099.csv',
+      format: 'text/csv',
+      filename: `1099-export-${new Date().getFullYear()}-${Date.now()}.csv`,
+      content: csv,
       count: vendors.length,
     };
+  }
+
+  private csvEscape(value: string): string {
+    if (!value) return '';
+    if (/[",\n\r]/.test(value)) {
+      return `"${value.replace(/"/g, '""')}"`;
+    }
+    return value;
   }
 }

@@ -196,43 +196,71 @@ export class OperatorLeaseAbstractionService {
   }
 
   private performExtraction(lease: any) {
+    const noticeDays = lease.noticePeriodDays ?? 30;
     const keyDates = {
       leaseStart: lease.startDate,
       leaseEnd: lease.endDate,
-      renewalDeadline: lease.endDate
-        ? new Date(
-            new Date(lease.endDate).getTime() - 60 * 24 * 60 * 60 * 1000,
-          )
-        : null,
+      moveInAt: lease.moveInAt ?? null,
+      moveOutAt: lease.moveOutAt ?? null,
+      renewalDeadline: lease.renewalDueAt
+        ?? (lease.endDate
+            ? new Date(
+                new Date(lease.endDate).getTime() - (lease.autoRenewLeadDays ?? 60) * 24 * 60 * 60 * 1000,
+              )
+            : null),
       noticeRequired: lease.endDate
         ? new Date(
-            new Date(lease.endDate).getTime() - 30 * 24 * 60 * 60 * 1000,
+            new Date(lease.endDate).getTime() - noticeDays * 24 * 60 * 60 * 1000,
           )
         : null,
+      renewalOfferedAt: lease.renewalOfferedAt ?? null,
+      renewalAcceptedAt: lease.renewalAcceptedAt ?? null,
+      rentEscalationEffectiveAt: lease.rentEscalationEffectiveAt ?? null,
     };
 
     const financialTerms = {
-      baseRentCents: lease.rentAmount ? Math.round(lease.rentAmount * 100) : null,
-      securityDepositCents: lease.securityDeposit
-        ? Math.round(lease.securityDeposit * 100)
-        : null,
-      lateFeeStructure: 'Standard - 5% after grace period',
-      rentEscalation: null,
+      baseRentCents: lease.rentAmountCents ?? null,
+      securityDepositCents: lease.depositAmountCents ?? null,
+      currentBalanceCents: lease.currentBalanceCents ?? null,
+      rentEscalationPercent: lease.rentEscalationPercent ?? null,
+      rentEscalationEffectiveAt: lease.rentEscalationEffectiveAt ?? null,
       paymentDueDay: 1,
+      autoRenew: lease.autoRenew ?? false,
+      autoRenewLeadDays: lease.autoRenewLeadDays ?? null,
+      noticePeriodDays: noticeDays,
     };
 
     const clauses = {
-      petPolicy: { detected: false, details: 'No pet clause found in structured data' },
-      subletting: { detected: false, details: 'No subletting clause in structured data' },
+      autoRenew: {
+        detected: lease.autoRenew === true,
+        details: lease.autoRenew
+          ? `Auto-renewal enabled with ${lease.autoRenewLeadDays ?? 60}-day lead time`
+          : 'No auto-renewal',
+      },
+      noticePeriod: {
+        detected: true,
+        details: `${noticeDays}-day notice required`,
+      },
       earlyTermination: {
-        detected: true,
-        details: 'Standard early termination with 60-day notice and 2-month penalty',
+        detected: Boolean(lease.terminationEffectiveAt),
+        details: lease.terminationReason
+          ? `Terminated: ${lease.terminationReason}`
+          : lease.terminationEffectiveAt
+            ? 'Termination recorded'
+            : 'No early termination on record',
       },
-      maintenanceResponsibility: {
-        detected: true,
-        details: 'Landlord responsible for structural; tenant for interior maintenance',
+      rentEscalation: {
+        detected: Boolean(lease.rentEscalationPercent),
+        details: lease.rentEscalationPercent
+          ? `${lease.rentEscalationPercent}% escalation${lease.rentEscalationEffectiveAt ? ` effective ${new Date(lease.rentEscalationEffectiveAt).toISOString().split('T')[0]}` : ''}`
+          : 'No rent escalation',
       },
-      insuranceRequirement: { detected: false, details: null },
+      depositDisposition: {
+        detected: Boolean(lease.depositDisposition),
+        details: lease.depositDisposition
+          ? `Deposit disposition: ${lease.depositDisposition}`
+          : 'No deposit disposition recorded',
+      },
     };
 
     const extractedData = {
@@ -241,16 +269,20 @@ export class OperatorLeaseAbstractionService {
         .join(' '),
       unitName: lease.unit?.name,
       propertyName: lease.unit?.property?.name,
-      leaseType: lease.leaseType || 'STANDARD',
+      leaseStatus: lease.status,
+      leaseVersion: lease.version,
       keyDates,
       financialTerms,
       clauses,
     };
 
-    let confidence = 0.6;
+    let confidence = 0.5;
     if (lease.startDate && lease.endDate) confidence += 0.15;
-    if (lease.rentAmount) confidence += 0.1;
+    if (lease.rentAmountCents) confidence += 0.1;
+    if (lease.depositAmountCents) confidence += 0.05;
     if (lease.tenant) confidence += 0.1;
+    if (lease.autoRenew !== undefined) confidence += 0.05;
+    if (lease.noticePeriodDays) confidence += 0.05;
 
     return {
       extractedData,
