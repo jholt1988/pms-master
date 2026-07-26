@@ -1,11 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ChatbotService } from '../chatbot/chatbot.service';
 
 @Injectable()
 export class OperatorChatbotService {
   private readonly logger = new Logger(OperatorChatbotService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly chatbotService: ChatbotService,
+  ) {}
 
   async getWorkbench(orgId: string) {
     const users = await this.prisma.user.findMany({
@@ -40,24 +44,30 @@ export class OperatorChatbotService {
   }
 
   async sendMessage(orgId: string, userId: string, message: string, sessionId?: string) {
-    const session = sessionId || `op-session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    // Delegate to the real ChatbotService which has AI/RAG/orchestrator integration.
+    const response = await this.chatbotService.sendMessage(userId, message, sessionId);
 
+    // Persist the interaction for workbench metrics.
     await this.prisma.workflowExecution.create({
       data: {
         workflowId: 'chatbot.operator.message',
         status: 'COMPLETED',
-        input: { userId, message, sessionId: session, orgId },
+        input: { userId, message, sessionId: response.sessionId, orgId },
         output: {
-          response: 'Message received by operator chatbot service.',
+          response: response.message,
+          intent: response.intent,
+          confidence: response.confidence,
           timestamp: new Date().toISOString(),
         },
       },
     });
 
     return {
-      message: 'Message received by operator chatbot service.',
-      sessionId: session,
-      confidence: 0.9,
+      message: response.message,
+      sessionId: response.sessionId,
+      confidence: response.confidence ?? 0.85,
+      intent: response.intent,
+      suggestedActions: response.suggestedActions,
     };
   }
 
