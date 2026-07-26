@@ -89,7 +89,20 @@ import { OperatorMaintenanceDispatchModule } from './operator-maintenance-dispat
 import { OperatorInspectionEstimatesModule } from './operator-inspection-estimates/operator-inspection-estimates.module';
 import { OperatorRenewalsModule } from './operator-renewals/operator-renewals.module';
 import { OperatorOwnerStatementsModule } from './operator-owner-statements/operator-owner-statements.module';
+import { OperatorDocumentsModule } from './operator-documents/operator-documents.module';
+import { OperatorMessagingModule } from './operator-messaging/operator-messaging.module';
+import { OperatorCapexModule } from './operator-capex/operator-capex.module';
+import { OperatorSecurityModule } from './operator-security/operator-security.module';
+import { OperatorQuickBooksModule } from './operator-quickbooks/operator-quickbooks.module';
+import { OperatorSmartDevicesModule } from './operator-smart-devices/operator-smart-devices.module';
+import { OperatorEsignaturesModule } from './operator-esignatures/operator-esignatures.module';
 import { AiGatewayModule } from './ai-gateway/ai-gateway.module';
+import { OperatorVendorsModule } from './operator-vendors/operator-vendors.module';
+import { OperatorTenantInsuranceModule } from './operator-tenant-insurance/operator-tenant-insurance.module';
+import { OperatorUtilityBillingModule } from './operator-utility-billing/operator-utility-billing.module';
+import { OperatorLeaseAbstractionModule } from './operator-lease-abstraction/operator-lease-abstraction.module';
+import { OperatorChatbotModule } from './operator-chatbot/operator-chatbot.module';
+import { OperatorAuditLogModule } from './operator-audit-log/operator-audit-log.module';
 
 const rateLimitEnabled =
   process.env.NODE_ENV !== 'test' && process.env.RATE_LIMIT_ENABLED !== 'false';
@@ -216,6 +229,19 @@ const rateLimitProviders = rateLimitEnabled
     OperatorInspectionEstimatesModule,
     OperatorRenewalsModule,
     OperatorOwnerStatementsModule,
+    OperatorDocumentsModule,
+    OperatorMessagingModule,
+    OperatorCapexModule,
+    OperatorVendorsModule,
+    OperatorSecurityModule,
+    OperatorQuickBooksModule,
+    OperatorSmartDevicesModule,
+    OperatorEsignaturesModule,
+    OperatorTenantInsuranceModule,
+    OperatorUtilityBillingModule,
+    OperatorLeaseAbstractionModule,
+    OperatorChatbotModule,
+    OperatorAuditLogModule,
     AiGatewayModule,
   ],
   controllers: [AppController],
