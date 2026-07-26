@@ -16,7 +16,9 @@ export class OperatorAuditLogService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getWorkbench(orgId: string, filters: AuditLogFilters) {
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = {
+      user: { organizations: { some: { id: orgId } } },
+    };
     if (filters.actorId) where.userId = filters.actorId;
     if (filters.module) where.event = { startsWith: filters.module.toUpperCase() + '.' };
     if (filters.startDate || filters.endDate) {

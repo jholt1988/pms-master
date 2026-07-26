@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -7,6 +7,7 @@ export class OperatorSmartDevicesService {
 
   async getWorkbench(orgId: string, propertyId?: string, unitId?: string) {
     const where: any = {
+      property: { organizationId: orgId },
       ...(propertyId ? { propertyId } : {}),
       ...(unitId ? { unitId } : {}),
     };
@@ -18,6 +19,7 @@ export class OperatorSmartDevicesService {
       }),
       this.prisma.accessCode.findMany({
         where: {
+          property: { organizationId: orgId },
           ...(propertyId ? { propertyId } : {}),
           ...(unitId ? { unitId } : {}),
         },
@@ -42,6 +44,11 @@ export class OperatorSmartDevicesService {
   }
 
   async registerDevice(orgId: string, body: any) {
+    const property = await this.prisma.property.findFirst({
+      where: { id: body.propertyId, organizationId: orgId },
+    });
+    if (!property) throw new NotFoundException('Property not found in your organization');
+
     return this.prisma.smartDevice.create({
       data: {
         propertyId: body.propertyId,
@@ -55,6 +62,11 @@ export class OperatorSmartDevicesService {
   }
 
   async createAccessCode(orgId: string, deviceId: string, body: any) {
+    const device = await this.prisma.smartDevice.findFirst({
+      where: { id: deviceId, property: { organizationId: orgId } },
+    });
+    if (!device) throw new NotFoundException('Device not found in your organization');
+
     return this.prisma.accessCode.create({
       data: {
         deviceId,
@@ -69,7 +81,12 @@ export class OperatorSmartDevicesService {
     });
   }
 
-  async getAccessCodes(deviceId: string) {
+  async getAccessCodes(deviceId: string, orgId: string) {
+    const device = await this.prisma.smartDevice.findFirst({
+      where: { id: deviceId, property: { organizationId: orgId } },
+    });
+    if (!device) throw new NotFoundException('Device not found in your organization');
+
     return this.prisma.accessCode.findMany({
       where: { deviceId },
       orderBy: { createdAt: 'desc' },

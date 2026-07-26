@@ -28,6 +28,7 @@ export class OperatorSecurityService {
     } = filters;
 
     const where: any = {
+      user: { organizations: { some: { id: orgId } } },
       ...(userId ? { userId } : {}),
       ...(username ? { username } : {}),
       ...(type && Object.values(SecurityEventType).includes(type as SecurityEventType)
@@ -36,7 +37,6 @@ export class OperatorSecurityService {
       ...(from || to
         ? { createdAt: { gte: from, lte: to } }
         : {}),
-      ...(orgId ? { user: { organizations: { some: { id: orgId } } } } : {}),
     };
 
     const [events, total, totalFailed, totalSuccessful] = await Promise.all([
