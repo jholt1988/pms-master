@@ -28,7 +28,7 @@ export class OperatorSecurityService {
     } = filters;
 
     const where: any = {
-      user: { organizations: { some: { id: orgId } } },
+    
       ...(userId ? { userId } : {}),
       ...(username ? { username } : {}),
       ...(type && Object.values(SecurityEventType).includes(type as SecurityEventType)
