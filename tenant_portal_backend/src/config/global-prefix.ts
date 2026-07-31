@@ -38,6 +38,6 @@ export const GLOBAL_PREFIX_EXCLUDE: Array<string | RouteInfo> = [
   'webhooks/stripe',
   'webhooks/quickbooks',
   // Prometheus scrape endpoint (commonly expected at /metrics)
-  'metrics',
-  'metrics/(.*)',
+  // 'metrics',
+  // 'metrics/(.*)',
 ];

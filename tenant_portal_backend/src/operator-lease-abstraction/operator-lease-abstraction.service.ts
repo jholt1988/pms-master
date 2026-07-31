@@ -247,10 +247,13 @@ export class OperatorLeaseAbstractionService {
       clauses,
     };
 
-    let confidence = 0.6;
+    let confidence = 0.5;
     if (lease.startDate && lease.endDate) confidence += 0.15;
-    if (lease.rentAmount) confidence += 0.1;
+    if (lease.rentAmountCents) confidence += 0.1;
+    if (lease.depositAmountCents) confidence += 0.05;
     if (lease.tenant) confidence += 0.1;
+    if (lease.autoRenew !== undefined) confidence += 0.05;
+    if (lease.noticePeriodDays) confidence += 0.05;
 
     return {
       extractedData,

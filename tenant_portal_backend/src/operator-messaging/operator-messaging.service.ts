@@ -70,7 +70,7 @@ export class OperatorMessagingService {
         totalConversations: stats.totalConversations,
         totalMessages: stats.totalMessages,
         activeConversations: stats.activeConversations,
-        unreadConversations: 0, // placeholder — unread tracking not modelled yet
+        unreadConversations: await this.computeUnreadConversations(orgId),
         recentMessages: recentMessages.length,
       },
       conversations: conversationsResult.conversations,
@@ -116,5 +116,49 @@ export class OperatorMessagingService {
    */
   async sendMessage(dto: CreateMessageDto, senderId: string, orgId: string) {
     return this.messagingService.sendMessage(dto, senderId, orgId);
+  }
+
+  /**
+   * Compute unread conversations: conversations where the most recent message
+   * was sent by a tenant (non-org-member), indicating a pending operator reply.
+   * There is no `isRead` column on Message/Conversation, so we use this proxy
+   * until read-tracking is modelled.
+   */
+  private async computeUnreadConversations(orgId: string): Promise<number> {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    // Find conversations in the last 7 days for this org
+    const conversations = await this.prisma.conversation.findMany({
+      where: {
+        messages: { some: { createdAt: { gte: sevenDaysAgo } } },
+        participants: {
+          some: {
+            user: { organizations: { some: { id: orgId } } },
+          },
+        },
+      },
+      select: {
+        id: true,
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { senderId: true },
+        },
+      },
+    });
+
+    // Count conversations where the last message sender is NOT an org member
+    const orgUserIds = new Set(
+      (
+        await this.prisma.user.findMany({
+          where: { organizations: { some: { id: orgId } } },
+          select: { id: true },
+        })
+      ).map((u) => u.id),
+    );
+
+    return conversations.filter(
+      (c) => c.messages[0] && !orgUserIds.has(c.messages[0].senderId),
+    ).length;
   }
 }

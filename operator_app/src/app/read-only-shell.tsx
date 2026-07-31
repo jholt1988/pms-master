@@ -991,7 +991,7 @@ function MaintenanceDispatchView({
   const loadPredictive = useCallback(async () => {
     setLoadingPredictive(true);
     try {
-      const res = await fetch('/api/maintenance/predictive/assets', {
+      const res = await fetch('/api/backend/maintenance/predictive/assets', {
         headers: {
           'Authorization': `Bearer ${token}`,
         }
@@ -1017,7 +1017,7 @@ function MaintenanceDispatchView({
     setTriggeringAssetId(assetId);
     setMessage(null);
     try {
-      const res = await fetch(`/api/maintenance/predictive/assets/${assetId}/trigger-preventive`, {
+      const res = await fetch(`/api/backend/maintenance/predictive/assets/${assetId}/trigger-preventive`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1809,7 +1809,7 @@ function RenewalsView({
     setLoadingPricing(true);
     setPricingMatrix(null);
     try {
-      const res = await fetch(`/api/rent-recommendations/seasonal-pricing/${unitId}`, {
+      const res = await fetch(`/api/backend/rent-recommendations/seasonal-pricing/${unitId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         }

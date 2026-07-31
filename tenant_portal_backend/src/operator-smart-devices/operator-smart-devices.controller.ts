@@ -46,8 +46,11 @@ export class OperatorSmartDevicesController {
   @Get(':deviceId/access-codes')
   @ApiOkResponse({ schema: envelopeSchema('Access codes for device') })
   @Roles('PROPERTY_MANAGER', 'ADMIN')
-  getAccessCodes(@Param('deviceId') deviceId: string) {
-    return this.devicesService.getAccessCodes(deviceId);
+  getAccessCodes(
+    @OrgId() orgId: string,
+    @Param('deviceId') deviceId: string,
+  ) {
+    return this.devicesService.getAccessCodes(deviceId, orgId);
   }
 }
 

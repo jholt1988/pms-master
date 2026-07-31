@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-    "/api/api": {
+    "/api": {
         parameters: {
             query?: never;
             header?: never;
@@ -20,7 +20,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/property-os/v16/validate-confidence": {
+    "/api/property-os/v16/validate-confidence": {
         parameters: {
             query?: never;
             header?: never;
@@ -36,7 +36,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/property-os/v16/validate-response": {
+    "/api/property-os/v16/validate-response": {
         parameters: {
             query?: never;
             header?: never;
@@ -52,14 +52,14 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/health": {
+    "/api/health": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["AppController_getHealth"];
+        get: operations["HealthController_check"];
         put?: never;
         post?: never;
         delete?: never;
@@ -68,14 +68,14 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/health/readiness": {
+    "/api/health/readiness": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["AppController_getReadiness"];
+        get: operations["HealthController_readiness"];
         put?: never;
         post?: never;
         delete?: never;
@@ -84,14 +84,14 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/health/liveness": {
+    "/api/health/liveness": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["AppController_getLiveness"];
+        get: operations["HealthController_liveness"];
         put?: never;
         post?: never;
         delete?: never;
@@ -718,6 +718,86 @@ export interface paths {
         get: operations["MaintenanceController_getSlaPolicies"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/maintenance/predictive/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["PredictiveMaintenanceController_getPredictiveAssets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/maintenance/predictive/risk-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["PredictiveMaintenanceController_getRiskSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/maintenance/predictive/assets/{id}/risk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["PredictiveMaintenanceController_getAssetRisk"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/maintenance/predictive/scan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PredictiveMaintenanceController_triggerScan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/maintenance/predictive/assets/{id}/trigger-preventive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PredictiveMaintenanceController_triggerPreventive"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1374,6 +1454,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["PaymentsController_suppressReminder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/webhooks/stripe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["StripeWebhookController_handleWebhook"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2628,6 +2724,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/screening/applications/{id}/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ScreeningController_requestScreening"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/screening/applications/{id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ScreeningController_getReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/screening/{id}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ScreeningController_decide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/screening/webhook/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ScreeningController_providerWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/properties": {
         parameters: {
             query?: never;
@@ -2635,25 +2795,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["PropertyController_getAllProperties[0]"];
+        get: operations["PropertyController_getAllProperties"];
         put?: never;
-        post: operations["PropertyController_createProperty[0]"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/property": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["PropertyController_getAllProperties[1]"];
-        put?: never;
-        post: operations["PropertyController_createProperty[1]"];
+        post: operations["PropertyController_createProperty"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2669,23 +2813,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["PropertyController_createUnit[0]"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/property/{id}/units": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["PropertyController_createUnit[1]"];
+        post: operations["PropertyController_createUnit"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2699,23 +2827,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["PropertyController_getPublicProperties[0]"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/property/public": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["PropertyController_getPublicProperties[1]"];
+        get: operations["PropertyController_getPublicProperties"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2731,23 +2843,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["PropertyController_searchProperties[0]"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/property/search": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["PropertyController_searchProperties[1]"];
+        get: operations["PropertyController_searchProperties"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2763,23 +2859,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["PropertyController_getPublicSearch[0]"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/property/public/search": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["PropertyController_getPublicSearch[1]"];
+        get: operations["PropertyController_getPublicSearch"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2795,25 +2875,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["PropertyController_getSavedFilters[0]"];
+        get: operations["PropertyController_getSavedFilters"];
         put?: never;
-        post: operations["PropertyController_saveFilter[0]"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/property/saved-filters": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["PropertyController_getSavedFilters[1]"];
-        put?: never;
-        post: operations["PropertyController_saveFilter[1]"];
+        post: operations["PropertyController_saveFilter"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2830,23 +2894,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete: operations["PropertyController_deleteFilter[0]"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/property/saved-filters/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete: operations["PropertyController_deleteFilter[1]"];
+        delete: operations["PropertyController_deleteFilter"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2859,29 +2907,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["PropertyController_getPropertyById[0]"];
+        get: operations["PropertyController_getPropertyById"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        patch: operations["PropertyController_updateProperty[0]"];
-        trace?: never;
-    };
-    "/api/property/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["PropertyController_getPropertyById[1]"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch: operations["PropertyController_updateProperty[1]"];
+        patch: operations["PropertyController_updateProperty"];
         trace?: never;
     };
     "/api/properties/{id}/rollup": {
@@ -2891,23 +2923,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["PropertyController_getPropertyRollup[0]"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/property/{id}/rollup": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["PropertyController_getPropertyRollup[1]"];
+        get: operations["PropertyController_getPropertyRollup"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2923,23 +2939,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["PropertyController_getUnitRollup[0]"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/property/units/{unitId}/rollup": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["PropertyController_getUnitRollup[1]"];
+        get: operations["PropertyController_getUnitRollup"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2957,23 +2957,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["PropertyController_transitionUnitState[0]"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/property/units/{unitId}/transition": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["PropertyController_transitionUnitState[1]"];
+        post: operations["PropertyController_transitionUnitState"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2987,25 +2971,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["PropertyController_getMarketingProfile[0]"];
+        get: operations["PropertyController_getMarketingProfile"];
         put?: never;
-        post: operations["PropertyController_updateMarketingProfile[0]"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/property/{id}/marketing": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["PropertyController_getMarketingProfile[1]"];
-        put?: never;
-        post: operations["PropertyController_updateMarketingProfile[1]"];
+        post: operations["PropertyController_updateMarketingProfile"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3025,23 +2993,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch: operations["PropertyController_updateUnit[0]"];
-        trace?: never;
-    };
-    "/api/property/{id}/units/{unitId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch: operations["PropertyController_updateUnit[1]"];
+        patch: operations["PropertyController_updateUnit"];
         trace?: never;
     };
     "/api/properties/units/{unitId}/start-onboarding": {
@@ -3053,23 +3005,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["PropertyController_startOnboarding[0]"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/property/units/{unitId}/start-onboarding": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["PropertyController_startOnboarding[1]"];
+        post: operations["PropertyController_startOnboarding"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3085,23 +3021,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["PropertyController_completeMoveIn[0]"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/property/units/{unitId}/complete-move-in": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["PropertyController_completeMoveIn[1]"];
+        post: operations["PropertyController_completeMoveIn"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3444,6 +3364,150 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["OrganizationSettingsController_getOrganizationSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["OrganizationSettingsController_updateOrganizationSettings"];
+        trace?: never;
+    };
+    "/api/settings/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["OrganizationSettingsController_listOrganizationUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/users/invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["OrganizationSettingsController_inviteUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["OrganizationSettingsController_updateUser"];
+        trace?: never;
+    };
+    "/api/settings/users/{id}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["OrganizationSettingsController_deactivateUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/integrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["OrganizationSettingsController_listIntegrations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/integrations/quickbooks/connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["OrganizationSettingsController_connectQuickBooks"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/integrations/quickbooks/disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["OrganizationSettingsController_disconnectQuickBooks"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/audit-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["OrganizationSettingsController_getAuditLog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/documents/upload": {
         parameters: {
             query?: never;
@@ -3524,22 +3588,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/reports/rent-roll": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["ReportingController_getRentRoll[0]"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/reporting/rent-roll": {
         parameters: {
             query?: never;
@@ -3547,23 +3595,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["ReportingController_getRentRoll[1]"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/reports/delinquency-report": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["ReportingController_getDelinquencyReport[0]"];
+        get: operations["ReportingController_getRentRoll"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3579,23 +3611,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["ReportingController_getDelinquencyReport[1]"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/reports/maintenance-summary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["ReportingController_getMaintenanceSummary[0]"];
+        get: operations["ReportingController_getDelinquencyReport"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3611,23 +3627,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["ReportingController_getMaintenanceSummary[1]"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/reports/occupancy-report": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["ReportingController_getOccupancyReport[0]"];
+        get: operations["ReportingController_getMaintenanceSummary"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3643,23 +3643,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["ReportingController_getOccupancyReport[1]"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/reports/delinquency-analytics": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["ReportingController_getDelinquencyAnalytics[0]"];
+        get: operations["ReportingController_getOccupancyReport"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3675,23 +3659,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["ReportingController_getDelinquencyAnalytics[1]"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/reports/profit-loss": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["ReportingController_getProfitLoss[0]"];
+        get: operations["ReportingController_getDelinquencyAnalytics"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3707,23 +3675,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["ReportingController_getProfitLoss[1]"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/reports/vacancy-rate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["ReportingController_getVacancyRate[0]"];
+        get: operations["ReportingController_getProfitLoss"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3739,23 +3691,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["ReportingController_getVacancyRate[1]"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/reports/maintenance-analytics": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["ReportingController_getMaintenanceAnalytics[0]"];
+        get: operations["ReportingController_getVacancyRate"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3771,23 +3707,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["ReportingController_getMaintenanceAnalytics[1]"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/reports/manual-payments-summary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["ReportingController_getManualPaymentsSummary[0]"];
+        get: operations["ReportingController_getMaintenanceAnalytics"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3803,23 +3723,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["ReportingController_getManualPaymentsSummary[1]"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/reports/manual-charges-summary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["ReportingController_getManualChargesSummary[0]"];
+        get: operations["ReportingController_getManualPaymentsSummary"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3835,23 +3739,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["ReportingController_getManualChargesSummary[1]"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/reports/payment-history": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["ReportingController_getPaymentHistory[0]"];
+        get: operations["ReportingController_getManualChargesSummary"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3867,23 +3755,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["ReportingController_getPaymentHistory[1]"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/reports/analytics/heatmap": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["ReportingController_getReportHeatmap[0]"];
+        get: operations["ReportingController_getPaymentHistory"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3899,7 +3771,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["ReportingController_getReportHeatmap[1]"];
+        get: operations["ReportingController_getReportHeatmap"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3908,14 +3780,14 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/reports/analytics/opex-anomalies": {
+    "/api/reporting/accounting-sync-status": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["ReportingController_getOpexAnomalies[0]"];
+        get: operations["ReportingController_getAccountingSyncStatus"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3931,23 +3803,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["ReportingController_getOpexAnomalies[1]"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/reports/analytics/capex": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["ReportingController_getCapexAnalytics[0]"];
+        get: operations["ReportingController_getOpexAnomalies"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3963,23 +3819,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["ReportingController_getCapexAnalytics[1]"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/reports/financial-summary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["ReportingController_getFinancialSummary[0]"];
+        get: operations["ReportingController_getCapexAnalytics"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3995,7 +3835,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["ReportingController_getFinancialSummary[1]"];
+        get: operations["ReportingController_getFinancialSummary"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4004,16 +3844,16 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/inspections-legacy": {
+    "/api/reporting/owner-portfolio-analytics": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["InspectionsController_findAll[0]"];
+        get: operations["OwnerAnalyticsController_getOwnerPortfolioAnalytics"];
         put?: never;
-        post: operations["InspectionsController_create[0]"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4027,26 +3867,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["InspectionsController_findAll[1]"];
+        get: operations["InspectionsController_findAll"];
         put?: never;
-        post: operations["InspectionsController_create[1]"];
+        post: operations["InspectionsController_create"];
         delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/inspections-legacy/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["InspectionsController_findOne[0]"];
-        put: operations["InspectionsController_update[0]"];
-        post?: never;
-        delete: operations["InspectionsController_delete[0]"];
         options?: never;
         head?: never;
         patch?: never;
@@ -4059,26 +3883,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["InspectionsController_findOne[1]"];
-        put: operations["InspectionsController_update[1]"];
+        get: operations["InspectionsController_findOne"];
+        put: operations["InspectionsController_update"];
         post?: never;
-        delete: operations["InspectionsController_delete[1]"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/inspections-legacy/start": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["InspectionsController_start[0]"];
-        delete?: never;
+        delete: operations["InspectionsController_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -4093,23 +3901,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["InspectionsController_start[1]"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/inspections-legacy/{id}/complete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put: operations["InspectionsController_complete[0]"];
-        post?: never;
+        post: operations["InspectionsController_start"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4124,23 +3916,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put: operations["InspectionsController_complete[1]"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/inspections-legacy/{id}/approve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put: operations["InspectionsController_approve[0]"];
+        put: operations["InspectionsController_complete"];
         post?: never;
         delete?: never;
         options?: never;
@@ -4156,24 +3932,8 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put: operations["InspectionsController_approve[1]"];
+        put: operations["InspectionsController_approve"];
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/inspections-legacy/{id}/photos": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["InspectionsController_addPhoto[0]"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4189,7 +3949,23 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["InspectionsController_addPhoto[1]"];
+        post: operations["InspectionsController_addPhoto"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inspections/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["InspectionsController_sync"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4292,55 +4068,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/health": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["HealthController_check"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/health/readiness": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["HealthController_readiness"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/health/liveness": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["HealthController_liveness"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/esignature/risk-queue": {
+    "/esignature/risk-queue": {
         parameters: {
             query?: never;
             header?: never;
@@ -4356,7 +4084,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/esignature/risk-queue": {
+    "/api/esignature/risk-queue": {
         parameters: {
             query?: never;
             header?: never;
@@ -4372,7 +4100,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/esignature/leases/{leaseId}/envelopes": {
+    "/esignature/leases/{leaseId}/envelopes": {
         parameters: {
             query?: never;
             header?: never;
@@ -4388,7 +4116,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/esignature/leases/{leaseId}/envelopes": {
+    "/api/esignature/leases/{leaseId}/envelopes": {
         parameters: {
             query?: never;
             header?: never;
@@ -4404,7 +4132,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/esignature/envelopes/{envelopeId}/recipient-view": {
+    "/esignature/envelopes/{envelopeId}/recipient-view": {
         parameters: {
             query?: never;
             header?: never;
@@ -4420,7 +4148,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/esignature/envelopes/{envelopeId}/recipient-view": {
+    "/api/esignature/envelopes/{envelopeId}/recipient-view": {
         parameters: {
             query?: never;
             header?: never;
@@ -4436,7 +4164,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/esignature/envelopes/{envelopeId}": {
+    "/esignature/envelopes/{envelopeId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -4452,7 +4180,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/esignature/envelopes/{envelopeId}": {
+    "/api/esignature/envelopes/{envelopeId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -4468,7 +4196,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/esignature/envelopes/{envelopeId}/void": {
+    "/esignature/envelopes/{envelopeId}/void": {
         parameters: {
             query?: never;
             header?: never;
@@ -4484,7 +4212,7 @@ export interface paths {
         patch: operations["EsignatureController_voidEnvelope[0]"];
         trace?: never;
     };
-    "/api/api/esignature/envelopes/{envelopeId}/void": {
+    "/api/esignature/envelopes/{envelopeId}/void": {
         parameters: {
             query?: never;
             header?: never;
@@ -4500,7 +4228,7 @@ export interface paths {
         patch: operations["EsignatureController_voidEnvelope[1]"];
         trace?: never;
     };
-    "/api/esignature/envelopes/{envelopeId}/refresh": {
+    "/esignature/envelopes/{envelopeId}/refresh": {
         parameters: {
             query?: never;
             header?: never;
@@ -4516,7 +4244,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/esignature/envelopes/{envelopeId}/refresh": {
+    "/api/esignature/envelopes/{envelopeId}/refresh": {
         parameters: {
             query?: never;
             header?: never;
@@ -4532,7 +4260,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/esignature/envelopes/{envelopeId}/resend": {
+    "/esignature/envelopes/{envelopeId}/resend": {
         parameters: {
             query?: never;
             header?: never;
@@ -4548,7 +4276,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/esignature/envelopes/{envelopeId}/resend": {
+    "/api/esignature/envelopes/{envelopeId}/resend": {
         parameters: {
             query?: never;
             header?: never;
@@ -4564,7 +4292,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/esignature/envelopes/{envelopeId}/retry-send": {
+    "/esignature/envelopes/{envelopeId}/retry-send": {
         parameters: {
             query?: never;
             header?: never;
@@ -4580,7 +4308,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/esignature/envelopes/{envelopeId}/retry-send": {
+    "/api/esignature/envelopes/{envelopeId}/retry-send": {
         parameters: {
             query?: never;
             header?: never;
@@ -4596,7 +4324,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/esignature/envelopes/{envelopeId}/documents/signed": {
+    "/esignature/envelopes/{envelopeId}/documents/signed": {
         parameters: {
             query?: never;
             header?: never;
@@ -4612,7 +4340,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/esignature/envelopes/{envelopeId}/documents/signed": {
+    "/api/esignature/envelopes/{envelopeId}/documents/signed": {
         parameters: {
             query?: never;
             header?: never;
@@ -4628,7 +4356,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/esignature/envelopes/{envelopeId}/documents/certificate": {
+    "/esignature/envelopes/{envelopeId}/documents/certificate": {
         parameters: {
             query?: never;
             header?: never;
@@ -4644,7 +4372,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/esignature/envelopes/{envelopeId}/documents/certificate": {
+    "/api/esignature/envelopes/{envelopeId}/documents/certificate": {
         parameters: {
             query?: never;
             header?: never;
@@ -5515,7 +5243,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/leasing/leads": {
+    "/api/leasing/leads": {
         parameters: {
             query?: never;
             header?: never;
@@ -5531,7 +5259,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/leasing/leads": {
+    "/leasing/leads": {
         parameters: {
             query?: never;
             header?: never;
@@ -5547,7 +5275,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/leasing/leads/session/{sessionId}": {
+    "/api/leasing/leads/session/{sessionId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -5563,7 +5291,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/leasing/leads/session/{sessionId}": {
+    "/leasing/leads/session/{sessionId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -5579,7 +5307,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/leasing/leads/{id}": {
+    "/api/leasing/leads/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -5595,7 +5323,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/leasing/leads/{id}": {
+    "/leasing/leads/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -5611,7 +5339,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/leasing/leads/{id}/messages": {
+    "/api/leasing/leads/{id}/messages": {
         parameters: {
             query?: never;
             header?: never;
@@ -5627,7 +5355,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/leasing/leads/{id}/messages": {
+    "/leasing/leads/{id}/messages": {
         parameters: {
             query?: never;
             header?: never;
@@ -5643,7 +5371,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/leasing/leads/{id}/properties/search": {
+    "/api/leasing/leads/{id}/properties/search": {
         parameters: {
             query?: never;
             header?: never;
@@ -5659,7 +5387,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/leasing/leads/{id}/properties/search": {
+    "/leasing/leads/{id}/properties/search": {
         parameters: {
             query?: never;
             header?: never;
@@ -5675,7 +5403,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/leasing/leads/{id}/inquiries": {
+    "/api/leasing/leads/{id}/inquiries": {
         parameters: {
             query?: never;
             header?: never;
@@ -5691,7 +5419,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/leasing/leads/{id}/inquiries": {
+    "/leasing/leads/{id}/inquiries": {
         parameters: {
             query?: never;
             header?: never;
@@ -5707,7 +5435,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/leasing/leads/{id}/status": {
+    "/api/leasing/leads/{id}/status": {
         parameters: {
             query?: never;
             header?: never;
@@ -5723,7 +5451,7 @@ export interface paths {
         patch: operations["LeasingController_updateStatus[0]"];
         trace?: never;
     };
-    "/api/leasing/leads/{id}/status": {
+    "/leasing/leads/{id}/status": {
         parameters: {
             query?: never;
             header?: never;
@@ -5739,7 +5467,7 @@ export interface paths {
         patch: operations["LeasingController_updateStatus[1]"];
         trace?: never;
     };
-    "/api/api/leasing/ops-summary/bulk-action": {
+    "/api/leasing/ops-summary/bulk-action": {
         parameters: {
             query?: never;
             header?: never;
@@ -5755,7 +5483,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/leasing/ops-summary/bulk-action": {
+    "/leasing/ops-summary/bulk-action": {
         parameters: {
             query?: never;
             header?: never;
@@ -5771,7 +5499,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/leasing/ops-summary": {
+    "/api/leasing/ops-summary": {
         parameters: {
             query?: never;
             header?: never;
@@ -5787,7 +5515,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/leasing/ops-summary": {
+    "/leasing/ops-summary": {
         parameters: {
             query?: never;
             header?: never;
@@ -5803,7 +5531,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/leasing/statistics": {
+    "/api/leasing/statistics": {
         parameters: {
             query?: never;
             header?: never;
@@ -5819,7 +5547,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/leasing/statistics": {
+    "/leasing/statistics": {
         parameters: {
             query?: never;
             header?: never;
@@ -5835,22 +5563,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/api/tours/schedule": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["ToursController_scheduleTour[0]"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/tours/schedule": {
         parameters: {
             query?: never;
@@ -5860,23 +5572,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["ToursController_scheduleTour[1]"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/api/tours/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["ToursController_getTourById[0]"];
-        put?: never;
-        post?: never;
+        post: operations["ToursController_scheduleTour"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5890,23 +5586,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["ToursController_getTourById[1]"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/api/tours/lead/{leadId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["ToursController_getToursForLead[0]"];
+        get: operations["ToursController_getTourById"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5922,23 +5602,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["ToursController_getToursForLead[1]"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/api/tours": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["ToursController_getTours[0]"];
+        get: operations["ToursController_getToursForLead"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5954,29 +5618,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["ToursController_getTours[1]"];
+        get: operations["ToursController_getTours"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
-        trace?: never;
-    };
-    "/api/api/tours/{id}/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch: operations["ToursController_updateStatus[0]"];
         trace?: never;
     };
     "/api/tours/{id}/status": {
@@ -5992,23 +5640,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch: operations["ToursController_updateStatus[1]"];
-        trace?: never;
-    };
-    "/api/api/tours/{id}/assign": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch: operations["ToursController_assignTour[0]"];
+        patch: operations["ToursController_updateStatus"];
         trace?: never;
     };
     "/api/tours/{id}/assign": {
@@ -6024,23 +5656,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch: operations["ToursController_assignTour[1]"];
-        trace?: never;
-    };
-    "/api/api/tours/{id}/reschedule": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch: operations["ToursController_rescheduleTour[0]"];
+        patch: operations["ToursController_assignTour"];
         trace?: never;
     };
     "/api/tours/{id}/reschedule": {
@@ -6056,7 +5672,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch: operations["ToursController_rescheduleTour[1]"];
+        patch: operations["ToursController_rescheduleTour"];
         trace?: never;
     };
     "/api/applications/submit": {
@@ -7067,7 +6683,7 @@ export interface paths {
         patch: operations["FeedController_dismissItem"];
         trace?: never;
     };
-    "/api/api/dev/seed/payment-delinquent": {
+    "/api/dev/seed/payment-delinquent": {
         parameters: {
             query?: never;
             header?: never;
@@ -8226,6 +7842,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ai-gateway/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AiUsageController_getUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -8247,45 +7879,218 @@ export interface components {
         AddMaintenancePhotoDto: Record<string, never>;
         ConfirmMaintenanceCompleteDto: Record<string, never>;
         CreatePaymentMethodDto: Record<string, never>;
-        CreateInvoiceDto: Record<string, never>;
-        CreatePaymentDto: Record<string, never>;
+        CreateInvoiceDto: {
+            /** @description Dollar amount (legacy). Prefer amountCents. */
+            amount: number;
+            /** @description Integer cents (preferred). */
+            amountCents?: number;
+        };
+        CreatePaymentDto: {
+            /** @description Dollar amount (legacy). Prefer amountCents. */
+            amount: number;
+            /** @description Integer cents (preferred). */
+            amountCents?: number;
+        };
         UpdateDelinquencyPriorityConfigDto: Record<string, never>;
         IssueDelinquencyNoticeDto: Record<string, never>;
         ResolveDelinquencyLegalHoldDto: Record<string, never>;
         ReferDelinquencyAttorneyDto: Record<string, never>;
         RecordCourtDateDto: Record<string, never>;
-        CreateStripeCheckoutSessionDto: Record<string, never>;
-        CreateManualPaymentDto: Record<string, never>;
+        CreateStripeCheckoutSessionDto: {
+            /** @description Invoice id whose amount (and amountCents) will be charged. */
+            invoiceId: number;
+            /** @description Redirect URL on successful checkout. */
+            successUrl: string;
+            /** @description Redirect URL on cancelled checkout. */
+            cancelUrl: string;
+        };
+        CreateManualPaymentDto: {
+            /** @description Amount in integer cents. */
+            amountCents: number;
+        };
         ReverseManualPaymentDto: Record<string, never>;
-        CreateManualChargeDto: Record<string, never>;
+        CreateManualChargeDto: {
+            /** @description Amount in integer cents. */
+            amountCents: number;
+        };
         VoidManualChargeDto: Record<string, never>;
-        CreatePaymentPlanDto: Record<string, never>;
+        CreatePaymentPlanDto: {
+            /** @description Per-installment dollar amount (legacy). Prefer amountPerInstallmentCents. */
+            amountPerInstallment: number;
+            /** @description Total dollar amount (legacy). Prefer totalAmountCents. */
+            totalAmount: number;
+            /** @description Per-installment integer cents (preferred). */
+            amountPerInstallmentCents?: number;
+            /** @description Total integer cents (preferred). */
+            totalAmountCents?: number;
+        };
         CreateScheduleEventDto: Record<string, never>;
         CreateConversationDto: Record<string, never>;
         CreateThreadDto: Record<string, never>;
         CreateMessageDto: Record<string, never>;
         CreateBulkMessageDto: Record<string, never>;
-        CreateLeaseDto: Record<string, never>;
-        UpdateLeaseDto: Record<string, never>;
-        UpdateLeaseStatusDto: Record<string, never>;
-        CreateRenewalOfferDto: Record<string, never>;
+        LeaseTenantRefDto: {
+            /** Format: uuid */
+            id: string;
+            username: string;
+            email?: string;
+        };
+        LeasePropertyRefDto: {
+            /** Format: uuid */
+            id?: string;
+            name: string;
+        };
+        LeaseUnitRefDto: {
+            /** Format: uuid */
+            id?: string;
+            name: string;
+            property?: components["schemas"]["LeasePropertyRefDto"] | null;
+        };
+        LeaseResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            status: "DRAFT" | "PENDING_APPROVAL" | "ACTIVE" | "RENEWAL_PENDING" | "NOTICE_GIVEN" | "TERMINATING" | "TERMINATED" | "HOLDOVER" | "CLOSED";
+            /** Format: date-time */
+            startDate: string;
+            /** Format: date-time */
+            endDate: string;
+            rentAmount: number;
+            depositAmount: number;
+            /** Format: date-time */
+            depositHeldAt?: string | null;
+            /** Format: date-time */
+            depositReturnedAt?: string | null;
+            /** @enum {string|null} */
+            depositDisposition?: "HELD" | "PARTIAL_RETURN" | "RETURNED" | "FORFEITED" | null;
+            noticePeriodDays?: number | null;
+            /** Format: date-time */
+            moveInAt?: string | null;
+            /** Format: date-time */
+            moveOutAt?: string | null;
+            autoRenew?: boolean;
+            autoRenewLeadDays?: number | null;
+            /** Format: date-time */
+            renewalDueAt?: string | null;
+            /** Format: date-time */
+            renewalAcceptedAt?: string | null;
+            /** @enum {string|null} */
+            terminationRequestedBy?: "MANAGER" | "TENANT" | "SYSTEM" | null;
+            /** Format: date-time */
+            terminationEffectiveAt?: string | null;
+            terminationReason?: string | null;
+            /** @enum {string} */
+            billingAlignment?: "FULL_CYCLE" | "PRORATE";
+            currentBalance?: number | null;
+            tenant?: components["schemas"]["LeaseTenantRefDto"];
+            unit: components["schemas"]["LeaseUnitRefDto"];
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        CreateLeaseDto: {
+            /**
+             * Format: date-time
+             * @description Lease start date (ISO 8601).
+             */
+            startDate: string;
+            /**
+             * Format: date-time
+             * @description Lease end date (ISO 8601).
+             */
+            endDate: string;
+            /** @description Monthly rent amount. */
+            rentAmount: number;
+            /**
+             * Format: uuid
+             * @description Tenant (User) id.
+             */
+            tenantId: string;
+            /**
+             * Format: uuid
+             * @description Unit id.
+             */
+            unitId: string;
+            /** @enum {string} */
+            status?: "DRAFT" | "PENDING_APPROVAL" | "ACTIVE" | "RENEWAL_PENDING" | "NOTICE_GIVEN" | "TERMINATING" | "TERMINATED" | "HOLDOVER" | "CLOSED";
+            /** Format: date-time */
+            moveInAt?: string;
+            /** Format: date-time */
+            moveOutAt?: string;
+            noticePeriodDays?: number;
+            autoRenew?: boolean;
+            autoRenewLeadDays?: number;
+            depositAmount?: number;
+            /** @description Monthly rent in integer cents (preferred). */
+            rentAmountCents?: number;
+            /** @description Security deposit in integer cents (preferred). */
+            depositAmountCents?: number;
+        };
+        UpdateLeaseDto: {
+            /** Format: date-time */
+            startDate?: string;
+            /** Format: date-time */
+            endDate?: string;
+            /** Format: date-time */
+            moveInAt?: string;
+            /** Format: date-time */
+            moveOutAt?: string;
+            rentAmount?: number;
+            depositAmount?: number;
+            noticePeriodDays?: number;
+            autoRenew?: boolean;
+            autoRenewLeadDays?: number;
+            terminationReason?: string;
+        };
+        UpdateLeaseStatusDto: {
+            /** @enum {string} */
+            status: "DRAFT" | "PENDING_APPROVAL" | "ACTIVE" | "RENEWAL_PENDING" | "NOTICE_GIVEN" | "TERMINATING" | "TERMINATED" | "HOLDOVER" | "CLOSED";
+            /** Format: date-time */
+            moveInAt?: string;
+            /** Format: date-time */
+            moveOutAt?: string;
+            noticePeriodDays?: number;
+            /** Format: date-time */
+            renewalDueAt?: string;
+            /** Format: date-time */
+            renewalAcceptedAt?: string;
+            /** Format: date-time */
+            terminationEffectiveAt?: string;
+            /** @enum {string} */
+            terminationRequestedBy?: "MANAGER" | "TENANT" | "SYSTEM";
+            terminationReason?: string;
+            rentEscalationPercent?: number;
+            /** Format: date-time */
+            rentEscalationEffectiveAt?: string;
+            currentBalance?: number;
+            autoRenew?: boolean;
+        };
+        CreateRenewalOfferDto: {
+            /** @description Proposed renewal rent in integer cents (preferred). */
+            proposedRentCents?: number;
+        };
         RecordLeaseNoticeDto: Record<string, never>;
         RespondRenewalOfferDto: Record<string, never>;
         TenantSubmitNoticeDto: Record<string, never>;
         SubmitApplicationDto: Record<string, never>;
         AddRentalApplicationNoteDto: Record<string, never>;
         RentalApplicationReviewActionDto: Record<string, never>;
+        ScreeningDecisionDto: Record<string, never>;
         CreatePropertyDto: Record<string, never>;
         CreateUnitDto: Record<string, never>;
         SavePropertyFilterDto: Record<string, never>;
         UpdatePropertyMarketingDto: Record<string, never>;
         UpdatePropertyDto: Record<string, never>;
         UpdateUnitDto: Record<string, never>;
+        CreateExpenseDto: Record<string, never>;
+        UpdateExpenseDto: Record<string, never>;
         UpsertScheduleDto: Record<string, never>;
         ConfigureAutopayDto: Record<string, never>;
         CreateInspectionDto: Record<string, never>;
         UpdateInspectionDto: Record<string, never>;
         CompleteInspectionDto: Record<string, never>;
+        AnalyzeV16RequestDto: Record<string, never>;
         CreateEnvelopeDto: Record<string, never>;
         RecipientViewDto: Record<string, never>;
         VoidEnvelopeDto: Record<string, never>;
@@ -8294,6 +8099,12 @@ export interface components {
         UpdateRecommendationDto: Record<string, never>;
         SyndicationActionDto: Record<string, never>;
         UpsertChannelCredentialDto: Record<string, never>;
+        UpdateTourStatusDto: Record<string, never>;
+        AssignTourDto: Record<string, never>;
+        RescheduleTourDto: Record<string, never>;
+        UpdateApplicationStatusDto: Record<string, never>;
+        UpdateScreeningDto: Record<string, never>;
+        RecordApplicationPaymentDto: Record<string, never>;
         UpdateTenantProfileDto: Record<string, never>;
         CreateHouseholdMemberDto: Record<string, never>;
         CreateViolationDto: Record<string, never>;
@@ -8359,7 +8170,7 @@ export interface operations {
             };
         };
     };
-    AppController_getHealth: {
+    HealthController_check: {
         parameters: {
             query?: never;
             header?: never;
@@ -8368,15 +8179,116 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description The Health Check is successful */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @example ok */
+                        status?: string;
+                        /**
+                         * @example {
+                         *       "database": {
+                         *         "status": "up"
+                         *       }
+                         *     }
+                         */
+                        info?: {
+                            [key: string]: {
+                                status: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        } | null;
+                        /** @example {} */
+                        error?: {
+                            [key: string]: {
+                                status: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        } | null;
+                        /**
+                         * @example {
+                         *       "database": {
+                         *         "status": "up"
+                         *       }
+                         *     }
+                         */
+                        details?: {
+                            [key: string]: {
+                                status: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description The Health Check is not successful */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example error */
+                        status?: string;
+                        /**
+                         * @example {
+                         *       "database": {
+                         *         "status": "up"
+                         *       }
+                         *     }
+                         */
+                        info?: {
+                            [key: string]: {
+                                status: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        } | null;
+                        /**
+                         * @example {
+                         *       "redis": {
+                         *         "status": "down",
+                         *         "message": "Could not connect"
+                         *       }
+                         *     }
+                         */
+                        error?: {
+                            [key: string]: {
+                                status: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        } | null;
+                        /**
+                         * @example {
+                         *       "database": {
+                         *         "status": "up"
+                         *       },
+                         *       "redis": {
+                         *         "status": "down",
+                         *         "message": "Could not connect"
+                         *       }
+                         *     }
+                         */
+                        details?: {
+                            [key: string]: {
+                                status: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        };
+                    };
+                };
             };
         };
     };
-    AppController_getReadiness: {
+    HealthController_readiness: {
         parameters: {
             query?: never;
             header?: never;
@@ -8385,15 +8297,116 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description The Health Check is successful */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @example ok */
+                        status?: string;
+                        /**
+                         * @example {
+                         *       "database": {
+                         *         "status": "up"
+                         *       }
+                         *     }
+                         */
+                        info?: {
+                            [key: string]: {
+                                status: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        } | null;
+                        /** @example {} */
+                        error?: {
+                            [key: string]: {
+                                status: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        } | null;
+                        /**
+                         * @example {
+                         *       "database": {
+                         *         "status": "up"
+                         *       }
+                         *     }
+                         */
+                        details?: {
+                            [key: string]: {
+                                status: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description The Health Check is not successful */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example error */
+                        status?: string;
+                        /**
+                         * @example {
+                         *       "database": {
+                         *         "status": "up"
+                         *       }
+                         *     }
+                         */
+                        info?: {
+                            [key: string]: {
+                                status: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        } | null;
+                        /**
+                         * @example {
+                         *       "redis": {
+                         *         "status": "down",
+                         *         "message": "Could not connect"
+                         *       }
+                         *     }
+                         */
+                        error?: {
+                            [key: string]: {
+                                status: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        } | null;
+                        /**
+                         * @example {
+                         *       "database": {
+                         *         "status": "up"
+                         *       },
+                         *       "redis": {
+                         *         "status": "down",
+                         *         "message": "Could not connect"
+                         *       }
+                         *     }
+                         */
+                        details?: {
+                            [key: string]: {
+                                status: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        };
+                    };
+                };
             };
         };
     };
-    AppController_getLiveness: {
+    HealthController_liveness: {
         parameters: {
             query?: never;
             header?: never;
@@ -8402,11 +8415,112 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description The Health Check is successful */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @example ok */
+                        status?: string;
+                        /**
+                         * @example {
+                         *       "database": {
+                         *         "status": "up"
+                         *       }
+                         *     }
+                         */
+                        info?: {
+                            [key: string]: {
+                                status: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        } | null;
+                        /** @example {} */
+                        error?: {
+                            [key: string]: {
+                                status: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        } | null;
+                        /**
+                         * @example {
+                         *       "database": {
+                         *         "status": "up"
+                         *       }
+                         *     }
+                         */
+                        details?: {
+                            [key: string]: {
+                                status: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description The Health Check is not successful */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example error */
+                        status?: string;
+                        /**
+                         * @example {
+                         *       "database": {
+                         *         "status": "up"
+                         *       }
+                         *     }
+                         */
+                        info?: {
+                            [key: string]: {
+                                status: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        } | null;
+                        /**
+                         * @example {
+                         *       "redis": {
+                         *         "status": "down",
+                         *         "message": "Could not connect"
+                         *       }
+                         *     }
+                         */
+                        error?: {
+                            [key: string]: {
+                                status: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        } | null;
+                        /**
+                         * @example {
+                         *       "database": {
+                         *         "status": "up"
+                         *       },
+                         *       "redis": {
+                         *         "status": "down",
+                         *         "message": "Could not connect"
+                         *       }
+                         *     }
+                         */
+                        details?: {
+                            [key: string]: {
+                                status: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        };
+                    };
+                };
             };
         };
     };
@@ -9387,6 +9501,95 @@ export interface operations {
             };
         };
     };
+    PredictiveMaintenanceController_getPredictiveAssets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PredictiveMaintenanceController_getRiskSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PredictiveMaintenanceController_getAssetRisk: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PredictiveMaintenanceController_triggerScan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PredictiveMaintenanceController_triggerPreventive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     NotificationsController_getNotifications: {
         parameters: {
             query: {
@@ -10290,6 +10493,25 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    StripeWebhookController_handleWebhook: {
+        parameters: {
+            query?: never;
+            header: {
+                "stripe-signature": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11356,7 +11578,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LeaseResponseDto"][];
+                };
             };
         };
     };
@@ -11394,7 +11618,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LeaseResponseDto"];
+                };
             };
         };
     };
@@ -11413,7 +11639,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LeaseResponseDto"];
+                };
             };
         };
     };
@@ -11921,7 +12149,87 @@ export interface operations {
             };
         };
     };
-    "PropertyController_getAllProperties[0]": {
+    ScreeningController_requestScreening: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ScreeningController_getReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ScreeningController_decide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScreeningDecisionDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ScreeningController_providerWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PropertyController_getAllProperties: {
         parameters: {
             query: {
                 page: string;
@@ -11941,7 +12249,7 @@ export interface operations {
             };
         };
     };
-    "PropertyController_createProperty[0]": {
+    PropertyController_createProperty: {
         parameters: {
             query?: never;
             header?: never;
@@ -11962,48 +12270,7 @@ export interface operations {
             };
         };
     };
-    "PropertyController_getAllProperties[1]": {
-        parameters: {
-            query: {
-                page: string;
-                limit: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "PropertyController_createProperty[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreatePropertyDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "PropertyController_createUnit[0]": {
+    PropertyController_createUnit: {
         parameters: {
             query?: never;
             header?: never;
@@ -12026,30 +12293,7 @@ export interface operations {
             };
         };
     };
-    "PropertyController_createUnit[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateUnitDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "PropertyController_getPublicProperties[0]": {
+    PropertyController_getPublicProperties: {
         parameters: {
             query: {
                 page: string;
@@ -12069,27 +12313,7 @@ export interface operations {
             };
         };
     };
-    "PropertyController_getPublicProperties[1]": {
-        parameters: {
-            query: {
-                page: string;
-                limit: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "PropertyController_searchProperties[0]": {
+    PropertyController_searchProperties: {
         parameters: {
             query?: never;
             header?: never;
@@ -12106,7 +12330,7 @@ export interface operations {
             };
         };
     };
-    "PropertyController_searchProperties[1]": {
+    PropertyController_getPublicSearch: {
         parameters: {
             query?: never;
             header?: never;
@@ -12123,7 +12347,7 @@ export interface operations {
             };
         };
     };
-    "PropertyController_getPublicSearch[0]": {
+    PropertyController_getSavedFilters: {
         parameters: {
             query?: never;
             header?: never;
@@ -12140,41 +12364,7 @@ export interface operations {
             };
         };
     };
-    "PropertyController_getPublicSearch[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "PropertyController_getSavedFilters[0]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "PropertyController_saveFilter[0]": {
+    PropertyController_saveFilter: {
         parameters: {
             query?: never;
             header?: never;
@@ -12195,45 +12385,7 @@ export interface operations {
             };
         };
     };
-    "PropertyController_getSavedFilters[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "PropertyController_saveFilter[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SavePropertyFilterDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "PropertyController_deleteFilter[0]": {
+    PropertyController_deleteFilter: {
         parameters: {
             query?: never;
             header?: never;
@@ -12252,26 +12404,7 @@ export interface operations {
             };
         };
     };
-    "PropertyController_deleteFilter[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "PropertyController_getPropertyById[0]": {
+    PropertyController_getPropertyById: {
         parameters: {
             query?: never;
             header?: never;
@@ -12290,7 +12423,7 @@ export interface operations {
             };
         };
     };
-    "PropertyController_updateProperty[0]": {
+    PropertyController_updateProperty: {
         parameters: {
             query?: never;
             header?: never;
@@ -12313,7 +12446,7 @@ export interface operations {
             };
         };
     };
-    "PropertyController_getPropertyById[1]": {
+    PropertyController_getPropertyRollup: {
         parameters: {
             query?: never;
             header?: never;
@@ -12332,68 +12465,7 @@ export interface operations {
             };
         };
     };
-    "PropertyController_updateProperty[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdatePropertyDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "PropertyController_getPropertyRollup[0]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "PropertyController_getPropertyRollup[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "PropertyController_getUnitRollup[0]": {
+    PropertyController_getUnitRollup: {
         parameters: {
             query?: never;
             header?: never;
@@ -12412,26 +12484,7 @@ export interface operations {
             };
         };
     };
-    "PropertyController_getUnitRollup[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                unitId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "PropertyController_transitionUnitState[0]": {
+    PropertyController_transitionUnitState: {
         parameters: {
             query?: never;
             header?: never;
@@ -12450,26 +12503,7 @@ export interface operations {
             };
         };
     };
-    "PropertyController_transitionUnitState[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                unitId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "PropertyController_getMarketingProfile[0]": {
+    PropertyController_getMarketingProfile: {
         parameters: {
             query?: never;
             header?: never;
@@ -12488,7 +12522,7 @@ export interface operations {
             };
         };
     };
-    "PropertyController_updateMarketingProfile[0]": {
+    PropertyController_updateMarketingProfile: {
         parameters: {
             query?: never;
             header?: never;
@@ -12511,49 +12545,7 @@ export interface operations {
             };
         };
     };
-    "PropertyController_getMarketingProfile[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "PropertyController_updateMarketingProfile[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdatePropertyMarketingDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "PropertyController_updateUnit[0]": {
+    PropertyController_updateUnit: {
         parameters: {
             query?: never;
             header?: never;
@@ -12577,31 +12569,7 @@ export interface operations {
             };
         };
     };
-    "PropertyController_updateUnit[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-                unitId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateUnitDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "PropertyController_startOnboarding[0]": {
+    PropertyController_startOnboarding: {
         parameters: {
             query?: never;
             header?: never;
@@ -12620,45 +12588,7 @@ export interface operations {
             };
         };
     };
-    "PropertyController_startOnboarding[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                unitId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "PropertyController_completeMoveIn[0]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                unitId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "PropertyController_completeMoveIn[1]": {
+    PropertyController_completeMoveIn: {
         parameters: {
             query?: never;
             header?: never;
@@ -12704,7 +12634,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateExpenseDto"];
+            };
+        };
         responses: {
             201: {
                 headers: {
@@ -12742,7 +12676,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateExpenseDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
@@ -13225,6 +13163,184 @@ export interface operations {
             };
         };
     };
+    OrganizationSettingsController_getOrganizationSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrganizationSettingsController_updateOrganizationSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrganizationSettingsController_listOrganizationUsers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrganizationSettingsController_inviteUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrganizationSettingsController_updateUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrganizationSettingsController_deactivateUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrganizationSettingsController_listIntegrations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrganizationSettingsController_connectQuickBooks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrganizationSettingsController_disconnectQuickBooks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    OrganizationSettingsController_getAuditLog: {
+        parameters: {
+            query: {
+                startDate: string;
+                endDate: string;
+                limit: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     DocumentsController_uploadFile: {
         parameters: {
             query?: never;
@@ -13321,7 +13437,7 @@ export interface operations {
             };
         };
     };
-    "ReportingController_getRentRoll[0]": {
+    ReportingController_getRentRoll: {
         parameters: {
             query: {
                 propertyId: string;
@@ -13340,26 +13456,7 @@ export interface operations {
             };
         };
     };
-    "ReportingController_getRentRoll[1]": {
-        parameters: {
-            query: {
-                propertyId: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "ReportingController_getDelinquencyReport[0]": {
+    ReportingController_getDelinquencyReport: {
         parameters: {
             query: {
                 days: string;
@@ -13378,7 +13475,45 @@ export interface operations {
             };
         };
     };
-    "ReportingController_getDelinquencyReport[1]": {
+    ReportingController_getMaintenanceSummary: {
+        parameters: {
+            query: {
+                propertyId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReportingController_getOccupancyReport: {
+        parameters: {
+            query: {
+                propertyId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReportingController_getDelinquencyAnalytics: {
         parameters: {
             query: {
                 days: string;
@@ -13397,121 +13532,7 @@ export interface operations {
             };
         };
     };
-    "ReportingController_getMaintenanceSummary[0]": {
-        parameters: {
-            query: {
-                propertyId: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "ReportingController_getMaintenanceSummary[1]": {
-        parameters: {
-            query: {
-                propertyId: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "ReportingController_getOccupancyReport[0]": {
-        parameters: {
-            query: {
-                propertyId: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "ReportingController_getOccupancyReport[1]": {
-        parameters: {
-            query: {
-                propertyId: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "ReportingController_getDelinquencyAnalytics[0]": {
-        parameters: {
-            query: {
-                days: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "ReportingController_getDelinquencyAnalytics[1]": {
-        parameters: {
-            query: {
-                days: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "ReportingController_getProfitLoss[0]": {
+    ReportingController_getProfitLoss: {
         parameters: {
             query: {
                 startDate: string;
@@ -13532,7 +13553,85 @@ export interface operations {
             };
         };
     };
-    "ReportingController_getProfitLoss[1]": {
+    ReportingController_getVacancyRate: {
+        parameters: {
+            query: {
+                propertyId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReportingController_getMaintenanceAnalytics: {
+        parameters: {
+            query: {
+                propertyId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReportingController_getManualPaymentsSummary: {
+        parameters: {
+            query: {
+                startDate: string;
+                endDate: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReportingController_getManualChargesSummary: {
+        parameters: {
+            query: {
+                startDate: string;
+                endDate: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ReportingController_getPaymentHistory: {
         parameters: {
             query: {
                 startDate: string;
@@ -13553,205 +13652,7 @@ export interface operations {
             };
         };
     };
-    "ReportingController_getVacancyRate[0]": {
-        parameters: {
-            query: {
-                propertyId: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "ReportingController_getVacancyRate[1]": {
-        parameters: {
-            query: {
-                propertyId: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "ReportingController_getMaintenanceAnalytics[0]": {
-        parameters: {
-            query: {
-                propertyId: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "ReportingController_getMaintenanceAnalytics[1]": {
-        parameters: {
-            query: {
-                propertyId: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "ReportingController_getManualPaymentsSummary[0]": {
-        parameters: {
-            query: {
-                startDate: string;
-                endDate: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "ReportingController_getManualPaymentsSummary[1]": {
-        parameters: {
-            query: {
-                startDate: string;
-                endDate: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "ReportingController_getManualChargesSummary[0]": {
-        parameters: {
-            query: {
-                startDate: string;
-                endDate: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "ReportingController_getManualChargesSummary[1]": {
-        parameters: {
-            query: {
-                startDate: string;
-                endDate: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "ReportingController_getPaymentHistory[0]": {
-        parameters: {
-            query: {
-                startDate: string;
-                endDate: string;
-                propertyId: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "ReportingController_getPaymentHistory[1]": {
-        parameters: {
-            query: {
-                startDate: string;
-                endDate: string;
-                propertyId: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "ReportingController_getReportHeatmap[0]": {
+    ReportingController_getReportHeatmap: {
         parameters: {
             query?: never;
             header?: never;
@@ -13768,7 +13669,7 @@ export interface operations {
             };
         };
     };
-    "ReportingController_getReportHeatmap[1]": {
+    ReportingController_getAccountingSyncStatus: {
         parameters: {
             query?: never;
             header?: never;
@@ -13785,7 +13686,7 @@ export interface operations {
             };
         };
     };
-    "ReportingController_getOpexAnomalies[0]": {
+    ReportingController_getOpexAnomalies: {
         parameters: {
             query?: never;
             header?: never;
@@ -13802,24 +13703,7 @@ export interface operations {
             };
         };
     };
-    "ReportingController_getOpexAnomalies[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "ReportingController_getCapexAnalytics[0]": {
+    ReportingController_getCapexAnalytics: {
         parameters: {
             query: {
                 propertyId: string;
@@ -13840,28 +13724,7 @@ export interface operations {
             };
         };
     };
-    "ReportingController_getCapexAnalytics[1]": {
-        parameters: {
-            query: {
-                propertyId: string;
-                upgradeCost: string;
-                rentBump: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "ReportingController_getFinancialSummary[0]": {
+    ReportingController_getFinancialSummary: {
         parameters: {
             query: {
                 startDate: string;
@@ -13882,13 +13745,9 @@ export interface operations {
             };
         };
     };
-    "ReportingController_getFinancialSummary[1]": {
+    OwnerAnalyticsController_getOwnerPortfolioAnalytics: {
         parameters: {
-            query: {
-                startDate: string;
-                endDate: string;
-                propertyId: string;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -13903,7 +13762,7 @@ export interface operations {
             };
         };
     };
-    "InspectionsController_findAll[0]": {
+    InspectionsController_findAll: {
         parameters: {
             query: {
                 unitId: string;
@@ -13927,7 +13786,7 @@ export interface operations {
             };
         };
     };
-    "InspectionsController_create[0]": {
+    InspectionsController_create: {
         parameters: {
             query?: never;
             header?: never;
@@ -13948,52 +13807,7 @@ export interface operations {
             };
         };
     };
-    "InspectionsController_findAll[1]": {
-        parameters: {
-            query: {
-                unitId: string;
-                propertyId: string;
-                startDate: string;
-                endDate: string;
-                skip: string;
-                take: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "InspectionsController_create[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateInspectionDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "InspectionsController_findOne[0]": {
+    InspectionsController_findOne: {
         parameters: {
             query?: never;
             header?: never;
@@ -14012,7 +13826,7 @@ export interface operations {
             };
         };
     };
-    "InspectionsController_update[0]": {
+    InspectionsController_update: {
         parameters: {
             query?: never;
             header?: never;
@@ -14035,7 +13849,7 @@ export interface operations {
             };
         };
     };
-    "InspectionsController_delete[0]": {
+    InspectionsController_delete: {
         parameters: {
             query?: never;
             header?: never;
@@ -14054,68 +13868,7 @@ export interface operations {
             };
         };
     };
-    "InspectionsController_findOne[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "InspectionsController_update[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateInspectionDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "InspectionsController_delete[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "InspectionsController_start[0]": {
+    InspectionsController_start: {
         parameters: {
             query?: never;
             header?: never;
@@ -14132,24 +13885,7 @@ export interface operations {
             };
         };
     };
-    "InspectionsController_start[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "InspectionsController_complete[0]": {
+    InspectionsController_complete: {
         parameters: {
             query?: never;
             header?: never;
@@ -14172,30 +13908,7 @@ export interface operations {
             };
         };
     };
-    "InspectionsController_complete[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CompleteInspectionDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "InspectionsController_approve[0]": {
+    InspectionsController_approve: {
         parameters: {
             query?: never;
             header?: never;
@@ -14214,26 +13927,7 @@ export interface operations {
             };
         };
     };
-    "InspectionsController_approve[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "InspectionsController_addPhoto[0]": {
+    InspectionsController_addPhoto: {
         parameters: {
             query?: never;
             header?: never;
@@ -14252,13 +13946,11 @@ export interface operations {
             };
         };
     };
-    "InspectionsController_addPhoto[1]": {
+    InspectionsController_sync: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                id: number;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -14389,367 +14081,17 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnalyzeV16RequestDto"];
+            };
+        };
         responses: {
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-        };
-    };
-    HealthController_check: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The Health Check is successful */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example ok */
-                        status?: string;
-                        /**
-                         * @example {
-                         *       "database": {
-                         *         "status": "up"
-                         *       }
-                         *     }
-                         */
-                        info?: {
-                            [key: string]: {
-                                status: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                        } | null;
-                        /** @example {} */
-                        error?: {
-                            [key: string]: {
-                                status: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                        } | null;
-                        /**
-                         * @example {
-                         *       "database": {
-                         *         "status": "up"
-                         *       }
-                         *     }
-                         */
-                        details?: {
-                            [key: string]: {
-                                status: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                        };
-                    };
-                };
-            };
-            /** @description The Health Check is not successful */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example error */
-                        status?: string;
-                        /**
-                         * @example {
-                         *       "database": {
-                         *         "status": "up"
-                         *       }
-                         *     }
-                         */
-                        info?: {
-                            [key: string]: {
-                                status: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                        } | null;
-                        /**
-                         * @example {
-                         *       "redis": {
-                         *         "status": "down",
-                         *         "message": "Could not connect"
-                         *       }
-                         *     }
-                         */
-                        error?: {
-                            [key: string]: {
-                                status: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                        } | null;
-                        /**
-                         * @example {
-                         *       "database": {
-                         *         "status": "up"
-                         *       },
-                         *       "redis": {
-                         *         "status": "down",
-                         *         "message": "Could not connect"
-                         *       }
-                         *     }
-                         */
-                        details?: {
-                            [key: string]: {
-                                status: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                        };
-                    };
-                };
-            };
-        };
-    };
-    HealthController_readiness: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The Health Check is successful */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example ok */
-                        status?: string;
-                        /**
-                         * @example {
-                         *       "database": {
-                         *         "status": "up"
-                         *       }
-                         *     }
-                         */
-                        info?: {
-                            [key: string]: {
-                                status: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                        } | null;
-                        /** @example {} */
-                        error?: {
-                            [key: string]: {
-                                status: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                        } | null;
-                        /**
-                         * @example {
-                         *       "database": {
-                         *         "status": "up"
-                         *       }
-                         *     }
-                         */
-                        details?: {
-                            [key: string]: {
-                                status: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                        };
-                    };
-                };
-            };
-            /** @description The Health Check is not successful */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example error */
-                        status?: string;
-                        /**
-                         * @example {
-                         *       "database": {
-                         *         "status": "up"
-                         *       }
-                         *     }
-                         */
-                        info?: {
-                            [key: string]: {
-                                status: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                        } | null;
-                        /**
-                         * @example {
-                         *       "redis": {
-                         *         "status": "down",
-                         *         "message": "Could not connect"
-                         *       }
-                         *     }
-                         */
-                        error?: {
-                            [key: string]: {
-                                status: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                        } | null;
-                        /**
-                         * @example {
-                         *       "database": {
-                         *         "status": "up"
-                         *       },
-                         *       "redis": {
-                         *         "status": "down",
-                         *         "message": "Could not connect"
-                         *       }
-                         *     }
-                         */
-                        details?: {
-                            [key: string]: {
-                                status: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                        };
-                    };
-                };
-            };
-        };
-    };
-    HealthController_liveness: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The Health Check is successful */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example ok */
-                        status?: string;
-                        /**
-                         * @example {
-                         *       "database": {
-                         *         "status": "up"
-                         *       }
-                         *     }
-                         */
-                        info?: {
-                            [key: string]: {
-                                status: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                        } | null;
-                        /** @example {} */
-                        error?: {
-                            [key: string]: {
-                                status: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                        } | null;
-                        /**
-                         * @example {
-                         *       "database": {
-                         *         "status": "up"
-                         *       }
-                         *     }
-                         */
-                        details?: {
-                            [key: string]: {
-                                status: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                        };
-                    };
-                };
-            };
-            /** @description The Health Check is not successful */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example error */
-                        status?: string;
-                        /**
-                         * @example {
-                         *       "database": {
-                         *         "status": "up"
-                         *       }
-                         *     }
-                         */
-                        info?: {
-                            [key: string]: {
-                                status: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                        } | null;
-                        /**
-                         * @example {
-                         *       "redis": {
-                         *         "status": "down",
-                         *         "message": "Could not connect"
-                         *       }
-                         *     }
-                         */
-                        error?: {
-                            [key: string]: {
-                                status: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                        } | null;
-                        /**
-                         * @example {
-                         *       "database": {
-                         *         "status": "up"
-                         *       },
-                         *       "redis": {
-                         *         "status": "down",
-                         *         "message": "Could not connect"
-                         *       }
-                         *     }
-                         */
-                        details?: {
-                            [key: string]: {
-                                status: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                        };
-                    };
-                };
             };
         };
     };
@@ -16703,7 +16045,7 @@ export interface operations {
             };
         };
     };
-    "ToursController_scheduleTour[0]": {
+    ToursController_scheduleTour: {
         parameters: {
             query?: never;
             header?: never;
@@ -16720,24 +16062,7 @@ export interface operations {
             };
         };
     };
-    "ToursController_scheduleTour[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "ToursController_getTourById[0]": {
+    ToursController_getTourById: {
         parameters: {
             query?: never;
             header?: never;
@@ -16756,26 +16081,7 @@ export interface operations {
             };
         };
     };
-    "ToursController_getTourById[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "ToursController_getToursForLead[0]": {
+    ToursController_getToursForLead: {
         parameters: {
             query?: never;
             header?: never;
@@ -16794,26 +16100,7 @@ export interface operations {
             };
         };
     };
-    "ToursController_getToursForLead[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                leadId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "ToursController_getTours[0]": {
+    ToursController_getTours: {
         parameters: {
             query: {
                 propertyId: string;
@@ -16837,21 +16124,20 @@ export interface operations {
             };
         };
     };
-    "ToursController_getTours[1]": {
+    ToursController_updateStatus: {
         parameters: {
-            query: {
-                propertyId: string;
-                status: string;
-                dateFrom: string;
-                dateTo: string;
-                limit: string;
-                offset: string;
-            };
+            query?: never;
             header?: never;
-            path?: never;
+            path: {
+                id: string;
+            };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTourStatusDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
@@ -16861,7 +16147,7 @@ export interface operations {
             };
         };
     };
-    "ToursController_updateStatus[0]": {
+    ToursController_assignTour: {
         parameters: {
             query?: never;
             header?: never;
@@ -16870,7 +16156,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignTourDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
@@ -16880,7 +16170,7 @@ export interface operations {
             };
         };
     };
-    "ToursController_updateStatus[1]": {
+    ToursController_rescheduleTour: {
         parameters: {
             query?: never;
             header?: never;
@@ -16889,83 +16179,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RescheduleTourDto"];
             };
         };
-    };
-    "ToursController_assignTour[0]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "ToursController_assignTour[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "ToursController_rescheduleTour[0]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    "ToursController_rescheduleTour[1]": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
         responses: {
             200: {
                 headers: {
@@ -17083,7 +16301,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateApplicationStatusDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
@@ -17102,7 +16324,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateScreeningDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
@@ -17121,7 +16347,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordApplicationPaymentDto"];
+            };
+        };
         responses: {
             201: {
                 headers: {
@@ -20102,7 +19332,9 @@ export interface operations {
     AiGatewayController_generate: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "x-ai-api-key": string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -20334,6 +19566,37 @@ export interface operations {
     AiGatewayController_recommendDecision: {
         parameters: {
             query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        };
+                        meta: {
+                            [key: string]: unknown;
+                        };
+                        errors: {
+                            [key: string]: unknown;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    AiUsageController_getUsage: {
+        parameters: {
+            query: {
+                days: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;

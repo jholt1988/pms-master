@@ -21,7 +21,7 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env.DATABASE_URL ?? "postgresql://pms:pms@postgres:5432/pms?schema=public",
+    url: process.env.DATABASE_URL,
     shadowDatabaseUrl: process.env.SHADOW_DATABASE_URL,
   },
 }) satisfies PrismaConfig;
