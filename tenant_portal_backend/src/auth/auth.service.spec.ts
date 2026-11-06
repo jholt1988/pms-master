@@ -121,13 +121,6 @@ describe('AuthService', () => {
     }).compile();
 
     service = module.get<AuthService>(AuthService);
-    usersService = module.get<UsersService>(UsersService);
-    jwtService = module.get<JwtService>(JwtService);
-    passwordPolicy = module.get<PasswordPolicyService>(PasswordPolicyService);
-    securityEvents = module.get<SecurityEventsService>(SecurityEventsService);
-    configService = module.get<ConfigService>(ConfigService);
-    prismaService = module.get<PrismaService>(PrismaService);
-    emailService = module.get<EmailService>(EmailService);
 
     // Reset all mocks
     jest.clearAllMocks();

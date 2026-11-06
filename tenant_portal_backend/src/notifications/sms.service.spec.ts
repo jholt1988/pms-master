@@ -27,7 +27,6 @@ describe('SmsService', () => {
     }).compile();
 
     service = module.get<SmsService>(SmsService);
-    configService = module.get<ConfigService>(ConfigService);
   });
 
   afterEach(() => {

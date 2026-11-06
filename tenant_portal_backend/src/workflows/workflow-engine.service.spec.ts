@@ -98,11 +98,6 @@ describe('WorkflowEngineService', () => {
     }).compile();
 
     service = module.get<WorkflowEngineService>(WorkflowEngineService);
-    prismaService = module.get<PrismaService>(PrismaService);
-    aiMaintenanceService = module.get<AIMaintenanceService>(AIMaintenanceService);
-    aiPaymentService = module.get<AIPaymentService>(AIPaymentService);
-    aiLeaseRenewalService = module.get<AILeaseRenewalService>(AILeaseRenewalService);
-    aiNotificationService = module.get<AINotificationService>(AINotificationService);
   });
 
   afterEach(() => {

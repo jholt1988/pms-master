@@ -19,7 +19,6 @@ describe('PushService', () => {
     }).compile();
 
     service = module.get<PushService>(PushService);
-    configService = module.get<ConfigService>(ConfigService);
   });
 
   afterEach(() => {

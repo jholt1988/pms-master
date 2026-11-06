@@ -33,7 +33,6 @@ describe('SystemUserService', () => {
     }).compile();
 
     service = module.get<SystemUserService>(SystemUserService);
-    prismaService = module.get<PrismaService>(PrismaService);
   });
 
   describe('getSystemUserId', () => {

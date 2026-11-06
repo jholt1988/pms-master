@@ -68,7 +68,6 @@ describe('WorkflowEngineService - Optimizations', () => {
     }).compile();
 
     service = module.get<WorkflowEngineService>(WorkflowEngineService);
-    prisma = module.get<PrismaService>(PrismaService);
     cacheService = module.get<WorkflowCacheService>(WorkflowCacheService);
     rateLimiter = module.get<WorkflowRateLimiterService>(WorkflowRateLimiterService);
 
