@@ -1,5 +1,5 @@
 module.exports = {
-  schema: "prisma/schema.prisma",
+  schema: "tenant_portal_backend/prisma/property-os.schema.prisma",
   migrations: {
     path: "prisma/migrations",
   },
