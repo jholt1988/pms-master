@@ -32,7 +32,7 @@ RUN pnpm add -D prisma@7.8.0 --filter @propertyos/workflow-engine
 # dir so prisma generate can find it via the default search path and
 # resolve @prisma/client from the workflow-engine's node_modules.
 WORKDIR /app/services/workflow-engine
-RUN mkdir -p prisma && cp ../../prisma/schema.prisma prisma/schema.prisma
+RUN mkdir -p prisma && cp ../../tenant_portal_backend/prisma/property-os.schema.prisma prisma/schema.prisma
 ENV DATABASE_URL=postgresql://pms:pms@postgres:5432/pms?schema=public
 RUN npx prisma generate
 WORKDIR /app
