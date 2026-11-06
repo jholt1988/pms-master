@@ -7,6 +7,7 @@ on:
       - develop
     paths:
       - 'tenant_portal_app/**'
+      - 'pnpm-lock.yaml'
       - '.github/workflows/frontend-ci.yml'
   pull_request:
     branches:
@@ -14,6 +15,7 @@ on:
       - develop
     paths:
       - 'tenant_portal_app/**'
+      - 'pnpm-lock.yaml'
       - '.github/workflows/frontend-ci.yml'
 
 jobs:
@@ -24,30 +26,30 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install dependencies
-        working-directory: ./tenant_portal_app
-        run: npm ci
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.19.0'
-          cache: 'npm'
-          cache-dependency-path: tenant_portal_app/package-lock.json
+          node-version: '22'
+          cache: pnpm
+
+      # tenant_portal_app has no package-lock.json. The workspace lockfile is
+      # pnpm-lock.yaml, so npm ci cannot install this app.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Type check
-        working-directory: ./tenant_portal_app
-        run: npx tsc --noEmit
+        run: pnpm --filter tenant_portal_app exec tsc --noEmit
 
       - name: Run tests
-        working-directory: ./tenant_portal_app
-        run: npm test -- --run
+        run: pnpm --filter tenant_portal_app test -- --run
 
       - name: Build check
-        working-directory: ./tenant_portal_app
+        run: pnpm --filter tenant_portal_app build
         env:
           VITE_API_URL: http://localhost:3001
-        run: npm run build
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -55,4 +57,3 @@ jobs:
           name: frontend-build
           path: tenant_portal_app/dist
           retention-days: 1
-
