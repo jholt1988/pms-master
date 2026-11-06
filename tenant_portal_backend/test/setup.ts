@@ -4,7 +4,6 @@ import type { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
 import { resetDatabase } from './utils/reset-database';
 
-
 // Extend timeout for slower end-to-end flows
 jest.setTimeout(30000);
 
@@ -56,13 +55,14 @@ process.env.REDIS_PORT = process.env.REDIS_PORT || '6379';
 process.env.REDIS_URL = process.env.REDIS_URL || `redis://${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`;
 
 // Detect e2e tests by checking if jest-e2e.json config is being used
-const isE2ETest = process.argv.some(arg => /jest-e2e.*\.json$/.test(arg)) ||
+const isE2ETest = process.argv.some((arg) => /jest-e2e.*\.json$/.test(arg)) ||
   /jest-e2e.*\.json$/.test(process.env.JEST_CONFIG_PATH || '') ||
   // Check if testRegex in current config matches e2e pattern
   (global as any).__JEST_CONFIG__?.testRegex?.toString().includes('e2e');
 
-// Ensure Prisma schema migrations are applied before running tests
-// Only run migrations for e2e tests to avoid heavy setup for unit tests (prevents OOM)
+// Ensure Prisma schema is applied before e2e tests. Do not retry with a local
+// developer URL: in CI that can hide a broken TEST_DATABASE_URL and point tests
+// at an unintended database. Keep the original connection error visible.
 const shouldApplyMigrations = isE2ETest && process.env.SKIP_TEST_MIGRATIONS !== 'true';
 if (shouldApplyMigrations) {
   try {
@@ -76,7 +76,7 @@ if (shouldApplyMigrations) {
         const ssl = sslMode ? { rejectUnauthorized: false } : undefined;
         const c = new Client({ connectionString: url, ssl });
         await c.connect();
-        const schema = (u.searchParams.get('schema') || 'public').replace(/\"/g, '');
+        const schema = (u.searchParams.get('schema') || 'public').replace(/\\"/g, '');
         await c.query('CREATE SCHEMA IF NOT EXISTS "' + schema + '"');
         await c.query(
           'CREATE TABLE IF NOT EXISTS "' + schema + '"."RefreshToken" (' +
@@ -97,39 +97,15 @@ if (shouldApplyMigrations) {
       });
     `;
 
-    try {
-      execFileSync('node', ['-e', ensureSchemaScript], {
-        stdio: 'inherit',
-        env: { ...process.env },
-      });
-    } catch (primaryError) {
-      const fallbackUrl = ensureSchema(DEFAULT_TEST_DB_URL, TEST_SCHEMA);
-      process.env.DIRECT_DATABASE_URL = fallbackUrl;
-      process.env.DATABASE_URL = fallbackUrl;
+    execFileSync('node', ['-e', ensureSchemaScript], {
+      stdio: 'inherit',
+      env: { ...process.env },
+    });
 
-      console.error(
-        `Primary e2e database connection failed for TEST_DATABASE_URL/DATABASE_URL. Falling back to local default: ${fallbackUrl}`,
-      );
-
-      execFileSync('node', ['-e', ensureSchemaScript], {
-        stdio: 'inherit',
-        env: { ...process.env },
-      });
-
-      console.error('Primary DB error details:', primaryError);
-    }
-
-    // Sync the (possibly pre-seeded) isolated test schema to the Prisma
-    // schema. We intentionally use `db push` rather than `migrate deploy`:
-    // the block above manually creates a few tables (e.g. RefreshToken) in
-    // the test schema, so `migrate deploy` fails with P3005 ("schema is not
-    // empty") because there is no _prisma_migrations history to baseline
-    // against. `db push` reconciles the live schema to schema.prisma without
-    // needing migration history — the correct tool for ephemeral CI/e2e
-    // databases. --accept-data-loss is safe here: it's a throwaway test DB.
-    //
-    // Defense-in-depth: --accept-data-loss is destructive, so refuse to run it
-    // against a production database under any circumstance.
+    // Sync the isolated test schema to Prisma's schema. This is intentionally
+    // db push rather than migrate deploy because setup creates a few tables
+    // before applying the Prisma schema and has no _prisma_migrations baseline.
+    // --accept-data-loss is safe only for this ephemeral test database.
     if (process.env.NODE_ENV === 'production') {
       throw new Error(
         'Refusing to run `prisma db push --accept-data-loss` with NODE_ENV=production. ' +
@@ -141,7 +117,7 @@ if (shouldApplyMigrations) {
       env: { ...process.env },
     });
   } catch (error) {
-    console.error('Failed to apply Prisma migrations for e2e tests:', error);
+    console.error('Failed to apply Prisma schema for e2e tests:', error);
     throw error;
   }
 }
@@ -149,9 +125,8 @@ if (shouldApplyMigrations) {
 const prismaTestClient = isE2ETest ? new PrismaClientFactory() : null;
 
 beforeEach(async () => {
-  // Only reset database for e2e tests to avoid deadlocks in parallel unit tests
-  // Unit tests should use mocks and not touch the real database'
- 
+  // Only reset database for e2e tests to avoid deadlocks in parallel unit tests.
+  // Unit tests should use mocks and not touch the real database.
   if (isE2ETest && prismaTestClient) {
     await resetDatabase(prismaTestClient as any);
   }
