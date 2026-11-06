@@ -81,9 +81,12 @@ debug-storybook.log
 # Source dumps (repomix etc.)
 repomix-output*.xml
 
-# Python venvs (if any)
+# Python venvs / bytecode (if any)
 venv/
 .venv/
+__pycache__/
+*.py[cod]
+*$py.class
 
 # OS / editor
 .DS_Store
