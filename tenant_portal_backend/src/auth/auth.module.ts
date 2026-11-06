@@ -28,17 +28,10 @@ import { HttpModule } from '@nestjs/axios';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        const env = (configService.get<string>('NODE_ENV') || process.env.NODE_ENV || 'development').toLowerCase();
-        let secret = configService.get<string>('JWT_SECRET');
+        const secret = configService.get<string>('JWT_SECRET');
 
-        // Allow local/dev boot without a full .env.
         if (!secret) {
-          if (env === 'production') {
-            throw new Error('JWT_SECRET must be provided');
-          }
-          secret = 'dev-jwt-secret-change-me';
-          // eslint-disable-next-line no-console
-          console.warn('[AuthModule] JWT_SECRET not set; using insecure dev default. Set JWT_SECRET in .env for real usage.');
+          throw new Error('JWT_SECRET must be provided');
         }
 
         return {
