@@ -180,10 +180,9 @@ export default function PMEstimatingReviewCenter(): React.ReactElement {
 
                     <Card className="bg-zinc-900/50 border-white/10">
                       <CardBody className="p-6">
-                        <div 
-                          className="prose prose-invert prose-sm max-w-none prose-headings:text-emerald-400 prose-a:text-emerald-300"
-                          dangerouslySetInnerHTML={{ __html: activeEstimate.stepByStepPlan ? activeEstimate.stepByStepPlan.replace(/\\n/g, '<br/>') : 'No repairs required.' }}
-                        />
+                        <p className="whitespace-pre-wrap text-sm text-zinc-200">
+                          {activeEstimate.stepByStepPlan || 'No repairs required.'}
+                        </p>
                       </CardBody>
                     </Card>
                   </div>

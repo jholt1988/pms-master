@@ -37,6 +37,9 @@ logs/
 # Coverage
 coverage/
 
+# A nested copy of this repo. Not the repo root.
+pms-master/
+
 # Temporary directories
 tenant_portal/
 wiki-repo-temp/

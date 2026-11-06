@@ -24,7 +24,6 @@ describe('NotificationPreferencesService', () => {
     }).compile();
 
     service = module.get<NotificationPreferencesService>(NotificationPreferencesService);
-    prismaService = module.get<PrismaService>(PrismaService);
   });
 
   afterEach(() => {

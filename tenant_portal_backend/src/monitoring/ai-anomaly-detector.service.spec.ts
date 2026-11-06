@@ -31,8 +31,6 @@ describe('AIAnomalyDetectorService', () => {
     }).compile();
 
     service = module.get<AIAnomalyDetectorService>(AIAnomalyDetectorService);
-    prismaService = module.get<PrismaService>(PrismaService);
-    configService = module.get<ConfigService>(ConfigService);
   });
 
   afterEach(() => {

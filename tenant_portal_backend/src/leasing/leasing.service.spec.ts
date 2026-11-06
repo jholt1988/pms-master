@@ -62,8 +62,6 @@ describe('LeasingService', () => {
     }).compile();
 
     service = module.get<LeasingService>(LeasingService);
-    prismaService = module.get<PrismaService>(PrismaService);
-    emailService = module.get<EmailService>(EmailService);
 
     // Reset all mocks before each test
     jest.clearAllMocks();

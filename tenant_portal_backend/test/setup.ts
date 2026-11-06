@@ -15,9 +15,17 @@ const DEFAULT_TEST_DB_URL =
   'postgresql://postgres:jordan@localhost:5432/tenant_portal_test?schema=public';
 
 const rawUrl =
-  process.env.TEST_DATABASE_URL ||
-  process.env.DATABASE_URL ||
-  DEFAULT_TEST_DB_URL;
+  process.env.TEST_DATABASE_URL ??
+  process.env.DATABASE_URL;
+
+if (!rawUrl) {
+  throw new Error(
+    'Missing TEST_DATABASE_URL or DATABASE_URL for e2e tests. CI must provide a valid Postgres connection string.'
+  );
+}
+
+const TEST_SCHEMA = process.env.TEST_DATABASE_SCHEMA || 'tenant_portal_test';
+const TEST_DB_URL = ensureSchema(rawUrl, TEST_SCHEMA);
 
 // Force tests into an isolated schema so resetDatabase can safely TRUNCATE.
 const ensureSchema = (url: string, schema: string) => {

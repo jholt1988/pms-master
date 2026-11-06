@@ -53,7 +53,10 @@ export class DevMockAuthMiddleware implements NestMiddleware {
     // Only inject if mock headers are present AND no real Authorization header exists
     if (mockUserId && mockRole && !req.headers['authorization']) {
       const normalizedRole = normalizeAppRole(mockRole);
-      const secret = this.configService.get<string>('JWT_SECRET') ?? 'dev-jwt-secret-change-me';
+      const secret = this.configService.get<string>('JWT_SECRET');
+      if (!secret) {
+        throw new Error('JWT_SECRET must be configured');
+      }
       const now = Math.floor(Date.now() / 1000);
 
       const token = signJwt(
