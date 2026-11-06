@@ -229,7 +229,8 @@ jobs:
       - name: Run E2E tests
         working-directory: ./tenant_portal_backend
         env:
-          DATABASE_URL: postgresql://u:p@localhost:5432/property_management_test
+          TEST_DATABASE_URL: postgresql://u:p@localhost:5432/property_management_test?schema=tenant_portal_test
+          TEST_DATABASE_SCHEMA: tenant_portal_test
           REDIS_HOST: localhost
           REDIS_PORT: 6379
           JWT_SECRET: test-secret-key-for-ci
