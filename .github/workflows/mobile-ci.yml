@@ -7,6 +7,7 @@ on:
       - develop
     paths:
       - 'tenant_portal_mobile/**'
+      - 'pnpm-lock.yaml'
       - '.github/workflows/mobile-ci.yml'
   pull_request:
     branches:
@@ -14,6 +15,7 @@ on:
       - develop
     paths:
       - 'tenant_portal_mobile/**'
+      - 'pnpm-lock.yaml'
       - '.github/workflows/mobile-ci.yml'
 
 jobs:
@@ -24,22 +26,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: tenant_portal_mobile/package-lock.json
+          node-version: '22'
+          cache: pnpm
 
+      # tenant_portal_mobile has no package-lock.json. The workspace lockfile
+      # is pnpm-lock.yaml, so npm ci cannot install this app.
       - name: Install dependencies
-        working-directory: ./tenant_portal_mobile
-        run: npm ci --legacy-peer-deps
+        run: pnpm install --frozen-lockfile
 
       - name: Type check
         working-directory: ./tenant_portal_mobile
         run: |
           if [ -f "tsconfig.json" ]; then
-            npx tsc --noEmit
+            pnpm exec tsc --noEmit
           else
             echo "No tsconfig.json found, skipping type check"
           fi
@@ -47,7 +52,7 @@ jobs:
       - name: Lint check
         working-directory: ./tenant_portal_mobile
         run: |
-          if npm run lint --if-present; then
+          if pnpm run lint --if-present; then
             echo "Lint check passed"
           else
             echo "No lint script found, skipping"
@@ -56,7 +61,7 @@ jobs:
       - name: Run tests
         working-directory: ./tenant_portal_mobile
         run: |
-          if npm test --if-present; then
+          if pnpm test --if-present; then
             echo "Tests passed"
           else
             echo "No test script found, skipping"
