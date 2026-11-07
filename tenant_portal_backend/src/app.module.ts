@@ -12,6 +12,7 @@ import { OrgContextGuard } from './common/org-context/org-context.guard';
 import { winstonConfig } from './config/winston.config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AiModule } from './ai/ai.module';
 import { AuthModule } from './auth/auth.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -164,6 +165,7 @@ const rateLimitProviders = rateLimitEnabled
     PolicyModule,
     PrismaModule,
     AuditLogModule,
+    AiModule,
     AuthModule,
     MaintenanceModule,
     PaymentsModule,
