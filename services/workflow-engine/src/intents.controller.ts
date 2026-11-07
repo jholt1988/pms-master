@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Post, Query } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
+import { listIntentsFromNest } from "./nest-intent-client";
 import { PrismaService } from "./prisma.service";
 
 @ApiTags("intents")
@@ -9,13 +10,7 @@ export class IntentsController {
 
   @Get()
   async list(@Query("tenantId") tenantId?: string, @Query("limit") limit?: string) {
-    const take = Math.max(1, Math.min(Number(limit ?? 50), 200));
-    const intents = await this.prisma.workflowIntent.findMany({
-      where: tenantId ? { tenantId } : {},
-      orderBy: { createdAt: "desc" },
-      take,
-    });
-    return { intents };
+    return listIntentsFromNest(fetch, process.env, { tenantId, limit });
   }
 
   @Post("upsert")

@@ -44,6 +44,7 @@ import { WorkflowsModule } from './workflows/workflows.module';
 import { ChatbotModule } from './chatbot/chatbot.module';
 import { LeasingModule } from './leasing/leasing.module';
 import { PropertyOsModule } from './property-os/property-os.module'; // Added for Property OS integration
+import { WorkflowIntentsModule } from './workflow-intents/workflow-intents.module';
 import { MilModule } from './mil/mil.module';
 import { LegacyPathMiddleware } from './middleware/legacy-path.middleware';
 import { PerformanceMiddleware } from './monitoring/performance.middleware';
@@ -194,6 +195,7 @@ const rateLimitProviders = rateLimitEnabled
     ChatbotModule,
     LeasingModule,
     PropertyOsModule, // Added for Property OS integration
+    WorkflowIntentsModule,
     MilModule,
     Web3Module,
     PrivacyModule,
