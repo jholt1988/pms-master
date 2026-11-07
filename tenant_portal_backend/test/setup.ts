@@ -24,9 +24,6 @@ if (!rawUrl) {
   );
 }
 
-const TEST_SCHEMA = process.env.TEST_DATABASE_SCHEMA || 'tenant_portal_test';
-const TEST_DB_URL = ensureSchema(rawUrl, TEST_SCHEMA);
-
 // Force tests into an isolated schema so resetDatabase can safely TRUNCATE.
 const ensureSchema = (url: string, schema: string) => {
   if (url.includes('schema=')) return url;
