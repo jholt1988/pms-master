@@ -96,3 +96,8 @@ Env:
 ## Stability mode for auto-reschedule (v13)
 - Auto-scheduled rekey reuses existing new_kms_key_id if present.
 - Prevents key proliferation and preserves deterministic target key version.
+
+## Recent Changes
+
+- Org-context scoping enforced on security endpoints (#113-#117).
+- MIL service participates in Property OS workflow intents (#123).

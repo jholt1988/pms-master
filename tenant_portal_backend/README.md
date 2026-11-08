@@ -2,7 +2,17 @@
 
 [![Backend Verify Integration](https://github.com/jholt1988/pms-master/actions/workflows/backend-verify-integration.yml/badge.svg)](https://github.com/jholt1988/pms-master/actions/workflows/backend-verify-integration.yml)
 
-Backend API for Property Pulse / Tenant Portal.
+Backend API for the Property Management Suite (NestJS + TypeScript + Prisma 7 + PostgreSQL).
+
+## Recent changes (synced with merged PRs)
+
+- **Org-context scoping** enforced on reporting, audit, smart devices, security endpoints (#113–#117).
+- **DatabaseService migration**: 6 services moved from PrismaService to DatabaseService (#102).
+- **Rent-payment confirmation email** sent off-request via BullMQ (#98).
+- **DB indexes** added on hot FK/status columns (#95, #97).
+- **JWT_SECRET fail-closed**: server refuses to start without a valid secret (#120).
+- **Prisma 7 + Docker** generate path fixed (#106–#112).
+- **Leaked DocuSign debug artifacts removed** and gitignored (#94).
 
 ## Core scripts
 
@@ -10,6 +20,15 @@ Backend API for Property Pulse / Tenant Portal.
 npm run dev
 npm run seed:inspection-demo:robust
 npm run verify:integration
+```
+
+## Environment
+
+```env
+DATABASE_URL=postgresql://...
+JWT_SECRET=<required, fail-closed>
+WORKFLOW_ENGINE_URL=http://127.0.0.1:3003
+REDIS_URL=redis://127.0.0.1:6379   # BullMQ email queue
 ```
 
 ## Integration verification

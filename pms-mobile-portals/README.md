@@ -246,3 +246,7 @@ Open `admin-portal.html` to test the management experience.
 **Created:** 2026-02-23  
 **Design System:** SuperDesign v1  
 **Built by:** OpenClaw + prompt-engineering-expert skill
+## Recent Changes (synced with merged PRs)
+
+- Mobile portals aligned with pnpm lockfile install flow (#122).
+- Design system unchanged; portals consume operator/tenant APIs via backend proxy.

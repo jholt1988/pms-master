@@ -28,6 +28,30 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   - nullable `evaluation_id` handling cleanup
   - `@types/pg` added for proper typings
 
+## [0.2.0] - 2026-11-07
+
+### Added
+- 13 new operator API modules (#118).
+- Async rent-payment confirmation email via BullMQ (#98).
+- DB indexes on hot FK/status columns (#95, #97).
+- Docs hygiene: `scripts/docs-check.sh`, `.github/workflows/docs-lint.yml`, `docs/WIKI_AND_DOCS_UPDATE_PLAN.md`.
+
+### Changed
+- Org-context scoping enforced on reporting, audit, smart devices, security (#113–#117).
+- 6 services migrated from PrismaService to DatabaseService (#102).
+- Workflow engine migrated to Prisma 7 + Docker (#111–#112).
+- Mobile CI installs from pnpm lockfile (#122, open).
+- Prisma schema consolidated into single owner directory (#121).
+
+### Fixed
+- JWT_SECRET fail-closed; estimates rendered as text (#120).
+- Dead copilot code, broken fetch paths, audit log entityId filter (#115).
+- Leaked DocuSign debug artifacts removed + gitignored (#94).
+- Committed junk/nested copy/bytecode removed (#119).
+
+### Security
+- Removed committed debug artifacts with leaked DocuSign creds (#94).
+
 ---
 
 ## Versioning Rules

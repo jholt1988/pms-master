@@ -54,3 +54,7 @@ Tests and validates the wiki sync functionality without actually pushing to GitH
 - Before committing changes to the wiki setup
 - Validating the wiki sync configuration
 - Troubleshooting wiki sync issues
+
+## Recent Additions
+
+- `docs-check.sh` — documentation hygiene gate (root READMEs, docs index, plan file, link validity).

@@ -2,7 +2,19 @@
 
 **Status:** ✅ MVP Complete (90% - 144/160 hours)  
 **Version:** 1.0.0  
-**Last Updated:** November 15, 2025
+**Last Updated:** November 2026
+
+## Recent changes
+
+- Mobile CI now installs from the pnpm lockfile (#122, open).
+- Biometric auth, registration, profile, navigation phases complete.
+
+## Dev
+
+```bash
+pnpm install
+pnpm start
+```
 
 React Native mobile application for the Property Management Suite tenant portal. A production-ready app providing tenants with comprehensive property management features including payments, maintenance requests, lease management, notifications, and messaging.
 

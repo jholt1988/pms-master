@@ -384,3 +384,8 @@ For issues or questions:
 ## License
 
 Proprietary - Property Management Suite
+
+## Recent Changes
+
+- Rent optimization service consumed by backend `rent-optimization.service.ts`; estimates rendered as text (#120).
+- ML service monitored via ai-monitoring guide (docs/ai-ml/ai-monitoring-guide.md).

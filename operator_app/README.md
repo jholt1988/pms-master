@@ -8,6 +8,13 @@ Next.js operator web app for the decision-driven property management platform.
 - `pnpm --filter operator_app build`
 - `pnpm --filter operator_app type-check`
 
+## Recent changes
+
+- 13 new operator API modules added (#118).
+- OpenAPI frontend schema regenerated from current openapi.json (#117).
+- 4 mock operator services wired to real implementations (#116).
+- 3 critical bugs fixed: dead copilot code, broken fetch paths, audit log entityId filter (#115).
+
 ## API Proxy
 
 The app proxies backend calls through `/api/backend/*` to the NestJS backend.

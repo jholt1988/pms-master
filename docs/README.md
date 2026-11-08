@@ -554,6 +554,15 @@ Please update the relevant files or create an issue in the project repository.
 
 ---
 
-**Last Documentation Reorganization**: November 2025  
+## Wiki & Documentation Update Plan
+
+See [WIKI_AND_DOCS_UPDATE_PLAN.md](WIKI_AND_DOCS_UPDATE_PLAN.md) for the master plan covering:
+- GitHub Wiki bootstrap (enabled but currently empty)
+- README refresh for root + per-package (backend, operator app, mobile, prisma, ML, security)
+- Wiki pages (Home, Getting-Started, Architecture, Backend, Operator-App, Mobile, Data-and-DB, AI-and-ML, Security, Changelog-Digest, Troubleshooting)
+- Docs hygiene: stale page cleanup, CHANGELOG reconcile, link check
+- CI docs-lint workflow + docs-check script
+
+**Last Documentation Reorganization**: November 2026  
 **Maintained By**: Development Team
 
