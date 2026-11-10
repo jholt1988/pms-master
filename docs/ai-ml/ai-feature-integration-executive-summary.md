@@ -6809,7 +6809,7 @@ Using "Replace String in File"
 ```
 
 ```
-Now let me create a dedicated wiki page for the routing system and update the Home page: 
+Now let me create a dedicated wiki page for the routing system and update the home page: 
 
 Created [](file:///c%3A/Users/plabr/IN_PROGRESS/property_management_suite/tenant_portal_app/docs/wiki/Routing-System.md)
 
@@ -6843,7 +6843,7 @@ Now let me create a migration guide for the routing changes:
 
 Created [](file:///c%3A/Users/plabr/IN_PROGRESS/property_management_suite/tenant_portal_app/docs/wiki/Routing-Migration-Guide.md)
 
-Finally, let me update the Home page to include the new migration guide: 
+Finally, let me update the home page to include the new migration guide: 
 
 Using "Replace String in File"
 
