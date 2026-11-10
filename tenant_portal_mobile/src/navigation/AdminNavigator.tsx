@@ -28,7 +28,7 @@ export function AdminNavigator() {
     >
       <Tab.Screen
         name="Dashboard"
-        component={AdminDashboardScreen}
+        component={AdminDashboardScreen as React.ComponentType}
         options={{
           tabBarIcon: ({ color, size }) => <TabIcon name="📊" color={color} size={size} />,
         }}

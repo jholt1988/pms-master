@@ -126,6 +126,7 @@ export interface PaymentMethod {
   bankName?: string;
   bankLast4?: string;
   accountType?: string; // checking, savings
+  nickname?: string;
   createdAt: string;
   updatedAt: string;
 }

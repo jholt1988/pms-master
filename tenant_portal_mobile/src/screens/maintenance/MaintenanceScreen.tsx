@@ -42,6 +42,17 @@ export default function MaintenanceScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'in_progress' | 'completed'>('all');
 
+  const loadData = useCallback(async () => {
+    try {
+      await Promise.all([
+        dispatch(fetchMaintenanceRequests()).unwrap(),
+        dispatch(fetchMaintenanceSummary()).unwrap(),
+      ]);
+    } catch (err) {
+      console.error('Failed to load maintenance data:', err);
+    }
+  }, [dispatch]);
+
   useEffect(() => {
     loadData();
   }, [loadData]);
@@ -53,17 +64,6 @@ export default function MaintenanceScreen() {
       ]);
     }
   }, [dispatch, error]);
-
-  const loadData = useCallback(async () => {
-    try {
-      await Promise.all([
-        dispatch(fetchMaintenanceRequests()).unwrap(),
-        dispatch(fetchMaintenanceSummary()).unwrap(),
-      ]);
-    } catch (err) {
-      console.error('Failed to load maintenance data:', err);
-    }
-  }, [dispatch]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

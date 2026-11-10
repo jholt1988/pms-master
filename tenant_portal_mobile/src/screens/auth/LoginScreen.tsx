@@ -31,11 +31,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   // Form validation
   const [errors, setErrors] = useState<{ username?: string; password?: string }>({});
 
-  // Check biometric capabilities on mount
-  useEffect(() => {
-    checkBiometricSupport();
-  }, [checkBiometricSupport]);
-
   const handleBiometricLogin = useCallback(async () => {
     try {
       const result = await BiometricAuthService.attemptBiometricLogin();
@@ -71,6 +66,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       }
     }
   }, [handleBiometricLogin]);
+
+  useEffect(() => {
+    checkBiometricSupport();
+  }, [checkBiometricSupport]);
 
   const promptEnableBiometric = async (username: string) => {
     if (!biometricCapabilities?.isAvailable) {

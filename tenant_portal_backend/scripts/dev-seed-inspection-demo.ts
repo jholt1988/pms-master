@@ -10,8 +10,9 @@
    } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import bcrypt from 'bcrypt';
+import { databaseUrl } from './load-db-url';
 
-const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
+const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl() }) });
 
 /**
  * Demo seed focused on the Inspection → Estimate workflow.
@@ -76,25 +77,24 @@ async function main() {
     },
   });
 
-  const existingUnit101 = await prisma.unit.findFirst({
-    where: { propertyId: property.id, name: 'Unit 101' },
+  const unit = await prisma.unit.upsert({
+    where: { id: UNIT_ID },
+    update: {
+      name: 'Suite 101',
+      propertyId: property.id,
+      unitNumber: '101',
+      bedrooms: 2,
+      bathrooms: 1,
+    },
+    create: {
+      id: UNIT_ID,
+      name: 'Suite 101',
+      propertyId: property.id,
+      unitNumber: '101',
+      bedrooms: 2,
+      bathrooms: 1,
+    },
   });
-
-  const unit = existingUnit101
-    ? await prisma.unit.update({
-        where: { id: existingUnit101.id },
-        data: { bedrooms: 2, bathrooms: 1, unitNumber: '101' },
-      })
-    : await prisma.unit.create({
-        data: {
-          id: UNIT_ID,
-          name: 'Unit 101',
-          propertyId: property.id,
-          unitNumber: '101',
-          bedrooms: 2,
-          bathrooms: 1,
-        },
-      });
 
   const tenant = await prisma.user.upsert({
     where: { username: tenantUsername },
@@ -210,7 +210,7 @@ async function main() {
       status: LeaseStatus.ACTIVE,
       unitId: unit.id,
       tenantId: tenant.id,
-      rentAmount: 1350,
+      rentAmountCents: 135000,
     },
     create: {
       id: LEASE_ID,
@@ -219,9 +219,9 @@ async function main() {
       tenantId: tenant.id,
       startDate: new Date('2026-01-01'),
       endDate: new Date('2026-12-31'),
-      rentAmount: 1350,
+      rentAmountCents: 135000,
       noticePeriodDays: 30,
-      depositAmount: 600,
+      depositAmountCents: 60000,
       autoRenew: false,
     },
   });

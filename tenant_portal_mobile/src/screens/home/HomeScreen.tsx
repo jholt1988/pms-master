@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.sm,
-    ...theme.shadows.tiny,
+    ...theme.shadows.small,
   },
   activityIcon: {
     width: 40,

@@ -211,7 +211,7 @@ export const CreateMaintenanceRequestScreen: React.FC = () => {
 
     try {
       // Get the active lease's unit ID
-      const activeLease = leases.find((lease) => lease.status === 'ACTIVE');
+      const activeLease = leases.find((lease: { status?: string; unitId?: number | string }) => lease.status === 'ACTIVE');
       if (!activeLease?.unitId) {
         Alert.alert('Error', 'No active lease found. Please contact property management.');
         return;

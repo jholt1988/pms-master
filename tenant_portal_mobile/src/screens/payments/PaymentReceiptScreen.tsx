@@ -32,7 +32,7 @@ export default function PaymentReceiptScreen() {
   );
 
   // Find the payment from the list
-  const selectedPayment = payments.find((p: Payment) => p.id === paymentId);
+  const selectedPayment = payments.find((p) => p.id === paymentId);
 
   const loadPayment = useCallback(async () => {
     await dispatch(fetchPayments());

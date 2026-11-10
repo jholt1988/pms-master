@@ -1,7 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { databaseUrl } from './load-db-url';
 
-const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
+const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl() }) });
 
 async function main() {
   const propertyManager = await prisma.user.findFirst({ where: { role: 'PROPERTY_MANAGER' } });
@@ -74,9 +75,15 @@ async function main() {
   });
 
   const credential = await prisma.syndicationCredential.upsert({
-    where: { channel: 'ZILLOW' },
+    where: {
+      organizationId_channel: {
+        organizationId: property.organizationId,
+        channel: 'ZILLOW',
+      },
+    },
     update: { config: { apiKey: 'seed', enabled: true } },
     create: {
+      organizationId: property.organizationId,
       channel: 'ZILLOW',
       config: { apiKey: 'seed', enabled: true },
     },
@@ -188,7 +195,7 @@ async function main() {
     await prisma.leaseRenewalOffer.create({
       data: {
         leaseId: firstLease.id,
-        proposedRent: firstLease.rentAmount * 1.05,
+        proposedRentCents: Math.round(firstLease.rentAmountCents * 1.05),
         proposedStart: firstLease.endDate,
         proposedEnd: renewalEnd,
         status: 'OFFERED',
@@ -209,7 +216,7 @@ async function main() {
       data: {
         leaseId: firstLease.id,
         description: 'Seeded invoice',
-        amount: firstLease.rentAmount,
+        amountCents: firstLease.rentAmountCents,
         dueDate: new Date(),
         status: 'UNPAID',
       },
@@ -218,25 +225,25 @@ async function main() {
     await prisma.lateFee.create({
       data: {
         invoiceId: invoice.id,
-        amount: 25,
+        amountCents: 2500,
       },
     });
 
     await prisma.recurringInvoiceSchedule.upsert({
       where: { leaseId: firstLease.id },
       update: {
-        amount: firstLease.rentAmount,
+        amountCents: firstLease.rentAmountCents,
         nextRun: new Date(),
         frequency: 'MONTHLY',
-        lateFeeAmount: 15,
+        lateFeeAmountCents: 1500,
       },
       create: {
         leaseId: firstLease.id,
-        amount: firstLease.rentAmount,
+        amountCents: firstLease.rentAmountCents,
         dayOfMonth: 1,
         nextRun: new Date(),
         frequency: 'MONTHLY',
-        lateFeeAmount: 15,
+        lateFeeAmountCents: 1500,
       },
     });
   }
@@ -447,6 +454,7 @@ async function main() {
 
   await prisma.quickBooksConnection.create({
     data: {
+      organizationId: property.organizationId,
       userId: propertyManager.id,
       companyId: `seed-${Date.now()}`,
       accessToken: 'seed-access',

@@ -36,6 +36,17 @@ export default function LeaseScreen() {
 
   const [refreshing, setRefreshing] = useState(false);
 
+  const loadData = useCallback(async () => {
+    try {
+      await Promise.all([
+        dispatch(fetchCurrentLease()).unwrap(),
+        dispatch(fetchLeaseSummary()).unwrap(),
+      ]);
+    } catch (err) {
+      console.error('Failed to load lease data:', err);
+    }
+  }, [dispatch]);
+
   useEffect(() => {
     loadData();
   }, [loadData]);
@@ -47,17 +58,6 @@ export default function LeaseScreen() {
       ]);
     }
   }, [dispatch, error]);
-
-  const loadData = useCallback(async () => {
-    try {
-      await Promise.all([
-        dispatch(fetchCurrentLease()).unwrap(),
-        dispatch(fetchLeaseSummary()).unwrap(),
-      ]);
-    } catch (err) {
-      console.error('Failed to load lease data:', err);
-    }
-  }, [dispatch]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

@@ -23,7 +23,7 @@ export function MaintenanceStackNavigator() {
         headerTitleStyle: {
           fontWeight: '600',
         },
-        headerBackTitleVisible: false,
+        headerBackButtonDisplayMode: 'minimal',
       }}
     >
       <Stack.Screen

@@ -1,8 +1,9 @@
-import { PrismaClient, Role, LeaseStatus } from '@prisma/client';
+import { PrismaClient, Role, LeaseStatus, UnitStatus } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import bcrypt from 'bcrypt';
+import { databaseUrl } from './load-db-url';
 
-const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
+const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl() }) });
 
 async function main() {
   const adminUsername = 'admin';
@@ -15,6 +16,7 @@ async function main() {
 
   const ORG_ID = '11111111-1111-4111-8111-111111111111';
   const PROPERTY_ID = '22222222-2222-4222-8222-222222222222';
+  const UNIT_ID = '33333333-3333-4333-8333-333333333333';
 
   const organization = await prisma.organization.upsert({
     where: { id: ORG_ID },
@@ -69,14 +71,21 @@ async function main() {
   });
 
   const unit = await prisma.unit.upsert({
-    where: { id: 101 },
-    update: { name: 'Suite 101', propertyId: property.id },
-    create: {
-      id: 101,
+    where: { id: UNIT_ID },
+    update: {
       name: 'Suite 101',
+      propertyId: property.id,
+      unitNumber: '101',
+      status: UnitStatus.OCCUPIED,
+    },
+    create: {
+      id: UNIT_ID,
+      name: 'Suite 101',
+      unitNumber: '101',
       propertyId: property.id,
       bedrooms: 1,
       bathrooms: 1,
+      status: UnitStatus.OCCUPIED,
     },
   });
 
@@ -93,6 +102,21 @@ async function main() {
     },
   });
 
+  await prisma.userOrganization.upsert({
+    where: {
+      userId_organizationId: {
+        userId: tenant.id,
+        organizationId: organization.id,
+      },
+    },
+    update: {},
+    create: {
+      userId: tenant.id,
+      organizationId: organization.id,
+      role: 'MEMBER',
+    },
+  });
+
   const existingLease = await prisma.lease.findFirst({
     where: { tenantId: tenant.id },
   });
@@ -103,7 +127,7 @@ async function main() {
       data: {
         status: LeaseStatus.ACTIVE,
         unitId: unit.id,
-        rentAmount: 1200,
+        rentAmountCents: 120000,
       },
     });
   } else {
@@ -114,9 +138,9 @@ async function main() {
         tenantId: tenant.id,
         startDate: new Date('2026-01-01'),
         endDate: new Date('2026-12-31'),
-        rentAmount: 1200,
+        rentAmountCents: 120000,
         noticePeriodDays: 30,
-        depositAmount: 500,
+        depositAmountCents: 50000,
         autoRenew: false,
       },
     });

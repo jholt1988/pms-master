@@ -213,9 +213,9 @@ export default function AutoPaySetupScreen() {
 
   const selectedMethodSummary = useMemo(() => {
     if (!selectedMethodId) return 'None selected';
-    const method = paymentMethods.find((m) => m.id === selectedMethodId);
+    const method = paymentMethods.find((m: PaymentMethod) => m.id === selectedMethodId);
     if (!method) return 'None selected';
-    const display = getPaymentMethodDisplay(PaymentMethodType[method.type]);
+    const display = getPaymentMethodDisplay(method.type);
     const last4 = method.bankLast4 || method.cardLast4;
     return `${display.label} ${last4 ? `•••• ${last4}` : ''}`;
   }, [selectedMethodId, paymentMethods]);
@@ -287,7 +287,7 @@ export default function AutoPaySetupScreen() {
                 </View>
               ) : (
                 <View style={styles.paymentMethodsList}>
-                  {paymentMethods.map((method, index) => (
+                  {paymentMethods.map((method: PaymentMethod, index: number) => (
                     <View
                       key={method.id}
                       style={index > 0 ? styles.paymentMethodSpacing : undefined}

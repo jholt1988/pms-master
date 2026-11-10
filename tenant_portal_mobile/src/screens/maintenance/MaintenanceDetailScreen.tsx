@@ -316,7 +316,7 @@ export const MaintenanceDetailScreen: React.FC = () => {
                   onPress={() => setSelectedPhotoIndex(index)}
                 >
                   <Image
-                    source={{ uri: photo.photoUrl }}
+                    source={{ uri: photo.thumbnailUrl || photo.url }}
                     style={styles.photoImage}
                     resizeMode="cover"
                   />

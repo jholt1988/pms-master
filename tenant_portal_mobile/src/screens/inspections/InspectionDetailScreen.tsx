@@ -12,7 +12,7 @@ import {
 import { RouteProp } from '@react-navigation/native';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { addChecklistPhoto, fetchInspectionDetail, setLocalChecklistItem, updateChecklistItem } from '../../store/checklistSlice';
-import { InspectionChecklistItem } from '../../types/inspection';
+import { InspectionChecklistItem, InspectionRoom } from '../../types/inspection';
 import { PhotoPicker } from '../../components/inspections/PhotoPicker';
 import { format } from 'date-fns';
 import * as theme from '../../theme';
@@ -57,10 +57,10 @@ export function InspectionDetailScreen({ route }: Props) {
           <Text style={styles.metaText}>{inspection.unit?.property?.name ?? 'Property'} · {inspection.unit?.unitNumber ?? ''}</Text>
         </View>
 
-        {inspection.rooms?.map((room) => (
+        {inspection.rooms?.map((room: InspectionRoom) => (
           <View key={room.id} style={styles.roomCard}>
             <Text style={styles.roomTitle}>{room.name}</Text>
-            {room.checklistItems?.map((item) => (
+            {room.checklistItems?.map((item: InspectionChecklistItem) => (
               <ChecklistItemRow key={item.id} item={item} />
             ))}
           </View>

@@ -31,18 +31,6 @@ export default function PaymentsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed' | 'failed'>('all');
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  useEffect(() => {
-    if (error) {
-      Alert.alert('Error', error, [
-        { text: 'OK', onPress: () => dispatch(clearError()) },
-      ]);
-    }
-  }, [dispatch, error]);
-
   const loadData = useCallback(async () => {
     try {
       await Promise.all([
@@ -54,6 +42,18 @@ export default function PaymentsScreen() {
       console.error('Failed to load payment data:', err);
     }
   }, [dispatch]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    if (error) {
+      Alert.alert('Error', error, [
+        { text: 'OK', onPress: () => dispatch(clearError()) },
+      ]);
+    }
+  }, [dispatch, error]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

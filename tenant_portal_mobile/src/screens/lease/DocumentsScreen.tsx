@@ -39,6 +39,14 @@ export default function DocumentsScreen() {
   const [selectedCategory, setSelectedCategory] = useState<DocumentCategory | 'ALL'>('ALL');
   const [isDownloading, setIsDownloading] = useState<number | null>(null);
 
+  const loadDocuments = useCallback(async () => {
+    try {
+      await dispatch(fetchDocuments(undefined)).unwrap();
+    } catch (err) {
+      console.error('Failed to load documents:', err);
+    }
+  }, [dispatch]);
+
   useEffect(() => {
     loadDocuments();
   }, [loadDocuments]);
@@ -50,14 +58,6 @@ export default function DocumentsScreen() {
       ]);
     }
   }, [dispatch, error]);
-
-  const loadDocuments = useCallback(async () => {
-    try {
-      await dispatch(fetchDocuments(undefined)).unwrap();
-    } catch (err) {
-      console.error('Failed to load documents:', err);
-    }
-  }, [dispatch]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
