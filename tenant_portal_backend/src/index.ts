@@ -3,6 +3,7 @@ import 'reflect-metadata';
 
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { PrometheusService } from './metrics/prometheus.service';
 import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import { GlobalExceptionFilter } from './global-exception.filter';
@@ -121,6 +122,13 @@ async function bootstrap() {
   }
 
   app.enableShutdownHooks();
+
+  const prometheusService = app.get(PrometheusService);
+  app.getHttpAdapter().get('/metrics', async (_req: any, res: any) => {
+    const metrics = await prometheusService.getMetrics();
+    res.set('Content-Type', prometheusService.getContentType());
+    res.end(metrics);
+  });
 
   const port = Number(process.env.PORT) || 3001;
   await app.listen(port);
