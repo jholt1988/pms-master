@@ -61,6 +61,12 @@ import { BriefingModule } from './briefing/briefing.module';
 import { BookkeepingModule } from './bookkeeping/bookkeeping.module';
 import { validateEnv } from './config/env/env.validation';
 import { VendorsModule } from './vendors/vendors.module';
+import { DepositItemizationModule } from './deposit-itemization/deposit-itemization.module';
+import { DepositAlternativesModule } from './deposit-alternatives/deposit-alternatives.module';
+import { CommercialLeaseModule } from './commercial-lease/commercial-lease.module';
+import { AffordableHousingModule } from './affordable-housing/affordable-housing.module';
+import { VendorPortalModule } from './vendor-portal/vendor-portal.module';
+import { TrustAccountingModule } from './trust-accounting/trust-accounting.module';
 import { TenantInsuranceModule } from './tenant-insurance/tenant-insurance.module';
 import { OwnerPortalModule } from './owner-portal/owner-portal.module';
 import { UtilityBillingModule } from './utility-billing/utility-billing.module';
@@ -206,6 +212,12 @@ const rateLimitProviders = rateLimitEnabled
     BriefingModule,
     BookkeepingModule,
     VendorsModule,
+    DepositItemizationModule,
+    DepositAlternativesModule,
+    CommercialLeaseModule,
+    AffordableHousingModule,
+    VendorPortalModule,
+    TrustAccountingModule,
     TenantInsuranceModule,
     OwnerPortalModule,
     UtilityBillingModule,

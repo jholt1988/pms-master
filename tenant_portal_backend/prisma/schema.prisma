@@ -149,6 +149,7 @@ model Organization {
   reconciliationSessions      ReconciliationSession[]
   stripeWebhookEvents         StripeWebhookEvent[]
   syndicationCredentials      SyndicationCredential[]
+  trustAccounts                   TrustAccount[]
   technicians                 Technician[]
   users                       UserOrganization[]
   vendors                     Vendor[]
@@ -3699,4 +3700,36 @@ enum MaintenanceRiskLevel {
   LOW
   MEDIUM
   HIGH
+}
+
+
+model TrustAccount {
+  id             String            @id @default(uuid()) @db.Uuid
+  organizationId String            @db.Uuid
+  name           String
+  accountNumber  String?
+  bankName       String?
+  balanceCents   Int               @default(0)
+  status         String            @default("ACTIVE")
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  organization   Organization      @relation(fields: [organizationId], references: [id])
+  transactions   TrustTransaction[]
+
+  @@index([organizationId])
+}
+
+model TrustTransaction {
+  id             String       @id @default(uuid()) @db.Uuid
+  trustAccountId String       @db.Uuid
+  type           String
+  amountCents    Int
+  description    String?
+  reference      String?
+  reconciled     Boolean      @default(false)
+  reconciledAt   DateTime?
+  createdAt      DateTime     @default(now())
+  trustAccount   TrustAccount @relation(fields: [trustAccountId], references: [id], onDelete: Cascade)
+
+  @@index([trustAccountId, createdAt])
 }

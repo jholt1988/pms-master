@@ -139,7 +139,7 @@ services:
       SHADOW_DATABASE_URL: ${SHADOW_DATABASE_URL:-postgresql://pms:pms@postgres:5432/pms_shadow?schema=public}
       DIRECT_URL: ${DIRECT_URL:-}
     user: root
-    command: sh -c "npx prisma generate && npx prisma migrate deploy --schema=./prisma/schema.prisma"
+    command: sh -c "NODE_PATH=/usr/local/lib/node_modules npx prisma generate && NODE_PATH=/usr/local/lib/node_modules npx prisma migrate deploy --schema=./prisma/schema.prisma"
     restart: "no"
     networks:
       - pms-internal

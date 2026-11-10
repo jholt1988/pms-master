@@ -6,7 +6,7 @@ import { AIPaymentService } from '../payments/ai-payment.service';
 import { AIPaymentMetricsService } from '../payments/ai-payment-metrics.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType, Invoice } from '@prisma/client';
-import { subDays } from 'date-fns';
+import { subDays, addDays } from 'date-fns';
 import { EsignatureService } from '../esignature/esignature.service';
 import { RentOptimizationService } from '../rent-optimization/rent-optimization.service';
 import { AnalyticsService } from '../reporting/analytics.service';
@@ -576,6 +576,57 @@ export class ScheduledJobsService {
     const now = new Date();
     if (now.getMinutes() === 0) {
       this.logger.log('Scheduled jobs system is healthy');
+    }
+  }
+
+  /**
+   * Vendor COI / insurance expiry alerts
+   * Runs daily at 8 AM. Notifies org admins when vendor insurance or compliance docs
+   * expire within 30 days.
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_8AM, { name: 'vendorComplianceExpiryAlerts' })
+  async vendorComplianceExpiryAlerts() {
+    this.logger.log('Checking vendor compliance expiry...');
+    try {
+      const now = new Date();
+      const horizon = addDays(now, 30);
+      const vendors = await this.prisma.vendor.findMany({
+        where: { insuranceExpiry: { gte: now, lte: horizon } },
+        select: { id: true, name: true, organizationId: true, insuranceExpiry: true },
+      });
+      const compliances = await this.prisma.vendorCompliance.findMany({
+        where: { expirationDate: { gte: now, lte: horizon } },
+        include: { vendor: { select: { name: true, organizationId: true } } },
+      });
+
+      const byOrg = new Map<string, string[]>();
+      for (const v of vendors) {
+        const days = Math.ceil((v.insuranceExpiry!.getTime() - now.getTime()) / 86400000);
+        byOrg.set(v.organizationId, [...(byOrg.get(v.organizationId) || []), `Vendor ${v.name} insurance expires in ${days} days`]);
+      }
+      for (const c of compliances) {
+        const days = Math.ceil((c.expirationDate!.getTime() - now.getTime()) / 86400000);
+        const orgId = c.vendor.organizationId;
+        byOrg.set(orgId, [...(byOrg.get(orgId) || []), `${c.documentType} for ${c.vendor.name} expires in ${days} days`]);
+      }
+
+      for (const [orgId, messages] of byOrg.entries()) {
+        const admin = await this.prisma.user.findFirst({
+          where: { role: 'ADMIN', organizations: { some: { organizationId: orgId } } },
+          select: { id: true },
+        });
+        if (!admin) continue;
+        await this.notificationsService.create({
+          userId: admin.id,
+          type: 'SYSTEM' as NotificationType,
+          title: 'Vendor compliance expiring',
+          message: messages.join('; '),
+          urgency: 'MEDIUM',
+        });
+      }
+      this.logger.log(`Vendor compliance alerts sent for ${byOrg.size} organizations.`);
+    } catch (error) {
+      this.logger.error('Failed to run vendorComplianceExpiryAlerts: ', error);
     }
   }
 }

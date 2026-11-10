@@ -1,10 +1,10 @@
-import { PrismaClient, Role, LeaseStatus, Status } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
-import { PrismaPg } from '@prisma/adapter-pg';
+const { PrismaClient, Role, LeaseStatus, Status } = require('@prisma/client');
+const bcrypt = require('bcrypt');
+const { PrismaPg } = require('@prisma/adapter-pg');
 
 const ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'host.docker.internal'];
 
-function isAllowedUrl(raw: string): boolean {
+function isAllowedUrl(raw) {
   try {
     const url = new URL(raw);
     const host = url.hostname.toLowerCase();
@@ -73,12 +73,12 @@ async function main() {
   await prisma.userOrganization.upsert({
     where: { userId_organizationId: { userId: operator.id, organizationId: org.id } },
     update: {},
-    create: { userId: operator.id, organizationId: org.id, role: 'OWNER' as any },
+    create: { userId: operator.id, organizationId: org.id, role: 'OWNER' },
   });
   await prisma.userOrganization.upsert({
     where: { userId_organizationId: { userId: tenant.id, organizationId: org.id } },
     update: {},
-    create: { userId: tenant.id, organizationId: org.id, role: 'MEMBER' as any },
+    create: { userId: tenant.id, organizationId: org.id, role: 'MEMBER' },
   });
 
   // lease
@@ -120,4 +120,3 @@ async function main() {
 main()
   .catch((e) => { console.error(e); process.exit(1); })
   .finally(() => prisma.$disconnect());
-EOF
