@@ -3,6 +3,7 @@ name: Security Scan
 # Secret scanning + large-file guard. Added as part of the 2026-06 security review.
 # Phase 1B: added scheduled full-history scan (weekly, Monday 09:00 UTC).
 on:
+  workflow_dispatch:
   push:
   pull_request:
   schedule:

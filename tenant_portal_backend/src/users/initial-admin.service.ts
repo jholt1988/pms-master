@@ -39,6 +39,14 @@ export class InitialAdminService implements OnModuleInit {
   }
 
   private async ensureInitialAdmin(nodeEnv: string): Promise<void> {
+    const passwordPlain = this.configService.get<string>('ADMIN_BOOTSTRAP_PASSWORD');
+    if (!passwordPlain || passwordPlain === 'admin') {
+      this.logger.error(
+        'Initial admin bootstrap skipped: ADMIN_BOOTSTRAP_PASSWORD is missing or equals the default "admin". Set a non-default password before enabling bootstrap.',
+      );
+      return;
+    }
+
     const role = Role.ADMIN;
 
     const existingAdmin = await this.prisma.user.findFirst({
@@ -55,8 +63,6 @@ export class InitialAdminService implements OnModuleInit {
     const email =
       this.configService.get<string>('ADMIN_BOOTSTRAP_EMAIL') ||
       'admin@admin.com';
-    const passwordPlain =
-      this.configService.get<string>('ADMIN_BOOTSTRAP_PASSWORD') || 'admin';
     const firstName =
       this.configService.get<string>('ADMIN_BOOTSTRAP_FIRST_NAME') || 'Admin';
     const lastName =

@@ -11,13 +11,21 @@ export const config = {
   },
 };
 
+function allowedChatOrigins(): string[] {
+  const raw = process.env.ALLOWED_ORIGINS;
+  const origins = (raw ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0 && origin !== '*');
+  return origins.length > 0 ? origins : ['http://localhost:3000'];
+}
+
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!io) {
     const server = res.socket?.server as HTTPServer;
     io = new IOServer(server, {
       path: '/api/socket.io',
-      // allow CORS for dev; adjust for prod
-      cors: { origin: '*', methods: ['GET', 'POST'] },
+      cors: { origin: allowedChatOrigins(), methods: ['GET', 'POST'] },
     });
     io.on('connection', (socket) => {
       console.log('New socket connected', socket.id);

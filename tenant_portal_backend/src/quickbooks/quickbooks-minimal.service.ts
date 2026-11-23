@@ -290,7 +290,7 @@ export class QuickBooksMinimalService extends AbstractQuickBooksService {
       : null;
 
     try {
-      await (this.prisma as any).quickBooksWebhookEvent.create({
+      await this.prisma.quickBooksWebhookEvent.create({
         data: {
           eventKey,
           realmId,

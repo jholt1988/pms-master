@@ -1,6 +1,6 @@
 # API Route Ownership
 
-Date: 2026-06-04
+Date: 2026-11-23
 
 Purpose: freeze canonical backend route ownership for the Next.js operator app migration.
 
@@ -33,12 +33,12 @@ External routes:
 | --- | --- | --- | --- | --- | --- | --- |
 | Auth/session | `/api/auth` | `auth` | `AuthController` | Yes | P0 | Login, refresh, logout, MFA, current user, password policy. Next.js should wrap auth/session handling cleanly. |
 | Users/staff | `/api/users` | `users` | `UsersController` | Yes | P1 | Operator staff/admin management. Requires RBAC and org scoping checks. |
-| Organization settings | `/api/settings` | `settings` (planned) | `OrganizationSettingsController` (not registered — orphaned) | Yes | P1 | ⚠ NOT SERVED: the controller exists but is not registered in any module (no `SettingsModule`) and is excluded from tsc, so `/api/settings` currently 404s. Planned feature — kept for wire-up. See #75. |
+| Organization settings | `/api/settings` | `settings` | `OrganizationSettingsController` | Yes | P1 | Served. `SettingsModule` registers the controller and `AppModule` imports that module. Global prefix `api` plus `@Controller('settings')` mounts GET/PATCH `/api/settings`, GET `/api/settings/users`, POST `/api/settings/users/invite`, PATCH `/api/settings/users/:id`, POST `/api/settings/users/:id/deactivate`, GET `/api/settings/integrations`, POST `/api/settings/integrations/quickbooks/connect`, POST `/api/settings/integrations/quickbooks/disconnect`, and GET `/api/settings/audit-log`. |
 | Billing / connected account | `/api/billing/connected-account` | `billing` | `BillingController` | Yes | P1 | Served. Stripe connected-account settings. |
 | Portfolio/properties | `/api/properties` | `property` | `PropertyController` | Yes | P0 | Canonical owner for portfolio/property/unit read and write workflows. Deprecate `property` alias for operator app. |
 | Units | `/api/units` and `/api/properties/:id/units` | `property` | `PropertyController` | Yes | P0 | Prefer nested property unit routes for CRUD and `/api/units/*` only for cross-property operations. (The `UnitsRadialController` shortcut was an unregistered prototype — removed, #75.) |
 | Saved property filters | `/api/properties/saved-filters` | `property` | `PropertyController` | Later | P2 | Operator convenience feature, not private beta blocker. |
-| Leases | `/api/leases` | `lease` | `LeaseController` | Yes | P0 | Lease lifecycle, tenant notices, renewals, conversion from approved applications. |
+| Leases | `/api/leases` | `lease` | `LeaseController` | Yes | P0 | Lease lifecycle, tenant notices, renewals, conversion from approved applications. Unregistered `LeaseLifecycleController` (`src/lease/lease-lifecycle.controller.ts`) was removed; do not treat it as a live route. |
 | Lease abstraction | `/api/lease-abstraction` | `lease-abstraction` | `LeaseAbstractionController` | Later | P2 | AI/document workflow. Not needed until document ingestion is stable. |
 | Leasing leads | `/api/leasing/leads` | `leasing` | `LeasingController` | Yes | P0 | Canonical lead management route. Deprecate unprefixed `/leasing` browser calls after migration. |
 | Leasing tours | `/api/leasing/tours` | `leasing` | `ToursController`, `LeasingController` | Yes | P1 | Needs one route family for tours; avoid scattered scheduling semantics. |
@@ -57,11 +57,11 @@ External routes:
 | Inspections | `/api/inspections` | `inspections` | `InspectionsController` | Yes | P0 | List/detail/create/update/complete/approve/photos. Remove `inspections-legacy` for operator app. |
 | Inspection requests | `/api/inspections/requests` | `inspections` | `InspectionRequestsController` | Yes | P0 | Canonical operator route for tenant inspection request queue. `/api/inspection-requests` is not owned. |
 | Repair estimates | `/api/estimates` | `inspections` | `EstimatesController` | Yes | P1 | Inspection-to-estimate workflow. Requires stable estimate DTO. |
-| Documents | `/api/documents` | `documents` | `DocumentsController` after merge | Yes | P0 | Merge duplicate controllers. Canonical upload should be `POST /api/documents`; `/upload` may be temporary alias. |
+| Documents | `/api/documents` | `documents` | `DocumentsController` | Yes | P0 | Served by `DocumentsController` in `DocumentsModule` (imported by `AppModule`). Unregistered `DocumentManagementController` was removed. Declared routes are GET `/api/documents`, POST `/api/documents/upload`, GET `/api/documents/:id/download`, POST `/api/documents/:id/share`, and DELETE `/api/documents/:id`. There is no bare POST `/api/documents`. |
 | E-signature | `/api/esignature` | `esignature` | `EsignatureController` | Yes | P1 | Keep browser-facing canonical `/api/esignature`. Remove direct frontend fetch duplication except file downloads. |
 | E-signature webhook | `/webhooks/esignature` | `esignature` | `EsignatureWebhookController` | External | P0 | External provider callback. Excluded from global prefix intentionally. |
 | Messaging | `/api/messaging` | `messaging` | `MessagingController` | Yes | P0/P1 | Conversations and messages P1; bulk send P0 due compliance risk. New app should use v2 envelope only. |
-| Notifications | `/api/notifications` | `notifications` | `NotificationsController` | Yes | P1 | Unread count, list, read/read-all, preferences. |
+| Notifications | `/api/notifications` | `notifications` | `NotificationsController` | Yes | P1 | Served. `NotificationsModule` registers `NotificationsController` (`@Controller('notifications')`) and is imported by `AppModule`. Unregistered `notification.controller.ts` was removed. Live methods: list, unread-count, read, read-all, delete, preferences. |
 | Schedule | `/api/schedule` | `schedule` | `ScheduleController` | Yes | P1 | List, daily/weekly/monthly, summary, create. Client must not pass API base into endpoint names. |
 | Reporting | `/api/reporting` | `reporting` | `ReportingController` | Yes | P0/P1 | Fix ` delinquency-report` route typo. Deprecate `/api/reports` alias for operator app. |
 | Dashboard | `/api/dashboard` | `dashboard` | `DashboardController`, `TenantDashboardController` | Temporary | P1 | Existing metrics/action-intents. Long-term operator command center should move to `/api/command-center`. |
@@ -80,7 +80,7 @@ External routes:
 | Operator owner statements | `/api/operator-owner-statements` | `operator-owner-statements` | `OperatorOwnerStatementsController` | Yes | P0 | Owner statement generation, approval, and send workflow surface. |
 | Briefing | `/api/briefing` | `briefing` | `BriefingController` | Yes | P1 | Daily briefing. May be folded into command center later. |
 | Feed | `/api/feed` | `feed` | `FeedController`, `FeedAggregatorController` | Yes | P1 | Do not use `/api/v2/feed` unless implemented and owned in `pms-master`. |
-| Copilot/decisions | `/api/copilot` | `copilot` (planned) | `DecisionEngineController` (not registered — orphaned) | Later | P1 | ⚠ NOT SERVED: `DecisionEngineController` is not registered in any module and is excluded from tsc. Planned decision-engine API (strict action-intent DTOs) — kept for wire-up; see #75. |
+| Copilot/decisions | `/api/copilot` | none | none | Later | P1 | NOT SERVED: `src/copilot/decision-engine.controller.ts` is gone and no copilot module is registered. Do not call `/api/copilot`. |
 | Policy/approvals | `/api/policy` | `policy` | `PolicyController` | Yes | P0 | Approval tasks, property policy, underwriting, payment-plan, maintenance, denial compliance. |
 | Analytics/telemetry | `/api/analytics`, `/api/telemetry` | `analytics`, `telemetry` | `AnalyticsController`, `TelemetryController` | Later | P2 | Keep for event capture/reporting. Not a direct command-center dependency unless typed. (The `PortfolioAnalyticsController` prototype was unregistered — removed, #75.) |
 | Audit logs | `/api/audit-logs` | `shared` | `AuditLogController` | Yes | P1 | Operator audit views. Ensure org scoping and access controls. |
@@ -92,7 +92,7 @@ External routes:
 | Rent estimator | `/api/rent-estimator` | `rent-estimator` | `RentEstimatorController` | Later | P2 | Can feed predictive AI later. |
 | Rent recommendations | `/api/rent-recommendations` | `rent-optimization` | `RentOptimizationController` | Later | P1/P2 | Decision-driven differentiator, but contract after core lease/payment flows. |
 | Owner portal | `/api/owner-portal` | `owner-portal` | Owner portal controllers | Later | P2 | Owner portal is companion surface, not first operator shell blocker. |
-| Vendors | `/api/vendors` | `vendors` | Vendor controllers | Yes | P1 | Needed for maintenance dispatch. Verify controller route ownership before porting. |
+| Vendors | `/api/vendors` | `vendors` | `VendorsController` | Yes | P1 | Served. `VendorsModule` registers `VendorsController` (`@Controller('vendors')`) and is imported by `AppModule`. Declared routes: POST `/api/vendors`, GET `/api/vendors`, GET `/api/vendors/1099-export`. Unregistered `VendorManagementController` was removed. |
 | Tenant profiles | `/api/tenants` | `tenant` | `TenantController` | Yes | P0 | Tenant workspace, health, activity, profile, household, violations. (The `TenantProfileController` prototype was unregistered — removed, #75.) |
 | Tenant feed | `/api/tenant/feed` | `tenant` | `TenantFeedController` | Tenant portal | P2 | Not operator app unless surfaced in tenant workspace. |
 | Tenant insurance | `/api/tenant-insurance` | `tenant-insurance` | `TenantInsuranceController` | Later | P2 | Post-core workflow. |
@@ -162,7 +162,7 @@ Example client module naming:
 
 P0:
 
-1. Merge duplicate document controllers.
+1. Duplicate document controller is already gone (`DocumentManagementController` removed). `DocumentsController` owns `/api/documents`.
 2. Remove or replace `/payment-methods` frontend usage.
 3. Canonicalize `applications` vs `rental-applications`.
 4. Canonicalize inspections and explicitly own inspection request routes.
