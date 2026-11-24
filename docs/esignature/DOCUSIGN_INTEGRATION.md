@@ -193,7 +193,7 @@ curl.exe -X POST https://account-d.docusign.com/oauth/token `
 Response:
 ```json
 {
-  "access_token": "eyJ0eXAiOiJNVCIsImFsZyI6IlJTMjU2I...",
+  "access_token": "<redacted>",
   "token_type": "Bearer",
   "expires_in": 28800,
   "refresh_token": "abc123..."
@@ -266,7 +266,7 @@ ESIGN_PROVIDER_BASE_URL=https://demo.docusign.net/restapi/v2.1
 # ESIGN_PROVIDER_BASE_URL=https://www.docusign.net/restapi/v2.1
 
 # OAuth Access Token (from Step 5)
-ESIGN_PROVIDER_API_KEY=eyJ0eXAiOiJNVCIsImFsZyI6IlJTMjU2I...
+ESIGN_PROVIDER_API_KEY=<redacted>
 
 # Your DocuSign Account ID (from Step 3)
 ESIGN_PROVIDER_ACCOUNT_ID=12345678-1234-1234-1234-123456789012

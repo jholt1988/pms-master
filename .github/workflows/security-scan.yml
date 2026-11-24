@@ -20,9 +20,13 @@ jobs:
         with:
           fetch-depth: 1   # current tree only; full history fails on old secret commits
       - name: Run gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Current-tree scan. gitleaks-action's git range needs parent commits
+        # (fetch-depth 1 exits 1) and the pulls API (PR runs 403). A full-history
+        # scan still fails on old secret commits. Do not restore those commits.
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz" -o /tmp/gitleaks.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp
+          /tmp/gitleaks detect --no-git --source . --config .gitleaks.toml --redact --verbose --exit-code 2
 
   large-files:
     name: Reject files larger than 5 MB

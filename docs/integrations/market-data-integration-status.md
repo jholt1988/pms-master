@@ -29,7 +29,7 @@ Attempted to integrate Rentometer API v3 for real-time market data. The integrat
 1. **Rentometer API Access**
    - Status Code: 404 Not Found
    - API Endpoint: `https://www.rentometer.com/api/v3/summary`
-   - API Key Configured: `r-kUFkJ8iznPSeZBKPnX2g` (first 10 chars masked)
+   - API Key Configured: `<redacted>` (first 10 chars masked)
    
 2. **Root Cause Analysis**
    Possible reasons for 404 error:
@@ -65,7 +65,7 @@ url = "https://www.rentometer.com/api/v3/summary"
 
 # Parameters
 params = {
-    "api_key": "r-kUFkJ8iznPSeZBKPnX2g",
+    "api_key": "<redacted>",
     "address": "123 Main St, San Francisco, CA 94102",
     "bedrooms": 2,
     "bathrooms": 1,
@@ -122,7 +122,7 @@ curl "https://www.rentometer.com/api/v3/summary?..."
 If Rentometer API is unavailable, consider:
 
 1. **Zillow API** (Already configured)
-   - API Key: `6f78ee32071c4da88773647bbe9e10de` (REALTOR_API_KEY)
+   - API Key: `<redacted>` (REALTOR_API_KEY)
    - More established API
    - Better documentation
 
@@ -167,12 +167,12 @@ If external APIs remain unavailable:
 ### Environment Variables
 ```bash
 # rent_optimization_ml/.env
-RENTOMETER_API_KEY=r-kUFkJ8iznPSeZBKPnX2g
-REALTOR_API_KEY=6f78ee32071c4da88773647bbe9e10de
+RENTOMETER_API_KEY=<redacted>
+REALTOR_API_KEY=<redacted>
 ZILLOW_API_KEY=  # Not configured yet
 
 # tenant_portal_app/.env
-REACT_APP_RENTOMETER_API_KEY=r-kUFkJ8iznPSeZBKPnX2g
+REACT_APP_RENTOMETER_API_KEY=<redacted>
 REACT_APP_MARKET_DATA_PROVIDER=RENTOMETER
 ```
 

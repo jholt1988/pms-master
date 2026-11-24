@@ -194,7 +194,7 @@ Successfully integrated Rentcast API as the **primary market data source** for t
 
 ```
 Headers:
-  X-Api-Key: 6f78ee32071c4da88773647bbe9e10de
+  X-Api-Key: <redacted>
   Accept: application/json
 ```
 

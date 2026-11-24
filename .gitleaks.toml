@@ -12,4 +12,10 @@ paths = [
   '''\.env\.example$''',
   '''\.env\..*\.example$''',
   '''(^|/)README\.md$''',
+  # curl-auth-header matches the header shape in these guides, not a credential.
+  '''docs/guides/rent-notifications-guide\.md$''',
+  '''docs/integrations/quickbooks-sandbox-testing-guide\.md$''',
+  '''docs/integrations/quickbooks-testing-guide\.md$''',
+  '''docs/setup/complete-execution-guide\.md$''',
+  '''docs/troubleshooting/ml-service-down-guide\.md$''',
 ]
