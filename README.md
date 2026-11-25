@@ -43,7 +43,3 @@ docker compose up -d
 - DatabaseService migration for 6 services (#102); async rent-payment email via BullMQ (#98).
 - DB indexes on hot columns (#95, #97).
 - Leaked DocuSign debug artifacts removed (#94); committed junk cleaned (#119).
-
-## License
-
-Proprietary — Gilded Studio.
