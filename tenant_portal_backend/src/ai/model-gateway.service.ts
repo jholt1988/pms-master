@@ -26,19 +26,36 @@ const FALLBACK_RESPONSE: ChatResult = {
   fallback: true,
 };
 
+const OPENAI_BASE_URL = 'https://api.openai.com/v1';
+const OPENAI_MODEL = 'gpt-4o-mini';
+const GROK_BASE_URL = 'https://api.x.ai/v1';
+const GROK_MODEL = 'grok-4';
+
+function configured(value: string | undefined): string | undefined {
+  if (value == null) return undefined;
+  const trimmed = value.trim();
+  return trimmed.length === 0 ? undefined : trimmed;
+}
+
 @Injectable()
 export class ModelGatewayService {
   private readonly logger = new Logger(ModelGatewayService.name);
   private readonly baseUrl: string;
   private readonly apiKey: string;
+  private readonly keyEnvName: string;
   private readonly model: string;
   private readonly dailyTokenLimit: number;
   private readonly tenantUsage = new Map<string, { tokens: number; resetAt: number }>();
 
   constructor(private readonly config: ConfigService) {
-    this.baseUrl = (config.get<string>('AI_BASE_URL') ?? 'https://api.openai.com/v1').replace(/\/$/, '');
-    this.apiKey = config.get<string>('AI_API_KEY') ?? '';
-    this.model = config.get<string>('AI_MODEL') ?? 'gpt-4o-mini';
+    const provider = (config.get<string>('AI_PROVIDER') ?? '').trim().toLowerCase();
+    const grok = provider === 'grok';
+    const explicitBase = configured(config.get<string>('AI_BASE_URL'));
+    const explicitModel = configured(config.get<string>('AI_MODEL'));
+    this.baseUrl = (explicitBase ?? (grok ? GROK_BASE_URL : OPENAI_BASE_URL)).replace(/\/$/, '');
+    this.model = explicitModel ?? (grok ? GROK_MODEL : OPENAI_MODEL);
+    this.keyEnvName = grok ? 'XAI_API_KEY' : 'AI_API_KEY';
+    this.apiKey = configured(config.get<string>(this.keyEnvName)) ?? '';
     this.dailyTokenLimit = Number(config.get<string>('AI_DAILY_TOKEN_LIMIT') ?? '100000');
   }
 
@@ -66,11 +83,11 @@ export class ModelGatewayService {
 
   async chat(tenantId: string, messages: ChatMessage[], options: ChatOptions = {}): Promise<ChatResult> {
     if (this.isProduction() && !this.apiKey) {
-      throw new Error('AI_API_KEY must be configured in production');
+      throw new Error(`${this.keyEnvName} must be configured in production`);
     }
 
     if (!this.apiKey) {
-      this.logger.warn('No AI_API_KEY configured; returning fallback');
+      this.logger.warn(`No ${this.keyEnvName} configured; returning fallback`);
       return { ...FALLBACK_RESPONSE };
     }
 
