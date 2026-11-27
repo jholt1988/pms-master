@@ -105,6 +105,7 @@ import { OperatorQuickBooksModule } from './operator-quickbooks/operator-quickbo
 import { OperatorSmartDevicesModule } from './operator-smart-devices/operator-smart-devices.module';
 import { OperatorEsignaturesModule } from './operator-esignatures/operator-esignatures.module';
 import { AiGatewayModule } from './ai-gateway/ai-gateway.module';
+import { MigrationImportModule } from './migration-import/migration-import.module';
 import { OperatorVendorsModule } from './operator-vendors/operator-vendors.module';
 import { OperatorTenantInsuranceModule } from './operator-tenant-insurance/operator-tenant-insurance.module';
 import { OperatorUtilityBillingModule } from './operator-utility-billing/operator-utility-billing.module';
@@ -259,6 +260,7 @@ const rateLimitProviders = rateLimitEnabled
     OperatorChatbotModule,
     OperatorAuditLogModule,
     AiGatewayModule,
+    MigrationImportModule,
   ],
   controllers: [AppController],
   providers: [
