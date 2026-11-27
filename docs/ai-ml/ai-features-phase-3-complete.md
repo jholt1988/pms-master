@@ -66,14 +66,14 @@ Successfully completed Phase 3 of AI features integration for the Property Manag
 
 **Rentcast API (WORKING ✅):**
 - Endpoint: `https://api.rentcast.io/v1/listings/rental/long-term`
-- API Key: `6f78ee32071c4da88773647bbe9e10de`
+- API Key: `<redacted>`
 - Test Results: 3/3 tests passed
 - Response Time: < 1 second
 - Data Quality: Real listings with current prices
 
 **Rentometer API (Code Complete):**
 - Endpoint: `https://www.rentometer.com/api/v3/summary`
-- API Key: `r-kUFkJ8iznPSeZBKPnX2g`
+- API Key: `<redacted>`
 - Status: Returns 404 (needs verification)
 - Fallback: System uses Rentcast as primary
 
@@ -521,8 +521,8 @@ DATABASE_URL=postgresql://user:pass@localhost:5432/property_db
 **ML Service (.env):**
 ```bash
 # API Keys
-RENTCAST_API_KEY=6f78ee32071c4da88773647bbe9e10de
-RENTOMETER_API_KEY=r-kUFkJ8iznPSeZBKPnX2g
+RENTCAST_API_KEY=<redacted>
+RENTOMETER_API_KEY=<redacted>
 
 # Model
 MODEL_PATH=./models/rent_predictor.joblib

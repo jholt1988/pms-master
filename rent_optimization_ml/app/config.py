@@ -102,8 +102,8 @@ class Settings(BaseSettings):
     # When set, the MarketDataService will use real APIs instead of mock data
     
     zillow_api_key: str | None = "your_zillow_api_key_here"
-    rentometer_api_key: str | None = "r-kUFkJ8iznPSeZBKPnX2g"
-    realtor_api_key: str | None = "6f78ee32071c4da88773647bbe9e10de"
+    rentometer_api_key: str | None = "your_rentometer_api_key_here"
+    realtor_api_key: str | None = "your_realtor_api_key_here"
 
     # MLflow - Model tracking and experiment management
     # Set mlflow_tracking_uri to enable model versioning and experiment tracking

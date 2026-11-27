@@ -119,7 +119,7 @@ export class AccountingAnomalyService {
   async listRecentAnomalies(orgId: string, options?: { status?: string; limit?: number }) {
     const limit = Math.min(Math.max(options?.limit ?? 25, 1), 100);
     const status = options?.status?.trim();
-    const anomalies = await (this.prisma as any).actionIntent.findMany({
+    const anomalies = await this.prisma.actionIntent.findMany({
       where: {
         organizationId: orgId,
         type: 'QUICKBOOKS_ANOMALY',

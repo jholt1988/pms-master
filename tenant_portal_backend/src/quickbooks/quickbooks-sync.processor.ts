@@ -59,7 +59,7 @@ export class QuickBooksSyncProcessor {
     
     if (assessment.isAnomaly) {
       // Store the anomaly as an ActionIntent for PM dashboard review
-      await (this.prisma as any).actionIntent.create({
+      await this.prisma.actionIntent.create({
         data: {
           type: 'QUICKBOOKS_ANOMALY',
           description: `Anomaly detected for Entry ${entry.id}: ${assessment.reason}`,
